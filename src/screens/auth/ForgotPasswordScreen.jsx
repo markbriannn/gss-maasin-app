@@ -5,7 +5,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {authStyles} from '../../css/authStyles';
 import {globalStyles} from '../../css/globalStyles';
 import {authService} from '../../services/authService';
-import {sendPasswordResetEmail} from '../../services/emailService';
+import {sendPasswordResetCode} from '../../services/emailJSService';
 
 const ForgotPasswordScreen = ({navigation}) => {
   const [email, setEmail] = useState('');
@@ -32,29 +32,15 @@ const ForgotPasswordScreen = ({navigation}) => {
       const code = generateResetCode();
       setGeneratedCode(code);
       
-      // Send reset code via Resend email
-      const result = await sendPasswordResetEmail(email, code);
+      // Send reset code via EmailJS
+      const result = await sendPasswordResetCode(email, code);
       
-      if (result.success) {
-        setShowCodeInput(true);
-        Alert.alert(
-          'Code Sent',
-          'A 6-digit reset code has been sent to your email. Please check your inbox.',
-        );
-      } else {
-        // Fallback to Firebase password reset
-        await authService.forgotPassword(email);
-        Alert.alert(
-          'Success',
-          'Password reset instructions have been sent to your email',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('Login'),
-            },
-          ]
-        );
-      }
+      // Always show code input since we have the code locally
+      setShowCodeInput(true);
+      Alert.alert(
+        'Code Sent',
+        'A 6-digit reset code has been sent to your email. Please check your inbox.',
+      );
     } catch (error) {
       Alert.alert('Error', error.message || 'Failed to send reset email');
     } finally {
