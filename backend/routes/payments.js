@@ -301,6 +301,151 @@ router.get('/source/:sourceId', async (req, res) => {
   }
 });
 
+// Manual check and process payment (fallback when webhook fails)
+router.post('/verify-and-process/:bookingId', async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const db = getDb();
+
+    // Get payment record
+    const paymentsSnapshot = await db.collection('payments')
+      .where('bookingId', '==', bookingId)
+      .get();
+
+    if (paymentsSnapshot.empty) {
+      return res.status(404).json({ error: 'No payment found for this booking' });
+    }
+
+    const paymentDoc = paymentsSnapshot.docs[0];
+    const paymentData = paymentDoc.data();
+
+    // If already paid, return success
+    if (paymentData.status === 'paid') {
+      return res.json({ status: 'paid', message: 'Payment already processed' });
+    }
+
+    // Check source status from PayMongo
+    const sourceResponse = await axios.get(
+      `${PAYMONGO_API}/sources/${paymentData.sourceId}`,
+      paymongoAuth
+    );
+    const source = sourceResponse.data.data;
+    const sourceStatus = source.attributes.status;
+
+    console.log('Source status for', paymentData.sourceId, ':', sourceStatus);
+
+    if (sourceStatus === 'chargeable') {
+      // Source is chargeable, create payment
+      const amount = source.attributes.amount;
+      
+      const paymentResponse = await axios.post(
+        `${PAYMONGO_API}/payments`,
+        {
+          data: {
+            attributes: {
+              amount,
+              currency: 'PHP',
+              description: source.attributes.metadata?.description || 'Service Payment',
+              source: {
+                id: paymentData.sourceId,
+                type: 'source',
+              },
+            },
+          },
+        },
+        paymongoAuth
+      );
+
+      const payment = paymentResponse.data.data;
+
+      // Update payment record
+      await db.collection('payments').doc(paymentDoc.id).update({
+        paymentId: payment.id,
+        status: 'paid',
+        paidAt: new Date(),
+      });
+
+      // Get booking to find providerId
+      const bookingDoc = await db.collection('bookings').doc(bookingId).get();
+      const bookingData = bookingDoc.data();
+      const providerId = bookingData?.providerId;
+      const amountInPesos = amount / 100;
+      const providerShare = amountInPesos * 0.95;
+      const platformCommission = amountInPesos * 0.05;
+
+      // Update booking status
+      await db.collection('bookings').doc(bookingId).update({
+        paid: true,
+        status: 'payment_received',
+        paymentId: payment.id,
+        paymentMethod: paymentData.type,
+        paidAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      // Create transaction record
+      await db.collection('transactions').add({
+        bookingId: bookingId,
+        clientId: paymentData.userId,
+        providerId: providerId,
+        type: 'payment',
+        amount: amountInPesos,
+        providerShare: providerShare,
+        platformCommission: platformCommission,
+        paymentId: payment.id,
+        paymentMethod: paymentData.type,
+        status: 'completed',
+        createdAt: new Date(),
+      });
+
+      // Update provider's balance
+      if (providerId) {
+        const providerRef = db.collection('users').doc(providerId);
+        const providerDoc = await providerRef.get();
+        const currentBalance = providerDoc.data()?.availableBalance || 0;
+        const currentEarnings = providerDoc.data()?.totalEarnings || 0;
+        
+        await providerRef.update({
+          availableBalance: currentBalance + providerShare,
+          totalEarnings: currentEarnings + providerShare,
+          updatedAt: new Date(),
+        });
+      }
+
+      console.log(`Manual payment processed: ₱${amountInPesos} for booking ${bookingId}`);
+      return res.json({ status: 'paid', message: 'Payment processed successfully' });
+    } else if (sourceStatus === 'paid') {
+      // Already paid at PayMongo, just update our records
+      await db.collection('payments').doc(paymentDoc.id).update({
+        status: 'paid',
+        paidAt: new Date(),
+      });
+
+      await db.collection('bookings').doc(bookingId).update({
+        paid: true,
+        status: 'payment_received',
+        paymentMethod: paymentData.type,
+        paidAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      return res.json({ status: 'paid', message: 'Payment status synced' });
+    } else if (sourceStatus === 'expired' || sourceStatus === 'cancelled') {
+      await db.collection('payments').doc(paymentDoc.id).update({
+        status: 'failed',
+        failedAt: new Date(),
+      });
+      return res.json({ status: 'failed', message: 'Payment expired or cancelled' });
+    }
+
+    // Still pending
+    return res.json({ status: sourceStatus, message: 'Payment still pending' });
+  } catch (error) {
+    console.error('Error verifying payment:', error.response?.data || error.message);
+    res.status(500).json({ error: error.response?.data?.errors?.[0]?.detail || error.message });
+  }
+});
+
 router.post('/webhook', async (req, res) => {
   try {
     const signature = req.headers['paymongo-signature'];
