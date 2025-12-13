@@ -1,12 +1,14 @@
 import React, {useState, useEffect} from 'react';
-import {View, Text, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator} from 'react-native';
+import {View, Text, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Image} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {globalStyles} from '../../css/globalStyles';
 import {useAuth} from '../../context/AuthContext';
-import {collection, addDoc, serverTimestamp, doc, updateDoc, getDoc, query, where, getDocs} from 'firebase/firestore';
+import {doc, updateDoc, serverTimestamp} from 'firebase/firestore';
 import {db} from '../../config/firebase';
 import {submitReview, isJobEligibleForReview} from '../../services/reviewService';
+import {launchImageLibrary} from 'react-native-image-picker';
+import {uploadImage} from '../../services/imageUploadService';
 
 const ReviewScreen = ({navigation, route}) => {
   const {user} = useAuth();
@@ -17,6 +19,8 @@ const ReviewScreen = ({navigation, route}) => {
   const [isLoading, setIsLoading] = useState(true);
   const [eligible, setEligible] = useState(false);
   const [ineligibleReason, setIneligibleReason] = useState('');
+  const [images, setImages] = useState([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (jobId && user?.uid) {
@@ -40,6 +44,41 @@ const ReviewScreen = ({navigation, route}) => {
     }
   };
 
+  const handleAddImage = () => {
+    if (images.length >= 5) {
+      Alert.alert('Limit Reached', 'You can only add up to 5 images.');
+      return;
+    }
+
+    launchImageLibrary(
+      {
+        mediaType: 'photo',
+        quality: 0.8,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        selectionLimit: 5 - images.length,
+      },
+      (response) => {
+        if (response.didCancel) return;
+        if (response.errorCode) {
+          Alert.alert('Error', response.errorMessage || 'Failed to pick image');
+          return;
+        }
+        if (response.assets) {
+          const newImages = response.assets.map(asset => ({
+            uri: asset.uri,
+            uploaded: false,
+          }));
+          setImages(prev => [...prev, ...newImages].slice(0, 5));
+        }
+      }
+    );
+  };
+
+  const handleRemoveImage = (index) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async () => {
     if (rating === 0) {
       Alert.alert('Rating Required', 'Please select a rating before submitting.');
@@ -53,13 +92,29 @@ const ReviewScreen = ({navigation, route}) => {
 
     setSubmitting(true);
     try {
+      // Upload images first if any
+      let uploadedImageUrls = [];
+      if (images.length > 0) {
+        setUploadingImage(true);
+        for (const img of images) {
+          try {
+            const url = await uploadImage(img.uri, `reviews/${jobId}`);
+            uploadedImageUrls.push(url);
+          } catch (uploadError) {
+            console.error('Image upload error:', uploadError);
+          }
+        }
+        setUploadingImage(false);
+      }
+
       // Use reviewService for anti-fraud validation
       const result = await submitReview(
         jobId,
         providerId,
         user.uid,
         rating,
-        review.trim()
+        review.trim(),
+        uploadedImageUrls
       );
 
       if (result.success) {
@@ -87,6 +142,7 @@ const ReviewScreen = ({navigation, route}) => {
       Alert.alert('Error', 'An unexpected error occurred');
     } finally {
       setSubmitting(false);
+      setUploadingImage(false);
     }
   };
 
@@ -185,16 +241,71 @@ const ReviewScreen = ({navigation, route}) => {
             padding: 16,
             fontSize: 14,
             color: '#1F2937',
-            height: 150,
+            height: 120,
             textAlignVertical: 'top',
-            marginBottom: 24,
+            marginBottom: 16,
           }}
-          placeholder="Share details of your experience (optional)"
+          placeholder="Share details of your experience..."
           multiline
-          numberOfLines={8}
+          numberOfLines={6}
           value={review}
           onChangeText={setReview}
         />
+
+        {/* Image Upload Section */}
+        <View style={{marginBottom: 24}}>
+          <Text style={{fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 12}}>
+            Add Photos (Optional)
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {images.map((img, index) => (
+              <View key={index} style={{marginRight: 12, position: 'relative'}}>
+                <Image
+                  source={{uri: img.uri}}
+                  style={{width: 80, height: 80, borderRadius: 8}}
+                />
+                <TouchableOpacity
+                  style={{
+                    position: 'absolute',
+                    top: -8,
+                    right: -8,
+                    backgroundColor: '#EF4444',
+                    borderRadius: 12,
+                    width: 24,
+                    height: 24,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onPress={() => handleRemoveImage(index)}>
+                  <Icon name="close" size={14} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            ))}
+            {images.length < 5 && (
+              <TouchableOpacity
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 8,
+                  borderWidth: 2,
+                  borderColor: '#E5E7EB',
+                  borderStyle: 'dashed',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#F9FAFB',
+                }}
+                onPress={handleAddImage}>
+                <Icon name="camera" size={24} color="#9CA3AF" />
+                <Text style={{fontSize: 10, color: '#9CA3AF', marginTop: 4}}>
+                  {images.length}/5
+                </Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+          <Text style={{fontSize: 12, color: '#9CA3AF', marginTop: 8}}>
+            Add up to 5 photos of the completed work
+          </Text>
+        </View>
 
         <TouchableOpacity
           style={{
@@ -211,7 +322,7 @@ const ReviewScreen = ({navigation, route}) => {
             <ActivityIndicator size="small" color="#FFFFFF" style={{marginRight: 8}} />
           )}
           <Text style={{fontSize: 16, fontWeight: '600', color: '#FFFFFF'}}>
-            {submitting ? 'Submitting...' : 'Submit Review'}
+            {uploadingImage ? 'Uploading images...' : submitting ? 'Submitting...' : 'Submit Review'}
           </Text>
         </TouchableOpacity>
       </ScrollView>

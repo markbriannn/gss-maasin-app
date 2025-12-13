@@ -5,7 +5,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {globalStyles} from '../../css/globalStyles';
 import {providerProfileStyles as styles} from '../../css/providerStyles';
 import {db} from '../../config/firebase';
-import {doc, getDoc, collection, query, where, getDocs, orderBy, onSnapshot} from 'firebase/firestore';
+import {doc, getDoc, collection, query, where, getDocs, onSnapshot} from 'firebase/firestore';
 import {useAuth} from '../../context/AuthContext';
 import {useTheme} from '../../context/ThemeContext';
 
@@ -66,7 +66,8 @@ const ProviderProfileScreen = ({navigation, route}) => {
   const [isLoading, setIsLoading] = useState(!initialProvider);
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
-  const fallbackProviderId = providerId || user?.uid;
+  // Use providerId from params, or passedProvider.id, or fallback to current user (for provider viewing own profile)
+  const fallbackProviderId = providerId || passedProvider?.id || user?.uid;
   const viewingSelf = provider?.id && user?.uid && provider.id === user.uid;
   const lastFetchedProviderId = useRef(null);
 
@@ -102,38 +103,89 @@ const ProviderProfileScreen = ({navigation, route}) => {
 
   // Load reviews and stats when provider data is available (works for passed provider or fetched one)
   useEffect(() => {
-    if (!provider?.id) return;
-    fetchReviews(provider.id);
-    fetchProviderStats(provider.id);
-  }, [provider?.id]);
+    // Use fallbackProviderId which is more reliable than provider.id
+    const targetProviderId = provider?.id || fallbackProviderId;
+    if (!targetProviderId) {
+      console.log('[ProviderProfile] No provider ID available yet');
+      return;
+    }
+    console.log('[ProviderProfile] Fetching reviews for provider:', targetProviderId);
+    fetchReviews(targetProviderId);
+    fetchProviderStats(targetProviderId);
+  }, [provider?.id, fallbackProviderId]);
   
   const fetchReviews = async (providerIdParam) => {
     const pid = providerIdParam || provider?.id;
-    if (!pid) return;
+    if (!pid) {
+      console.log('[Reviews] No provider ID provided');
+      return;
+    }
     setReviewsLoading(true);
     try {
+      console.log(`[Reviews] Querying reviews for providerId: ${pid}`);
+      // Use simple query without orderBy to avoid composite index requirement
       const q = query(
         collection(db, 'reviews'),
-        where('providerId', '==', pid),
-        orderBy('createdAt', 'desc')
+        where('providerId', '==', pid)
       );
       const snap = await getDocs(q);
-      const items = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      console.log(`[Reviews] Found ${snap.docs.length} total reviews for provider ${pid}`);
+      
+      // Log all reviews for debugging
+      snap.docs.forEach((d, i) => {
+        const data = d.data();
+        console.log(`[Reviews] Review ${i + 1}:`, { id: d.id, status: data.status, rating: data.rating, providerId: data.providerId });
+      });
+      
+      // Filter active reviews and fetch reviewer names - be lenient with status
+      const filteredDocs = snap.docs.filter(d => {
+        const status = d.data().status;
+        // Include all reviews except explicitly deleted/hidden ones
+        const excluded = ['deleted', 'hidden', 'removed'];
+        return !excluded.includes(status);
+      });
+      console.log(`[Reviews] After filtering: ${filteredDocs.length} active reviews`);
+      
+      const items = await Promise.all(
+        filteredDocs.map(async (d) => {
+          const data = d.data();
+          let reviewerName = 'Anonymous';
+          
+          // Fetch reviewer name if reviewerId exists
+          if (data.reviewerId) {
+            try {
+              const reviewerDoc = await getDoc(doc(db, 'users', data.reviewerId));
+              if (reviewerDoc.exists()) {
+                const reviewer = reviewerDoc.data();
+                reviewerName = `${reviewer.firstName || ''} ${reviewer.lastName || ''}`.trim() || 'Client';
+              }
+            } catch (e) {
+              console.log('Could not fetch reviewer name');
+            }
+          }
+          
+          return {
+            id: d.id,
+            ...data,
+            reviewerName,
+          };
+        })
+      );
+      
+      // Sort in memory by createdAt descending
+      items.sort((a, b) => {
+        const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt) || new Date(0);
+        const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt) || new Date(0);
+        return dateB - dateA;
+      });
+      
+      console.log('[Reviews] Final reviews:', items.map(r => ({ id: r.id, rating: r.rating, reviewer: r.reviewerName })));
       setReviews(items);
       updateRatingStats(items);
     } catch (e) {
-      // if 'orderBy' on createdAt fails because field missing, fallback to basic query
-      try {
-        const q2 = query(collection(db, 'reviews'), where('providerId', '==', pid));
-        const snap2 = await getDocs(q2);
-        const fallbackItems = snap2.docs.map(d => ({id: d.id, ...d.data()}));
-        setReviews(fallbackItems);
-        updateRatingStats(fallbackItems);
-      } catch (err) {
-        console.warn('reviews query failed', err);
-        setReviews([]);
-        updateRatingStats([]);
-      }
+      console.warn('reviews query failed', e);
+      setReviews([]);
+      updateRatingStats([]);
     } finally {
       setReviewsLoading(false);
     }
@@ -447,17 +499,41 @@ const ProviderProfileScreen = ({navigation, route}) => {
             <Text style={{color: isDark ? theme.colors.textSecondary : '#6B7280', fontSize: 14}}>No reviews yet</Text>
           ) : (
             reviews.map((r) => (
-              <View key={r.id} style={{paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: isDark ? theme.colors.border : '#F3F4F6'}}>
+              <View key={r.id} style={{paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: isDark ? theme.colors.border : '#F3F4F6'}}>
                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
                   <Icon name="star" size={16} color="#F59E0B" />
                   <Text style={{marginLeft: 6, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937'}}>{(r.rating || r.stars) ?? '—'}</Text>
-                  <Text style={{marginLeft: 8, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>
+                  <Text style={{marginLeft: 8, color: isDark ? theme.colors.textSecondary : '#6B7280', flex: 1}}>
                     {r.authorName || r.reviewerName || 'Anonymous'}
                   </Text>
+                  {r.createdAt && (
+                    <Text style={{fontSize: 11, color: isDark ? theme.colors.textSecondary : '#9CA3AF'}}>
+                      {r.createdAt?.toDate?.()?.toLocaleDateString?.() || new Date(r.createdAt).toLocaleDateString()}
+                    </Text>
+                  )}
                 </View>
-                {r.comment || r.text ? (
-                  <Text style={{color: isDark ? theme.colors.textSecondary : '#4B5563', marginTop: 6}}>{r.comment || r.text}</Text>
+                {(r.comment || r.text) ? (
+                  <Text style={{color: isDark ? theme.colors.textSecondary : '#4B5563', marginTop: 6, lineHeight: 20}}>{r.comment || r.text}</Text>
                 ) : null}
+                {/* Review Images */}
+                {r.images && r.images.length > 0 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginTop: 10}}>
+                    {r.images.map((imgUrl, idx) => (
+                      <Image
+                        key={idx}
+                        source={{uri: imgUrl}}
+                        style={{
+                          width: 80,
+                          height: 80,
+                          borderRadius: 8,
+                          marginRight: 8,
+                          backgroundColor: isDark ? theme.colors.border : '#F3F4F6',
+                        }}
+                        resizeMode="cover"
+                      />
+                    ))}
+                  </ScrollView>
+                )}
               </View>
             ))
           )}

@@ -99,7 +99,7 @@ const ClientHomeScreen = ({navigation}) => {
           profilePhoto: data.profilePhoto,
           latitude: providerLat || (userLocation ? userLocation.latitude + (Math.random() - 0.5) * 0.02 : region.latitude),
           longitude: providerLng || (userLocation ? userLocation.longitude + (Math.random() - 0.5) * 0.02 : region.longitude),
-          rating: data.rating || null,
+          rating: data.rating || data.averageRating || null,
           reviewCount: data.reviewCount || 0,
           distance: distance !== null ? distance.toFixed(1) : null,
           hasRealLocation: !!(providerLat && providerLng),

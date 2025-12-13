@@ -49,22 +49,17 @@ export const NotificationProvider = ({children}) => {
     const currentReadIds = readIdsRef.current;
 
     if (normalizedRole === 'CLIENT') {
-      // Count each booking only once - check if ANY of its notification IDs are read
-      let unreadCount = 0;
+      // Count each booking only once based on its status
+      let count = 0;
       notificationDocsRef.current.bookings.forEach(doc => {
         const data = doc.data();
-        // Generate the notification ID based on status
-        let notifId;
-        if (data.status === 'counter_offer') {
-          notifId = `counter_${doc.id}`;
-        } else {
-          notifId = `accepted_${doc.id}`;
-        }
+        // Generate unique notification ID based on status
+        const notifId = `${data.status}_${doc.id}`;
         if (!currentReadIds.has(notifId)) {
-          unreadCount++;
+          count++;
         }
       });
-      setUnreadCount(unreadCount);
+      setUnreadCount(count);
     } else if (normalizedRole === 'PROVIDER') {
       const availableJobs = notificationDocsRef.current.jobs.filter(doc => {
         const data = doc.data();
@@ -161,38 +156,34 @@ export const NotificationProvider = ({children}) => {
 
     try {
       if (normalizedRole === 'CLIENT') {
-        // Client: count bookings with updates (all active statuses)
+        // Client: count bookings with updates (all active statuses that need attention)
         const bookingsQuery = query(
           collection(db, 'bookings'),
           where('clientId', '==', user.uid),
-          where('status', 'in', ['accepted', 'in_progress', 'traveling', 'arrived', 'pending_completion', 'counter_offer'])
+          where('status', 'in', ['accepted', 'in_progress', 'traveling', 'arrived', 'pending_completion', 'pending_payment', 'counter_offer', 'payment_received', 'completed'])
         );
         
         const unsub = onSnapshot(
           bookingsQuery, 
           (snapshot) => {
-            console.log('Client bookings snapshot received:', snapshot.docs.length, 'docs');
+            console.log('[Notifications] Client bookings snapshot received:', snapshot.docs.length, 'docs');
             // Store docs in ref for recalculation
             notificationDocsRef.current.bookings = snapshot.docs;
             // Use ref to get current read IDs without causing re-subscription
             const currentReadIds = readIdsRef.current;
             // Count each booking only once based on its status
-            let unreadCount = 0;
+            let count = 0;
             snapshot.docs.forEach(doc => {
               const data = doc.data();
-              // Generate the notification ID based on status
-              let notifId;
-              if (data.status === 'counter_offer') {
-                notifId = `counter_${doc.id}`;
-              } else {
-                notifId = `accepted_${doc.id}`;
-              }
+              // Generate unique notification ID based on status
+              const notifId = `${data.status}_${doc.id}`;
               if (!currentReadIds.has(notifId)) {
-                unreadCount++;
+                count++;
+                console.log(`[Notifications] Unread: ${notifId}`);
               }
             });
-            console.log('Client unread count:', unreadCount);
-            setUnreadCount(unreadCount);
+            console.log('[Notifications] Client unread count:', count);
+            setUnreadCount(count);
           },
           handleError
         );
@@ -384,11 +375,14 @@ export const NotificationProvider = ({children}) => {
     
     // Also add all notification doc IDs from the refs
     notificationDocsRef.current.providers.forEach(doc => newReadIds.add(`provider_${doc.id}`));
-    notificationDocsRef.current.jobs.forEach(doc => newReadIds.add(`job_${doc.id}`));
-    notificationDocsRef.current.bookings.forEach(doc => {
-      newReadIds.add(`accepted_${doc.id}`);
-      newReadIds.add(`counter_${doc.id}`);
+    notificationDocsRef.current.jobs.forEach(doc => {
+      newReadIds.add(`job_${doc.id}`);
       newReadIds.add(`available_${doc.id}`);
+    });
+    notificationDocsRef.current.bookings.forEach(doc => {
+      const data = doc.data();
+      // Mark the current status as read
+      newReadIds.add(`${data.status}_${doc.id}`);
     });
     
     // Update ref immediately so recalculation uses latest values

@@ -3,9 +3,15 @@ import { db } from '../config/firebase';
 
 /**
  * Submit a review for a completed job
- * Validates: job is completed, user hasn't reviewed yet, only 24 hours after completion
+ * Validates: job is completed, user hasn't reviewed yet, only 30 days after completion
+ * @param {string} jobId - The booking/job ID
+ * @param {string} providerId - The provider's user ID
+ * @param {string} clientId - The client's user ID (reviewer)
+ * @param {number} rating - Rating 1-5
+ * @param {string} comment - Review comment
+ * @param {string[]} images - Array of image URLs (optional)
  */
-export const submitReview = async (jobId, providerId, clientId, rating, comment) => {
+export const submitReview = async (jobId, providerId, clientId, rating, comment, images = []) => {
   try {
     // 1. Verify job exists and is completed
     const jobRef = doc(db, 'bookings', jobId);
@@ -40,13 +46,14 @@ export const submitReview = async (jobId, providerId, clientId, rating, comment)
       return { success: false, error: 'Reviews can only be submitted within 30 days of job completion' };
     }
 
-    // 4. Create review document
+    // 4. Create review document with images
     const reviewRef = await addDoc(collection(db, 'reviews'), {
       jobId,
       providerId,
       reviewerId: clientId,
       rating: Math.min(5, Math.max(1, parseInt(rating))), // Clamp 1-5
       comment: comment?.trim() || '',
+      images: images || [], // Store image URLs
       createdAt: new Date(),
       status: 'active',
     });
@@ -66,16 +73,23 @@ export const submitReview = async (jobId, providerId, clientId, rating, comment)
  */
 export const updateProviderRating = async (providerId) => {
   try {
+    // Use simple query without compound where to avoid index requirement
     const reviewsQuery = query(
       collection(db, 'reviews'),
-      where('providerId', '==', providerId),
-      where('status', '==', 'active')
+      where('providerId', '==', providerId)
     );
     const reviewsSnap = await getDocs(reviewsQuery);
 
-    if (reviewsSnap.empty) {
+    // Filter active reviews in memory
+    const activeReviews = reviewsSnap.docs.filter(d => {
+      const status = d.data().status;
+      return status === 'active' || !status;
+    });
+
+    if (activeReviews.length === 0) {
       // No reviews, reset to null
       await updateDoc(doc(db, 'users', providerId), {
+        rating: null,
         averageRating: null,
         reviewCount: 0,
       });
@@ -83,19 +97,22 @@ export const updateProviderRating = async (providerId) => {
     }
 
     let totalRating = 0;
-    reviewsSnap.forEach(doc => {
-      totalRating += doc.data().rating || 0;
+    activeReviews.forEach(d => {
+      totalRating += d.data().rating || 0;
     });
 
-    const averageRating = totalRating / reviewsSnap.size;
+    const averageRating = totalRating / activeReviews.length;
+    const ratingValue = parseFloat(averageRating.toFixed(2));
 
-    // Update provider's profile
+    // Update provider's profile - set both 'rating' and 'averageRating' for compatibility
     await updateDoc(doc(db, 'users', providerId), {
-      averageRating: parseFloat(averageRating.toFixed(2)),
-      reviewCount: reviewsSnap.size,
+      rating: ratingValue,
+      averageRating: ratingValue,
+      reviewCount: activeReviews.length,
     });
 
-    return { averageRating, count: reviewsSnap.size };
+    console.log(`[Reviews] Updated provider ${providerId} rating: ${ratingValue} (${activeReviews.length} reviews)`);
+    return { averageRating: ratingValue, count: activeReviews.length };
   } catch (error) {
     console.error('Error updating provider rating:', error);
     return null;

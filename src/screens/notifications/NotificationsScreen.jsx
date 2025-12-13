@@ -142,50 +142,60 @@ const NotificationsScreen = ({navigation}) => {
       unsubscribeRef.current = null;
     }
 
-    // Subscribe to real-time notifications from Firestore
-    const notificationsRef = collection(db, 'notifications');
-    const q = query(
-      notificationsRef,
-      where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
+    // Set up real-time listeners based on role
+    console.log('[NotificationsScreen] Setting up listeners for role:', normalizedRole);
+    const unsubscribers = [];
 
-    // Error handler
     const handleError = (error) => {
-      console.log('Error listening to notifications:', error?.message || error);
-      // Fallback to generated notifications if collection doesn't exist
-      usingGeneratedRef.current = true;
-      generateNotifications();
+      console.log('[NotificationsScreen] Listener error:', error?.message || error);
+      setIsLoading(false);
     };
 
     try {
-      unsubscribeRef.current = onSnapshot(
-        q, 
-        (snapshot) => {
-          // If snapshot is empty, use generated notifications
-          if (snapshot.empty) {
-            usingGeneratedRef.current = true;
-            generateNotifications();
-            return;
-          }
-          
-          usingGeneratedRef.current = false;
-          // Use ref to get current read IDs without causing re-subscription
-          const currentReadIds = readIdsRef.current;
-          const notificationsList = snapshot.docs.map(docSnap => ({
-            id: docSnap.id,
-            ...docSnap.data(),
-            time: formatTime(docSnap.data().createdAt),
-            read: docSnap.data().read || currentReadIds.has(docSnap.id),
-          }));
-          setNotifications(notificationsList);
-          setIsLoading(false);
-          setRefreshing(false);
-        }, 
-        handleError
-      );
+      if (normalizedRole === 'ADMIN') {
+        // Listen to pending providers
+        const providersQuery = query(
+          collection(db, 'users'),
+          where('role', '==', 'PROVIDER'),
+          where('providerStatus', '==', 'pending')
+        );
+        const unsubProviders = onSnapshot(providersQuery, () => generateNotifications(), handleError);
+        unsubscribers.push(unsubProviders);
+
+        // Listen to pending jobs
+        const jobsQuery = query(
+          collection(db, 'bookings'),
+          where('status', 'in', ['pending', 'pending_negotiation'])
+        );
+        const unsubJobs = onSnapshot(jobsQuery, () => generateNotifications(), handleError);
+        unsubscribers.push(unsubJobs);
+      } else if (normalizedRole === 'PROVIDER') {
+        // Listen to available jobs
+        const jobsQuery = query(
+          collection(db, 'bookings'),
+          where('status', 'in', ['pending', 'pending_negotiation']),
+          where('adminApproved', '==', true)
+        );
+        const unsubJobs = onSnapshot(jobsQuery, () => generateNotifications(), handleError);
+        unsubscribers.push(unsubJobs);
+      } else {
+        // CLIENT - Listen to own bookings
+        const bookingsQuery = query(
+          collection(db, 'bookings'),
+          where('clientId', '==', user.uid)
+        );
+        const unsubBookings = onSnapshot(bookingsQuery, () => generateNotifications(), handleError);
+        unsubscribers.push(unsubBookings);
+      }
+
+      unsubscribeRef.current = () => {
+        unsubscribers.forEach(unsub => {
+          try { unsub(); } catch (e) {}
+        });
+      };
     } catch (error) {
-      handleError(error);
+      console.log('[NotificationsScreen] Setup error:', error);
+      generateNotifications();
     }
 
     return () => {
@@ -198,16 +208,17 @@ const NotificationsScreen = ({navigation}) => {
         unsubscribeRef.current = null;
       }
     };
-  }, [user?.uid]); // Removed readNotificationIds from deps to prevent listener recreation
+  }, [user?.uid, normalizedRole]); // Regenerate when user or role changes
 
   const generateNotifications = async () => {
-    // Generate notifications from bookings data as fallback
+    // Generate notifications from bookings data
     try {
       setIsLoading(true);
       const notificationsList = [];
 
       // Use ref for current read IDs
       const currentReadIds = readIdsRef.current;
+      const currentDeletedIds = deletedIdsRef.current;
       
       if (normalizedRole === 'ADMIN') {
         // Admin: pending providers
@@ -294,35 +305,37 @@ const NotificationsScreen = ({navigation}) => {
         const myBookingsSnapshot = await getDocs(myBookingsQuery);
         myBookingsSnapshot.forEach((docSnap) => {
           const data = docSnap.data();
+          const status = data.status;
           
-          if (data.status === 'accepted') {
-            const notifId = `accepted_${docSnap.id}`;
+          // Generate notification based on status - use status_id format for consistency
+          const notifId = `${status}_${docSnap.id}`;
+          
+          // Define notification content based on status
+          const statusConfig = {
+            'accepted': { icon: 'checkmark-circle', iconColor: '#10B981', title: 'Job Accepted', message: `Your ${data.serviceCategory || 'service'} request has been accepted` },
+            'traveling': { icon: 'car', iconColor: '#3B82F6', title: 'Provider On The Way', message: `Provider is traveling to your location` },
+            'arrived': { icon: 'location', iconColor: '#10B981', title: 'Provider Arrived', message: `Provider has arrived at your location` },
+            'in_progress': { icon: 'construct', iconColor: '#8B5CF6', title: 'Work In Progress', message: `Your ${data.serviceCategory || 'service'} is being worked on` },
+            'pending_completion': { icon: 'checkmark-done', iconColor: '#F59E0B', title: 'Work Complete - Confirm', message: `Provider marked work as complete. Please confirm.` },
+            'pending_payment': { icon: 'card', iconColor: '#3B82F6', title: 'Payment Required', message: `Please complete payment for your ${data.serviceCategory || 'service'}` },
+            'payment_received': { icon: 'cash', iconColor: '#10B981', title: 'Payment Sent', message: `Your payment is being processed` },
+            'counter_offer': { icon: 'pricetag', iconColor: '#EC4899', title: 'Counter Offer Received!', message: `Provider offers ₱${(data.counterOfferPrice || 0).toLocaleString()} - Tap to respond`, urgent: true },
+            'completed': { icon: 'checkmark-circle', iconColor: '#10B981', title: 'Job Completed', message: `Your ${data.serviceCategory || 'service'} has been completed` },
+          };
+          
+          const config = statusConfig[status];
+          if (config) {
             notificationsList.push({
               id: notifId,
-              type: 'job',
-              icon: 'checkmark-circle',
-              iconColor: '#10B981',
-              title: 'Job Accepted',
-              message: `Your ${data.serviceCategory || 'service'} request has been accepted`,
-              time: formatTime(data.acceptedAt || data.updatedAt),
+              type: status === 'counter_offer' ? 'counter_offer' : 'job',
+              icon: config.icon,
+              iconColor: config.iconColor,
+              title: config.title,
+              message: config.message,
+              time: formatTime(data.updatedAt || data.createdAt),
               read: currentReadIds.has(notifId),
               jobId: docSnap.id,
-            });
-          }
-          
-          if (data.status === 'counter_offer') {
-            const notifId = `counter_${docSnap.id}`;
-            notificationsList.push({
-              id: notifId,
-              type: 'counter_offer',
-              icon: 'pricetag',
-              iconColor: '#EC4899',
-              title: 'Counter Offer Received!',
-              message: `Provider offers ₱${(data.counterOfferPrice || 0).toLocaleString()} - Tap to respond`,
-              time: formatTime(data.counterOfferAt || data.updatedAt),
-              read: currentReadIds.has(notifId),
-              jobId: docSnap.id,
-              urgent: true,
+              urgent: config.urgent || false,
             });
           }
         });

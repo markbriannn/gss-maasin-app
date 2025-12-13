@@ -51,14 +51,22 @@ export const WalletScreen = () => {
     setLoadingHistory(true);
     try {
       const providerId = user?.id || user?.uid;
-      if (!providerId) return;
+      if (!providerId) {
+        setLoadingHistory(false);
+        return;
+      }
 
-      const result = await paymentService.getPayoutHistory(providerId);
+      const result = await Promise.race([
+        paymentService.getPayoutHistory(providerId),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+      ]);
+      
       if (result.success) {
         setPayoutHistory(result.payouts || []);
       }
     } catch (error) {
-      console.error('Error fetching payout history:', error);
+      console.log('Error fetching payout history:', error.message);
+      setPayoutHistory([]);
     } finally {
       setLoadingHistory(false);
     }
@@ -92,33 +100,46 @@ export const WalletScreen = () => {
         return;
       }
 
-      // Use new backend endpoint for accurate balance
-      const balanceResult = await paymentService.getProviderBalance(providerId);
-      
-      if (balanceResult.success) {
-        setEarnings({
-          total: balanceResult.totalEarnings || 0,
-          thisMonth: balanceResult.totalEarnings || 0, // Could add monthly filter later
-          available: balanceResult.availableBalance || 0,
-          pending: balanceResult.pendingBalance || 0,
-        });
-      } else {
-        // Fallback to local calculation
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const result = await paymentService.calculateEarnings(providerId, startOfMonth, now);
+      // Try backend first with timeout, fallback to local calculation
+      try {
+        const balanceResult = await Promise.race([
+          paymentService.getProviderBalance(providerId),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+        ]);
         
-        if (result.success) {
+        if (balanceResult.success) {
           setEarnings({
-            total: user?.totalEarnings || result.earnings || 0,
-            thisMonth: result.earnings || 0,
-            available: Math.max((user?.totalEarnings || result.earnings || 0) - (user?.pendingPayout || 0), 0),
-            pending: user?.pendingPayout || 0,
+            total: balanceResult.totalEarnings || 0,
+            thisMonth: balanceResult.totalEarnings || 0,
+            available: balanceResult.availableBalance || 0,
+            pending: balanceResult.pendingBalance || 0,
           });
+          return;
         }
+      } catch (backendError) {
+        console.log('Backend unavailable, using local calculation:', backendError.message);
       }
+
+      // Fallback to local calculation from Firestore
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const result = await paymentService.calculateEarnings(providerId, startOfMonth, now);
+      
+      setEarnings({
+        total: user?.totalEarnings || result.earnings || 0,
+        thisMonth: result.earnings || 0,
+        available: Math.max((user?.totalEarnings || result.earnings || 0) - (user?.pendingPayout || 0), 0),
+        pending: user?.pendingPayout || 0,
+      });
     } catch (error) {
       console.error('Error fetching earnings:', error);
+      // Set default values on error
+      setEarnings({
+        total: user?.totalEarnings || 0,
+        thisMonth: 0,
+        available: user?.availableBalance || 0,
+        pending: user?.pendingPayout || 0,
+      });
     } finally {
       setLoading(false);
     }
