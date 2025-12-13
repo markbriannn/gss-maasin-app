@@ -1,0 +1,237 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function getRole() {
+      return get(/databases/{database}/documents/users/{request.auth.uid}).data.role;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getRole() == 'ADMIN';
+    }
+    
+    function isProvider() {
+      return isAuthenticated() && getRole() == 'PROVIDER';
+    }
+    
+    function isClient() {
+      return isAuthenticated() && getRole() == 'CLIENT';
+    }
+
+    // ===== USERS COLLECTION =====
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if isUser(userId);
+      
+      // Users can read provider profiles (public info)
+      allow read: if isAuthenticated() && resource.data.role == 'PROVIDER' && 
+                      resource.data.get('approved', false) == true;
+      
+      // Admins can read all user profiles
+      allow read: if isAdmin();
+      
+      // Users can create their own profile during registration
+      allow create: if isUser(userId) && 
+                       request.resource.data.role in ['CLIENT', 'PROVIDER'] &&
+                       request.resource.data.get('createdAt', null) != null;
+      
+      // Users can update their own profile
+      allow update: if isUser(userId) &&
+                       // Prevent role changing
+                       resource.data.role == request.resource.data.role &&
+                       // Prevent updating ratings manually
+                       resource.data.get('averageRating', null) == request.resource.data.get('averageRating', null) &&
+                       // Prevent updating approval status
+                       resource.data.get('approved', false) == request.resource.data.get('approved', false);
+      
+      // Only admins can update user status/approval
+      allow update: if isAdmin();
+      
+      // Users cannot delete their own profile
+      allow delete: if isAdmin();
+
+      // ===== NESTED: EARNINGS SUBCOLLECTION =====
+      match /earnings/{transactionId} {
+        allow read: if isUser(userId);
+        allow create, update: if isUser(userId) && isProvider();
+      }
+
+      // ===== NESTED: DOCUMENTS SUBCOLLECTION =====
+      match /documents/{docId} {
+        allow read: if isUser(userId) || isAdmin();
+        allow write: if isUser(userId) && isProvider();
+      }
+    }
+
+    // ===== BOOKINGS COLLECTION =====
+    match /bookings/{bookingId} {
+      // Clients can read their own bookings
+      allow read: if isAuthenticated() && 
+                      (resource.data.clientId == request.auth.uid ||
+                       resource.data.providerId == request.auth.uid);
+      
+      // Admins can read all bookings
+      allow read: if isAdmin();
+      
+      // Clients can create bookings
+      allow create: if isClient() && 
+                       request.resource.data.clientId == request.auth.uid &&
+                       request.resource.data.status == 'pending' &&
+                       request.resource.data.createdAt == request.time;
+      
+      // Providers can accept/reject bookings they're assigned
+      allow update: if isProvider() && 
+                       resource.data.providerId == request.auth.uid &&
+                       (request.resource.data.status in ['accepted', 'in_progress', 'completed']) &&
+                       // Prevent changing amount
+                       resource.data.amount == request.resource.data.amount;
+      
+      // Clients can update their own pending bookings
+      allow update: if isClient() && 
+                       resource.data.clientId == request.auth.uid &&
+                       resource.data.status == 'pending';
+      
+      // Admins can update any booking
+      allow update: if isAdmin();
+      
+      // No one can delete bookings (soft delete via status)
+      allow delete: if isAdmin();
+    }
+
+    // ===== REVIEWS COLLECTION =====
+    match /reviews/{reviewId} {
+      // Anyone can read active reviews
+      allow read: if isAuthenticated() && 
+                      (resource.data.status == 'active' || resource.data.status == 'under_review' ||
+                       isUser(resource.data.reviewerId) || isUser(resource.data.providerId) || isAdmin());
+      
+      // Clients can submit reviews for completed jobs
+      allow create: if isClient() && 
+                       request.resource.data.reviewerId == request.auth.uid &&
+                       request.resource.data.status == 'active' &&
+                       request.resource.data.createdAt == request.time;
+      
+      // Reviewers can update their own unpublished reviews
+      allow update: if isClient() && 
+                       resource.data.reviewerId == request.auth.uid &&
+                       resource.data.status in ['draft', 'active'];
+      
+      // Admins can flag/delete reviews
+      allow update: if isAdmin();
+      
+      // Only admins can delete reviews
+      allow delete: if isAdmin();
+    }
+
+    // ===== MESSAGES COLLECTION =====
+    match /messages/{messageId} {
+      // Users can read messages in their conversations
+      allow read: if isAuthenticated() && 
+                      (resource.data.senderId == request.auth.uid ||
+                       resource.data.recipientId == request.auth.uid ||
+                       isAdmin());
+      
+      // Users can send messages
+      allow create: if isAuthenticated() && 
+                       request.resource.data.senderId == request.auth.uid &&
+                       request.resource.data.createdAt == request.time;
+      
+      // Users can mark their own messages as read
+      allow update: if (resource.data.recipientId == request.auth.uid ||
+                        resource.data.senderId == request.auth.uid) &&
+                       // Only allow updating read status
+                       request.resource.data.read == true &&
+                       request.resource.data.readAt == request.time;
+      
+      // Admins can delete inappropriate messages
+      allow delete: if isAdmin();
+    }
+
+    // ===== CONVERSATIONS COLLECTION =====
+    match /conversations/{conversationId} {
+      // Users can read their conversations
+      allow read: if isAuthenticated() && 
+                      (resource.data.participantIds.hasAny([request.auth.uid]));
+      
+      // Users can create conversations
+      allow create: if isAuthenticated() && 
+                       request.resource.data.participantIds.hasAny([request.auth.uid]) &&
+                       request.resource.data.createdAt == request.time;
+      
+      // Users can update conversation metadata
+      allow update: if isAuthenticated() && 
+                       resource.data.participantIds.hasAny([request.auth.uid]);
+    }
+
+    // ===== NOTIFICATIONS COLLECTION =====
+    match /notifications/{notificationId} {
+      // Users can read their notifications
+      allow read: if isAuthenticated() && 
+                      resource.data.targetUserId == request.auth.uid;
+      
+      // System can create notifications (via Cloud Functions)
+      allow create: if isAdmin();
+      
+      // Users can mark notifications as read
+      allow update: if isAuthenticated() && 
+                       resource.data.targetUserId == request.auth.uid &&
+                       request.resource.data.read == true;
+      
+      // Users can delete their notifications
+      allow delete: if isAuthenticated() && 
+                       resource.data.targetUserId == request.auth.uid;
+    }
+
+    // ===== TRANSACTIONS COLLECTION =====
+    match /transactions/{transactionId} {
+      // Users can read their own transactions
+      allow read: if isAuthenticated() && 
+                      (resource.data.userId == request.auth.uid ||
+                       resource.data.targetUserId == request.auth.uid);
+      
+      // Admins can read all transactions
+      allow read: if isAdmin();
+      
+      // System can create transactions (via Cloud Functions)
+      allow create: if isAdmin();
+      
+      // Only admins can update transactions
+      allow update: if isAdmin();
+    }
+
+    // ===== ADMIN LOGS COLLECTION =====
+    match /adminLogs/{logId} {
+      // Only admins can read logs
+      allow read: if isAdmin();
+      
+      // System can create logs
+      allow create: if isAdmin();
+      
+      // No updates or deletes to logs (immutable)
+      allow delete: if false;
+    }
+
+    // ===== RATINGS/ANALYTICS COLLECTION =====
+    match /analytics/{document=**} {
+      // Public read for non-sensitive analytics
+      allow read: if isAuthenticated();
+      
+      // Only admins can write
+      allow write: if isAdmin();
+    }
+
+    // ===== CATCH-ALL: DEFAULT DENY =====
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

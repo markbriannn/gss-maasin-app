@@ -1,0 +1,101 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    './App.{js,jsx,ts,tsx}',
+    './src/**/*.{js,jsx,ts,tsx}',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          DEFAULT: '#00B14F',
+          dark: '#009A43',
+          light: '#33C070',
+          50: '#E6F7EF',
+          100: '#CCF0DE',
+          200: '#99E1BD',
+          300: '#66D29C',
+          400: '#33C37B',
+          500: '#00B14F',
+          600: '#009A43',
+          700: '#007A35',
+          800: '#005928',
+          900: '#00391A',
+        },
+        secondary: {
+          DEFAULT: '#1E3A8A',
+          dark: '#1E40AF',
+          light: '#3B82F6',
+        },
+        accent: {
+          DEFAULT: '#F59E0B',
+          dark: '#D97706',
+          light: '#FBBF24',
+        },
+        danger: {
+          DEFAULT: '#EF4444',
+          dark: '#DC2626',
+          light: '#F87171',
+        },
+        success: {
+          DEFAULT: '#10B981',
+          dark: '#059669',
+          light: '#34D399',
+        },
+        warning: {
+          DEFAULT: '#F59E0B',
+          dark: '#D97706',
+          light: '#FBBF24',
+        },
+        dark: {
+          DEFAULT: '#1F2937',
+          light: '#374151',
+          lighter: '#4B5563',
+        },
+        gray: {
+          50: '#F9FAFB',
+          100: '#F3F4F6',
+          200: '#E5E7EB',
+          300: '#D1D5DB',
+          400: '#9CA3AF',
+          500: '#6B7280',
+          600: '#4B5563',
+          700: '#374151',
+          800: '#1F2937',
+          900: '#111827',
+        },
+      },
+      fontFamily: {
+        sans: ['System'],
+        heading: ['System'],
+      },
+      fontSize: {
+        'xs': ['12px', { lineHeight: '16px' }],
+        'sm': ['14px', { lineHeight: '20px' }],
+        'base': ['16px', { lineHeight: '24px' }],
+        'lg': ['18px', { lineHeight: '28px' }],
+        'xl': ['20px', { lineHeight: '28px' }],
+        '2xl': ['24px', { lineHeight: '32px' }],
+        '3xl': ['30px', { lineHeight: '36px' }],
+        '4xl': ['36px', { lineHeight: '40px' }],
+      },
+      spacing: {
+        '72': '18rem',
+        '84': '21rem',
+        '96': '24rem',
+      },
+      borderRadius: {
+        'none': '0',
+        'sm': '4px',
+        'DEFAULT': '8px',
+        'md': '12px',
+        'lg': '16px',
+        'xl': '20px',
+        '2xl': '24px',
+        '3xl': '32px',
+        'full': '9999px',
+      },
+    },
+  },
+  plugins: [],
+};

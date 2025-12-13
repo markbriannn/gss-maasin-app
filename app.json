@@ -1,0 +1,64 @@
+{
+  "name": "GSSMaasin",
+  "displayName": "GSS - General Service System",
+  "description": "Connect with trusted local service providers in Maasin City, Southern Leyte",
+  "expo": {
+    "name": "GSS Maasin",
+    "slug": "gss-maasin",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gss.maasin",
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "We need your location to show nearby service providers and enable real-time tracking.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "We need your location to track your provider's arrival and enable job tracking features.",
+        "NSCameraUsageDescription": "We need camera access to take photos for your profile and job documentation.",
+        "NSPhotoLibraryUsageDescription": "We need photo library access to upload images for your profile and jobs.",
+        "NSMicrophoneUsageDescription": "We need microphone access for voice messages in chat.",
+        "NSFaceIDUsageDescription": "Enable Face ID for quick and secure login.",
+        "UIBackgroundModes": ["location", "remote-notification"]
+      }
+    },
+    "android": {
+      "package": "com.gss.maasin",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECORD_AUDIO",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyBpGzpP1vVxZBIsw6gzkUPPDABSl8FktL4"
+        }
+      }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow GSS to use your location to show nearby providers and enable tracking."
+        }
+      ]
+    ]
+  }
+}

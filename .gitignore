@@ -1,0 +1,59 @@
+node_modules/
+npm-debug.log
+yarn-error.log
+.DS_Store
+.vscode/
+.idea/
+
+# Android
+android/app/build/
+android/.gradle/
+android/local.properties
+android/app/release.keystore
+*.apk
+*.ap_
+*.dex
+*.class
+bin/
+gen/
+out/
+
+# iOS
+ios/build/
+ios/Pods/
+*.ipa
+*.dSYM.zip
+*.dSYM
+DerivedData/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+xcuserdata/
+*.xccheckout
+*.moved-aside
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Backend
+backend/node_modules/
+backend/.env
+
+# Firebase
+**/serviceAccountKey.json
+**/google-services.json
+**/GoogleService-Info.plist
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+*.log
+*.swp
+*.swo
+*~
+.tmp/
