@@ -146,10 +146,11 @@ const ClientBookingsTabIcon = ({focused, color, size, userId}) => {
     if (!userId) return;
 
     const bookingsRef = collection(db, 'bookings');
+    // Include all active statuses that client should be notified about
     const q = query(
       bookingsRef,
       where('clientId', '==', userId),
-      where('status', 'in', ['accepted', 'in_progress', 'traveling'])
+      where('status', 'in', ['accepted', 'in_progress', 'traveling', 'arrived', 'pending_completion', 'counter_offer'])
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -270,7 +271,6 @@ import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 
 // Profile Screens
 import EditProfileScreen from '../screens/profile/EditProfileScreen';
-import AddressesScreen from '../screens/profile/AddressesScreen';
 import PaymentMethodsScreen from '../screens/payment/PaymentMethodsScreen';
 import FavoritesScreen from '../screens/profile/FavoritesScreen';
 
@@ -539,8 +539,13 @@ export default function AppNavigator() {
           <Stack.Screen name="AdminAnalytics" component={AdminAnalyticsScreen} />
           <Stack.Screen name="AdminEarnings" component={AdminEarningsScreen} />
           <Stack.Screen name="AdminChat" component={ChatScreen} />
+          <Stack.Screen name="Chat" component={ChatScreen} />
           <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
+          <Stack.Screen name="Help" component={HelpScreen} />
+          <Stack.Screen name="Terms" component={TermsScreen} />
+          <Stack.Screen name="About" component={AboutScreen} />
         </>
       ) : normalizedRole === 'PROVIDER' ? (
         <>
@@ -558,7 +563,6 @@ export default function AppNavigator() {
           <Stack.Screen name="Terms" component={TermsScreen} />
           <Stack.Screen name="About" component={AboutScreen} />
           <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
-          <Stack.Screen name="Addresses" component={AddressesScreen} />
           <Stack.Screen name="Wallet" component={WalletScreen} />
           <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
           <Stack.Screen name="PayoutSetup" component={PayoutSetupScreen} />
@@ -574,7 +578,6 @@ export default function AppNavigator() {
           <Stack.Screen name="Review" component={ReviewScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-          <Stack.Screen name="Addresses" component={AddressesScreen} />
           <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
           <Stack.Screen name="Favorites" component={FavoritesScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />

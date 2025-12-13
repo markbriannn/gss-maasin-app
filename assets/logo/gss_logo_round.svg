@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle with Gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00C853"/>
+      <stop offset="100%" style="stop-color:#00B14F"/>
+    </linearGradient>
+    <linearGradient id="innerGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00B14F"/>
+      <stop offset="100%" style="stop-color:#00E676"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Main Circle -->
+  <circle cx="256" cy="256" r="250" fill="url(#bgGradient)"/>
+  
+  <!-- Service Icon - Stylized Tool/Hand -->
+  <g transform="translate(100, 100)">
+    <!-- Main tool shape -->
+    <path d="M156 40C180 40 200 60 200 84L200 140L240 140C264 140 284 160 284 184L284 228C284 252 264 272 240 272L200 272L200 328C200 352 180 372 156 372L112 372C88 372 68 352 68 328L68 272L28 272C4 272 -16 252 -16 228L-16 184C-16 160 4 140 28 140L68 140L68 84C68 60 88 40 112 40L156 40Z" fill="white" opacity="0.95"/>
+    
+    <!-- Center circle -->
+    <circle cx="134" cy="206" r="50" fill="url(#bgGradient)"/>
+    
+    <!-- Checkmark in center -->
+    <path d="M110 206L126 222L158 190" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+  
+  <!-- Outer ring accent -->
+  <circle cx="256" cy="256" r="240" stroke="white" stroke-width="4" fill="none" opacity="0.3"/>
+</svg>

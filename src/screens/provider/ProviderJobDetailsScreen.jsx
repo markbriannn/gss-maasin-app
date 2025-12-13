@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   TextInput,
   Modal,
   Dimensions,
+  AppState,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -22,6 +23,7 @@ import {useAuth} from '../../context/AuthContext';
 import Video from 'react-native-video';
 import notificationService from '../../services/notificationService';
 import smsEmailService from '../../services/smsEmailService';
+import locationService from '../../services/locationService';
 
 const {width: SCREEN_WIDTH, height: SCREEN_HEIGHT} = Dimensions.get('window');
 
@@ -31,6 +33,9 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
   const [jobData, setJobData] = useState(job || null);
   const [isLoading, setIsLoading] = useState(!job);
   const [isUpdating, setIsUpdating] = useState(false);
+  // Location tracking state
+  const locationWatchRef = useRef(null);
+  const appStateRef = useRef(AppState.currentState);
   // Negotiation and additional charges state
   const [showCounterModal, setShowCounterModal] = useState(false);
   const [counterPrice, setCounterPrice] = useState('');
@@ -38,6 +43,10 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
   const [showAdditionalModal, setShowAdditionalModal] = useState(false);
   const [additionalAmount, setAdditionalAmount] = useState('');
   const [additionalReason, setAdditionalReason] = useState('');
+  // Discount modal state
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [discountAmount, setDiscountAmount] = useState('');
+  const [discountReason, setDiscountReason] = useState('');
   // Media viewer state
   const [showMediaViewer, setShowMediaViewer] = useState(false);
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
@@ -54,6 +63,22 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
     'Emergency situation',
     'Other',
   ];
+
+  // Cleanup location tracking on unmount
+  useEffect(() => {
+    return () => {
+      stopLocationTracking();
+    };
+  }, []);
+
+  // Start location tracking if status is traveling when screen loads
+  useEffect(() => {
+    if (jobData?.status === 'traveling') {
+      startLocationTracking();
+    } else if (jobData?.status !== 'traveling' && locationWatchRef.current) {
+      stopLocationTracking();
+    }
+  }, [jobData?.status]);
 
   // Real-time listener for job updates
   useEffect(() => {
@@ -456,6 +481,58 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
     }
   };
 
+  // Handle discount offer from provider (for easy jobs)
+  const handleOfferDiscount = async () => {
+    if (!discountAmount || parseFloat(discountAmount) <= 0) {
+      Alert.alert('Error', 'Please enter a valid discount amount');
+      return;
+    }
+    
+    const currentPrice = jobData.providerPrice || jobData.totalAmount || 0;
+    const discount = parseFloat(discountAmount);
+    
+    if (discount >= currentPrice) {
+      Alert.alert('Error', 'Discount cannot be equal to or greater than the service price');
+      return;
+    }
+
+    try {
+      setIsUpdating(true);
+      const newPrice = currentPrice - discount;
+      const newSystemFee = newPrice * 0.05;
+      const newTotal = newPrice + newSystemFee;
+
+      await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
+        discountAmount: discount,
+        discountReason: discountReason || 'Easy job discount',
+        providerPrice: newPrice,
+        systemFee: newSystemFee,
+        totalAmount: newTotal,
+        hasDiscount: true,
+        discountAppliedAt: serverTimestamp(),
+      });
+
+      setJobData(prev => ({
+        ...prev,
+        discountAmount: discount,
+        discountReason: discountReason || 'Easy job discount',
+        providerPrice: newPrice,
+        systemFee: newSystemFee,
+        totalAmount: newTotal,
+        hasDiscount: true,
+      }));
+      setShowDiscountModal(false);
+      setDiscountAmount('');
+      setDiscountReason('');
+      Alert.alert('Discount Applied', `You've reduced the price by ₱${discount.toLocaleString()}. The client will pay ₱${newTotal.toLocaleString()}.`);
+    } catch (error) {
+      console.error('Error applying discount:', error);
+      Alert.alert('Error', 'Failed to apply discount');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handleDeclineJob = () => {
     setShowCancelModal(true);
   };
@@ -488,11 +565,76 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
     }
   };
 
+  // Start location tracking for client to see provider's location
+  const startLocationTracking = async () => {
+    try {
+      // Get initial location
+      const initialLocation = await locationService.getCurrentLocation();
+      const bookingId = jobData.id || jobId;
+      
+      // Update initial location to booking and user profile
+      await updateDoc(doc(db, 'bookings', bookingId), {
+        providerLocation: {
+          latitude: initialLocation.latitude,
+          longitude: initialLocation.longitude,
+        },
+        locationUpdatedAt: serverTimestamp(),
+      });
+      
+      if (user?.uid) {
+        await updateDoc(doc(db, 'users', user.uid), {
+          latitude: initialLocation.latitude,
+          longitude: initialLocation.longitude,
+          locationUpdatedAt: serverTimestamp(),
+        });
+      }
+
+      // Start watching location
+      locationWatchRef.current = locationService.watchLocation(
+        async (position) => {
+          try {
+            // Update location in booking document
+            await updateDoc(doc(db, 'bookings', bookingId), {
+              providerLocation: {
+                latitude: position.latitude,
+                longitude: position.longitude,
+              },
+              locationUpdatedAt: serverTimestamp(),
+            });
+            // Also update provider's user document
+            if (user?.uid) {
+              await updateDoc(doc(db, 'users', user.uid), {
+                latitude: position.latitude,
+                longitude: position.longitude,
+                locationUpdatedAt: serverTimestamp(),
+              });
+            }
+          } catch (e) {
+            console.log('Error updating location:', e);
+          }
+        },
+        (error) => {
+          console.log('Location watch error:', error);
+        }
+      );
+    } catch (error) {
+      console.log('Error starting location tracking:', error);
+    }
+  };
+
+  // Stop location tracking
+  const stopLocationTracking = () => {
+    if (locationWatchRef.current !== null) {
+      locationService.stopWatchingLocation();
+      locationWatchRef.current = null;
+    }
+  };
+
   // Start traveling to client location
   const handleStartTraveling = () => {
     Alert.alert(
       'Start Traveling',
-      'Start traveling to the client location?',
+      'Start traveling to the client location? Your location will be shared with the client.',
       [
         {text: 'Cancel', style: 'cancel'},
         {
@@ -515,9 +657,11 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                 });
               }
               setJobData(prev => ({...prev, status: 'traveling'}));
+              // Start location tracking for client
+              startLocationTracking();
               // Notify client
               notificationService.notifyProviderTraveling?.(jobData);
-              Alert.alert('On the way!', 'Client has been notified that you are traveling to their location.');
+              Alert.alert('On the way!', 'Client has been notified and can now track your location.');
             } catch (error) {
               console.error('Error starting travel:', error);
               Alert.alert('Error', 'Failed to start. Please try again.');
@@ -542,6 +686,8 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           onPress: async () => {
             try {
               setIsUpdating(true);
+              // Stop location tracking since we've arrived
+              stopLocationTracking();
               await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
                 status: 'arrived',
                 arrivedAt: serverTimestamp(),
@@ -1126,6 +1272,23 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               </View>
             )}
 
+            {/* Show pending amount if there are pending charges */}
+            {jobData.additionalCharges?.some(c => c.status === 'pending') && (
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                paddingTop: 8,
+                borderTopWidth: 1,
+                borderTopColor: '#FDE68A',
+                marginBottom: 8,
+              }}>
+                <Text style={{fontSize: 14, color: '#F59E0B', fontWeight: '600'}}>If Approved</Text>
+                <Text style={{fontSize: 14, fontWeight: '700', color: '#F59E0B'}}>
+                  +₱{(jobData.additionalCharges?.filter(c => c.status === 'pending').reduce((sum, c) => sum + c.amount, 0) || 0).toLocaleString()}
+                </Text>
+              </View>
+            )}
+
             <View style={{
               paddingTop: 8,
               borderTopWidth: 1,
@@ -1141,6 +1304,23 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                 ).toLocaleString()}
               </Text>
             </View>
+
+            {/* Show potential total if pending charges get approved */}
+            {jobData.additionalCharges?.some(c => c.status === 'pending') && (
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                marginTop: 4,
+              }}>
+                <Text style={{fontSize: 13, color: '#F59E0B'}}>Potential Total</Text>
+                <Text style={{fontSize: 14, fontWeight: '600', color: '#F59E0B'}}>
+                  ₱{(
+                    (jobData.providerPrice || jobData.offeredPrice || jobData.price || 0) +
+                    (jobData.additionalCharges?.filter(c => c.status === 'approved' || c.status === 'pending').reduce((sum, c) => sum + c.amount, 0) || 0)
+                  ).toLocaleString()}
+                </Text>
+              </View>
+            )}
           </View>
           <Text style={{fontSize: 12, color: '#6B7280', marginTop: 8, textAlign: 'center'}}>
             Client pays ₱{(
@@ -1228,14 +1408,21 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
 
               {jobData.status === 'pending' && (
                 jobData.adminApproved ? (
-                  <View style={styles.buttonRow}>
+                  <View>
+                    <View style={styles.buttonRow}>
+                      <TouchableOpacity 
+                        style={[styles.actionButton, styles.declineButton]} 
+                        onPress={handleDeclineJob}>
+                        <Text style={styles.declineButtonText}>Decline</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.actionButton, {backgroundColor: '#F59E0B'}]} 
+                        onPress={() => setShowCounterModal(true)}>
+                        <Text style={{color: '#FFFFFF', fontWeight: '600'}}>Counter Offer</Text>
+                      </TouchableOpacity>
+                    </View>
                     <TouchableOpacity 
-                      style={[styles.actionButton, styles.declineButton]} 
-                      onPress={handleDeclineJob}>
-                      <Text style={styles.declineButtonText}>Decline</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[styles.actionButton, styles.acceptButton]} 
+                      style={[styles.actionButton, styles.acceptButton, {marginTop: 12}]} 
                       onPress={handleAcceptJob}>
                       <Text style={styles.acceptButtonText}>Accept Job</Text>
                     </TouchableOpacity>
@@ -1358,25 +1545,55 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               
               {jobData.status === 'in_progress' && (
                 <View>
-                  {/* Request Additional Charge Button */}
-                  <TouchableOpacity 
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: '#FEF3C7',
-                      borderRadius: 12,
-                      paddingVertical: 14,
-                      marginBottom: 12,
-                      borderWidth: 1,
-                      borderColor: '#F59E0B',
-                    }} 
-                    onPress={() => setShowAdditionalModal(true)}>
-                    <Icon name="add-circle" size={20} color="#F59E0B" />
-                    <Text style={{color: '#92400E', fontWeight: '600', marginLeft: 8}}>
-                      Request Additional Charge
-                    </Text>
-                  </TouchableOpacity>
+                  {/* Price Adjustment Buttons */}
+                  <View style={{flexDirection: 'row', marginBottom: 12}}>
+                    {/* Offer Discount Button */}
+                    <TouchableOpacity 
+                      style={{
+                        flex: 1,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: '#D1FAE5',
+                        paddingVertical: 14,
+                        paddingHorizontal: 12,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: '#10B981',
+                        marginRight: 5,
+                      }}
+                      onPress={() => setShowDiscountModal(true)}>
+                      <Icon name="pricetag" size={18} color="#059669" />
+                      <Text style={{color: '#065F46', fontWeight: '600', marginLeft: 6, fontSize: 13}}>
+                        Give Discount
+                      </Text>
+                    </TouchableOpacity>
+
+                    {/* Request Additional Charge Button */}
+                    <TouchableOpacity 
+                      style={{
+                        flex: 1,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: '#FEF3C7',
+                        paddingVertical: 14,
+                        paddingHorizontal: 12,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: '#F59E0B',
+                        marginLeft: 5,
+                      }}
+                      onPress={() => setShowAdditionalModal(true)}>
+                      <Icon name="add-circle" size={18} color="#F59E0B" />
+                      <Text style={{color: '#92400E', fontWeight: '600', marginLeft: 6, fontSize: 13}}>
+                        Add Charge
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={{fontSize: 12, color: '#6B7280', textAlign: 'center', marginBottom: 12}}>
+                    Easy job? Give a discount. Extra work needed? Add a charge.
+                  </Text>
                   
                   <TouchableOpacity 
                     style={[styles.actionButton, styles.completeButton]} 
@@ -1394,7 +1611,6 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                     backgroundColor: '#FEF3C7',
                     padding: 16,
                     borderRadius: 12,
-                    marginBottom: 12,
                     alignItems: 'center',
                   }}>
                     <Icon name="time" size={32} color="#F59E0B" />
@@ -1402,7 +1618,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                       Waiting for Client Confirmation
                     </Text>
                     <Text style={{fontSize: 13, color: '#B45309', marginTop: 4, textAlign: 'center'}}>
-                      The client needs to confirm the work is complete before proceeding to payment.
+                      The client needs to confirm the work is complete and proceed to payment.
                     </Text>
                   </View>
                 </View>
@@ -1834,6 +2050,125 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={{color: '#FFFFFF', fontSize: 16, fontWeight: '700'}}>Send Request to Client</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Discount Modal */}
+      <Modal
+        visible={showDiscountModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowDiscountModal(false)}>
+        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end'}}>
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            padding: 20,
+          }}>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20}}>
+              <Text style={{fontSize: 18, fontWeight: '700', color: '#1F2937'}}>Give Discount</Text>
+              <TouchableOpacity onPress={() => setShowDiscountModal(false)}>
+                <Icon name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{
+              backgroundColor: '#D1FAE5',
+              borderRadius: 12,
+              padding: 12,
+              marginBottom: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}>
+              <Icon name="heart" size={20} color="#059669" />
+              <Text style={{fontSize: 13, color: '#065F46', marginLeft: 8, flex: 1}}>
+                Job was easier than expected? Give the client a discount as a goodwill gesture!
+              </Text>
+            </View>
+
+            <View style={{
+              backgroundColor: '#F3F4F6',
+              borderRadius: 12,
+              padding: 12,
+              marginBottom: 16,
+            }}>
+              <Text style={{fontSize: 13, color: '#6B7280'}}>Current Price</Text>
+              <Text style={{fontSize: 20, fontWeight: '700', color: '#1F2937'}}>
+                ₱{(jobData?.providerPrice || jobData?.totalAmount || 0).toLocaleString()}
+              </Text>
+            </View>
+
+            <Text style={{fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8}}>
+              Discount Amount (₱) *
+            </Text>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#F9FAFB',
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: '#10B981',
+              paddingHorizontal: 12,
+              marginBottom: 16,
+            }}>
+              <Text style={{fontSize: 18, color: '#10B981', fontWeight: '700'}}>-₱</Text>
+              <TextInput
+                style={{flex: 1, fontSize: 18, color: '#1F2937', paddingVertical: 14, paddingHorizontal: 8}}
+                placeholder="Enter discount"
+                keyboardType="numeric"
+                value={discountAmount}
+                onChangeText={setDiscountAmount}
+              />
+            </View>
+
+            <Text style={{fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8}}>
+              Reason (Optional)
+            </Text>
+            <TextInput
+              style={{
+                backgroundColor: '#F9FAFB',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                padding: 12,
+                fontSize: 14,
+                color: '#1F2937',
+                marginBottom: 20,
+              }}
+              placeholder="e.g., Quick fix, simple job..."
+              value={discountReason}
+              onChangeText={setDiscountReason}
+            />
+
+            {discountAmount && (
+              <View style={{backgroundColor: '#D1FAE5', borderRadius: 12, padding: 12, marginBottom: 16}}>
+                <Text style={{fontSize: 13, color: '#065F46'}}>New price after discount:</Text>
+                <Text style={{fontSize: 20, fontWeight: '700', color: '#059669'}}>
+                  ₱{(((jobData?.providerPrice || jobData?.totalAmount || 0) - parseFloat(discountAmount || 0)) * 1.05).toLocaleString()}
+                </Text>
+                <Text style={{fontSize: 12, color: '#065F46', marginTop: 4}}>
+                  You'll receive: ₱{((jobData?.providerPrice || jobData?.totalAmount || 0) - parseFloat(discountAmount || 0)).toLocaleString()}
+                </Text>
+              </View>
+            )}
+
+            <TouchableOpacity 
+              style={{
+                backgroundColor: '#10B981',
+                borderRadius: 12,
+                paddingVertical: 16,
+                alignItems: 'center',
+              }}
+              onPress={handleOfferDiscount}
+              disabled={isUpdating}>
+              {isUpdating ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={{color: '#FFFFFF', fontSize: 16, fontWeight: '700'}}>Apply Discount</Text>
               )}
             </TouchableOpacity>
           </View>

@@ -60,12 +60,12 @@ const ServiceHistoryScreen = ({ navigation }) => {
       const userId = user?.uid || user?.id;
       if (!userId) return;
 
-      // Build status filter
+      // Build status filter - include payment_received as completed
       let statuses = [];
       if (activeFilter === 'all') {
-        statuses = ['completed', 'cancelled', 'rejected'];
+        statuses = ['completed', 'payment_received', 'cancelled', 'rejected'];
       } else if (activeFilter === 'completed') {
-        statuses = ['completed'];
+        statuses = ['completed', 'payment_received'];
       } else if (activeFilter === 'cancelled') {
         statuses = ['cancelled', 'rejected'];
       }

@@ -104,6 +104,7 @@ const AdminProvidersScreen = ({navigation, route}) => {
           rating: data.rating || 0,
           completedJobs: data.completedJobs || 0,
           registeredDate: data.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown',
+          registeredDateRaw: data.createdAt?.toDate?.() || new Date(0),
           location: fullAddress,
           // New location fields
           streetAddress: data.streetAddress || '',
@@ -134,6 +135,9 @@ const AdminProvidersScreen = ({navigation, route}) => {
           rawData: data,
         };
       });
+
+      // Sort by newest first (descending by registration date)
+      providersList.sort((a, b) => b.registeredDateRaw - a.registeredDateRaw);
 
       setAllProviders(providersList);
       setProviders(providersList);

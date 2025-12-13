@@ -1,17 +1,12 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeAuth, getAuth, getReactNativePersistence, connectAuthEmulator } from 'firebase/auth';
+import { initializeAuth, getAuth, getReactNativePersistence } from 'firebase/auth';
 import { 
   initializeFirestore, 
   getFirestore, 
-  connectFirestoreEmulator, 
-  enableNetwork,
-  CACHE_SIZE_UNLIMITED,
-  persistentLocalCache,
-  persistentMultipleTabManager
 } from 'firebase/firestore';
-import { getStorage, connectStorageEmulator } from 'firebase/storage';
+import { getStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState, LogBox, Platform } from 'react-native';
+import { LogBox } from 'react-native';
 import {
   FIREBASE_API_KEY,
   FIREBASE_AUTH_DOMAIN,
@@ -32,6 +27,7 @@ LogBox.ignoreLogs([
   'AsyncStorage has been extracted',
   'Setting a timer',
   'Require cycle:',
+  'INTERNAL UNHANDLED ERROR',
 ]);
 
 const firebaseConfig = {
@@ -46,7 +42,7 @@ const firebaseConfig = {
 // Initialize Firebase app only if not already initialized
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Auth - use getAuth if already initialized, otherwise initializeAuth
+// Initialize Auth
 let auth;
 try {
   auth = initializeAuth(app, {
@@ -60,52 +56,17 @@ try {
   }
 }
 
-// Initialize Firestore with settings to help prevent the internal assertion error
-// The bug in Firebase JS SDK 12.6.0 is related to watch stream state management
+// Initialize Firestore with long polling for React Native compatibility
+// This helps avoid WebChannel issues while maintaining real-time updates
 let db;
 try {
   db = initializeFirestore(app, {
-    // Use memory cache to avoid IndexedDB issues in React Native
-    experimentalForceLongPolling: true, // Use long polling instead of WebChannel
-    useFetchStreams: false, // Disable fetch streams which can cause issues
+    experimentalForceLongPolling: true,
   });
 } catch (error) {
-  // If already initialized, just get the instance
   db = getFirestore(app);
 }
 
 const storage = getStorage(app);
-
-// Handle app state changes to manage Firestore connection
-let appState = AppState.currentState;
-let appStateSubscription = null;
-
-const setupAppStateListener = () => {
-  if (appStateSubscription) return;
-  
-  appStateSubscription = AppState.addEventListener('change', async (nextAppState) => {
-    if (appState.match(/inactive|background/) && nextAppState === 'active') {
-      // App came to foreground - re-enable network
-      try {
-        await enableNetwork(db);
-      } catch (e) {
-        // Silently handle - Firestore will auto-reconnect
-        console.log('Firestore network re-enable handled');
-      }
-    }
-    appState = nextAppState;
-  });
-};
-
-// Setup listener
-setupAppStateListener();
-
-// Flip this flag to true when using local emulators during development.
-const useEmulator = false;
-if (useEmulator) {
-  connectAuthEmulator(auth, 'http://localhost:9099');
-  connectFirestoreEmulator(db, 'localhost', 8080);
-  connectStorageEmulator(storage, 'localhost', 9199);
-}
 
 export { app, auth, db, storage };

@@ -767,10 +767,9 @@ router.get('/payout-history/:providerId', async (req, res) => {
     const { providerId } = req.params;
     const db = getDb();
 
+    // Use simple query without orderBy to avoid composite index requirement
     const payoutsSnapshot = await db.collection('payouts')
       .where('providerId', '==', providerId)
-      .orderBy('requestedAt', 'desc')
-      .limit(50)
       .get();
 
     const payouts = payoutsSnapshot.docs.map(doc => ({
@@ -781,7 +780,14 @@ router.get('/payout-history/:providerId', async (req, res) => {
       completedAt: doc.data().completedAt?.toDate?.() || doc.data().completedAt,
     }));
 
-    res.json({ payouts });
+    // Sort by requestedAt descending in memory
+    payouts.sort((a, b) => {
+      const dateA = a.requestedAt ? new Date(a.requestedAt) : new Date(0);
+      const dateB = b.requestedAt ? new Date(b.requestedAt) : new Date(0);
+      return dateB - dateA;
+    });
+
+    res.json({ payouts: payouts.slice(0, 50) });
   } catch (error) {
     console.error('Error fetching payout history:', error.message);
     res.status(500).json({ error: error.message });
@@ -903,15 +909,15 @@ router.get('/admin/payouts', async (req, res) => {
     const { status } = req.query;
     const db = getDb();
 
-    let query = db.collection('payouts').orderBy('requestedAt', 'desc');
-    
+    // Use simple query without orderBy to avoid composite index requirement
+    let payoutsSnapshot;
     if (status) {
-      query = db.collection('payouts')
+      payoutsSnapshot = await db.collection('payouts')
         .where('status', '==', status)
-        .orderBy('requestedAt', 'desc');
+        .get();
+    } else {
+      payoutsSnapshot = await db.collection('payouts').get();
     }
-
-    const payoutsSnapshot = await query.limit(100).get();
 
     // Get provider details for each payout
     const payouts = await Promise.all(payoutsSnapshot.docs.map(async (doc) => {
@@ -919,10 +925,12 @@ router.get('/admin/payouts', async (req, res) => {
       let providerName = 'Unknown';
       
       try {
-        const providerDoc = await db.collection('users').doc(payout.providerId).get();
-        if (providerDoc.exists) {
-          const p = providerDoc.data();
-          providerName = `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email || 'Provider';
+        if (payout.providerId) {
+          const providerDoc = await db.collection('users').doc(payout.providerId).get();
+          if (providerDoc.exists) {
+            const p = providerDoc.data();
+            providerName = `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email || 'Provider';
+          }
         }
       } catch (e) {
         console.log('Error fetching provider:', e);
@@ -938,7 +946,15 @@ router.get('/admin/payouts', async (req, res) => {
       };
     }));
 
-    res.json({ payouts });
+    // Sort by requestedAt descending (most recent first) in memory
+    payouts.sort((a, b) => {
+      const dateA = a.requestedAt ? new Date(a.requestedAt) : new Date(0);
+      const dateB = b.requestedAt ? new Date(b.requestedAt) : new Date(0);
+      return dateB - dateA;
+    });
+
+    // Limit to 100 results
+    res.json({ payouts: payouts.slice(0, 100) });
   } catch (error) {
     console.error('Error fetching admin payouts:', error.message);
     res.status(500).json({ error: error.message });

@@ -20,7 +20,6 @@ const SettingsScreen = ({navigation}) => {
 
   const clientOptions = [
     {id: 'payments', icon: 'card-outline', title: 'Payment Methods', screen: 'PaymentMethods'},
-    {id: 'addresses', icon: 'location-outline', title: 'Addresses', screen: 'Addresses'},
   ];
 
   const providerOptions = [

@@ -37,13 +37,12 @@ const ClientProfileScreen = ({navigation}) => {
   const menuItems = [
     {id: 1, icon: 'person-outline', title: 'Edit Profile', screen: 'EditProfile'},
     {id: 2, icon: 'time-outline', title: 'Service History', screen: 'ServiceHistory'},
-    {id: 3, icon: 'location-outline', title: 'Manage Addresses', screen: 'Addresses'},
-    {id: 4, icon: 'card-outline', title: 'Payment Methods', screen: 'PaymentMethods'},
-    {id: 5, icon: 'heart-outline', title: 'Favorite Providers', screen: 'Favorites'},
-    {id: 6, icon: 'notifications-outline', title: 'Notifications', screen: 'Notifications'},
-    {id: 7, icon: 'help-circle-outline', title: 'Help Center', screen: 'Help'},
-    {id: 8, icon: 'document-text-outline', title: 'Terms & Conditions', screen: 'Terms'},
-    {id: 9, icon: 'information-circle-outline', title: 'About Us', screen: 'About'},
+    {id: 3, icon: 'card-outline', title: 'Payment Methods', screen: 'PaymentMethods'},
+    {id: 4, icon: 'heart-outline', title: 'Favorite Providers', screen: 'Favorites'},
+    {id: 5, icon: 'notifications-outline', title: 'Notifications', screen: 'Notifications'},
+    {id: 6, icon: 'help-circle-outline', title: 'Help Center', screen: 'Help'},
+    {id: 7, icon: 'document-text-outline', title: 'Terms & Conditions', screen: 'Terms'},
+    {id: 8, icon: 'information-circle-outline', title: 'About Us', screen: 'About'},
   ];
 
   return (

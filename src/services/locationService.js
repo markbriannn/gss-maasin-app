@@ -161,14 +161,23 @@ class LocationService {
   // Get Address from Coordinates (Reverse Geocoding)
   async getAddressFromCoordinates(latitude, longitude) {
     try {
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${MAPS_CONFIG.API_KEY}`
-      );
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${MAPS_CONFIG.API_KEY}`;
+      console.log('Geocoding URL:', url.replace(MAPS_CONFIG.API_KEY, 'API_KEY_HIDDEN'));
+      
+      const response = await fetch(url);
       const data = await response.json();
+      
+      console.log('Geocoding response status:', data.status);
+      if (data.error_message) {
+        console.log('Geocoding error:', data.error_message);
+      }
 
       if (data.status === 'OK' && data.results.length > 0) {
         const result = data.results[0];
         const addressComponents = result.address_components;
+        
+        console.log('Formatted address:', result.formatted_address);
+        console.log('Address components:', JSON.stringify(addressComponents, null, 2));
 
         // Extract barangay, city, province
         let barangay = '';
@@ -177,9 +186,15 @@ class LocationService {
         let street = '';
 
         addressComponents.forEach((component) => {
+          // Check for barangay in multiple possible types
           if (component.types.includes('sublocality') || 
-              component.types.includes('neighborhood')) {
-            barangay = component.long_name;
+              component.types.includes('sublocality_level_1') ||
+              component.types.includes('sublocality_level_2') ||
+              component.types.includes('neighborhood') ||
+              component.types.includes('political')) {
+            if (!barangay) {
+              barangay = component.long_name;
+            }
           }
           if (component.types.includes('locality')) {
             city = component.long_name;
@@ -188,6 +203,10 @@ class LocationService {
             province = component.long_name;
           }
           if (component.types.includes('route')) {
+            street = component.long_name;
+          }
+          // Also check for street_address or premise
+          if (!street && (component.types.includes('street_address') || component.types.includes('premise'))) {
             street = component.long_name;
           }
         });

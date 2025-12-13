@@ -24,9 +24,10 @@ import locationService from '../../services/locationService';
 import {mapStyles} from '../../css/mapStyles';
 import {globalStyles} from '../../css/globalStyles';
 import {db} from '../../config/firebase';
-import {collection, query, where, getDocs} from 'firebase/firestore';
+import {collection, query, where, onSnapshot} from 'firebase/firestore';
 import {useNotifications} from '../../context/NotificationContext';
 import {useTheme} from '../../context/ThemeContext';
+import FastImage from 'react-native-fast-image';
 
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
 
@@ -51,12 +52,84 @@ const ClientHomeScreen = ({navigation}) => {
     initializeScreen();
   }, []);
 
-  // Reload providers when category changes
+  // Real-time listener for providers
   useEffect(() => {
-    if (userLocation) {
-      loadNearbyProviders(userLocation);
-    }
-  }, [selectedCategory]);
+    // Query all providers
+    const providersQuery = query(
+      collection(db, 'users'),
+      where('role', '==', 'PROVIDER')
+    );
+
+    const unsubscribe = onSnapshot(providersQuery, (snapshot) => {
+      const providersList = [];
+      
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        
+        // Check if provider is approved
+        const isApproved = data.providerStatus === 'approved' || data.status === 'approved';
+        if (!isApproved) return;
+        
+        // Only show online providers
+        if (!data.isOnline) return;
+        
+        // Filter by category if selected
+        if (selectedCategory && data.serviceCategory !== selectedCategory) return;
+        
+        // Calculate distance
+        let distance = null;
+        const providerLat = data.latitude;
+        const providerLng = data.longitude;
+        
+        if (userLocation && providerLat && providerLng) {
+          distance = calculateDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            providerLat,
+            providerLng
+          );
+        }
+        
+        providersList.push({
+          id: doc.id,
+          name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'Provider',
+          email: data.email,
+          phone: data.phone,
+          serviceCategory: data.serviceCategory,
+          profilePhoto: data.profilePhoto,
+          latitude: providerLat || (userLocation ? userLocation.latitude + (Math.random() - 0.5) * 0.02 : region.latitude),
+          longitude: providerLng || (userLocation ? userLocation.longitude + (Math.random() - 0.5) * 0.02 : region.longitude),
+          rating: data.rating || null,
+          reviewCount: data.reviewCount || 0,
+          distance: distance !== null ? distance.toFixed(1) : null,
+          hasRealLocation: !!(providerLat && providerLng),
+          priceType: data.priceType || 'per_job',
+          fixedPrice: data.fixedPrice || 0,
+          hourlyRate: data.hourlyRate || data.fixedPrice || 200,
+          isOnline: data.isOnline || false,
+          bio: data.bio || '',
+          barangay: data.barangay,
+          ...data,
+        });
+      });
+      
+      // Sort by distance
+      providersList.sort((a, b) => {
+        if (a.distance === null && b.distance === null) return 0;
+        if (a.distance === null) return 1;
+        if (b.distance === null) return -1;
+        return parseFloat(a.distance) - parseFloat(b.distance);
+      });
+      
+      setProviders(providersList);
+      setIsLoading(false);
+    }, (error) => {
+      console.log('Error listening to providers:', error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [selectedCategory, userLocation]);
 
   // Filter providers based on search query - memoized to prevent unnecessary re-renders
   const filteredProviders = useMemo(() => {
@@ -82,12 +155,10 @@ const ClientHomeScreen = ({navigation}) => {
         latitude: location.latitude,
         longitude: location.longitude,
       }));
-      // Load providers after getting location
-      await loadNearbyProviders(location);
     } catch (error) {
       console.error('Error initializing:', error);
-      // Still try to load providers even without location
-      await loadNearbyProviders(null);
+      // Use default location
+      setUserLocation(null);
     }
   };
 
@@ -107,84 +178,7 @@ const ClientHomeScreen = ({navigation}) => {
     }
   };
 
-  const loadNearbyProviders = async (currentLocation) => {
-    setIsLoading(true);
-    try {
-      // Fetch all providers from Firebase, then filter by status
-      const providersQuery = query(
-        collection(db, 'users'),
-        where('role', '==', 'PROVIDER')
-      );
-      
-      const querySnapshot = await getDocs(providersQuery);
-      const providersList = [];
-      
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        
-        // Check if provider is approved (check both status fields)
-        const isApproved = data.providerStatus === 'approved' || data.status === 'approved';
-        if (!isApproved) {
-          return;
-        }
-        
-        // Filter by category if selected
-        if (selectedCategory && data.serviceCategory !== selectedCategory) {
-          return;
-        }
-        
-        // Calculate distance if user location is available and provider has coordinates
-        let distance = null;
-        const providerLat = data.latitude;
-        const providerLng = data.longitude;
-        
-        if (currentLocation && providerLat && providerLng) {
-          distance = calculateDistance(
-            currentLocation.latitude,
-            currentLocation.longitude,
-            providerLat,
-            providerLng
-          );
-        }
-        
-        providersList.push({
-          id: doc.id,
-          name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'Provider',
-          email: data.email,
-          phone: data.phone,
-          serviceCategory: data.serviceCategory,
-          latitude: providerLat || (currentLocation ? currentLocation.latitude + (Math.random() - 0.5) * 0.02 : region.latitude),
-          longitude: providerLng || (currentLocation ? currentLocation.longitude + (Math.random() - 0.5) * 0.02 : region.longitude),
-          rating: data.rating || null,
-          reviewCount: data.reviewCount || 0,
-          distance: distance !== null ? distance.toFixed(1) : null,
-          hasRealLocation: !!(providerLat && providerLng),
-          // New pricing fields
-          priceType: data.priceType || 'per_job',
-          fixedPrice: data.fixedPrice || 0,
-          // Legacy support
-          hourlyRate: data.hourlyRate || data.fixedPrice || 200,
-          isOnline: data.isOnline || false,
-          bio: data.bio || '',
-          ...data,
-        });
-      });
-      
-      // Sort by distance (providers without distance go to end)
-      providersList.sort((a, b) => {
-        if (a.distance === null && b.distance === null) return 0;
-        if (a.distance === null) return 1;
-        if (b.distance === null) return -1;
-        return parseFloat(a.distance) - parseFloat(b.distance);
-      });
-      
-      setProviders(providersList);
-    } catch (error) {
-      console.error('Error loading providers:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
 
   // Calculate distance between two coordinates in km
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -253,10 +247,18 @@ const ClientHomeScreen = ({navigation}) => {
               latitude: provider.latitude,
               longitude: provider.longitude,
             }}
-            tracksViewChanges={false}
+            tracksViewChanges={!!provider.profilePhoto}
             onPress={() => handleProviderPress(provider)}>
-            <View style={mapStyles.providerMarker}>
-              <Icon name="person" size={24} color="#FFFFFF" />
+            <View style={[mapStyles.providerMarker, {overflow: 'hidden'}]}>
+              {provider.profilePhoto ? (
+                <FastImage
+                  source={{uri: provider.profilePhoto, priority: FastImage.priority.normal}}
+                  style={{width: 40, height: 40, borderRadius: 20}}
+                  resizeMode={FastImage.resizeMode.cover}
+                />
+              ) : (
+                <Icon name="person" size={24} color="#FFFFFF" />
+              )}
             </View>
           </Marker>
         ))}
@@ -356,7 +358,15 @@ const ClientHomeScreen = ({navigation}) => {
                   style={[mapStyles.providerCard, isDark && {backgroundColor: theme.colors.background, borderColor: theme.colors.border}]}
                   onPress={() => handleProviderPress(provider)}>
                   <View style={[mapStyles.providerPhoto, isDark && {backgroundColor: theme.colors.border}]}>
-                    <Icon name="person" size={32} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                    {provider.profilePhoto ? (
+                      <FastImage
+                        source={{uri: provider.profilePhoto, priority: FastImage.priority.normal}}
+                        style={{width: 56, height: 56, borderRadius: 28}}
+                        resizeMode={FastImage.resizeMode.cover}
+                      />
+                    ) : (
+                      <Icon name="person" size={32} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                    )}
                   </View>
                   <View style={mapStyles.providerInfo}>
                     <View style={{flexDirection: 'row', alignItems: 'center'}}>

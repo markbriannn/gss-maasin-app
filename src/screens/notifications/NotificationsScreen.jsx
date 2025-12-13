@@ -30,7 +30,7 @@ const READ_NOTIFICATIONS_KEY = '@read_notifications';
 const NotificationsScreen = ({navigation}) => {
   const {user, userRole} = useAuth();
   const {isDark, theme} = useTheme();
-  const {markAsRead: contextMarkAsRead, markAllAsRead: contextMarkAllAsRead} = useNotifications();
+  const {markAsRead: contextMarkAsRead, markAllAsRead: contextMarkAllAsRead, readNotificationIds: contextReadIds} = useNotifications();
   const normalizedRole = userRole?.toUpperCase() || 'CLIENT';
   
   const [notifications, setNotifications] = useState([]);
@@ -44,6 +44,26 @@ const NotificationsScreen = ({navigation}) => {
   const deletedIdsRef = useRef(new Set());
   const unsubscribeRef = useRef(null);
   const swipeableRefs = useRef({});
+  
+  // Sync with context read IDs when they change
+  useEffect(() => {
+    if (contextReadIds && contextReadIds.size > 0) {
+      // Merge context read IDs with local using ref to avoid stale closure
+      const currentLocalIds = readIdsRef.current;
+      const mergedIds = new Set([...currentLocalIds, ...contextReadIds]);
+      if (mergedIds.size !== currentLocalIds.size) {
+        setReadNotificationIds(mergedIds);
+        readIdsRef.current = mergedIds;
+        // Update notifications read status
+        setNotifications(prev => 
+          prev.map(notif => ({
+            ...notif,
+            read: notif.read || mergedIds.has(notif.id)
+          }))
+        );
+      }
+    }
+  }, [contextReadIds]);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -106,6 +126,9 @@ const NotificationsScreen = ({navigation}) => {
     loadDeletedNotifications();
   }, [user?.uid, loadReadNotifications, loadDeletedNotifications]);
 
+  // Track if we're using generated notifications (fallback mode)
+  const usingGeneratedRef = useRef(false);
+
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -131,6 +154,7 @@ const NotificationsScreen = ({navigation}) => {
     const handleError = (error) => {
       console.log('Error listening to notifications:', error?.message || error);
       // Fallback to generated notifications if collection doesn't exist
+      usingGeneratedRef.current = true;
       generateNotifications();
     };
 
@@ -138,6 +162,14 @@ const NotificationsScreen = ({navigation}) => {
       unsubscribeRef.current = onSnapshot(
         q, 
         (snapshot) => {
+          // If snapshot is empty, use generated notifications
+          if (snapshot.empty) {
+            usingGeneratedRef.current = true;
+            generateNotifications();
+            return;
+          }
+          
+          usingGeneratedRef.current = false;
           // Use ref to get current read IDs without causing re-subscription
           const currentReadIds = readIdsRef.current;
           const notificationsList = snapshot.docs.map(docSnap => ({
@@ -174,6 +206,9 @@ const NotificationsScreen = ({navigation}) => {
       setIsLoading(true);
       const notificationsList = [];
 
+      // Use ref for current read IDs
+      const currentReadIds = readIdsRef.current;
+      
       if (normalizedRole === 'ADMIN') {
         // Admin: pending providers
         const pendingProvidersQuery = query(
@@ -193,7 +228,7 @@ const NotificationsScreen = ({navigation}) => {
             title: 'New Provider Registration',
             message: `${data.firstName || ''} ${data.lastName || ''} applied as ${data.serviceCategory || 'Service Provider'}`,
             time: formatTime(data.createdAt),
-            read: readNotificationIds.has(notifId),
+            read: currentReadIds.has(notifId),
             providerId: docSnap.id,
           });
         });
@@ -218,7 +253,7 @@ const NotificationsScreen = ({navigation}) => {
                 ? `${data.serviceCategory || 'Service'} - Client offers ₱${(data.offeredPrice || 0).toLocaleString()}`
                 : `${data.serviceCategory || 'Service'} - ${data.title || data.description || 'No description'}`,
               time: formatTime(data.createdAt),
-              read: readNotificationIds.has(notifId),
+              read: currentReadIds.has(notifId),
               jobId: docSnap.id,
             });
           }
@@ -245,7 +280,7 @@ const NotificationsScreen = ({navigation}) => {
                 ? `Client offers ₱${(data.offeredPrice || 0).toLocaleString()} for ${data.serviceCategory || 'service'}`
                 : `${data.clientName || 'Client'} needs ${data.serviceCategory || 'service'}`,
               time: formatTime(data.createdAt),
-              read: readNotificationIds.has(notifId),
+              read: currentReadIds.has(notifId),
               jobId: docSnap.id,
             });
           }
@@ -270,7 +305,7 @@ const NotificationsScreen = ({navigation}) => {
               title: 'Job Accepted',
               message: `Your ${data.serviceCategory || 'service'} request has been accepted`,
               time: formatTime(data.acceptedAt || data.updatedAt),
-              read: readNotificationIds.has(notifId),
+              read: currentReadIds.has(notifId),
               jobId: docSnap.id,
             });
           }
@@ -285,7 +320,7 @@ const NotificationsScreen = ({navigation}) => {
               title: 'Counter Offer Received!',
               message: `Provider offers ₱${(data.counterOfferPrice || 0).toLocaleString()} - Tap to respond`,
               time: formatTime(data.counterOfferAt || data.updatedAt),
-              read: readNotificationIds.has(notifId),
+              read: currentReadIds.has(notifId),
               jobId: docSnap.id,
               urgent: true,
             });
@@ -327,18 +362,19 @@ const NotificationsScreen = ({navigation}) => {
 
   const markAsRead = async (notificationId) => {
     try {
-      // Update local state
+      // Add to read set and persist FIRST
+      const newReadIds = new Set(readNotificationIds);
+      newReadIds.add(notificationId);
+      readIdsRef.current = newReadIds; // Update ref immediately
+      setReadNotificationIds(newReadIds);
+      await saveReadNotifications(newReadIds);
+
+      // Update local notifications state to show as read
       setNotifications(prev =>
         prev.map(notif =>
           notif.id === notificationId ? {...notif, read: true} : notif
         )
       );
-
-      // Add to read set and persist
-      const newReadIds = new Set(readNotificationIds);
-      newReadIds.add(notificationId);
-      setReadNotificationIds(newReadIds);
-      await saveReadNotifications(newReadIds);
 
       // Also update the context to refresh badge count
       contextMarkAsRead(notificationId);

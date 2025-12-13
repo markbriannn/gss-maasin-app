@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Green Background with rounded corners for app icon -->
+  <rect width="512" height="512" rx="90" fill="#00A651"/>
+  
+  <!-- Shadow Ring -->
+  <circle cx="256" cy="256" r="175" fill="#009245" fill-opacity="0.4"/>
+  
+  <!-- White Circle -->
+  <circle cx="256" cy="256" r="150" fill="#FFFFFF"/>
+  
+  <!-- G letter as path -->
+  <path d="M175 256C175 206 207 172 256 172C290 172 316 190 328 218L298 232C290 212 275 196 256 196C222 196 205 222 205 256C205 290 222 316 256 316C280 316 295 302 300 278H260V254H330V282C325 326 292 340 256 340C207 340 175 306 175 256Z" fill="#00A651"/>
+  
+  <!-- First S as path - simplified -->
+  <path d="M256 256 L280 230 Q295 215 315 215 Q340 215 340 240 Q340 255 320 265 L290 280 Q270 290 270 310 Q270 335 300 335 L320 335 L320 315 L300 315 Q290 315 290 305 Q290 295 310 285 L340 270 Q360 258 360 235 Q360 200 320 200 Q285 200 265 225 L256 256Z" fill="#00A651" transform="translate(-20, 0)"/>
+</svg>

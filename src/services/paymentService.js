@@ -9,8 +9,10 @@ const PAYMENT_API_URL = API_BASE_URL || 'http://localhost:3001/api';
 // Configure axios with timeout and retry
 const apiClient = axios.create({
   baseURL: PAYMENT_API_URL,
-  timeout: 30000, // 30 second timeout
+  timeout: 60000, // 60 second timeout for slow Render cold starts
 });
+
+console.log('Payment API URL:', PAYMENT_API_URL);
 
 // Helper to get user-friendly error message
 const getErrorMessage = (error) => {
@@ -41,6 +43,8 @@ const withRetry = async (fn, maxRetries = 2, delay = 1000) => {
 
 export const paymentService = {
   createGCashPayment: async (bookingId, userId, amount, description) => {
+    console.log('Creating GCash payment:', { bookingId, userId, amount, description });
+    console.log('API URL:', PAYMENT_API_URL);
     try {
       const response = await withRetry(() => 
         apiClient.post('/payments/create-gcash-source', {
@@ -51,6 +55,7 @@ export const paymentService = {
         })
       );
 
+      console.log('GCash payment response:', response.data);
       return {
         success: true,
         sourceId: response.data.sourceId,
@@ -59,6 +64,7 @@ export const paymentService = {
       };
     } catch (error) {
       console.error('Error creating GCash payment:', error);
+      console.error('Error details:', error.response?.data || error.message);
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -87,17 +93,15 @@ export const paymentService = {
   },
 
   openPaymentCheckout: async (checkoutUrl) => {
+    console.log('Opening checkout URL:', checkoutUrl);
     try {
-      const supported = await Linking.canOpenURL(checkoutUrl);
-      if (supported) {
-        await Linking.openURL(checkoutUrl);
-        return { success: true };
-      } else {
-        return { success: false, error: 'Cannot open payment URL' };
-      }
+      // Try to open directly without checking canOpenURL (more reliable on Android)
+      await Linking.openURL(checkoutUrl);
+      return { success: true, checkoutUrl };
     } catch (error) {
       console.error('Error opening checkout:', error);
-      return { success: false, error: error.message };
+      // Return the URL so user can copy it manually if needed
+      return { success: false, error: error.message, checkoutUrl };
     }
   },
 
@@ -114,6 +118,23 @@ export const paymentService = {
     } catch (error) {
       console.error('Error checking payment status:', error);
       return { success: false, error: error.message };
+    }
+  },
+
+  // Verify and process payment (fallback when webhook fails)
+  verifyAndProcessPayment: async (bookingId) => {
+    console.log('Verifying payment for booking:', bookingId);
+    try {
+      const response = await apiClient.post(`/payments/verify-and-process/${bookingId}`);
+      console.log('Verify payment response:', response.data);
+      return {
+        success: true,
+        status: response.data.status,
+        message: response.data.message,
+      };
+    } catch (error) {
+      console.error('Error verifying payment:', error);
+      return { success: false, error: error.response?.data?.error || error.message };
     }
   },
 

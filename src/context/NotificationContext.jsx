@@ -49,12 +49,22 @@ export const NotificationProvider = ({children}) => {
     const currentReadIds = readIdsRef.current;
 
     if (normalizedRole === 'CLIENT') {
-      const unreadDocs = notificationDocsRef.current.bookings.filter(doc => {
-        const notifId = `accepted_${doc.id}`;
-        const notifId2 = `counter_${doc.id}`;
-        return !currentReadIds.has(notifId) && !currentReadIds.has(notifId2);
+      // Count each booking only once - check if ANY of its notification IDs are read
+      let unreadCount = 0;
+      notificationDocsRef.current.bookings.forEach(doc => {
+        const data = doc.data();
+        // Generate the notification ID based on status
+        let notifId;
+        if (data.status === 'counter_offer') {
+          notifId = `counter_${doc.id}`;
+        } else {
+          notifId = `accepted_${doc.id}`;
+        }
+        if (!currentReadIds.has(notifId)) {
+          unreadCount++;
+        }
       });
-      setUnreadCount(unreadDocs.length);
+      setUnreadCount(unreadCount);
     } else if (normalizedRole === 'PROVIDER') {
       const availableJobs = notificationDocsRef.current.jobs.filter(doc => {
         const data = doc.data();
@@ -114,17 +124,17 @@ export const NotificationProvider = ({children}) => {
 
   // Cleanup function for listeners
   const cleanupListeners = useCallback(() => {
-    if (unsubscribersRef.current.length > 0) {
-      unsubscribersRef.current.forEach(unsub => {
-        try {
+    unsubscribersRef.current.forEach(unsub => {
+      try {
+        if (typeof unsub === 'function') {
           unsub();
-        } catch (e) {
-          // Silently handle cleanup errors
         }
-      });
-      unsubscribersRef.current = [];
-      isListenerActiveRef.current = false;
-    }
+      } catch (e) {
+        // Silently handle cleanup errors
+      }
+    });
+    unsubscribersRef.current = [];
+    isListenerActiveRef.current = false;
   }, []);
 
   // Real-time Firestore listener for notification counts
@@ -135,13 +145,13 @@ export const NotificationProvider = ({children}) => {
       return;
     }
 
-    // Prevent duplicate listeners
-    if (isListenerActiveRef.current) {
-      return;
-    }
+    // Clean up existing listeners before creating new ones
+    cleanupListeners();
 
     const normalizedRole = userRole?.toUpperCase() || 'CLIENT';
     isListenerActiveRef.current = true;
+    
+    console.log('Setting up notification listener for role:', normalizedRole, 'user:', user.uid);
 
     // Error handler for Firestore listeners
     const handleError = (error) => {
@@ -151,26 +161,38 @@ export const NotificationProvider = ({children}) => {
 
     try {
       if (normalizedRole === 'CLIENT') {
-        // Client: count bookings with updates (accepted, in_progress, counter_offer)
+        // Client: count bookings with updates (all active statuses)
         const bookingsQuery = query(
           collection(db, 'bookings'),
           where('clientId', '==', user.uid),
-          where('status', 'in', ['accepted', 'in_progress', 'traveling', 'counter_offer'])
+          where('status', 'in', ['accepted', 'in_progress', 'traveling', 'arrived', 'pending_completion', 'counter_offer'])
         );
         
         const unsub = onSnapshot(
           bookingsQuery, 
           (snapshot) => {
+            console.log('Client bookings snapshot received:', snapshot.docs.length, 'docs');
             // Store docs in ref for recalculation
             notificationDocsRef.current.bookings = snapshot.docs;
             // Use ref to get current read IDs without causing re-subscription
             const currentReadIds = readIdsRef.current;
-            const unreadDocs = snapshot.docs.filter(doc => {
-              const notifId = `accepted_${doc.id}`;
-              const notifId2 = `counter_${doc.id}`;
-              return !currentReadIds.has(notifId) && !currentReadIds.has(notifId2);
+            // Count each booking only once based on its status
+            let unreadCount = 0;
+            snapshot.docs.forEach(doc => {
+              const data = doc.data();
+              // Generate the notification ID based on status
+              let notifId;
+              if (data.status === 'counter_offer') {
+                notifId = `counter_${doc.id}`;
+              } else {
+                notifId = `accepted_${doc.id}`;
+              }
+              if (!currentReadIds.has(notifId)) {
+                unreadCount++;
+              }
             });
-            setUnreadCount(unreadDocs.length);
+            console.log('Client unread count:', unreadCount);
+            setUnreadCount(unreadCount);
           },
           handleError
         );
@@ -348,6 +370,9 @@ export const NotificationProvider = ({children}) => {
           : notification
       )
     );
+    
+    // Immediately recalculate unread count
+    recalculateUnreadCount();
     
     notificationService.setBadgeCount(Math.max(0, unreadCount - 1));
   };

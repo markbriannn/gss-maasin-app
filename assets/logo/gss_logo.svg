@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="256" cy="256" r="240" fill="#00B14F"/>
+  
+  <!-- Inner Circle (lighter) -->
+  <circle cx="256" cy="256" r="200" fill="#00C853"/>
+  
+  <!-- Wrench Icon -->
+  <path d="M320 160C320 160 340 140 380 140C390 140 400 142 408 146L360 194L366 230L402 236L450 188C454 196 456 206 456 216C456 256 436 276 436 276L340 372C340 372 320 392 280 392C240 392 220 372 220 372L124 276C124 276 104 256 104 216C104 176 124 156 124 156L220 60C220 60 240 40 280 40C320 40 340 60 340 60L280 120L286 156L322 162L320 160Z" fill="white"/>
+  
+  <!-- Checkmark Circle -->
+  <circle cx="340" cy="340" r="80" fill="white"/>
+  <circle cx="340" cy="340" r="65" fill="#00B14F"/>
+  
+  <!-- Checkmark -->
+  <path d="M310 340L330 360L375 315" stroke="white" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  
+  <!-- GSS Text -->
+  <text x="256" y="480" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="white" text-anchor="middle">GSS</text>
+</svg>

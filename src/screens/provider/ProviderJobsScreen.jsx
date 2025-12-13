@@ -95,6 +95,7 @@ const ProviderJobsScreen = ({navigation}) => {
               location: fullLocation,
               description: data.description || '',
               createdAt: data.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown',
+              createdAtRaw: data.createdAt?.toDate?.() || new Date(0),
               // Media files from client
               mediaFiles: data.mediaFiles || [],
               hasMedia: (data.mediaFiles && data.mediaFiles.length > 0),
@@ -109,6 +110,8 @@ const ProviderJobsScreen = ({navigation}) => {
             });
           }
         }
+        // Sort by newest first
+        jobsList.sort((a, b) => b.createdAtRaw - a.createdAtRaw);
       } else if (activeTab === 'my_jobs') {
         // Fetch jobs assigned to this provider that are active
         const jobsQuery = query(
@@ -152,14 +155,17 @@ const ProviderJobsScreen = ({navigation}) => {
             category: data.category || data.serviceCategory || 'General',
             status: data.status,
             client: clientInfo,
-            amount: data.amount || data.price || 0,
+            amount: data.totalAmount || data.providerPrice || data.amount || data.price || 0,
             scheduledDate: data.scheduledDate || 'TBD',
             scheduledTime: data.scheduledTime || 'TBD',
             location: fullLocation,
             description: data.description || '',
             createdAt: data.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown',
+            createdAtRaw: data.createdAt?.toDate?.() || new Date(0),
           });
         }
+        // Sort by newest first
+        jobsList.sort((a, b) => b.createdAtRaw - a.createdAtRaw);
       } else {
         // Completed jobs
         const jobsQuery = query(
@@ -203,12 +209,15 @@ const ProviderJobsScreen = ({navigation}) => {
             category: data.category || data.serviceCategory || 'General',
             status: data.status,
             client: clientInfo,
-            amount: data.amount || data.price || 0,
+            amount: data.totalAmount || data.providerPrice || data.amount || data.price || 0,
             scheduledDate: data.scheduledDate || 'TBD',
             location: fullLocation,
             completedAt: data.completedAt?.toDate?.()?.toLocaleDateString() || 'Unknown',
+            completedAtRaw: data.completedAt?.toDate?.() || new Date(0),
           });
         }
+        // Sort by newest completed first
+        jobsList.sort((a, b) => b.completedAtRaw - a.completedAtRaw);
       }
 
       setJobs(jobsList);
@@ -470,7 +479,7 @@ const ProviderJobsScreen = ({navigation}) => {
           </View>
         )}
         
-        {activeTab === 'my_jobs' && (
+        {activeTab === 'my_jobs' && job.status === 'in_progress' && (
           <TouchableOpacity
             style={{
               backgroundColor: '#3B82F6',
@@ -481,6 +490,20 @@ const ProviderJobsScreen = ({navigation}) => {
             onPress={() => handleCompleteJob(job)}
           >
             <Text style={{color: '#FFFFFF', fontWeight: '600'}}>Complete</Text>
+          </TouchableOpacity>
+        )}
+        
+        {activeTab === 'my_jobs' && job.status !== 'in_progress' && (
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#E5E7EB',
+              paddingHorizontal: 20,
+              paddingVertical: 10,
+              borderRadius: 8,
+            }}
+            onPress={() => navigation.navigate('ProviderJobDetails', {jobId: job.id, job})}
+          >
+            <Text style={{color: '#6B7280', fontWeight: '600'}}>View Details</Text>
           </TouchableOpacity>
         )}
       </View>

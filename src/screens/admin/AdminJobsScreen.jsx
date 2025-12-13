@@ -153,6 +153,7 @@ const AdminJobsScreen = ({navigation, route}) => {
             location: data.location || data.address || 'Not specified',
             description: data.description || data.notes || '',
             createdAt: data.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown',
+            createdAtRaw: data.createdAt?.toDate?.() || new Date(0),
             completedAt: data.completedAt?.toDate?.()?.toLocaleDateString() || null,
             cancelReason: data.cancelReason || null,
             disputeReason: data.disputeReason || null,
@@ -175,6 +176,9 @@ const AdminJobsScreen = ({navigation, route}) => {
           };
         })
       );
+
+      // Sort by newest first (descending by created date)
+      jobsList.sort((a, b) => b.createdAtRaw - a.createdAtRaw);
 
       setAllJobs(jobsList);
       setJobs(jobsList);

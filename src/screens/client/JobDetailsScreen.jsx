@@ -49,23 +49,28 @@ const JobDetailsScreen = ({navigation, route}) => {
       if (
         appState.current.match(/inactive|background/) &&
         nextAppState === 'active' &&
-        jobData?.status === 'pending_payment'
+        (jobData?.status === 'pending_payment' || jobData?.status === 'pending_completion')
       ) {
-        // App came back to foreground, check if payment was completed
+        // App came back to foreground, verify and process payment
         setIsCheckingPayment(true);
         const bookingId = jobData.id || jobId;
         
         try {
-          const result = await paymentService.checkPaymentStatus(bookingId);
+          // Use verify-and-process to handle webhook failures
+          const result = await paymentService.verifyAndProcessPayment(bookingId);
+          console.log('Payment verification result:', result);
+          
           if (result.success && result.status === 'paid') {
-            // Payment was successful, the webhook should have updated the booking
             setPaymentError(null);
             Alert.alert('Payment Successful', 'Your payment has been processed successfully!');
-          } else if (result.success && result.status === 'failed') {
-            setPaymentError('Payment failed. Please try again.');
+          } else if (result.status === 'failed') {
+            setPaymentError('Payment failed or expired. Please try again.');
+          } else if (result.status === 'pending') {
+            // Still pending, user might not have completed payment
+            console.log('Payment still pending');
           }
         } catch (error) {
-          console.log('Payment status check error:', error);
+          console.log('Payment verification error:', error);
         } finally {
           setIsCheckingPayment(false);
         }
@@ -95,32 +100,12 @@ const JobDetailsScreen = ({navigation, route}) => {
     setIsLoading(true);
     const unsubscribe = onSnapshot(
       doc(db, 'bookings', docId),
-      async (docSnap) => {
+      (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           
-          // Fetch provider info
-          let providerInfo = null;
-          if (data.providerId) {
-            try {
-              const providerDoc = await getDoc(doc(db, 'users', data.providerId));
-              if (providerDoc.exists()) {
-                const pData = providerDoc.data();
-                providerInfo = {
-                  id: providerDoc.id,
-                  name: `${pData.firstName || ''} ${pData.lastName || ''}`.trim() || data.providerName || 'Provider',
-                  phone: pData.phone,
-                  photo: pData.profilePhoto,
-                  rating: pData.rating || null,
-                  reviewCount: pData.reviewCount || 0,
-                };
-              }
-            } catch (e) {
-              console.log('Error fetching provider:', e);
-            }
-          }
-
-          setJobData({
+          setJobData(prev => ({
+            ...prev,
             ...data,
             id: docSnap.id,
             title: data.title || data.serviceCategory,
@@ -132,14 +117,12 @@ const JobDetailsScreen = ({navigation, route}) => {
             price: data.totalAmount || data.price,
             address: data.address,
             mediaFiles: data.mediaFiles || [],
-            provider: providerInfo,
-            // Ensure counter offer fields are included
             counterOfferPrice: data.counterOfferPrice,
             counterOfferNote: data.counterOfferNote,
             offeredPrice: data.offeredPrice,
             isNegotiable: data.isNegotiable,
             createdAt: data.createdAt?.toDate?.()?.toLocaleDateString() || new Date().toLocaleDateString(),
-          });
+          }));
         }
         setIsLoading(false);
       },
@@ -152,12 +135,45 @@ const JobDetailsScreen = ({navigation, route}) => {
     return () => unsubscribe();
   }, [jobId, job?.id]);
 
+  // Real-time listener for provider info (separate so photo updates in real-time)
+  useEffect(() => {
+    const providerId = jobData?.providerId || job?.providerId;
+    if (!providerId) return;
+
+    const unsubscribe = onSnapshot(
+      doc(db, 'users', providerId),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const pData = docSnap.data();
+          setJobData(prev => ({
+            ...prev,
+            provider: {
+              id: docSnap.id,
+              name: `${pData.firstName || ''} ${pData.lastName || ''}`.trim() || prev?.provider?.name || 'Provider',
+              phone: pData.phone,
+              photo: pData.profilePhoto,
+              rating: pData.rating || null,
+              reviewCount: pData.reviewCount || 0,
+            },
+          }));
+        }
+      },
+      (error) => {
+        console.log('Error listening to provider:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [jobData?.providerId, job?.providerId]);
+
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case 'pending': return '#F59E0B';
       case 'pending_negotiation': return '#F59E0B';
       case 'counter_offer': return '#8B5CF6';
       case 'accepted': return '#3B82F6';
+      case 'traveling': return '#3B82F6';
+      case 'arrived': return '#10B981';
       case 'in_progress': return '#8B5CF6';
       case 'completed': return '#10B981';
       case 'cancelled': return '#EF4444';
@@ -172,6 +188,8 @@ const JobDetailsScreen = ({navigation, route}) => {
       case 'pending_negotiation': return 'Offer Sent';
       case 'counter_offer': return 'Counter Offer Received';
       case 'accepted': return 'Accepted';
+      case 'traveling': return 'Provider On The Way';
+      case 'arrived': return 'Provider Arrived';
       case 'in_progress': return 'In Progress';
       case 'completed': return 'Completed';
       case 'cancelled': return 'Cancelled';
@@ -277,7 +295,10 @@ const JobDetailsScreen = ({navigation, route}) => {
 
   // Process payment based on selected method
   const processPayment = async (method) => {
-    const amount = jobData?.totalAmount || jobData?.amount || 0;
+    // Calculate total including approved additional charges
+    const baseAmount = jobData?.totalAmount || jobData?.amount || 0;
+    const additionalChargesTotal = jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || 0), 0) || 0;
+    const amount = baseAmount + additionalChargesTotal;
     const bookingId = jobData.id || jobId;
     const userId = user?.uid || user?.id;
 
@@ -337,8 +358,14 @@ const JobDetailsScreen = ({navigation, route}) => {
               [{text: 'OK'}]
             );
           } else {
-            setPaymentError('Could not open payment page. Please try again.');
-            Alert.alert('Error', 'Could not open payment page. Please try again.');
+            // Show URL so user can copy it manually
+            Alert.alert(
+              'Open in Browser',
+              `Could not open automatically. Please copy this link and open in your browser:\n\n${result.checkoutUrl}`,
+              [
+                {text: 'OK'},
+              ]
+            );
           }
         } else {
           setPaymentError(result.error || 'Failed to create payment');
@@ -589,6 +616,41 @@ const JobDetailsScreen = ({navigation, route}) => {
           </Text>
         </View>
 
+        {/* Provider Traveling Banner - Prominent tracking CTA */}
+        {(jobData.status === 'traveling' || jobData.status === 'arrived') && (
+          <TouchableOpacity 
+            style={{
+              backgroundColor: jobData.status === 'traveling' ? '#3B82F6' : '#10B981',
+              marginHorizontal: 16,
+              marginTop: 8,
+              padding: 16,
+              borderRadius: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}
+            onPress={() => navigation.navigate('Tracking', {
+              jobId: jobData.id || jobId,
+              job: jobData,
+            })}>
+            <View style={{
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              padding: 10,
+              borderRadius: 12,
+            }}>
+              <Icon name={jobData.status === 'traveling' ? 'car' : 'checkmark-circle'} size={24} color="#FFFFFF" />
+            </View>
+            <View style={{flex: 1, marginLeft: 12}}>
+              <Text style={{fontSize: 15, fontWeight: '700', color: '#FFFFFF'}}>
+                {jobData.status === 'traveling' ? 'Provider is on the way!' : 'Provider has arrived!'}
+              </Text>
+              <Text style={{fontSize: 13, color: 'rgba(255,255,255,0.9)', marginTop: 2}}>
+                Tap to track their location in real-time
+              </Text>
+            </View>
+            <Icon name="chevron-forward" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        )}
+
         {/* Admin Review Banner - Show when pending and not yet approved */}
         {!jobData.adminApproved && (jobData.status === 'pending' || jobData.status === 'pending_negotiation') && (
           <View style={{
@@ -694,15 +756,39 @@ const JobDetailsScreen = ({navigation, route}) => {
             
             {/* Contact Buttons - Only show after admin approval */}
             {jobData.adminApproved ? (
-              <View style={styles.contactButtons}>
-                <TouchableOpacity style={styles.contactButtonLarge} onPress={handleCallProvider}>
-                  <Icon name="call" size={20} color="#00B14F" />
-                  <Text style={styles.contactButtonTextLarge}>Call</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.contactButtonLarge} onPress={handleMessageProvider}>
-                  <Icon name="chatbubble" size={20} color="#00B14F" />
-                  <Text style={styles.contactButtonTextLarge}>Message</Text>
-                </TouchableOpacity>
+              <View>
+                <View style={styles.contactButtons}>
+                  <TouchableOpacity style={styles.contactButtonLarge} onPress={handleCallProvider}>
+                    <Icon name="call" size={20} color="#00B14F" />
+                    <Text style={styles.contactButtonTextLarge}>Call</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.contactButtonLarge} onPress={handleMessageProvider}>
+                    <Icon name="chatbubble" size={20} color="#00B14F" />
+                    <Text style={styles.contactButtonTextLarge}>Message</Text>
+                  </TouchableOpacity>
+                </View>
+                {/* Track Provider Button - Show when traveling or arrived */}
+                {(jobData.status === 'traveling' || jobData.status === 'arrived') && (
+                  <TouchableOpacity 
+                    style={{
+                      backgroundColor: '#3B82F6',
+                      borderRadius: 12,
+                      paddingVertical: 14,
+                      marginTop: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    onPress={() => navigation.navigate('Tracking', {
+                      jobId: jobData.id || jobId,
+                      job: jobData,
+                    })}>
+                    <Icon name="location" size={20} color="#FFFFFF" />
+                    <Text style={{color: '#FFFFFF', fontWeight: '600', fontSize: 15, marginLeft: 8}}>
+                      {jobData.status === 'traveling' ? 'Track Provider Location' : 'View Provider Location'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ) : (
               <View style={{
@@ -772,6 +858,34 @@ const JobDetailsScreen = ({navigation, route}) => {
                   ₱{(jobData.providerPrice || jobData.offeredPrice || jobData.price || 0).toLocaleString()}
                 </Text>
               </View>
+
+              {/* Show discount if applied */}
+              {jobData.hasDiscount && jobData.discountAmount > 0 && (
+                <View style={{
+                  backgroundColor: '#D1FAE5',
+                  borderRadius: 8,
+                  padding: 10,
+                  marginBottom: 8,
+                }}>
+                  <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                      <Icon name="pricetag" size={16} color="#059669" />
+                      <Text style={{fontSize: 13, color: '#065F46', marginLeft: 6, fontWeight: '600'}}>
+                        Provider Discount
+                      </Text>
+                    </View>
+                    <Text style={{fontSize: 14, fontWeight: '700', color: '#059669'}}>
+                      -₱{jobData.discountAmount.toLocaleString()}
+                    </Text>
+                  </View>
+                  {jobData.discountReason && (
+                    <Text style={{fontSize: 12, color: '#065F46', marginTop: 4, fontStyle: 'italic'}}>
+                      "{jobData.discountReason}"
+                    </Text>
+                  )}
+                </View>
+              )}
+
               <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
                 <Text style={{fontSize: 14, color: '#4B5563'}}>System Fee (5%)</Text>
                 <Text style={{fontSize: 14, fontWeight: '600', color: '#1F2937'}}>
@@ -1022,19 +1136,80 @@ const JobDetailsScreen = ({navigation, route}) => {
                 Please confirm if you're satisfied with the work to proceed to payment.
               </Text>
             </View>
+
+            {/* Show pending additional charges that need approval */}
+            {jobData.additionalCharges?.some(c => c.status === 'pending') && (
+              <View style={{
+                backgroundColor: '#FEE2E2',
+                padding: 16,
+                borderRadius: 12,
+                marginBottom: 16,
+                borderWidth: 1,
+                borderColor: '#FECACA',
+              }}>
+                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
+                  <Icon name="alert-circle" size={20} color="#DC2626" />
+                  <Text style={{fontSize: 14, fontWeight: '600', color: '#991B1B', marginLeft: 8}}>
+                    Additional Charges Pending
+                  </Text>
+                </View>
+                <Text style={{fontSize: 13, color: '#DC2626', marginBottom: 12}}>
+                  The provider has requested additional charges. Please review and approve or reject before confirming completion.
+                </Text>
+                {jobData.additionalCharges.filter(c => c.status === 'pending').map((charge, index) => (
+                  <View key={charge.id || index} style={{
+                    backgroundColor: '#FFFFFF',
+                    padding: 12,
+                    borderRadius: 8,
+                    marginBottom: 8,
+                  }}>
+                    <Text style={{fontSize: 13, color: '#374151', marginBottom: 4}}>{charge.reason}</Text>
+                    <Text style={{fontSize: 16, fontWeight: '700', color: '#DC2626'}}>
+                      +₱{charge.total?.toLocaleString()}
+                    </Text>
+                    <View style={{flexDirection: 'row', marginTop: 10, gap: 8}}>
+                      <TouchableOpacity 
+                        style={{
+                          flex: 1,
+                          backgroundColor: '#FEE2E2',
+                          paddingVertical: 10,
+                          borderRadius: 8,
+                          alignItems: 'center',
+                        }}
+                        onPress={() => handleRejectAdditional(charge.id)}>
+                        <Text style={{fontSize: 14, color: '#DC2626', fontWeight: '600'}}>Reject</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={{
+                          flex: 1,
+                          backgroundColor: '#D1FAE5',
+                          paddingVertical: 10,
+                          borderRadius: 8,
+                          alignItems: 'center',
+                        }}
+                        onPress={() => handleApproveAdditional(charge.id)}>
+                        <Text style={{fontSize: 14, color: '#059669', fontWeight: '600'}}>Approve</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
             <TouchableOpacity 
               style={{
-                backgroundColor: '#10B981',
+                backgroundColor: jobData.hasAdditionalPending ? '#9CA3AF' : '#10B981',
                 borderRadius: 12,
                 paddingVertical: 16,
                 alignItems: 'center',
                 flexDirection: 'row',
                 justifyContent: 'center',
               }}
+              disabled={jobData.hasAdditionalPending}
               onPress={handleConfirmCompletion}>
               <Icon name="checkmark-circle" size={20} color="#FFFFFF" />
               <Text style={{color: '#FFFFFF', fontWeight: '600', fontSize: 16, marginLeft: 8}}>
-                Confirm & Proceed to Pay
+                {jobData.hasAdditionalPending ? 'Review Additional Charges First' : 'Confirm & Proceed to Pay'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1095,7 +1270,10 @@ const JobDetailsScreen = ({navigation, route}) => {
                 Payment Required
               </Text>
               <Text style={{fontSize: 22, fontWeight: '700', color: '#1E40AF', marginTop: 8}}>
-                ₱{(jobData?.totalAmount || jobData?.amount || 0).toLocaleString()}
+                ₱{(
+                  (jobData?.totalAmount || jobData?.amount || 0) +
+                  (jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || 0), 0) || 0)
+                ).toLocaleString()}
               </Text>
               <Text style={{fontSize: 13, color: '#3B82F6', marginTop: 4, textAlign: 'center'}}>
                 Please pay the provider to complete this job.
