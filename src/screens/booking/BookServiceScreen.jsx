@@ -24,7 +24,7 @@ import {jobService} from '../../services/jobService';
 import {useAuth} from '../../context/AuthContext';
 import {useTheme} from '../../context/ThemeContext';
 import smsEmailService from '../../services/smsEmailService';
-import {sendBookingConfirmationEmail} from '../../services/emailService';
+import {sendBookingConfirmation} from '../../services/emailJSService';
 
 const BookServiceScreen = ({navigation, route}) => {
   const {user} = useAuth();
@@ -311,17 +311,15 @@ const BookServiceScreen = ({navigation, route}) => {
         {name: displayProviderName || 'Provider'}
       ).catch(err => console.log('SMS/Email notification failed:', err));
       
-      // Send booking confirmation email via Resend (async)
+      // Send booking confirmation email via EmailJS (async)
       if (user?.email) {
-        sendBookingConfirmationEmail(user.email, {
-          id: createdJob?.id || 'N/A',
+        sendBookingConfirmation(user.email, jobData.clientName, {
           serviceCategory: jobData.serviceCategory,
           title: jobData.title,
           scheduledDate: jobData.scheduledDate,
           scheduledTime: jobData.scheduledTime,
           providerName: displayProviderName || 'Provider',
           totalAmount: totalAmount,
-          clientName: jobData.clientName,
         }).catch(err => console.log('Email notification failed:', err));
       }
       

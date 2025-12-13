@@ -24,7 +24,7 @@ import Video from 'react-native-video';
 import notificationService from '../../services/notificationService';
 import smsEmailService from '../../services/smsEmailService';
 import locationService from '../../services/locationService';
-import {sendJobAcceptedEmail, sendPaymentReceiptEmail} from '../../services/emailService';
+import {sendJobAcceptedEmail, sendPaymentReceipt} from '../../services/emailJSService';
 
 const {width: SCREEN_WIDTH, height: SCREEN_HEIGHT} = Dimensions.get('window');
 
@@ -375,11 +375,11 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                 smsEmailService.notifyJobAccepted(jobData, jobData.client, {name: user?.firstName || 'Provider'})
                   .catch(err => console.log('SMS notification failed:', err));
                 
-                // Send email notification via Resend (async)
+                // Send email notification via EmailJS (async)
                 const clientEmail = jobData.client?.email;
+                const clientName = jobData.client?.name || 'Client';
                 if (clientEmail) {
-                  sendJobAcceptedEmail(clientEmail, {
-                    id: jobData.id || jobId,
+                  sendJobAcceptedEmail(clientEmail, clientName, {
                     title: jobData.title || jobData.serviceCategory,
                     serviceCategory: jobData.serviceCategory,
                     scheduledDate: jobData.scheduledDate,
@@ -856,16 +856,16 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                 smsEmailService.notifyJobCompleted(jobData, jobData.client, {name: user?.firstName || 'Provider'})
                   .catch(err => console.log('SMS/Email notification failed:', err));
                 
-                // Send payment receipt email via Resend (async)
+                // Send payment receipt email via EmailJS (async)
                 const clientEmail = jobData.client?.email;
+                const clientName = jobData.client?.name || 'Client';
                 if (clientEmail) {
-                  sendPaymentReceiptEmail(clientEmail, {
+                  sendPaymentReceipt(clientEmail, clientName, {
                     bookingId: jobData.id || jobId,
                     serviceName: jobData.title || jobData.serviceCategory,
                     providerName: user?.firstName || 'Provider',
                     amount: jobData.totalAmount || jobData.providerPrice || 0,
                     paymentMethod: jobData.paymentMethod || 'Cash',
-                    paidAt: new Date().toISOString(),
                   }).catch(err => console.log('Payment receipt email failed:', err));
                 }
               }
