@@ -432,18 +432,31 @@ router.get('/payment-status/:bookingId', async (req, res) => {
     const { bookingId } = req.params;
 
     const db = getDb();
+    
+    // Query without orderBy to avoid needing composite index
     const paymentsSnapshot = await db
       .collection('payments')
       .where('bookingId', '==', bookingId)
-      .orderBy('createdAt', 'desc')
-      .limit(1)
       .get();
 
     if (paymentsSnapshot.empty) {
       return res.json({ status: 'not_found' });
     }
 
-    const payment = paymentsSnapshot.docs[0].data();
+    // Sort manually to get the most recent payment
+    const payments = paymentsSnapshot.docs.map(doc => ({
+      ...doc.data(),
+      id: doc.id,
+    }));
+    
+    // Sort by createdAt descending (most recent first)
+    payments.sort((a, b) => {
+      const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt) || new Date(0);
+      const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt) || new Date(0);
+      return dateB - dateA;
+    });
+
+    const payment = payments[0];
 
     res.json({
       status: payment.status,
