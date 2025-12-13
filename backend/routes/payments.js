@@ -78,23 +78,26 @@ router.post('/create-gcash-source', async (req, res) => {
 
     const db = getDb();
 
-    // Check for existing pending payment for this booking
-    const existingPayments = await db.collection('payments')
-      .where('bookingId', '==', bookingId)
-      .where('status', '==', 'pending')
-      .get();
+    // Check for existing pending payment for this booking (single where to avoid composite index)
+    try {
+      const existingPayments = await db.collection('payments')
+        .where('bookingId', '==', bookingId)
+        .get();
 
-    if (!existingPayments.empty) {
-      // Return existing checkout URL if payment is still pending
-      const existingPayment = existingPayments.docs[0].data();
-      if (existingPayment.checkoutUrl) {
+      const pendingPayment = existingPayments.docs
+        .map(doc => doc.data())
+        .find(p => p.status === 'pending' && p.checkoutUrl);
+
+      if (pendingPayment) {
         return res.json({
-          sourceId: existingPayment.sourceId,
-          checkoutUrl: existingPayment.checkoutUrl,
+          sourceId: pendingPayment.sourceId,
+          checkoutUrl: pendingPayment.checkoutUrl,
           status: 'pending',
           existing: true,
         });
       }
+    } catch (queryError) {
+      console.log('Error checking existing GCash payments:', queryError.message);
     }
 
     const response = await axios.post(
@@ -154,23 +157,26 @@ router.post('/create-paymaya-source', async (req, res) => {
 
     const db = getDb();
 
-    // Check for existing pending payment for this booking
-    const existingPayments = await db.collection('payments')
-      .where('bookingId', '==', bookingId)
-      .where('status', '==', 'pending')
-      .get();
+    // Check for existing pending payment for this booking (single where to avoid composite index)
+    try {
+      const existingPayments = await db.collection('payments')
+        .where('bookingId', '==', bookingId)
+        .get();
 
-    if (!existingPayments.empty) {
-      // Return existing checkout URL if payment is still pending
-      const existingPayment = existingPayments.docs[0].data();
-      if (existingPayment.checkoutUrl) {
+      const pendingPayment = existingPayments.docs
+        .map(doc => doc.data())
+        .find(p => p.status === 'pending' && p.checkoutUrl);
+
+      if (pendingPayment) {
         return res.json({
-          sourceId: existingPayment.sourceId,
-          checkoutUrl: existingPayment.checkoutUrl,
+          sourceId: pendingPayment.sourceId,
+          checkoutUrl: pendingPayment.checkoutUrl,
           status: 'pending',
           existing: true,
         });
       }
+    } catch (queryError) {
+      console.log('Error checking existing Maya payments:', queryError.message);
     }
 
     const response = await axios.post(
