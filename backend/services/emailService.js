@@ -1,7 +1,10 @@
 const { Resend } = require('resend');
 
-// Initialize Resend with API key from environment
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend with API key from environment (optional - app uses EmailJS now)
+let resend = null;
+if (process.env.RESEND_API_KEY) {
+  resend = new Resend(process.env.RESEND_API_KEY);
+}
 
 // Default from email (use your verified domain later)
 const FROM_EMAIL = process.env.FROM_EMAIL || 'GSS Maasin <onboarding@resend.dev>';
@@ -10,6 +13,12 @@ const FROM_EMAIL = process.env.FROM_EMAIL || 'GSS Maasin <onboarding@resend.dev>
  * Send a generic email
  */
 const sendEmail = async (to, subject, html, text = null) => {
+  // If Resend is not configured, return success (app uses EmailJS now)
+  if (!resend) {
+    console.log('Resend not configured, skipping email. App uses EmailJS directly.');
+    return { success: true, message: 'Email skipped - using EmailJS in app' };
+  }
+  
   try {
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
