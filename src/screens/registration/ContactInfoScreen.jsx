@@ -23,7 +23,8 @@ const ContactInfoScreen = ({navigation, route}) => {
   const handleNext = () => {
     const normalizedPhone = sanitizePhone(formData.phoneNumber);
     if (formData.email && normalizedPhone) {
-      navigation.navigate('Location', {
+      // Navigate to email verification first
+      navigation.navigate('EmailVerification', {
         ...route.params,
         contactInfo: {
           ...formData,

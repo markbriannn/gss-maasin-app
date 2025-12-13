@@ -21,6 +21,7 @@ import {doc, getDoc, updateDoc, serverTimestamp, onSnapshot} from 'firebase/fire
 import notificationService from '../../services/notificationService';
 import paymentService from '../../services/paymentService';
 import {useAuth} from '../../context/AuthContext';
+import {sendPaymentReceiptEmail} from '../../services/emailService';
 
 const JobDetailsScreen = ({navigation, route}) => {
   const {job, jobId} = route.params || {};
@@ -325,6 +326,19 @@ const JobDetailsScreen = ({navigation, route}) => {
           });
           setJobData(prev => ({...prev, status: 'payment_received'}));
           notificationService.notifyPaymentReceived?.(jobData);
+          
+          // Send payment receipt email to client
+          if (user?.email) {
+            sendPaymentReceiptEmail(user.email, {
+              bookingId: bookingId,
+              serviceName: jobData.title || jobData.serviceCategory,
+              providerName: jobData.provider?.name || jobData.providerName || 'Provider',
+              amount: amount,
+              paymentMethod: 'Cash',
+              paidAt: new Date().toISOString(),
+            }).catch(err => console.log('Payment receipt email failed:', err));
+          }
+          
           setShowPaymentModal(false);
           Alert.alert('Payment Recorded', 'The provider will confirm receipt of payment to complete the job.');
         } else {

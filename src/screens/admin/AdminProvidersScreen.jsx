@@ -25,6 +25,7 @@ import {
 } from 'firebase/firestore';
 import {db} from '../../config/firebase';
 import smsEmailService from '../../services/smsEmailService';
+import {sendProviderApprovalEmail} from '../../services/emailService';
 
 const {width: screenWidth} = Dimensions.get('window');
 
@@ -236,6 +237,12 @@ const AdminProvidersScreen = ({navigation, route}) => {
                 };
                 await smsEmailService.notifyProviderApproved(providerData);
                 console.log('Approval notification sent to provider');
+                
+                // Send email notification via Resend
+                if (provider.email) {
+                  sendProviderApprovalEmail(provider.email, provider.name || 'Provider', true)
+                    .catch(err => console.log('Email notification failed:', err));
+                }
               } catch (notifError) {
                 console.log('Failed to send approval notification:', notifError);
               }
@@ -272,6 +279,12 @@ const AdminProvidersScreen = ({navigation, route}) => {
                 };
                 await smsEmailService.notifyProviderRejected(providerData);
                 console.log('Rejection notification sent to provider');
+                
+                // Send email notification via Resend
+                if (provider.email) {
+                  sendProviderApprovalEmail(provider.email, provider.name || 'Provider', false)
+                    .catch(err => console.log('Email notification failed:', err));
+                }
               } catch (notifError) {
                 console.log('Failed to send rejection notification:', notifError);
               }

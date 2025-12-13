@@ -4,6 +4,7 @@ import {createStackNavigator} from '@react-navigation/stack';
 // Import registration screens
 import PersonalInfoScreen from '../screens/registration/PersonalInfoScreen';
 import ContactInfoScreen from '../screens/registration/ContactInfoScreen';
+import EmailVerificationScreen from '../screens/registration/EmailVerificationScreen';
 import LocationScreen from '../screens/registration/LocationScreen';
 import PhoneVerificationScreen from '../screens/registration/PhoneVerificationScreen';
 import PasswordScreen from '../screens/registration/PasswordScreen';
@@ -37,6 +38,11 @@ export default function ClientRegistrationNavigator() {
         name="ContactInfo"
         component={ContactInfoScreen}
         options={{title: 'Contact Information'}}
+      />
+      <Stack.Screen
+        name="EmailVerification"
+        component={EmailVerificationScreen}
+        options={{title: 'Verify Email'}}
       />
       <Stack.Screen
         name="Location"

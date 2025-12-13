@@ -25,6 +25,7 @@ import {
 } from 'firebase/firestore';
 import {db} from '../../config/firebase';
 import smsEmailService from '../../services/smsEmailService';
+import {sendBookingConfirmationEmail, sendJobRejectionEmail} from '../../services/emailService';
 
 const {width} = Dimensions.get('window');
 const MEDIA_SIZE = (width - 60) / 3;
@@ -341,6 +342,21 @@ const AdminJobsScreen = ({navigation, route}) => {
                   await smsEmailService.notifyProviderNewApprovedJob(bookingData, providerData, {name: job.client?.name});
                 }
                 
+                // Send email notification to client via Resend
+                if (job.client?.email) {
+                  sendBookingConfirmationEmail(job.client.email, {
+                    id: job.id,
+                    serviceCategory: job.category,
+                    title: job.title || job.category,
+                    scheduledDate: job.scheduledDate,
+                    scheduledTime: job.scheduledTime,
+                    providerName: job.provider?.name || 'Provider',
+                    totalAmount: job.amount,
+                    clientName: job.client?.name || 'Client',
+                    status: 'approved',
+                  }).catch(err => console.log('Client email notification failed:', err));
+                }
+                
                 console.log('Approval notifications sent');
               } catch (notifError) {
                 console.log('Failed to send approval notifications:', notifError);
@@ -384,6 +400,15 @@ const AdminJobsScreen = ({navigation, route}) => {
                   email: job.client?.email,
                 };
                 await smsEmailService.notifyBookingRejected(bookingData, clientData);
+                
+                // Send email notification to client via Resend
+                if (job.client?.email) {
+                  sendJobRejectionEmail(job.client.email, {
+                    serviceCategory: job.category,
+                    scheduledDate: job.scheduledDate,
+                  }, 'Your request did not meet our requirements').catch(err => console.log('Rejection email failed:', err));
+                }
+                
                 console.log('Rejection notification sent to client');
               } catch (notifError) {
                 console.log('Failed to send rejection notification:', notifError);

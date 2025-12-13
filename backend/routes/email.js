@@ -107,4 +107,24 @@ router.post('/payment-receipt', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/email/job-rejection
+ * Send job rejection notification
+ */
+router.post('/job-rejection', async (req, res) => {
+  try {
+    const { clientEmail, booking, reason } = req.body;
+    
+    if (!clientEmail || !booking) {
+      return res.status(400).json({ error: 'Missing clientEmail or booking data' });
+    }
+    
+    const result = await emailService.sendJobRejectionNotification(clientEmail, booking, reason);
+    res.json(result);
+  } catch (error) {
+    console.error('Job rejection email error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

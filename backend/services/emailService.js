@@ -178,10 +178,46 @@ const sendPaymentReceipt = async (clientEmail, payment) => {
   return sendEmail(clientEmail, subject, html);
 };
 
+/**
+ * Send job rejection notification to client
+ */
+const sendJobRejectionNotification = async (clientEmail, booking, reason = null) => {
+  const subject = `Booking Update - ${booking.serviceCategory || 'Service Request'}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #00B14F; padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+      </div>
+      <div style="padding: 30px; background: #f9f9f9;">
+        <h2 style="color: #1F2937;">Booking Update</h2>
+        <p style="color: #4B5563;">
+          We're sorry, but your service request could not be processed at this time.
+        </p>
+        
+        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <p><strong>Service:</strong> ${booking.serviceCategory || 'Service Request'}</p>
+          <p><strong>Date:</strong> ${booking.scheduledDate || 'N/A'}</p>
+          ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
+        </div>
+        
+        <p style="color: #6B7280; font-size: 14px;">
+          Please try booking again or contact support for assistance.
+        </p>
+      </div>
+      <div style="padding: 20px; text-align: center; color: #9CA3AF; font-size: 12px;">
+        <p>GSS Maasin - General Service System</p>
+      </div>
+    </div>
+  `;
+  
+  return sendEmail(clientEmail, subject, html);
+};
+
 module.exports = {
   sendEmail,
   sendBookingConfirmation,
   sendJobAcceptedNotification,
   sendProviderApprovalNotification,
   sendPaymentReceipt,
+  sendJobRejectionNotification,
 };

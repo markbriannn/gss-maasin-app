@@ -24,6 +24,7 @@ import Video from 'react-native-video';
 import notificationService from '../../services/notificationService';
 import smsEmailService from '../../services/smsEmailService';
 import locationService from '../../services/locationService';
+import {sendJobAcceptedEmail, sendPaymentReceiptEmail} from '../../services/emailService';
 
 const {width: SCREEN_WIDTH, height: SCREEN_HEIGHT} = Dimensions.get('window');
 
@@ -122,6 +123,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               clientInfo = {
                 id: clientDoc.id,
                 name: fetchedName || data.clientName || 'Client',
+                email: cData.email,
                 phone: cData.phone || cData.phoneNumber,
                 photo: cData.profilePhoto,
                 address: fullAddress,
@@ -220,6 +222,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               clientInfo = {
                 id: clientDoc.id,
                 name: fetchedName || data.clientName || 'Client',
+                email: cData.email,
                 phone: cData.phone || cData.phoneNumber,
                 photo: cData.profilePhoto,
                 address: fullAddress,
@@ -371,6 +374,22 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               if (jobData.client) {
                 smsEmailService.notifyJobAccepted(jobData, jobData.client, {name: user?.firstName || 'Provider'})
                   .catch(err => console.log('SMS notification failed:', err));
+                
+                // Send email notification via Resend (async)
+                const clientEmail = jobData.client?.email;
+                if (clientEmail) {
+                  sendJobAcceptedEmail(clientEmail, {
+                    id: jobData.id || jobId,
+                    title: jobData.title || jobData.serviceCategory,
+                    serviceCategory: jobData.serviceCategory,
+                    scheduledDate: jobData.scheduledDate,
+                    scheduledTime: jobData.scheduledTime,
+                    totalAmount: totalAmount,
+                  }, {
+                    name: user?.firstName || 'Provider',
+                    phone: user?.phone || user?.phoneNumber,
+                  }).catch(err => console.log('Email notification failed:', err));
+                }
               }
               Alert.alert('Success', 'Job accepted successfully');
             } catch (error) {
@@ -836,6 +855,19 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               if (jobData.client) {
                 smsEmailService.notifyJobCompleted(jobData, jobData.client, {name: user?.firstName || 'Provider'})
                   .catch(err => console.log('SMS/Email notification failed:', err));
+                
+                // Send payment receipt email via Resend (async)
+                const clientEmail = jobData.client?.email;
+                if (clientEmail) {
+                  sendPaymentReceiptEmail(clientEmail, {
+                    bookingId: jobData.id || jobId,
+                    serviceName: jobData.title || jobData.serviceCategory,
+                    providerName: user?.firstName || 'Provider',
+                    amount: jobData.totalAmount || jobData.providerPrice || 0,
+                    paymentMethod: jobData.paymentMethod || 'Cash',
+                    paidAt: new Date().toISOString(),
+                  }).catch(err => console.log('Payment receipt email failed:', err));
+                }
               }
               Alert.alert('Job Completed!', 'Payment confirmed. Thank you for your service!');
             } catch (error) {
