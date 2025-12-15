@@ -1,15 +1,8 @@
 // Push Notification Service - Send FCM notifications from backend
-const admin = require('firebase-admin');
+const { getDb, getMessaging, admin } = require('../config/firebase');
 
-// Initialize Firebase Admin if not already done
-if (!admin.apps.length) {
-  const serviceAccount = require('../serviceAccountKey.json');
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-}
-
-const db = admin.firestore();
+// Get Firestore instance (will initialize Firebase if needed)
+const db = getDb();
 
 /**
  * Send push notification to a specific user
@@ -55,7 +48,7 @@ const sendToUser = async (userId, notification, data = {}) => {
       },
     };
 
-    const response = await admin.messaging().send(message);
+    const response = await getMessaging().send(message);
     console.log('Push notification sent:', response);
     return { success: true, messageId: response };
   } catch (error) {
@@ -165,7 +158,7 @@ const sendToTopic = async (topic, notification, data = {}) => {
       },
     };
 
-    const response = await admin.messaging().send(message);
+    const response = await getMessaging().send(message);
     console.log(`Push notification sent to topic ${topic}:`, response);
     return { success: true, messageId: response };
   } catch (error) {
