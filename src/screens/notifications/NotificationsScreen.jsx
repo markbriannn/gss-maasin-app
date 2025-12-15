@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useCallback, useRef} from 'react';
-import {View, Text, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, Animated, Dimensions} from 'react-native';
+import {View, Text, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, Animated, Dimensions, TextInput} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {Swipeable, GestureHandlerRootView} from 'react-native-gesture-handler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -38,6 +38,7 @@ const NotificationsScreen = ({navigation}) => {
   const [deletedNotificationIds, setDeletedNotificationIds] = useState(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Use ref to avoid listener recreation when readNotificationIds changes
   const readIdsRef = useRef(new Set());
@@ -444,37 +445,50 @@ const NotificationsScreen = ({navigation}) => {
 
   // Delete a notification
   const handleDeleteNotification = async (notificationId) => {
-    try {
-      // Close the swipeable
-      if (swipeableRefs.current[notificationId]) {
-        swipeableRefs.current[notificationId].close();
-      }
+    Alert.alert(
+      'Delete Notification',
+      'Are you sure you want to delete this notification?',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Close the swipeable
+              if (swipeableRefs.current[notificationId]) {
+                swipeableRefs.current[notificationId].close();
+              }
 
-      // Remove from local state immediately
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+              // Remove from local state immediately
+              setNotifications(prev => prev.filter(n => n.id !== notificationId));
 
-      // Add to deleted set and persist
-      const newDeletedIds = new Set(deletedNotificationIds);
-      newDeletedIds.add(notificationId);
-      deletedIdsRef.current = newDeletedIds;
-      setDeletedNotificationIds(newDeletedIds);
-      await saveDeletedNotifications(newDeletedIds);
+              // Add to deleted set and persist
+              const newDeletedIds = new Set(deletedNotificationIds);
+              newDeletedIds.add(notificationId);
+              deletedIdsRef.current = newDeletedIds;
+              setDeletedNotificationIds(newDeletedIds);
+              await saveDeletedNotifications(newDeletedIds);
 
-      // Also mark as read in context to update badge
-      contextMarkAsRead(notificationId);
+              // Also mark as read in context to update badge
+              contextMarkAsRead(notificationId);
 
-      // If it's a real Firestore notification, delete from Firestore
-      if (!notificationId.includes('_')) {
-        try {
-          const notifRef = doc(db, 'notifications', notificationId);
-          await deleteDoc(notifRef);
-        } catch (e) {
-          console.log('Error deleting from Firestore:', e);
-        }
-      }
-    } catch (error) {
-      console.log('Error deleting notification:', error);
-    }
+              // If it's a real Firestore notification, delete from Firestore
+              if (!notificationId.includes('_')) {
+                try {
+                  const notifRef = doc(db, 'notifications', notificationId);
+                  await deleteDoc(notifRef);
+                } catch (e) {
+                  console.log('Error deleting from Firestore:', e);
+                }
+              }
+            } catch (error) {
+              console.log('Error deleting notification:', error);
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Render delete action for swipeable
@@ -599,8 +613,18 @@ const NotificationsScreen = ({navigation}) => {
     );
   }
 
-  // Filter out deleted notifications
-  const visibleNotifications = notifications.filter(n => !deletedNotificationIds.has(n.id));
+  // Filter out deleted notifications and apply search
+  const visibleNotifications = notifications.filter(n => {
+    if (deletedNotificationIds.has(n.id)) return false;
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      return (
+        n.title?.toLowerCase().includes(query) ||
+        n.message?.toLowerCase().includes(query)
+      );
+    }
+    return true;
+  });
 
   return (
     <GestureHandlerRootView style={{flex: 1}}>
@@ -619,6 +643,36 @@ const NotificationsScreen = ({navigation}) => {
               </Text>
             </TouchableOpacity>
           )}
+        </View>
+
+        {/* Search Bar */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          margin: 16,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+          backgroundColor: isDark ? theme.colors.surface : '#F3F4F6',
+          borderRadius: 10,
+        }}>
+          <Icon name="search" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
+          <TextInput
+            style={{
+              flex: 1,
+              marginLeft: 8,
+              fontSize: 15,
+              color: isDark ? theme.colors.text : '#1F2937',
+            }}
+            placeholder="Search notifications..."
+            placeholderTextColor={isDark ? theme.colors.textSecondary : '#9CA3AF'}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Icon name="close-circle" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
+            </TouchableOpacity>
+          ) : null}
         </View>
         
         <Animated.ScrollView

@@ -25,6 +25,9 @@ import notificationService from '../../services/notificationService';
 import smsEmailService from '../../services/smsEmailService';
 import locationService from '../../services/locationService';
 import {sendJobAcceptedEmail, sendPaymentReceipt} from '../../services/emailJSService';
+import {APP_CONFIG} from '../../config/constants';
+import {getClientBadges, getClientTier} from '../../utils/gamification';
+import {BadgeList, TierBadge} from '../../components/gamification';
 
 const {width: SCREEN_WIDTH, height: SCREEN_HEIGHT} = Dimensions.get('window');
 
@@ -37,10 +40,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
   // Location tracking state
   const locationWatchRef = useRef(null);
   const appStateRef = useRef(AppState.currentState);
-  // Negotiation and additional charges state
-  const [showCounterModal, setShowCounterModal] = useState(false);
-  const [counterPrice, setCounterPrice] = useState('');
-  const [counterNote, setCounterNote] = useState('');
+  // Additional charges state
   const [showAdditionalModal, setShowAdditionalModal] = useState(false);
   const [additionalAmount, setAdditionalAmount] = useState('');
   const [additionalReason, setAdditionalReason] = useState('');
@@ -103,6 +103,9 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           name: data.clientName || 'Client',
           phone: null,
           photo: null,
+          badges: [],
+          tier: null,
+          points: 0,
         };
         
         // Always fetch client data to ensure we have coordinates
@@ -120,6 +123,15 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                 fullAddress = cData.address || 'Maasin City';
               }
               const fetchedName = `${cData.firstName || ''} ${cData.lastName || ''}`.trim();
+              
+              // Calculate client badges and tier
+              const clientBadges = getClientBadges({
+                completedBookings: cData.completedBookings || cData.totalBookings || 0,
+                totalSpent: cData.totalSpent || 0,
+                reviewsGiven: cData.reviewsGiven || 0,
+              });
+              const clientTier = getClientTier(cData.points || 0);
+              
               clientInfo = {
                 id: clientDoc.id,
                 name: fetchedName || data.clientName || 'Client',
@@ -131,9 +143,11 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                 houseNumber: cData.houseNumber,
                 barangay: cData.barangay,
                 landmark: cData.landmark,
-                // Get coordinates from user profile (registration location)
                 latitude: cData.latitude || cData.location?.latitude,
                 longitude: cData.longitude || cData.location?.longitude,
+                badges: clientBadges,
+                tier: clientTier,
+                points: cData.points || 0,
               };
             }
           } catch (e) {
@@ -258,13 +272,14 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           scheduledTime: data.scheduledTime,
           date: data.date,
           time: data.time,
-          // Pricing breakdown
-          providerPrice: data.providerPrice || data.totalAmount || data.price || 0,
-          systemFee: data.systemFee || 0,
+          // Pricing breakdown - providerPrice is what provider earns (before system fee)
+          // If providerPrice is null/0, calculate from totalAmount by removing 5% fee
+          providerPrice: data.providerPrice || (data.totalAmount ? Math.round(data.totalAmount / 1.05) : data.price || 0),
+          systemFee: data.systemFee || (data.totalAmount ? Math.round(data.totalAmount - (data.totalAmount / 1.05)) : 0),
           totalAmount: data.totalAmount || data.price || 0,
           priceType: data.priceType || 'per_job',
           // Legacy support
-          price: data.totalAmount || data.price,
+          price: data.providerPrice || (data.totalAmount ? Math.round(data.totalAmount / 1.05) : data.price),
           estimatedPrice: data.estimatedPrice,
           address: data.address,
           location: data.location,
@@ -328,15 +343,11 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
   };
 
   const handleAcceptJob = () => {
-    // Check if this is a negotiation job
-    const isNegotiation = jobData?.status === 'pending_negotiation';
-    const offeredPrice = jobData?.offeredPrice || jobData?.providerPrice || 0;
+    const servicePrice = jobData?.providerPrice || jobData?.providerFixedPrice || 0;
     
     Alert.alert(
-      isNegotiation ? 'Accept Offer' : 'Accept Job',
-      isNegotiation 
-        ? `Accept the client's offer of ₱${offeredPrice.toLocaleString()}?`
-        : 'Are you sure you want to accept this job?',
+      'Accept Job',
+      'Are you sure you want to accept this job?',
       [
         {text: 'Cancel', style: 'cancel'},
         {
@@ -344,27 +355,21 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           onPress: async () => {
             try {
               setIsUpdating(true);
-              const systemFee = offeredPrice * 0.05;
-              const totalAmount = offeredPrice + systemFee;
+              const systemFee = servicePrice * 0.05;
+              const totalAmount = servicePrice + systemFee;
               
               await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
                 status: 'accepted',
                 providerId: user.uid,
-                providerPrice: offeredPrice,
+                providerPrice: servicePrice,
                 systemFee: systemFee,
                 totalAmount: totalAmount,
                 acceptedAt: serverTimestamp(),
-                negotiationHistory: [...(jobData.negotiationHistory || []), {
-                  type: 'provider_accepted',
-                  amount: offeredPrice,
-                  timestamp: new Date().toISOString(),
-                  by: 'provider',
-                }],
               });
               setJobData(prev => ({
                 ...prev, 
                 status: 'accepted',
-                providerPrice: offeredPrice,
+                providerPrice: servicePrice,
                 systemFee: systemFee,
                 totalAmount: totalAmount,
               }));
@@ -402,52 +407,6 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
         },
       ]
     );
-  };
-
-  // Handle counter offer from provider
-  const handleCounterOffer = async () => {
-    if (!counterPrice || parseFloat(counterPrice) <= 0) {
-      Alert.alert('Error', 'Please enter a valid counter price');
-      return;
-    }
-
-    try {
-      setIsUpdating(true);
-      const newPrice = parseFloat(counterPrice);
-      const systemFee = newPrice * 0.05;
-      const totalAmount = newPrice + systemFee;
-
-      await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
-        status: 'counter_offer',
-        counterOfferPrice: newPrice,
-        counterOfferNote: counterNote,
-        counterOfferSystemFee: systemFee,
-        counterOfferTotal: totalAmount,
-        counterOfferAt: serverTimestamp(),
-        negotiationHistory: [...(jobData.negotiationHistory || []), {
-          type: 'provider_counter',
-          amount: newPrice,
-          note: counterNote,
-          timestamp: new Date().toISOString(),
-          by: 'provider',
-        }],
-      });
-
-      setJobData(prev => ({
-        ...prev,
-        status: 'counter_offer',
-        counterOfferPrice: newPrice,
-      }));
-      setShowCounterModal(false);
-      setCounterPrice('');
-      setCounterNote('');
-      Alert.alert('Counter Offer Sent', 'The client will review your counter offer.');
-    } catch (error) {
-      console.error('Error sending counter offer:', error);
-      Alert.alert('Error', 'Failed to send counter offer');
-    } finally {
-      setIsUpdating(false);
-    }
   };
 
   // Handle additional charges request
@@ -1049,7 +1008,33 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                   Brgy. {jobData.client.barangay}, Maasin City
                 </Text>
               )}
+              {/* Client Tier - Always show tier (even Regular at 0 points) */}
+              {jobData.client?.tier && (
+                <View style={{marginTop: 4, flexDirection: 'row', alignItems: 'center'}}>
+                  <TierBadge tier={jobData.client.tier} size="small" />
+                  {jobData.client.points > 0 && (
+                    <Text style={{fontSize: 11, color: '#6B7280', marginLeft: 6}}>
+                      {jobData.client.points.toLocaleString()} pts
+                    </Text>
+                  )}
+                </View>
+              )}
             </View>
+          </View>
+          
+          {/* Client Badges or New Client indicator */}
+          <View style={{marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E5E7EB'}}>
+            {jobData.client?.badges?.length > 0 ? (
+              <>
+                <Text style={{fontSize: 12, color: '#6B7280', marginBottom: 6}}>Client Badges</Text>
+                <BadgeList badges={jobData.client.badges} maxDisplay={4} size="small" />
+              </>
+            ) : (
+              <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                <Icon name="sparkles" size={14} color="#3B82F6" />
+                <Text style={{fontSize: 12, color: '#3B82F6', marginLeft: 4}}>New Client</Text>
+              </View>
+            )}
           </View>
           
           {/* Address Details - Always show service location */}
@@ -1242,42 +1227,12 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
             borderWidth: 1,
             borderColor: '#BBF7D0',
           }}>
-            {/* Show client's offer if negotiating */}
-            {jobData.isNegotiable && jobData.status === 'pending_negotiation' && (
-              <View style={{
-                backgroundColor: '#FEF3C7',
-                borderRadius: 8,
-                padding: 12,
-                marginBottom: 12,
-                borderWidth: 1,
-                borderColor: '#F59E0B',
-              }}>
-                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
-                  <Icon name="pricetag" size={18} color="#F59E0B" />
-                  <Text style={{fontSize: 14, fontWeight: '600', color: '#92400E', marginLeft: 6}}>
-                    Client's Offer
-                  </Text>
-                </View>
-                <Text style={{fontSize: 22, fontWeight: '700', color: '#F59E0B'}}>
-                  ₱{(jobData.offeredPrice || 0).toLocaleString()}
-                </Text>
-                <Text style={{fontSize: 12, color: '#92400E', marginTop: 4}}>
-                  Your fixed price: ₱{(jobData.providerFixedPrice || 0).toLocaleString()}
-                </Text>
-                {jobData.priceNote && (
-                  <Text style={{fontSize: 13, color: '#78350F', marginTop: 8, fontStyle: 'italic'}}>
-                    "{jobData.priceNote}"
-                  </Text>
-                )}
-              </View>
-            )}
-
             <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
               <Text style={{fontSize: 14, color: '#4B5563'}}>
                 Your Service Price ({jobData.priceType === 'per_hire' ? 'per hire' : 'per job'})
               </Text>
               <Text style={{fontSize: 14, fontWeight: '600', color: '#1F2937'}}>
-                ₱{(jobData.providerPrice || jobData.offeredPrice || jobData.price || 0).toLocaleString()}
+                ₱{(jobData.providerPrice || jobData.price || 0).toLocaleString()}
               </Text>
             </View>
 
@@ -1331,7 +1286,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               <Text style={{fontSize: 16, fontWeight: '700', color: '#1F2937'}}>You'll Receive</Text>
               <Text style={{fontSize: 18, fontWeight: '700', color: '#00B14F'}}>
                 ₱{(
-                  (jobData.providerPrice || jobData.offeredPrice || jobData.price || 0) +
+                  (jobData.providerPrice || jobData.price || 0) +
                   (jobData.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + c.amount, 0) || 0)
                 ).toLocaleString()}
               </Text>
@@ -1347,7 +1302,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                 <Text style={{fontSize: 13, color: '#F59E0B'}}>Potential Total</Text>
                 <Text style={{fontSize: 14, fontWeight: '600', color: '#F59E0B'}}>
                   ₱{(
-                    (jobData.providerPrice || jobData.offeredPrice || jobData.price || 0) +
+                    (jobData.providerPrice || jobData.price || 0) +
                     (jobData.additionalCharges?.filter(c => c.status === 'approved' || c.status === 'pending').reduce((sum, c) => sum + c.amount, 0) || 0)
                   ).toLocaleString()}
                 </Text>
@@ -1355,10 +1310,10 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
             )}
           </View>
           <Text style={{fontSize: 12, color: '#6B7280', marginTop: 8, textAlign: 'center'}}>
-            Client pays ₱{(
+            Client pays {APP_CONFIG.CURRENCY_SYMBOL}{(
               (jobData.totalAmount || jobData.price || 0) +
               (jobData.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + c.total, 0) || 0)
-            ).toLocaleString()} (includes 5% system fee)
+            ).toLocaleString()} (includes {APP_CONFIG.SERVICE_FEE_PERCENTAGE}% system fee)
           </Text>
         </View>
 
@@ -1402,59 +1357,16 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           ) : (
             <>
               {/* Pending Negotiation - Client made an offer */}
-              {jobData.status === 'pending_negotiation' && (
-                jobData.adminApproved ? (
-                  <View>
-                    <View style={styles.buttonRow}>
-                      <TouchableOpacity 
-                        style={[styles.actionButton, styles.declineButton]} 
-                        onPress={handleDeclineJob}>
-                        <Text style={styles.declineButtonText}>Decline</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={[styles.actionButton, {backgroundColor: '#F59E0B'}]} 
-                        onPress={() => setShowCounterModal(true)}>
-                        <Text style={{color: '#FFFFFF', fontWeight: '600'}}>Counter Offer</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <TouchableOpacity 
-                      style={[styles.actionButton, styles.acceptButton, {marginTop: 12}]} 
-                      onPress={handleAcceptJob}>
-                      <Text style={styles.acceptButtonText}>Accept Offer (₱{(jobData.offeredPrice || 0).toLocaleString()})</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <View style={{
-                    backgroundColor: '#F3F4F6',
-                    padding: 16,
-                    borderRadius: 12,
-                    alignItems: 'center',
-                  }}>
-                    <Icon name="lock-closed" size={24} color="#9CA3AF" />
-                    <Text style={{fontSize: 14, color: '#6B7280', marginTop: 8, textAlign: 'center'}}>
-                      Actions locked until admin approval
-                    </Text>
-                  </View>
-                )
-              )}
-
               {jobData.status === 'pending' && (
                 jobData.adminApproved ? (
-                  <View>
-                    <View style={styles.buttonRow}>
-                      <TouchableOpacity 
-                        style={[styles.actionButton, styles.declineButton]} 
-                        onPress={handleDeclineJob}>
-                        <Text style={styles.declineButtonText}>Decline</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={[styles.actionButton, {backgroundColor: '#F59E0B'}]} 
-                        onPress={() => setShowCounterModal(true)}>
-                        <Text style={{color: '#FFFFFF', fontWeight: '600'}}>Counter Offer</Text>
-                      </TouchableOpacity>
-                    </View>
+                  <View style={styles.buttonRow}>
                     <TouchableOpacity 
-                      style={[styles.actionButton, styles.acceptButton, {marginTop: 12}]} 
+                      style={[styles.actionButton, styles.declineButton]} 
+                      onPress={handleDeclineJob}>
+                      <Text style={styles.declineButtonText}>Decline</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.actionButton, styles.acceptButton]} 
                       onPress={handleAcceptJob}>
                       <Text style={styles.acceptButtonText}>Accept Job</Text>
                     </TouchableOpacity>
@@ -1772,102 +1684,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
         </View>
       </Modal>
 
-      {/* Counter Offer Modal */}
-      <Modal
-        visible={showCounterModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowCounterModal(false)}>
-        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end'}}>
-          <View style={{
-            backgroundColor: '#FFFFFF',
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            padding: 20,
-          }}>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20}}>
-              <Text style={{fontSize: 18, fontWeight: '700', color: '#1F2937'}}>Counter Offer</Text>
-              <TouchableOpacity onPress={() => setShowCounterModal(false)}>
-                <Icon name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
 
-            <Text style={{fontSize: 13, color: '#6B7280', marginBottom: 8}}>
-              Client offered: ₱{(jobData?.offeredPrice || 0).toLocaleString()} | Your fixed price: ₱{(jobData?.providerFixedPrice || 0).toLocaleString()}
-            </Text>
-
-            <Text style={{fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8}}>
-              Your Counter Price (₱)
-            </Text>
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: '#F9FAFB',
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: '#E5E7EB',
-              paddingHorizontal: 12,
-              marginBottom: 16,
-            }}>
-              <Text style={{fontSize: 18, color: '#F59E0B', fontWeight: '700'}}>₱</Text>
-              <TextInput
-                style={{flex: 1, fontSize: 18, color: '#1F2937', paddingVertical: 14, paddingHorizontal: 8}}
-                placeholder="Enter your price"
-                keyboardType="numeric"
-                value={counterPrice}
-                onChangeText={setCounterPrice}
-              />
-            </View>
-
-            <Text style={{fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8}}>
-              Note to Client (optional)
-            </Text>
-            <TextInput
-              style={{
-                backgroundColor: '#F9FAFB',
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: '#E5E7EB',
-                padding: 12,
-                fontSize: 14,
-                color: '#1F2937',
-                height: 80,
-                textAlignVertical: 'top',
-                marginBottom: 20,
-              }}
-              placeholder="Explain your counter price..."
-              multiline
-              value={counterNote}
-              onChangeText={setCounterNote}
-            />
-
-            {counterPrice && (
-              <View style={{backgroundColor: '#F0FDF4', borderRadius: 12, padding: 12, marginBottom: 16}}>
-                <Text style={{fontSize: 13, color: '#6B7280'}}>Client will pay:</Text>
-                <Text style={{fontSize: 20, fontWeight: '700', color: '#00B14F'}}>
-                  ₱{(parseFloat(counterPrice || 0) * 1.05).toLocaleString()} <Text style={{fontSize: 12, fontWeight: '400'}}>(incl. 5% fee)</Text>
-                </Text>
-              </View>
-            )}
-
-            <TouchableOpacity 
-              style={{
-                backgroundColor: '#F59E0B',
-                borderRadius: 12,
-                paddingVertical: 16,
-                alignItems: 'center',
-              }}
-              onPress={handleCounterOffer}
-              disabled={isUpdating}>
-              {isUpdating ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={{color: '#FFFFFF', fontSize: 16, fontWeight: '700'}}>Send Counter Offer</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* Decline/Cancel Modal */}
       <Modal
@@ -2064,7 +1881,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               <View style={{backgroundColor: '#F0FDF4', borderRadius: 12, padding: 12, marginBottom: 16}}>
                 <Text style={{fontSize: 13, color: '#6B7280'}}>Client will pay additional:</Text>
                 <Text style={{fontSize: 20, fontWeight: '700', color: '#00B14F'}}>
-                  ₱{(parseFloat(additionalAmount || 0) * 1.05).toLocaleString()} <Text style={{fontSize: 12, fontWeight: '400'}}>(incl. 5% fee)</Text>
+                  {APP_CONFIG.CURRENCY_SYMBOL}{(parseFloat(additionalAmount || 0) * (1 + APP_CONFIG.SERVICE_FEE_PERCENTAGE / 100)).toLocaleString()} <Text style={{fontSize: 12, fontWeight: '400'}}>(incl. {APP_CONFIG.SERVICE_FEE_PERCENTAGE}% fee)</Text>
                 </Text>
               </View>
             )}

@@ -17,6 +17,7 @@ import {useTheme} from '../../context/ThemeContext';
 import paymentService from '../../services/paymentService';
 import {doc, updateDoc, getDoc} from 'firebase/firestore';
 import {db} from '../../config/firebase';
+import {APP_CONFIG} from '../../config/constants';
 
 /**
  * WalletScreen - Provider earnings and payout management with GCash/Maya
@@ -198,10 +199,10 @@ export const WalletScreen = () => {
       return;
     }
 
-    if (earnings.available < 100) {
+    if (earnings.available < APP_CONFIG.MINIMUM_PAYOUT_AMOUNT) {
       Alert.alert(
         'Minimum Amount',
-        `Minimum payout is ₱100. Your available balance is ₱${earnings.available.toFixed(2)}`,
+        `Minimum payout is ${APP_CONFIG.CURRENCY_SYMBOL}${APP_CONFIG.MINIMUM_PAYOUT_AMOUNT}. Your available balance is ${APP_CONFIG.CURRENCY_SYMBOL}${earnings.available.toFixed(2)}`,
       );
       return;
     }
@@ -386,9 +387,9 @@ export const WalletScreen = () => {
             Request Payout
           </Text>
         </TouchableOpacity>
-        {earnings.available < 100 && (
+        {earnings.available < APP_CONFIG.MINIMUM_PAYOUT_AMOUNT && (
           <Text style={{fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginTop: 8}}>
-            Minimum payout amount is ₱100
+            Minimum payout amount is {APP_CONFIG.CURRENCY_SYMBOL}{APP_CONFIG.MINIMUM_PAYOUT_AMOUNT}
           </Text>
         )}
       </View>
@@ -477,8 +478,8 @@ export const WalletScreen = () => {
         <View style={{backgroundColor: isDark ? theme.colors.card : '#FFFFFF', borderRadius: 12, padding: 16}}>
           {[
             {icon: 'checkmark-circle', text: 'Complete jobs and earn money', color: '#00B14F'},
-            {icon: 'cut', text: '5% service fee is deducted', color: '#F59E0B'},
-            {icon: 'wallet', text: 'Request payout (min ₱100)', color: '#3B82F6'},
+            {icon: 'cut', text: `${APP_CONFIG.SERVICE_FEE_PERCENTAGE}% service fee is deducted`, color: '#F59E0B'},
+            {icon: 'wallet', text: `Request payout (min ${APP_CONFIG.CURRENCY_SYMBOL}${APP_CONFIG.MINIMUM_PAYOUT_AMOUNT})`, color: '#3B82F6'},
             {icon: 'flash', text: 'Receive instantly or within 24 hours', color: '#8B5CF6'},
           ].map((item, index) => (
             <View

@@ -5,11 +5,13 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  ActivityIndicator,
   LayoutAnimation,
   Platform,
   UIManager,
   Dimensions,
+  RefreshControl,
+  Animated,
+  PanResponder,
 } from 'react-native';
 
 // Enable LayoutAnimation for Android
@@ -24,16 +26,92 @@ import locationService from '../../services/locationService';
 import {mapStyles} from '../../css/mapStyles';
 import {globalStyles} from '../../css/globalStyles';
 import {db} from '../../config/firebase';
-import {collection, query, where, onSnapshot} from 'firebase/firestore';
+import {collection, query, where, onSnapshot, doc, setDoc, deleteDoc, getDocs} from 'firebase/firestore';
 import {useNotifications} from '../../context/NotificationContext';
+import {useAuth} from '../../context/AuthContext';
 import {useTheme} from '../../context/ThemeContext';
 import FastImage from 'react-native-fast-image';
+import {
+  AnimatedCard,
+  AnimatedListItem,
+  AnimatedButton,
+  PulsingDot,
+  ProviderCardSkeleton,
+} from '../../components/animations';
+// Badges shown in provider profile, not in compact card view
 
-const {width: SCREEN_WIDTH} = Dimensions.get('window');
+const {width: SCREEN_WIDTH, height: SCREEN_HEIGHT} = Dimensions.get('window');
+
+// Bottom sheet heights
+const PANEL_MIN_HEIGHT = 180;
+const PANEL_MID_HEIGHT = SCREEN_HEIGHT * 0.45;
+const PANEL_MAX_HEIGHT = SCREEN_HEIGHT * 0.75;
 
 const ClientHomeScreen = ({navigation}) => {
   const {unreadCount} = useNotifications();
   const {isDark, theme} = useTheme();
+  const {user} = useAuth();
+  const [favoriteIds, setFavoriteIds] = useState([]);
+  
+  // Bottom sheet animation
+  const panelHeight = useRef(new Animated.Value(PANEL_MID_HEIGHT)).current;
+  const lastGestureDy = useRef(0);
+  
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dy) > 5;
+      },
+      onPanResponderGrant: () => {
+        panelHeight.extractOffset();
+      },
+      onPanResponderMove: (_, gestureState) => {
+        // Invert dy because dragging up should increase height
+        const newHeight = -gestureState.dy;
+        panelHeight.setValue(newHeight);
+        lastGestureDy.current = gestureState.dy;
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        panelHeight.flattenOffset();
+        
+        // Get current value
+        let currentHeight = PANEL_MID_HEIGHT;
+        panelHeight.addListener(({value}) => {
+          currentHeight = value;
+        });
+        
+        // Determine snap point based on velocity and direction
+        let snapTo = PANEL_MID_HEIGHT;
+        
+        if (gestureState.vy < -0.5) {
+          // Fast swipe up - go to max
+          snapTo = PANEL_MAX_HEIGHT;
+        } else if (gestureState.vy > 0.5) {
+          // Fast swipe down - go to min
+          snapTo = PANEL_MIN_HEIGHT;
+        } else {
+          // Slow drag - snap to nearest
+          const draggedHeight = PANEL_MID_HEIGHT - gestureState.dy;
+          if (draggedHeight > (PANEL_MID_HEIGHT + PANEL_MAX_HEIGHT) / 2) {
+            snapTo = PANEL_MAX_HEIGHT;
+          } else if (draggedHeight < (PANEL_MIN_HEIGHT + PANEL_MID_HEIGHT) / 2) {
+            snapTo = PANEL_MIN_HEIGHT;
+          } else {
+            snapTo = PANEL_MID_HEIGHT;
+          }
+        }
+        
+        Animated.spring(panelHeight, {
+          toValue: snapTo,
+          useNativeDriver: false,
+          tension: 50,
+          friction: 10,
+        }).start();
+      },
+    })
+  ).current;
+  
   const [region, setRegion] = useState({
     latitude: 10.1335,
     longitude: 124.8513,
@@ -46,11 +124,59 @@ const ClientHomeScreen = ({navigation}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const searchInputRef = useRef(null);
+  const mapRef = useRef(null);
 
   useEffect(() => {
     initializeScreen();
+    loadFavorites();
   }, []);
+
+  // Load user's favorites
+  const loadFavorites = async () => {
+    const userId = user?.uid || user?.id;
+    if (!userId) return;
+    
+    try {
+      const favQuery = query(
+        collection(db, 'favorites'),
+        where('userId', '==', userId)
+      );
+      const snapshot = await getDocs(favQuery);
+      const ids = snapshot.docs.map(d => d.data().providerId);
+      setFavoriteIds(ids);
+    } catch (error) {
+      console.log('Error loading favorites:', error);
+    }
+  };
+
+  // Toggle favorite
+  const toggleFavorite = async (providerId) => {
+    const userId = user?.uid || user?.id;
+    if (!userId) return;
+    
+    const isFavorite = favoriteIds.includes(providerId);
+    const favoriteDocId = `${userId}_${providerId}`;
+    
+    try {
+      if (isFavorite) {
+        // Remove from favorites
+        await deleteDoc(doc(db, 'favorites', favoriteDocId));
+        setFavoriteIds(prev => prev.filter(id => id !== providerId));
+      } else {
+        // Add to favorites
+        await setDoc(doc(db, 'favorites', favoriteDocId), {
+          userId,
+          providerId,
+          createdAt: new Date(),
+        });
+        setFavoriteIds(prev => [...prev, providerId]);
+      }
+    } catch (error) {
+      console.log('Error toggling favorite:', error);
+    }
+  };
 
   // Real-time listener for providers
   useEffect(() => {
@@ -150,35 +276,23 @@ const ClientHomeScreen = ({navigation}) => {
     try {
       const location = await locationService.getCurrentLocation();
       setUserLocation(location);
-      setRegion((prev) => ({
-        ...prev,
-        latitude: location.latitude,
-        longitude: location.longitude,
-      }));
+      // Use animateToRegion after a short delay to ensure map is ready
+      setTimeout(() => {
+        if (mapRef.current) {
+          mapRef.current.animateToRegion({
+            latitude: location.latitude,
+            longitude: location.longitude,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          }, 500);
+        }
+      }, 100);
     } catch (error) {
       console.error('Error initializing:', error);
       // Use default location
       setUserLocation(null);
     }
   };
-
-  const getCurrentLocation = async () => {
-    try {
-      const location = await locationService.getCurrentLocation();
-      setUserLocation(location);
-      setRegion((prev) => ({
-        ...prev,
-        latitude: location.latitude,
-        longitude: location.longitude,
-      }));
-      return location;
-    } catch (error) {
-      console.error('Error getting location:', error);
-      return null;
-    }
-  };
-
-
 
   // Calculate distance between two coordinates in km
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -202,12 +316,14 @@ const ClientHomeScreen = ({navigation}) => {
   }, [navigation]);
 
   const handleMyLocation = () => {
-    if (userLocation) {
-      setRegion({
-        ...region,
+    if (userLocation && mapRef.current) {
+      // Use animateToRegion instead of setRegion to avoid re-render blinking
+      mapRef.current.animateToRegion({
         latitude: userLocation.latitude,
         longitude: userLocation.longitude,
-      });
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      }, 500);
     }
   };
 
@@ -230,12 +346,20 @@ const ClientHomeScreen = ({navigation}) => {
     setSearchQuery('');
   };
 
+  // Pull to refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await initializeScreen();
+    setRefreshing(false);
+  }, []);
+
   return (
     <SafeAreaView style={mapStyles.container} edges={['top']}>
       <MapView
+        ref={mapRef}
         style={mapStyles.map}
         provider={PROVIDER_GOOGLE}
-        region={region}
+        initialRegion={region}
         onRegionChangeComplete={setRegion}
         showsUserLocation
         showsMyLocationButton={false}>
@@ -252,8 +376,8 @@ const ClientHomeScreen = ({navigation}) => {
             <View style={[mapStyles.providerMarker, {overflow: 'hidden'}]}>
               {provider.profilePhoto ? (
                 <FastImage
-                  source={{uri: provider.profilePhoto, priority: FastImage.priority.normal}}
-                  style={{width: 40, height: 40, borderRadius: 20}}
+                  source={{uri: provider.profilePhoto, priority: FastImage.priority.high}}
+                  style={{width: 38, height: 38, borderRadius: 19}}
                   resizeMode={FastImage.resizeMode.cover}
                 />
               ) : (
@@ -343,87 +467,148 @@ const ClientHomeScreen = ({navigation}) => {
         </ScrollView>
       </View>
 
-      <View style={[mapStyles.bottomPanel, isDark && {backgroundColor: theme.colors.card}]}>
-        <View style={mapStyles.panelHandle} />
-        <View style={mapStyles.panelContent}>
+      <Animated.View style={[mapStyles.bottomPanel, isDark && {backgroundColor: theme.colors.card}, {height: panelHeight}]}>
+        <View {...panResponder.panHandlers}>
+          <View style={mapStyles.panelHandle} />
+        </View>
+        <View style={[mapStyles.panelContent, {flex: 1}]}>
           <Text style={[mapStyles.panelTitle, isDark && {color: theme.colors.text}]}>Find a Provider</Text>
           
           {isLoading ? (
-            <ActivityIndicator size="large" color="#00B14F" />
+            <View>
+              <ProviderCardSkeleton />
+              <ProviderCardSkeleton />
+              <ProviderCardSkeleton />
+            </View>
           ) : filteredProviders.length > 0 ? (
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {filteredProviders.map((provider) => (
-                <TouchableOpacity
-                  key={provider.id}
-                  style={[mapStyles.providerCard, isDark && {backgroundColor: theme.colors.background, borderColor: theme.colors.border}]}
-                  onPress={() => handleProviderPress(provider)}>
-                  <View style={[mapStyles.providerPhoto, isDark && {backgroundColor: theme.colors.border}]}>
-                    {provider.profilePhoto ? (
-                      <FastImage
-                        source={{uri: provider.profilePhoto, priority: FastImage.priority.normal}}
-                        style={{width: 56, height: 56, borderRadius: 28}}
-                        resizeMode={FastImage.resizeMode.cover}
-                      />
-                    ) : (
-                      <Icon name="person" size={32} color={isDark ? '#9CA3AF' : '#6B7280'} />
-                    )}
-                  </View>
-                  <View style={mapStyles.providerInfo}>
-                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                      <Text style={[mapStyles.providerName, isDark && {color: theme.colors.text}]}>{provider.name}</Text>
-                      {(provider.status === 'approved' || provider.providerStatus === 'approved') && (
-                        <View style={{
-                          backgroundColor: '#3B82F6',
-                          borderRadius: 8,
-                          paddingHorizontal: 5,
-                          paddingVertical: 2,
-                          marginLeft: 6,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                        }}>
-                          <Icon name="checkmark-circle" size={10} color="#FFFFFF" />
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  colors={['#00B14F']}
+                  tintColor="#00B14F"
+                />
+              }>
+              {filteredProviders.map((provider, index) => (
+                <AnimatedListItem key={provider.id} index={index} delay={80}>
+                  <AnimatedCard
+                    style={[mapStyles.providerCard, isDark && {backgroundColor: theme.colors.background, borderColor: theme.colors.border}]}
+                    onPress={() => handleProviderPress(provider)}>
+                    <View style={{position: 'relative'}}>
+                      <View style={[mapStyles.providerPhoto, isDark && {backgroundColor: theme.colors.border}]}>
+                        {provider.profilePhoto ? (
+                          <FastImage
+                            source={{uri: provider.profilePhoto, priority: FastImage.priority.normal}}
+                            style={{width: 56, height: 56, borderRadius: 28}}
+                            resizeMode={FastImage.resizeMode.cover}
+                          />
+                        ) : (
+                          <Icon name="person" size={32} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                        )}
+                        {/* Online indicator with pulse */}
+                        {provider.isOnline && (
+                          <View style={{position: 'absolute', bottom: 0, right: 0}}>
+                            <PulsingDot size={12} color="#10B981" />
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                    <View style={mapStyles.providerInfo}>
+                      <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                        <Text style={[mapStyles.providerName, isDark && {color: theme.colors.text}]}>{provider.name}</Text>
+                        {(provider.status === 'approved' || provider.providerStatus === 'approved') && (
+                          <View style={{
+                            backgroundColor: '#3B82F6',
+                            borderRadius: 8,
+                            paddingHorizontal: 5,
+                            paddingVertical: 2,
+                            marginLeft: 6,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                          }}>
+                            <Icon name="checkmark-circle" size={10} color="#FFFFFF" />
+                          </View>
+                        )}
+                      </View>
+                      {/* Service Category */}
+                      {provider.serviceCategory && (
+                        <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 2}}>
+                          <View style={{
+                            backgroundColor: '#D1FAE5',
+                            borderRadius: 4,
+                            paddingHorizontal: 6,
+                            paddingVertical: 2,
+                          }}>
+                            <Text style={{fontSize: 11, color: '#059669', fontWeight: '600'}}>
+                              {provider.serviceCategory}
+                            </Text>
+                          </View>
                         </View>
                       )}
+                      <View style={mapStyles.providerRating}>
+                        <Icon name="star" size={16} color={(provider.rating > 0 || provider.reviewCount > 0) ? "#F59E0B" : "#D1D5DB"} />
+                        <Text style={mapStyles.providerRatingText}>
+                          {(provider.rating > 0 || provider.reviewCount > 0) 
+                            ? `${(provider.rating || 0).toFixed(1)} (${provider.reviewCount || 0} ${provider.reviewCount === 1 ? 'review' : 'reviews'})` 
+                            : 'New Provider'}
+                        </Text>
+                      </View>
+                      <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 2}}>
+                        <Icon name="location-outline" size={14} color="#6B7280" />
+                        <Text style={mapStyles.providerDistance}>
+                          {provider.barangay 
+                            ? `Brgy. ${provider.barangay}${provider.distance ? ` • ${provider.distance} km` : ''}`
+                            : provider.distance 
+                              ? `${provider.distance} km away`
+                              : 'Nearby'
+                          }
+                        </Text>
+                      </View>
                     </View>
-                    <View style={mapStyles.providerRating}>
-                      <Icon name="star" size={16} color={provider.rating ? "#F59E0B" : "#D1D5DB"} />
-                      <Text style={mapStyles.providerRatingText}>
-                        {provider.rating ? `${provider.rating.toFixed(1)} (${provider.reviewCount} reviews)` : 'New Provider'}
-                      </Text>
+                    <View style={{alignItems: 'flex-end'}}>
+                      {/* Top row: Heart + View Profile */}
+                      <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 6}}>
+                        <TouchableOpacity
+                          style={{
+                            padding: 6,
+                            borderRadius: 8,
+                            backgroundColor: isDark ? theme.colors.surface : '#F9FAFB',
+                            borderWidth: 1,
+                            borderColor: favoriteIds.includes(provider.id) ? '#EF4444' : (isDark ? theme.colors.border : '#E5E7EB'),
+                            marginRight: 6,
+                          }}
+                          onPress={() => toggleFavorite(provider.id)}>
+                          <Icon 
+                            name={favoriteIds.includes(provider.id) ? 'heart' : 'heart-outline'} 
+                            size={16} 
+                            color={favoriteIds.includes(provider.id) ? '#EF4444' : '#9CA3AF'} 
+                          />
+                        </TouchableOpacity>
+                        <AnimatedButton 
+                          style={mapStyles.viewProfileButton}
+                          onPress={() => navigation.navigate('ProviderProfile', {
+                            providerId: provider.id,
+                            provider: provider
+                          })}>
+                          <Text style={mapStyles.viewProfileButtonText}>
+                            View Profile
+                          </Text>
+                        </AnimatedButton>
+                      </View>
+                      {/* Bottom row: Hire Now */}
+                      <AnimatedButton 
+                        style={[mapStyles.hireButton, {width: '100%'}]}
+                        onPress={() => navigation.navigate('HireProvider', {
+                          providerId: provider.id,
+                          provider: provider
+                        })}>
+                        <Text style={mapStyles.hireButtonText}>Hire Now</Text>
+                      </AnimatedButton>
                     </View>
-                    <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 2}}>
-                      <Icon name="location-outline" size={14} color="#6B7280" />
-                      <Text style={mapStyles.providerDistance}>
-                        {provider.barangay 
-                          ? `Brgy. ${provider.barangay}${provider.distance ? ` • ${provider.distance} km` : ''}`
-                          : provider.distance 
-                            ? `${provider.distance} km away`
-                            : 'Nearby'
-                        }
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={mapStyles.providerActions}>
-                    <TouchableOpacity 
-                      style={mapStyles.viewProfileButton}
-                      onPress={() => navigation.navigate('ProviderProfile', {
-                        providerId: provider.id,
-                        provider: provider
-                      })}>
-                      <Text style={mapStyles.viewProfileButtonText}>
-                        View Profile
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={mapStyles.hireButton}
-                      onPress={() => navigation.navigate('HireProvider', {
-                        providerId: provider.id,
-                        provider: provider
-                      })}>
-                      <Text style={mapStyles.hireButtonText}>Hire Now</Text>
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
+                  </AnimatedCard>
+                </AnimatedListItem>
               ))}
             </ScrollView>
           ) : (
@@ -440,7 +625,7 @@ const ClientHomeScreen = ({navigation}) => {
             </View>
           )}
         </View>
-      </View>
+      </Animated.View>
 
       <View style={[mapStyles.floatingButtonContainer, mapStyles.myLocationButton]} pointerEvents="box-none">
         <TouchableOpacity

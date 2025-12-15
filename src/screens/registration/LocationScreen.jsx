@@ -283,7 +283,7 @@ const LocationScreen = ({navigation, route}) => {
             ref={mapRef}
             style={styles.map}
             provider={PROVIDER_GOOGLE}
-            region={region}
+            initialRegion={region}
             onRegionChangeComplete={setRegion}
             onPress={handleMapPress}
             showsUserLocation

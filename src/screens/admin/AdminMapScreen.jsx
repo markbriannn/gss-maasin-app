@@ -12,10 +12,12 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {mapStyles} from '../../css/mapStyles';
+import {useTheme} from '../../context/ThemeContext';
 import {db} from '../../config/firebase';
 import {collection, query, where, onSnapshot} from 'firebase/firestore';
 
 const AdminMapScreen = ({navigation}) => {
+  const {isDark, theme} = useTheme();
   const mapRef = useRef(null);
   const [region] = useState({
     latitude: 10.1335,
@@ -164,7 +166,7 @@ const AdminMapScreen = ({navigation}) => {
       <View style={{position: 'absolute', top: 16, left: 16, right: 16}}>
         <View
           style={{
-            backgroundColor: '#FFFFFF',
+            backgroundColor: isDark ? theme.colors.surface : '#FFFFFF',
             borderRadius: 12,
             padding: 16,
             shadowColor: '#000',
@@ -173,36 +175,36 @@ const AdminMapScreen = ({navigation}) => {
             shadowRadius: 8,
             elevation: 5,
           }}>
-          <Text style={{fontSize: 18, fontWeight: '600', color: '#1F2937', marginBottom: 12}}>
+          <Text style={{fontSize: 18, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', marginBottom: 12}}>
             Active Providers Map
           </Text>
           <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8}}>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
               <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: '#10B981', marginRight: 4}} />
-              <Text style={{fontSize: 10, color: '#6B7280'}}>Available</Text>
+              <Text style={{fontSize: 10, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>Available</Text>
             </View>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
               <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: '#3B82F6', marginRight: 4}} />
-              <Text style={{fontSize: 10, color: '#6B7280'}}>Traveling</Text>
+              <Text style={{fontSize: 10, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>Traveling</Text>
             </View>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
               <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: '#8B5CF6', marginRight: 4}} />
-              <Text style={{fontSize: 10, color: '#6B7280'}}>Arrived</Text>
+              <Text style={{fontSize: 10, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>Arrived</Text>
             </View>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
               <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: '#F59E0B', marginRight: 4}} />
-              <Text style={{fontSize: 10, color: '#6B7280'}}>Working</Text>
+              <Text style={{fontSize: 10, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>Working</Text>
             </View>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
               <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: '#6B7280', marginRight: 4}} />
-              <Text style={{fontSize: 10, color: '#6B7280'}}>Offline</Text>
+              <Text style={{fontSize: 10, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>Offline</Text>
             </View>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
               <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444', marginRight: 4}} />
-              <Text style={{fontSize: 10, color: '#6B7280'}}>Pending</Text>
+              <Text style={{fontSize: 10, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>Pending</Text>
             </View>
           </View>
-          <Text style={{fontSize: 11, color: '#9CA3AF', marginTop: 6}}>
+          <Text style={{fontSize: 11, color: isDark ? theme.colors.textTertiary : '#9CA3AF', marginTop: 6}}>
             {providers.filter(p => p.isApproved).length} approved • {providers.filter(p => p.isTraveling).length} traveling • {providers.filter(p => p.isArrived).length} arrived • {providers.filter(p => p.isWorking).length} working
           </Text>
         </View>
@@ -215,7 +217,7 @@ const AdminMapScreen = ({navigation}) => {
             bottom: 20,
             left: 20,
             right: 20,
-            backgroundColor: '#FFFFFF',
+            backgroundColor: isDark ? theme.colors.surface : '#FFFFFF',
             borderRadius: 16,
             padding: 20,
             shadowColor: '#000',
@@ -227,14 +229,14 @@ const AdminMapScreen = ({navigation}) => {
           <TouchableOpacity
             style={{position: 'absolute', top: 12, right: 12}}
             onPress={() => setSelectedProvider(null)}>
-            <Icon name="close-circle" size={24} color="#9CA3AF" />
+            <Icon name="close-circle" size={24} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
           </TouchableOpacity>
-          <Text style={{fontSize: 20, fontWeight: '700', color: '#1F2937', marginBottom: 8}}>
+          <Text style={{fontSize: 20, fontWeight: '700', color: isDark ? theme.colors.text : '#1F2937', marginBottom: 8}}>
             {selectedProvider.name}
           </Text>
           <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 4}}>
-            <Icon name="construct" size={16} color="#6B7280" style={{marginRight: 8}} />
-            <Text style={{fontSize: 14, color: '#6B7280'}}>
+            <Icon name="construct" size={16} color={isDark ? theme.colors.textSecondary : '#6B7280'} style={{marginRight: 8}} />
+            <Text style={{fontSize: 14, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>
               {selectedProvider.service}
             </Text>
           </View>
@@ -252,7 +254,7 @@ const AdminMapScreen = ({navigation}) => {
             </View>
           </View>
           {selectedProvider.currentJob && (
-            <Text style={{fontSize: 14, color: '#374151', marginBottom: 12}}>
+            <Text style={{fontSize: 14, color: isDark ? theme.colors.text : '#374151', marginBottom: 12}}>
               Current Job: {selectedProvider.currentJob}
             </Text>
           )}
@@ -295,7 +297,7 @@ const AdminMapScreen = ({navigation}) => {
         onRequestClose={() => setShowDetailModal(false)}>
         <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end'}}>
           <View style={{
-            backgroundColor: '#FFFFFF',
+            backgroundColor: isDark ? theme.colors.surface : '#FFFFFF',
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
             maxHeight: '80%',
@@ -307,13 +309,13 @@ const AdminMapScreen = ({navigation}) => {
               alignItems: 'center',
               padding: 20,
               borderBottomWidth: 1,
-              borderBottomColor: '#E5E7EB',
+              borderBottomColor: isDark ? theme.colors.border : '#E5E7EB',
             }}>
-              <Text style={{fontSize: 20, fontWeight: '700', color: '#1F2937'}}>
+              <Text style={{fontSize: 20, fontWeight: '700', color: isDark ? theme.colors.text : '#1F2937'}}>
                 Provider Details
               </Text>
               <TouchableOpacity onPress={() => setShowDetailModal(false)}>
-                <Icon name="close" size={24} color="#6B7280" />
+                <Icon name="close" size={24} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
               </TouchableOpacity>
             </View>
 
@@ -333,7 +335,7 @@ const AdminMapScreen = ({navigation}) => {
                     }}>
                       <Icon name="person" size={40} color="#FFFFFF" />
                     </View>
-                    <Text style={{fontSize: 22, fontWeight: '700', color: '#1F2937'}}>
+                    <Text style={{fontSize: 22, fontWeight: '700', color: isDark ? theme.colors.text : '#1F2937'}}>
                       {selectedProvider.name}
                     </Text>
                     <View style={{
@@ -354,17 +356,17 @@ const AdminMapScreen = ({navigation}) => {
                   </View>
 
                   {/* Details */}
-                  <View style={{backgroundColor: '#F9FAFB', borderRadius: 12, padding: 16, marginBottom: 16}}>
+                  <View style={{backgroundColor: isDark ? theme.colors.background : '#F9FAFB', borderRadius: 12, padding: 16, marginBottom: 16}}>
                     <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
                       <Icon name="construct" size={20} color="#00B14F" />
-                      <Text style={{fontSize: 15, color: '#374151', marginLeft: 12}}>
+                      <Text style={{fontSize: 15, color: isDark ? theme.colors.text : '#374151', marginLeft: 12}}>
                         {selectedProvider.service}
                       </Text>
                     </View>
                     {selectedProvider.phone && (
                       <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
                         <Icon name="call" size={20} color="#00B14F" />
-                        <Text style={{fontSize: 15, color: '#374151', marginLeft: 12}}>
+                        <Text style={{fontSize: 15, color: isDark ? theme.colors.text : '#374151', marginLeft: 12}}>
                           {selectedProvider.phone}
                         </Text>
                       </View>
@@ -372,7 +374,7 @@ const AdminMapScreen = ({navigation}) => {
                     {selectedProvider.email && (
                       <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
                         <Icon name="mail" size={20} color="#00B14F" />
-                        <Text style={{fontSize: 15, color: '#374151', marginLeft: 12}}>
+                        <Text style={{fontSize: 15, color: isDark ? theme.colors.text : '#374151', marginLeft: 12}}>
                           {selectedProvider.email}
                         </Text>
                       </View>
@@ -380,7 +382,7 @@ const AdminMapScreen = ({navigation}) => {
                     {selectedProvider.currentJob && (
                       <View style={{flexDirection: 'row', alignItems: 'center'}}>
                         <Icon name="briefcase" size={20} color="#F59E0B" />
-                        <Text style={{fontSize: 15, color: '#374151', marginLeft: 12}}>
+                        <Text style={{fontSize: 15, color: isDark ? theme.colors.text : '#374151', marginLeft: 12}}>
                           Current Job: {selectedProvider.currentJob}
                         </Text>
                       </View>
@@ -433,7 +435,7 @@ const AdminMapScreen = ({navigation}) => {
                   {/* Go to Providers */}
                   <TouchableOpacity
                     style={{
-                      backgroundColor: '#F3F4F6',
+                      backgroundColor: isDark ? theme.colors.background : '#F3F4F6',
                       paddingVertical: 14,
                       borderRadius: 12,
                       alignItems: 'center',
@@ -445,7 +447,7 @@ const AdminMapScreen = ({navigation}) => {
                       setSelectedProvider(null);
                       navigation.navigate('Providers', {openProviderId: providerId});
                     }}>
-                    <Text style={{color: '#374151', fontWeight: '600'}}>View in Providers List</Text>
+                    <Text style={{color: isDark ? theme.colors.text : '#374151', fontWeight: '600'}}>View in Providers List</Text>
                   </TouchableOpacity>
                 </>
               )}

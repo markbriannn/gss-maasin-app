@@ -15,13 +15,16 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAuth} from '../../context/AuthContext';
+import {useTheme} from '../../context/ThemeContext';
 import {globalStyles} from '../../css/globalStyles';
 import {doc, updateDoc, getDoc, collection, onSnapshot, addDoc, serverTimestamp} from 'firebase/firestore';
 import {db} from '../../config/firebase';
 import paymentService from '../../services/paymentService';
+import {APP_CONFIG} from '../../config/constants';
 
 const AdminEarningsScreen = ({navigation}) => {
   const {user} = useAuth();
+  const {isDark, theme} = useTheme();
   const [earnings, setEarnings] = useState({
     totalSystemFee: 0,
     availableBalance: 0,
@@ -203,10 +206,10 @@ const AdminEarningsScreen = ({navigation}) => {
       return;
     }
 
-    if (earnings.availableBalance < 100) {
+    if (earnings.availableBalance < APP_CONFIG.MINIMUM_PAYOUT_AMOUNT) {
       Alert.alert(
         'Minimum Amount',
-        `Minimum withdrawal is ₱100. Your available balance is ₱${earnings.availableBalance.toFixed(2)}`,
+        `Minimum withdrawal is ${APP_CONFIG.CURRENCY_SYMBOL}${APP_CONFIG.MINIMUM_PAYOUT_AMOUNT}. Your available balance is ${APP_CONFIG.CURRENCY_SYMBOL}${earnings.availableBalance.toFixed(2)}`,
       );
       return;
     }
@@ -262,7 +265,7 @@ const AdminEarningsScreen = ({navigation}) => {
 
   if (loading) {
     return (
-      <SafeAreaView style={globalStyles.container}>
+      <SafeAreaView style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]}>
         <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
           <ActivityIndicator size="large" color="#00B14F" />
         </View>
@@ -271,7 +274,7 @@ const AdminEarningsScreen = ({navigation}) => {
   }
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#F3F4F6'}} edges={['top']}>
+    <SafeAreaView style={{flex: 1, backgroundColor: isDark ? theme.colors.background : '#F3F4F6'}} edges={['top']}>
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#00B14F']} />}>
         {/* Header */}
@@ -295,7 +298,7 @@ const AdminEarningsScreen = ({navigation}) => {
         <View style={{marginHorizontal: 20, marginTop: -20}}>
           <View
             style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor: isDark ? theme.colors.surface : '#FFFFFF',
               borderRadius: 16,
               padding: 20,
               shadowColor: '#000',
@@ -304,20 +307,20 @@ const AdminEarningsScreen = ({navigation}) => {
               shadowRadius: 12,
               elevation: 5,
             }}>
-            <Text style={{fontSize: 14, color: '#6B7280'}}>Available Balance</Text>
+            <Text style={{fontSize: 14, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>Available Balance</Text>
             <Text style={{fontSize: 36, fontWeight: '700', color: '#F59E0B', marginTop: 4}}>
               {formatCurrency(earnings.availableBalance)}
             </Text>
 
             <View style={{flexDirection: 'row', marginTop: 16, gap: 12}}>
-              <View style={{flex: 1, backgroundColor: '#FEF3C7', borderRadius: 12, padding: 12}}>
-                <Text style={{fontSize: 12, color: '#6B7280'}}>Total Collected</Text>
-                <Text style={{fontSize: 18, fontWeight: '600', color: '#1F2937'}}>
+              <View style={{flex: 1, backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7', borderRadius: 12, padding: 12}}>
+                <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>Total Collected</Text>
+                <Text style={{fontSize: 18, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937'}}>
                   {formatCurrency(earnings.totalSystemFee)}
                 </Text>
               </View>
-              <View style={{flex: 1, backgroundColor: '#F0FDF4', borderRadius: 12, padding: 12}}>
-                <Text style={{fontSize: 12, color: '#6B7280'}}>Withdrawn</Text>
+              <View style={{flex: 1, backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#F0FDF4', borderRadius: 12, padding: 12}}>
+                <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>Withdrawn</Text>
                 <Text style={{fontSize: 18, fontWeight: '600', color: '#10B981'}}>
                   {formatCurrency(earnings.totalWithdrawn)}
                 </Text>
@@ -325,7 +328,7 @@ const AdminEarningsScreen = ({navigation}) => {
             </View>
 
             {earnings.pendingWithdrawal > 0 && (
-              <View style={{marginTop: 12, backgroundColor: '#FEF3C7', borderRadius: 8, padding: 10}}>
+              <View style={{marginTop: 12, backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7', borderRadius: 8, padding: 10}}>
                 <Text style={{fontSize: 13, color: '#D97706', textAlign: 'center'}}>
                   Pending Withdrawal: {formatCurrency(earnings.pendingWithdrawal)}
                 </Text>
@@ -336,19 +339,19 @@ const AdminEarningsScreen = ({navigation}) => {
 
         {/* Stats */}
         <View style={{marginHorizontal: 20, marginTop: 20}}>
-          <View style={{backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, flexDirection: 'row'}}>
+          <View style={{backgroundColor: isDark ? theme.colors.surface : '#FFFFFF', borderRadius: 12, padding: 16, flexDirection: 'row'}}>
             <View style={{flex: 1, alignItems: 'center'}}>
               <Icon name="checkmark-done-circle" size={28} color="#10B981" />
-              <Text style={{fontSize: 24, fontWeight: '700', color: '#1F2937', marginTop: 4}}>
+              <Text style={{fontSize: 24, fontWeight: '700', color: isDark ? theme.colors.text : '#1F2937', marginTop: 4}}>
                 {earnings.completedJobs}
               </Text>
-              <Text style={{fontSize: 12, color: '#6B7280'}}>Completed Jobs</Text>
+              <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>Completed Jobs</Text>
             </View>
-            <View style={{width: 1, backgroundColor: '#E5E7EB'}} />
+            <View style={{width: 1, backgroundColor: isDark ? theme.colors.border : '#E5E7EB'}} />
             <View style={{flex: 1, alignItems: 'center'}}>
               <Icon name="calculator" size={28} color="#F59E0B" />
-              <Text style={{fontSize: 24, fontWeight: '700', color: '#1F2937', marginTop: 4}}>5%</Text>
-              <Text style={{fontSize: 12, color: '#6B7280'}}>Service Fee</Text>
+              <Text style={{fontSize: 24, fontWeight: '700', color: isDark ? theme.colors.text : '#1F2937', marginTop: 4}}>5%</Text>
+              <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>Service Fee</Text>
             </View>
           </View>
         </View>
@@ -356,14 +359,14 @@ const AdminEarningsScreen = ({navigation}) => {
 
         {/* Payout Account Section */}
         <View style={{marginHorizontal: 20, marginTop: 20}}>
-          <Text style={{fontSize: 16, fontWeight: '600', color: '#1F2937', marginBottom: 12}}>
+          <Text style={{fontSize: 16, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', marginBottom: 12}}>
             Withdrawal Account
           </Text>
 
           {payoutAccount ? (
             <View
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: isDark ? theme.colors.surface : '#FFFFFF',
                 borderRadius: 12,
                 padding: 16,
                 flexDirection: 'row',
@@ -381,13 +384,13 @@ const AdminEarningsScreen = ({navigation}) => {
                 <Icon name="wallet" size={24} color="#FFFFFF" />
               </View>
               <View style={{flex: 1, marginLeft: 12}}>
-                <Text style={{fontSize: 16, fontWeight: '600', color: '#1F2937'}}>
+                <Text style={{fontSize: 16, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937'}}>
                   {payoutAccount.method === 'gcash' ? 'GCash' : 'Maya'}
                 </Text>
-                <Text style={{fontSize: 14, color: '#6B7280'}}>
+                <Text style={{fontSize: 14, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>
                   {payoutAccount.accountNumber.slice(-4).padStart(payoutAccount.accountNumber.length, '*')}
                 </Text>
-                <Text style={{fontSize: 12, color: '#9CA3AF'}}>{payoutAccount.accountName}</Text>
+                <Text style={{fontSize: 12, color: isDark ? theme.colors.textTertiary : '#9CA3AF'}}>{payoutAccount.accountName}</Text>
               </View>
               <TouchableOpacity
                 onPress={() => {
@@ -396,26 +399,26 @@ const AdminEarningsScreen = ({navigation}) => {
                   setAccountName(payoutAccount.accountName);
                   setShowSetupModal(true);
                 }}>
-                <Icon name="pencil" size={20} color="#6B7280" />
+                <Icon name="pencil" size={20} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
               </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: isDark ? theme.colors.surface : '#FFFFFF',
                 borderRadius: 12,
                 padding: 20,
                 alignItems: 'center',
                 borderWidth: 2,
-                borderColor: '#E5E7EB',
+                borderColor: isDark ? theme.colors.border : '#E5E7EB',
                 borderStyle: 'dashed',
               }}
               onPress={() => setShowSetupModal(true)}>
               <Icon name="add-circle-outline" size={40} color="#F59E0B" />
-              <Text style={{fontSize: 16, fontWeight: '600', color: '#1F2937', marginTop: 8}}>
+              <Text style={{fontSize: 16, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', marginTop: 8}}>
                 Setup Withdrawal Account
               </Text>
-              <Text style={{fontSize: 13, color: '#6B7280', marginTop: 4}}>
+              <Text style={{fontSize: 13, color: isDark ? theme.colors.textSecondary : '#6B7280', marginTop: 4}}>
                 Add your GCash or Maya to withdraw earnings
               </Text>
             </TouchableOpacity>
@@ -440,9 +443,9 @@ const AdminEarningsScreen = ({navigation}) => {
               Withdraw Earnings
             </Text>
           </TouchableOpacity>
-          {earnings.availableBalance < 100 && (
+          {earnings.availableBalance < APP_CONFIG.MINIMUM_PAYOUT_AMOUNT && (
             <Text style={{fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginTop: 8}}>
-              Minimum withdrawal amount is ₱100
+              Minimum withdrawal amount is {APP_CONFIG.CURRENCY_SYMBOL}{APP_CONFIG.MINIMUM_PAYOUT_AMOUNT}
             </Text>
           )}
         </View>
@@ -450,42 +453,42 @@ const AdminEarningsScreen = ({navigation}) => {
         {/* Pending Provider Payouts */}
         <View style={{marginHorizontal: 20, marginTop: 24}}>
           <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
-            <Text style={{fontSize: 16, fontWeight: '600', color: '#1F2937'}}>
+            <Text style={{fontSize: 16, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937'}}>
               Provider Payout Requests
             </Text>
             <TouchableOpacity onPress={fetchPendingPayouts}>
-              <Icon name="refresh" size={20} color="#6B7280" />
+              <Icon name="refresh" size={20} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
             </TouchableOpacity>
           </View>
 
           {loadingPayouts ? (
-            <View style={{backgroundColor: '#FFFFFF', borderRadius: 12, padding: 20, alignItems: 'center'}}>
+            <View style={{backgroundColor: isDark ? theme.colors.surface : '#FFFFFF', borderRadius: 12, padding: 20, alignItems: 'center'}}>
               <ActivityIndicator color="#F59E0B" />
             </View>
           ) : pendingPayouts.length === 0 ? (
-            <View style={{backgroundColor: '#FFFFFF', borderRadius: 12, padding: 20, alignItems: 'center'}}>
+            <View style={{backgroundColor: isDark ? theme.colors.surface : '#FFFFFF', borderRadius: 12, padding: 20, alignItems: 'center'}}>
               <Icon name="checkmark-circle" size={40} color="#10B981" />
-              <Text style={{fontSize: 14, color: '#6B7280', marginTop: 8}}>No pending payout requests</Text>
+              <Text style={{fontSize: 14, color: isDark ? theme.colors.textSecondary : '#6B7280', marginTop: 8}}>No pending payout requests</Text>
             </View>
           ) : (
-            <View style={{backgroundColor: '#FFFFFF', borderRadius: 12, overflow: 'hidden'}}>
+            <View style={{backgroundColor: isDark ? theme.colors.surface : '#FFFFFF', borderRadius: 12, overflow: 'hidden'}}>
               {pendingPayouts.map((payout, index) => (
                 <View
                   key={payout.id}
                   style={{
                     padding: 16,
                     borderBottomWidth: index < pendingPayouts.length - 1 ? 1 : 0,
-                    borderBottomColor: '#F3F4F6',
+                    borderBottomColor: isDark ? theme.colors.border : '#F3F4F6',
                   }}>
                   <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'}}>
                     <View style={{flex: 1}}>
-                      <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937'}}>
+                      <Text style={{fontSize: 15, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937'}}>
                         {payout.providerName || 'Provider'}
                       </Text>
-                      <Text style={{fontSize: 13, color: '#6B7280', marginTop: 2}}>
+                      <Text style={{fontSize: 13, color: isDark ? theme.colors.textSecondary : '#6B7280', marginTop: 2}}>
                         {payout.accountMethod?.toUpperCase()} - {payout.accountNumber}
                       </Text>
-                      <Text style={{fontSize: 12, color: '#9CA3AF', marginTop: 2}}>
+                      <Text style={{fontSize: 12, color: isDark ? theme.colors.textTertiary : '#9CA3AF', marginTop: 2}}>
                         {payout.requestedAt ? new Date(payout.requestedAt).toLocaleDateString() : 'Recently'}
                       </Text>
                     </View>
@@ -512,15 +515,15 @@ const AdminEarningsScreen = ({navigation}) => {
 
         {/* How it works */}
         <View style={{marginHorizontal: 20, marginTop: 24, marginBottom: 40}}>
-          <Text style={{fontSize: 16, fontWeight: '600', color: '#1F2937', marginBottom: 12}}>
+          <Text style={{fontSize: 16, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', marginBottom: 12}}>
             How System Fees Work
           </Text>
-          <View style={{backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16}}>
+          <View style={{backgroundColor: isDark ? theme.colors.surface : '#FFFFFF', borderRadius: 12, padding: 16}}>
             {[
               {icon: 'briefcase', text: 'Provider completes a job', color: '#3B82F6'},
-              {icon: 'cut', text: '5% service fee is collected', color: '#F59E0B'},
+              {icon: 'cut', text: `${APP_CONFIG.SERVICE_FEE_PERCENTAGE}% service fee is collected`, color: '#F59E0B'},
               {icon: 'wallet', text: 'Fee added to your balance', color: '#10B981'},
-              {icon: 'flash', text: 'Withdraw anytime (min ₱100)', color: '#8B5CF6'},
+              {icon: 'flash', text: `Withdraw anytime (min ${APP_CONFIG.CURRENCY_SYMBOL}${APP_CONFIG.MINIMUM_PAYOUT_AMOUNT})`, color: '#8B5CF6'},
             ].map((item, index) => (
               <View
                 key={index}
@@ -529,7 +532,7 @@ const AdminEarningsScreen = ({navigation}) => {
                   alignItems: 'center',
                   paddingVertical: 10,
                   borderBottomWidth: index < 3 ? 1 : 0,
-                  borderBottomColor: '#F3F4F6',
+                  borderBottomColor: isDark ? theme.colors.border : '#F3F4F6',
                 }}>
                 <View
                   style={{
@@ -542,7 +545,7 @@ const AdminEarningsScreen = ({navigation}) => {
                   }}>
                   <Icon name={item.icon} size={18} color={item.color} />
                 </View>
-                <Text style={{fontSize: 14, color: '#4B5563', marginLeft: 12, flex: 1}}>
+                <Text style={{fontSize: 14, color: isDark ? theme.colors.textSecondary : '#4B5563', marginLeft: 12, flex: 1}}>
                   {item.text}
                 </Text>
               </View>

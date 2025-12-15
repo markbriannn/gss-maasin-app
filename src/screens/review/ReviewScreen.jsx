@@ -4,14 +4,17 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {globalStyles} from '../../css/globalStyles';
 import {useAuth} from '../../context/AuthContext';
+import {useTheme} from '../../context/ThemeContext';
 import {doc, updateDoc, serverTimestamp} from 'firebase/firestore';
 import {db} from '../../config/firebase';
 import {submitReview, isJobEligibleForReview} from '../../services/reviewService';
 import {launchImageLibrary} from 'react-native-image-picker';
 import {uploadImage} from '../../services/imageUploadService';
+import {attemptReview} from '../../utils/rateLimiter';
 
 const ReviewScreen = ({navigation, route}) => {
   const {user} = useAuth();
+  const {isDark, theme} = useTheme();
   const {jobId, providerId, providerName} = route.params || {};
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState('');
@@ -90,6 +93,13 @@ const ReviewScreen = ({navigation, route}) => {
       return;
     }
 
+    // Check rate limit before submitting
+    const rateLimitCheck = await attemptReview(user?.uid);
+    if (!rateLimitCheck.allowed) {
+      Alert.alert('Please Wait', rateLimitCheck.message);
+      return;
+    }
+
     setSubmitting(true);
     try {
       // Upload images first if any
@@ -148,7 +158,7 @@ const ReviewScreen = ({navigation, route}) => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={globalStyles.container}>
+      <SafeAreaView style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]}>
         <View style={globalStyles.centerContainer}>
           <ActivityIndicator size="large" color="#00B14F" />
         </View>
@@ -158,13 +168,13 @@ const ReviewScreen = ({navigation, route}) => {
 
   if (!eligible && jobId) {
     return (
-      <SafeAreaView style={globalStyles.container}>
+      <SafeAreaView style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]}>
         <View style={[globalStyles.centerContainer, { padding: 20 }]}>
           <Icon name="alert-circle" size={64} color="#EF4444" />
-          <Text style={[globalStyles.heading2, { marginTop: 16, textAlign: 'center' }]}>
+          <Text style={[globalStyles.heading2, { marginTop: 16, textAlign: 'center' }, isDark && {color: theme.colors.text}]}>
             Cannot Submit Review
           </Text>
-          <Text style={[globalStyles.bodyMedium, { marginTop: 12, textAlign: 'center', color: '#6B7280' }]}>
+          <Text style={[globalStyles.bodyMedium, { marginTop: 12, textAlign: 'center', color: isDark ? theme.colors.textSecondary : '#6B7280' }]}>
             {ineligibleReason}
           </Text>
           <TouchableOpacity
@@ -184,12 +194,12 @@ const ReviewScreen = ({navigation, route}) => {
   }
 
   return (
-    <SafeAreaView style={globalStyles.container}>
-      <View style={{flexDirection: 'row', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#E5E7EB'}}>
+    <SafeAreaView style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]}>
+      <View style={{flexDirection: 'row', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: isDark ? theme.colors.border : '#E5E7EB'}}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color="#1F2937" />
+          <Icon name="arrow-back" size={24} color={isDark ? theme.colors.text : '#1F2937'} />
         </TouchableOpacity>
-        <Text style={[globalStyles.heading3, {marginLeft: 16}]}>
+        <Text style={[globalStyles.heading3, {marginLeft: 16}, isDark && {color: theme.colors.text}]}>
           Leave a Review
         </Text>
       </View>
@@ -201,19 +211,19 @@ const ReviewScreen = ({navigation, route}) => {
               width: 80,
               height: 80,
               borderRadius: 40,
-              backgroundColor: '#F3F4F6',
+              backgroundColor: isDark ? theme.colors.surface : '#F3F4F6',
               justifyContent: 'center',
               alignItems: 'center',
               marginBottom: 12,
             }}>
-            <Icon name="person" size={40} color="#9CA3AF" />
+            <Icon name="person" size={40} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
           </View>
-          <Text style={{fontSize: 18, fontWeight: '600', color: '#1F2937'}}>
+          <Text style={{fontSize: 18, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937'}}>
             {providerName || 'Provider'}
           </Text>
         </View>
 
-        <Text style={{fontSize: 16, fontWeight: '600', color: '#1F2937', marginBottom: 16, textAlign: 'center'}}>
+        <Text style={{fontSize: 16, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', marginBottom: 16, textAlign: 'center'}}>
           How was your experience?
         </Text>
 
@@ -234,18 +244,19 @@ const ReviewScreen = ({navigation, route}) => {
 
         <TextInput
           style={{
-            backgroundColor: '#F9FAFB',
+            backgroundColor: isDark ? theme.colors.surface : '#F9FAFB',
             borderRadius: 12,
             borderWidth: 1,
-            borderColor: '#E5E7EB',
+            borderColor: isDark ? theme.colors.border : '#E5E7EB',
             padding: 16,
             fontSize: 14,
-            color: '#1F2937',
+            color: isDark ? theme.colors.text : '#1F2937',
             height: 120,
             textAlignVertical: 'top',
             marginBottom: 16,
           }}
           placeholder="Share details of your experience..."
+          placeholderTextColor={isDark ? theme.colors.textTertiary : '#9CA3AF'}
           multiline
           numberOfLines={6}
           value={review}
@@ -254,7 +265,7 @@ const ReviewScreen = ({navigation, route}) => {
 
         {/* Image Upload Section */}
         <View style={{marginBottom: 24}}>
-          <Text style={{fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 12}}>
+          <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.text : '#374151', marginBottom: 12}}>
             Add Photos (Optional)
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -288,21 +299,21 @@ const ReviewScreen = ({navigation, route}) => {
                   height: 80,
                   borderRadius: 8,
                   borderWidth: 2,
-                  borderColor: '#E5E7EB',
+                  borderColor: isDark ? theme.colors.border : '#E5E7EB',
                   borderStyle: 'dashed',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: '#F9FAFB',
+                  backgroundColor: isDark ? theme.colors.surface : '#F9FAFB',
                 }}
                 onPress={handleAddImage}>
-                <Icon name="camera" size={24} color="#9CA3AF" />
-                <Text style={{fontSize: 10, color: '#9CA3AF', marginTop: 4}}>
+                <Icon name="camera" size={24} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
+                <Text style={{fontSize: 10, color: isDark ? theme.colors.textSecondary : '#9CA3AF', marginTop: 4}}>
                   {images.length}/5
                 </Text>
               </TouchableOpacity>
             )}
           </ScrollView>
-          <Text style={{fontSize: 12, color: '#9CA3AF', marginTop: 8}}>
+          <Text style={{fontSize: 12, color: isDark ? theme.colors.textTertiary : '#9CA3AF', marginTop: 8}}>
             Add up to 5 photos of the completed work
           </Text>
         </View>

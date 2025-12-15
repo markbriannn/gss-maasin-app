@@ -280,6 +280,20 @@ const AdminDashboardScreen = ({navigation}) => {
                   backgroundColor: 'rgba(255,255,255,0.2)',
                   justifyContent: 'center',
                   alignItems: 'center',
+                  marginRight: 10,
+                }}
+                onPress={() => navigation.navigate('AdminSettings')}
+              >
+                <Icon name="settings-outline" size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  justifyContent: 'center',
+                  alignItems: 'center',
                 }}
                 onPress={handleLogout}
               >

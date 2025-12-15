@@ -3,6 +3,7 @@ import {View, Text, TextInput, TouchableOpacity, ScrollView} from 'react-native'
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {authStyles} from '../../css/authStyles';
+import {APP_CONFIG} from '../../config/constants';
 
 const AboutServiceScreen = ({navigation, route}) => {
   const [aboutService, setAboutService] = useState('');
@@ -200,7 +201,7 @@ const AboutServiceScreen = ({navigation, route}) => {
             }}>
               <Icon name="information-circle" size={20} color="#F59E0B" />
               <Text style={{flex: 1, marginLeft: 8, fontSize: 12, color: '#92400E', lineHeight: 18}}>
-                Note: Clients will be charged an additional 5% service fee on top of your price. 
+                Note: Clients will be charged an additional {APP_CONFIG.SERVICE_FEE_PERCENTAGE}% service fee on top of your price. 
                 You will receive the full amount you set here.
               </Text>
             </View>

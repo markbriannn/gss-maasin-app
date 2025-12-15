@@ -21,11 +21,16 @@ import {doc, getDoc, updateDoc, serverTimestamp, onSnapshot} from 'firebase/fire
 import notificationService from '../../services/notificationService';
 import paymentService from '../../services/paymentService';
 import {useAuth} from '../../context/AuthContext';
+import {useTheme} from '../../context/ThemeContext';
 import {sendPaymentReceipt} from '../../services/emailJSService';
+import {APP_CONFIG} from '../../config/constants';
+import {getProviderBadges, getProviderTier} from '../../utils/gamification';
+import {BadgeList, TierBadge} from '../../components/gamification';
 
 const JobDetailsScreen = ({navigation, route}) => {
   const {job, jobId} = route.params || {};
   const {user} = useAuth();
+  const {isDark, theme} = useTheme();
   const [jobData, setJobData] = useState(job || null);
   const [isLoading, setIsLoading] = useState(!job);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -146,6 +151,21 @@ const JobDetailsScreen = ({navigation, route}) => {
       (docSnap) => {
         if (docSnap.exists()) {
           const pData = docSnap.data();
+          // Check both rating and averageRating fields for compatibility
+          const providerRating = pData.rating || pData.averageRating || 0;
+          const providerReviewCount = pData.reviewCount || pData.totalReviews || 0;
+          const completedJobs = pData.completedJobs || pData.jobsCompleted || 0;
+          
+          // Calculate provider badges
+          const providerBadges = getProviderBadges({
+            completedJobs,
+            rating: providerRating,
+            reviewCount: providerReviewCount,
+            responseRate: pData.responseRate || 0,
+            isVerified: pData.isVerified || pData.status === 'approved',
+          });
+          
+          console.log('[JobDetails] Provider data:', {rating: providerRating, reviewCount: providerReviewCount, badges: providerBadges.length});
           setJobData(prev => ({
             ...prev,
             provider: {
@@ -153,8 +173,12 @@ const JobDetailsScreen = ({navigation, route}) => {
               name: `${pData.firstName || ''} ${pData.lastName || ''}`.trim() || prev?.provider?.name || 'Provider',
               phone: pData.phone,
               photo: pData.profilePhoto,
-              rating: pData.rating || null,
-              reviewCount: pData.reviewCount || 0,
+              rating: providerRating,
+              reviewCount: providerReviewCount,
+              completedJobs,
+              badges: providerBadges,
+              tier: pData.tier || null,
+              points: pData.points || 0,
             },
           }));
         }
@@ -585,7 +609,7 @@ const JobDetailsScreen = ({navigation, route}) => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={globalStyles.container}>
+      <SafeAreaView style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]}>
         <View style={globalStyles.centerContainer}>
           <ActivityIndicator size="large" color="#00B14F" />
         </View>
@@ -595,29 +619,29 @@ const JobDetailsScreen = ({navigation, route}) => {
 
   if (!jobData) {
     return (
-      <SafeAreaView style={globalStyles.container}>
-        <View style={styles.header}>
+      <SafeAreaView style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]}>
+        <View style={[styles.header, isDark && {backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border}]}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Icon name="arrow-back" size={24} color="#1F2937" />
+            <Icon name="arrow-back" size={24} color={isDark ? theme.colors.text : '#1F2937'} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Job Details</Text>
+          <Text style={[styles.headerTitle, isDark && {color: theme.colors.text}]}>Job Details</Text>
           <View style={{width: 24}} />
         </View>
         <View style={globalStyles.centerContainer}>
-          <Text style={globalStyles.bodyMedium}>Job not found</Text>
+          <Text style={[globalStyles.bodyMedium, isDark && {color: theme.colors.text}]}>Job not found</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={globalStyles.container} edges={['top']}>
+    <SafeAreaView style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, isDark && {backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border}]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color="#1F2937" />
+          <Icon name="arrow-back" size={24} color={isDark ? theme.colors.text : '#1F2937'} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Job Details</Text>
+        <Text style={[styles.headerTitle, isDark && {color: theme.colors.text}]}>Job Details</Text>
         <View style={{width: 24}} />
       </View>
 
@@ -760,11 +784,19 @@ const JobDetailsScreen = ({navigation, route}) => {
               <View style={styles.personInfo}>
                 <Text style={styles.personName}>{jobData.provider?.name || jobData.providerName || 'Provider'}</Text>
                 <View style={styles.ratingRow}>
-                  <Icon name="star" size={14} color={jobData.provider?.rating ? "#F59E0B" : "#D1D5DB"} />
+                  <Icon name="star" size={14} color={(jobData.provider?.rating > 0 || jobData.provider?.reviewCount > 0) ? "#F59E0B" : "#D1D5DB"} />
                   <Text style={styles.ratingText}>
-                    {jobData.provider?.rating ? `${jobData.provider.rating} (${jobData.provider.reviewCount || 0} reviews)` : 'New Provider'}
+                    {(jobData.provider?.rating > 0 || jobData.provider?.reviewCount > 0) 
+                      ? `${(jobData.provider.rating || 0).toFixed(1)} (${jobData.provider.reviewCount || 0} ${jobData.provider.reviewCount === 1 ? 'review' : 'reviews'})` 
+                      : 'New Provider'}
                   </Text>
                 </View>
+                {/* Provider Tier */}
+                {jobData.provider?.points > 0 && (
+                  <View style={{marginTop: 4}}>
+                    <TierBadge tier={getProviderTier(jobData.provider.points)} size="small" />
+                  </View>
+                )}
               </View>
             </View>
             
@@ -901,9 +933,9 @@ const JobDetailsScreen = ({navigation, route}) => {
               )}
 
               <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
-                <Text style={{fontSize: 14, color: '#4B5563'}}>System Fee (5%)</Text>
+                <Text style={{fontSize: 14, color: '#4B5563'}}>System Fee ({APP_CONFIG.SERVICE_FEE_PERCENTAGE}%)</Text>
                 <Text style={{fontSize: 14, fontWeight: '600', color: '#1F2937'}}>
-                  ₱{(jobData.systemFee || 0).toLocaleString()}
+                  {APP_CONFIG.CURRENCY_SYMBOL}{(jobData.systemFee || 0).toLocaleString()}
                 </Text>
               </View>
 

@@ -3,9 +3,9 @@ import {View, Text, TextInput, TouchableOpacity, ScrollView, Alert} from 'react-
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {authStyles} from '../../css/authStyles';
-import {globalStyles} from '../../css/globalStyles';
-import {authService} from '../../services/authService';
 import {sendPasswordResetCode} from '../../services/emailJSService';
+import {attemptPasswordReset} from '../../utils/rateLimiter';
+import {APP_CONFIG} from '../../config/constants';
 
 const ForgotPasswordScreen = ({navigation}) => {
   const [email, setEmail] = useState('');
@@ -15,10 +15,7 @@ const ForgotPasswordScreen = ({navigation}) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
-
-  const generateResetCode = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  };
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async () => {
     if (!email) {
@@ -26,31 +23,59 @@ const ForgotPasswordScreen = ({navigation}) => {
       return;
     }
 
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
+    // Check rate limit before sending reset code
+    const rateLimitCheck = await attemptPasswordReset(email);
+    if (!rateLimitCheck.allowed) {
+      Alert.alert('Please Wait', rateLimitCheck.message);
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Generate a 6-digit reset code
-      const code = generateResetCode();
-      setGeneratedCode(code);
+      // Generate code via backend (validates user exists)
+      const response = await fetch(`${APP_CONFIG.API_URL}/api/auth/generate-reset-code`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email: email.toLowerCase()}),
+      });
       
-      // Send reset code via EmailJS
-      const result = await sendPasswordResetCode(email, code);
+      const data = await response.json();
       
-      // Always show code input since we have the code locally
-      setShowCodeInput(true);
-      Alert.alert(
-        'Code Sent',
-        'A 6-digit reset code has been sent to your email. Please check your inbox.',
-      );
+      if (data.code) {
+        setGeneratedCode(data.code);
+        
+        // Send reset code via EmailJS
+        await sendPasswordResetCode(email, data.code);
+        
+        setShowCodeInput(true);
+        Alert.alert(
+          'Code Sent',
+          'A 6-digit reset code has been sent to your email. Please check your inbox (and spam folder).',
+        );
+      } else {
+        // Still show success for security (don't reveal if email exists)
+        Alert.alert(
+          'Check Your Email',
+          'If an account exists with this email, a reset code will be sent.',
+        );
+      }
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to send reset email');
+      Alert.alert('Error', error.message || 'Failed to send reset code. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleVerifyCode = async () => {
-    if (resetCode !== generatedCode) {
-      Alert.alert('Error', 'Invalid reset code. Please try again.');
+  const handleVerifyAndReset = async () => {
+    if (!resetCode || resetCode.length !== 6) {
+      Alert.alert('Error', 'Please enter the 6-digit code');
       return;
     }
 
@@ -66,14 +91,29 @@ const ForgotPasswordScreen = ({navigation}) => {
 
     setIsLoading(true);
     try {
-      // Use Firebase to reset password with email link
-      await authService.forgotPassword(email);
+      // Call backend to verify code and update password
+      const response = await fetch(`${APP_CONFIG.API_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          email: email.toLowerCase(),
+          code: resetCode,
+          newPassword: newPassword,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to reset password');
+      }
+      
       Alert.alert(
-        'Success',
-        'Password reset link has been sent to your email. Please click the link to set your new password.',
+        'Success!',
+        'Your password has been updated. You can now login with your new password.',
         [
           {
-            text: 'OK',
+            text: 'Go to Login',
             onPress: () => navigation.navigate('Login'),
           },
         ]
@@ -162,10 +202,10 @@ const ForgotPasswordScreen = ({navigation}) => {
 
             <TouchableOpacity
               style={[authStyles.button, authStyles.buttonPrimary]}
-              onPress={handleVerifyCode}
+              onPress={handleVerifyAndReset}
               disabled={isLoading}>
               <Text style={[authStyles.buttonText, authStyles.buttonTextPrimary]}>
-                {isLoading ? 'Verifying...' : 'Reset Password'}
+                {isLoading ? 'Resetting...' : 'Reset Password'}
               </Text>
             </TouchableOpacity>
 

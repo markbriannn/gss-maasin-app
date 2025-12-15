@@ -1,138 +1,190 @@
+// Push Notification Routes
 const express = require('express');
 const router = express.Router();
-const { getDb, getMessaging } = require('../config/firebase');
+const pushService = require('../services/pushNotificationService');
 
-router.post('/register-device', async (req, res) => {
-  try {
-    const { userId, token, platform } = req.body;
-
-    if (!userId || !token) {
-      return res.status(400).json({ error: 'userId and token are required' });
-    }
-
-    const db = getDb();
-    await db.collection('users').doc(userId).update({
-      fcmToken: token,
-      fcmPlatform: platform || 'unknown',
-      fcmUpdatedAt: new Date(),
-    });
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error registering device:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
+// Send notification to a specific user
 router.post('/send', async (req, res) => {
   try {
     const { userId, title, body, data } = req.body;
 
     if (!userId || !title || !body) {
-      return res.status(400).json({ error: 'userId, title, and body are required' });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'userId, title, and body are required' 
+      });
     }
 
-    const db = getDb();
-    const userDoc = await db.collection('users').doc(userId).get();
-
-    if (!userDoc.exists) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const userData = userDoc.data();
-    const fcmToken = userData.fcmToken;
-
-    if (!fcmToken) {
-      return res.status(400).json({ error: 'User has no FCM token' });
-    }
-
-    const messaging = getMessaging();
-    const message = {
-      token: fcmToken,
-      notification: { title, body },
-      data: data || {},
-    };
-
-    const response = await messaging.send(message);
-
-    await db.collection('notifications').add({
-      targetUserId: userId,
-      title,
-      body,
-      data,
-      read: false,
-      createdAt: new Date(),
-    });
-
-    res.json({ success: true, messageId: response });
+    const result = await pushService.sendToUser(userId, { title, body }, data || {});
+    res.json(result);
   } catch (error) {
     console.error('Error sending notification:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-router.post('/send-to-topic', async (req, res) => {
+// Notify provider of new job
+router.post('/new-job', async (req, res) => {
   try {
-    const { topic, title, body, data } = req.body;
+    const { providerId, jobData } = req.body;
 
-    if (!topic || !title || !body) {
-      return res.status(400).json({ error: 'topic, title, and body are required' });
+    if (!providerId || !jobData) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'providerId and jobData are required' 
+      });
     }
 
-    const messaging = getMessaging();
-    const message = {
-      topic,
-      notification: { title, body },
-      data: data || {},
-    };
-
-    const response = await messaging.send(message);
-    res.json({ success: true, messageId: response });
+    const result = await pushService.notifyNewJobRequest(providerId, jobData);
+    res.json(result);
   } catch (error) {
-    console.error('Error sending topic notification:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error notifying new job:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
+// Notify client of booking accepted
+router.post('/booking-accepted', async (req, res) => {
+  try {
+    const { clientId, jobData } = req.body;
+
+    if (!clientId || !jobData) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'clientId and jobData are required' 
+      });
+    }
+
+    const result = await pushService.notifyBookingAccepted(clientId, jobData);
+    res.json(result);
+  } catch (error) {
+    console.error('Error notifying booking accepted:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Notify job status update
+router.post('/job-status', async (req, res) => {
+  try {
+    const { clientId, jobData, status } = req.body;
+
+    if (!clientId || !jobData || !status) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'clientId, jobData, and status are required' 
+      });
+    }
+
+    const result = await pushService.notifyJobStatusUpdate(clientId, jobData, status);
+    res.json(result);
+  } catch (error) {
+    console.error('Error notifying job status:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Notify new message
+router.post('/new-message', async (req, res) => {
+  try {
+    const { recipientId, senderName, messagePreview, conversationId } = req.body;
+
+    if (!recipientId || !senderName || !conversationId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'recipientId, senderName, and conversationId are required' 
+      });
+    }
+
+    const result = await pushService.notifyNewMessage(
+      recipientId, 
+      senderName, 
+      messagePreview || 'New message', 
+      conversationId
+    );
+    res.json(result);
+  } catch (error) {
+    console.error('Error notifying new message:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Notify provider approved
+router.post('/provider-approved', async (req, res) => {
+  try {
+    const { providerId, providerName } = req.body;
+
+    if (!providerId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'providerId is required' 
+      });
+    }
+
+    const result = await pushService.notifyProviderApproved(providerId, providerName);
+    res.json(result);
+  } catch (error) {
+    console.error('Error notifying provider approved:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Register device FCM token
+router.post('/register-device', async (req, res) => {
+  try {
+    const { userId, token, platform } = req.body;
+
+    if (!userId || !token) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'userId and token are required' 
+      });
+    }
+
+    const result = await pushService.registerDeviceToken(userId, token, platform);
+    res.json(result);
+  } catch (error) {
+    console.error('Error registering device:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Send notification to all admins
 router.post('/send-to-admins', async (req, res) => {
   try {
     const { title, body, data } = req.body;
 
     if (!title || !body) {
-      return res.status(400).json({ error: 'title and body are required' });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'title and body are required' 
+      });
     }
 
-    const db = getDb();
-    const adminsSnapshot = await db
-      .collection('users')
-      .where('role', '==', 'ADMIN')
-      .get();
-
-    const messaging = getMessaging();
-    const tokens = [];
-
-    adminsSnapshot.forEach((doc) => {
-      const userData = doc.data();
-      if (userData.fcmToken) {
-        tokens.push(userData.fcmToken);
-      }
-    });
-
-    if (tokens.length === 0) {
-      return res.json({ success: true, sent: 0 });
-    }
-
-    const message = {
-      notification: { title, body },
-      data: data || {},
-      tokens,
-    };
-
-    const response = await messaging.sendEachForMulticast(message);
-    res.json({ success: true, sent: response.successCount });
+    const result = await pushService.sendToAdmins({ title, body }, data || {});
+    res.json(result);
   } catch (error) {
-    console.error('Error sending admin notifications:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error sending to admins:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Send notification to a topic
+router.post('/send-to-topic', async (req, res) => {
+  try {
+    const { topic, title, body, data } = req.body;
+
+    if (!topic || !title || !body) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'topic, title, and body are required' 
+      });
+    }
+
+    const result = await pushService.sendToTopic(topic, { title, body }, data || {});
+    res.json(result);
+  } catch (error) {
+    console.error('Error sending to topic:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

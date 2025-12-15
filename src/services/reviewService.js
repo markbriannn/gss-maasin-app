@@ -105,13 +105,16 @@ export const updateProviderRating = async (providerId) => {
     const ratingValue = parseFloat(averageRating.toFixed(2));
 
     // Update provider's profile - set both 'rating' and 'averageRating' for compatibility
-    await updateDoc(doc(db, 'users', providerId), {
+    const updateData = {
       rating: ratingValue,
       averageRating: ratingValue,
       reviewCount: activeReviews.length,
-    });
+    };
+    console.log(`[Reviews] Updating provider ${providerId} with:`, updateData);
+    
+    await updateDoc(doc(db, 'users', providerId), updateData);
 
-    console.log(`[Reviews] Updated provider ${providerId} rating: ${ratingValue} (${activeReviews.length} reviews)`);
+    console.log(`[Reviews] Successfully updated provider ${providerId} rating: ${ratingValue} (${activeReviews.length} reviews)`);
     return { averageRating: ratingValue, count: activeReviews.length };
   } catch (error) {
     console.error('Error updating provider rating:', error);

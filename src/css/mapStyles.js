@@ -98,13 +98,13 @@ export const mapStyles = StyleSheet.create({
     elevation: 10,
   },
   panelHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
+    width: 50,
+    height: 5,
+    backgroundColor: '#9CA3AF',
+    borderRadius: 3,
     alignSelf: 'center',
     marginTop: 12,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   panelContent: {
     paddingHorizontal: 20,
@@ -211,7 +211,7 @@ export const mapStyles = StyleSheet.create({
     marginBottom: 12,
   },
   myLocationButton: {
-    bottom: 200,
+    bottom: 320,
   },
   notificationButton: {
     top: 8,

@@ -28,6 +28,28 @@ export default function ClientRegistrationNavigator() {
           fontWeight: '600',
         },
         headerBackTitleVisible: false,
+        gestureEnabled: true,
+        gestureDirection: 'horizontal',
+        cardStyleInterpolator: ({current, layouts}) => ({
+          cardStyle: {
+            transform: [
+              {
+                translateX: current.progress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [layouts.screen.width, 0],
+                }),
+              },
+            ],
+            opacity: current.progress.interpolate({
+              inputRange: [0, 0.5, 1],
+              outputRange: [0, 0.7, 1],
+            }),
+          },
+        }),
+        transitionSpec: {
+          open: {animation: 'timing', config: {duration: 250}},
+          close: {animation: 'timing', config: {duration: 200}},
+        },
       }}>
       <Stack.Screen
         name="PersonalInfo"

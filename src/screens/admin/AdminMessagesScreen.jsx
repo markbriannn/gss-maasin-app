@@ -14,10 +14,12 @@ import {Swipeable} from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {globalStyles} from '../../css/globalStyles';
 import {useAuth} from '../../context/AuthContext';
+import {useTheme} from '../../context/ThemeContext';
 import {subscribeToConversations, deleteConversation, archiveConversation, unarchiveConversation} from '../../services/messageService';
 
 const AdminMessagesScreen = ({navigation}) => {
   const {user} = useAuth();
+  const {isDark, theme} = useTheme();
   const [conversations, setConversations] = useState([]);
   const [archivedConversations, setArchivedConversations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -156,9 +158,11 @@ const AdminMessagesScreen = ({navigation}) => {
         style={{
           flexDirection: 'row',
           padding: 16,
-          backgroundColor: conversation.unreadCount > 0 ? '#F0FDF4' : '#FFFFFF',
+          backgroundColor: conversation.unreadCount > 0 
+            ? (isDark ? 'rgba(0, 177, 79, 0.15)' : '#F0FDF4') 
+            : (isDark ? theme.colors.surface : '#FFFFFF'),
           borderBottomWidth: 1,
-          borderBottomColor: '#F3F4F6',
+          borderBottomColor: isDark ? theme.colors.border : '#F3F4F6',
         }}
         onPress={() => navigation.navigate('AdminChat', {
           conversationId: conversation.id,
@@ -189,18 +193,18 @@ const AdminMessagesScreen = ({navigation}) => {
         {/* Content */}
         <View style={{flex: 1}}>
           <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4}}>
-            <Text style={{fontSize: 16, fontWeight: conversation.unreadCount > 0 ? '700' : '600', color: '#1F2937'}}>
+            <Text style={{fontSize: 16, fontWeight: conversation.unreadCount > 0 ? '700' : '600', color: isDark ? theme.colors.text : '#1F2937'}}>
               {conversation.otherUser?.name || 'Unknown User'}
             </Text>
-            <Text style={{fontSize: 12, color: conversation.unreadCount > 0 ? '#00B14F' : '#9CA3AF'}}>
+            <Text style={{fontSize: 12, color: conversation.unreadCount > 0 ? '#00B14F' : (isDark ? theme.colors.textSecondary : '#9CA3AF')}}>
               {formatTimestamp(conversation.lastMessageTime)}
             </Text>
           </View>
 
           {conversation.jobId && (
             <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 4}}>
-              <Icon name="briefcase-outline" size={12} color="#6B7280" />
-              <Text style={{fontSize: 11, color: '#6B7280', marginLeft: 4}}>
+              <Icon name="briefcase-outline" size={12} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
+              <Text style={{fontSize: 11, color: isDark ? theme.colors.textSecondary : '#6B7280', marginLeft: 4}}>
                 Job #{conversation.jobId.slice(-6)}
               </Text>
             </View>
@@ -210,7 +214,7 @@ const AdminMessagesScreen = ({navigation}) => {
             <Text 
               style={{
                 fontSize: 14, 
-                color: conversation.unreadCount > 0 ? '#1F2937' : '#6B7280',
+                color: conversation.unreadCount > 0 ? (isDark ? theme.colors.text : '#1F2937') : (isDark ? theme.colors.textSecondary : '#6B7280'),
                 fontWeight: conversation.unreadCount > 0 ? '500' : 'normal',
                 flex: 1
               }} 
@@ -239,13 +243,13 @@ const AdminMessagesScreen = ({navigation}) => {
 
   if (loading) {
     return (
-      <SafeAreaView style={globalStyles.container} edges={['top']}>
-        <View style={{padding: 20, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB'}}>
-          <Text style={globalStyles.heading2}>Messages</Text>
+      <SafeAreaView style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]} edges={['top']}>
+        <View style={{padding: 20, backgroundColor: isDark ? theme.colors.surface : '#FFFFFF', borderBottomWidth: 1, borderBottomColor: isDark ? theme.colors.border : '#E5E7EB'}}>
+          <Text style={[globalStyles.heading2, isDark && {color: theme.colors.text}]}>Messages</Text>
         </View>
         <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
           <ActivityIndicator size="large" color="#00B14F" />
-          <Text style={{marginTop: 12, color: '#6B7280'}}>Loading conversations...</Text>
+          <Text style={{marginTop: 12, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>Loading conversations...</Text>
         </View>
       </SafeAreaView>
     );
@@ -254,16 +258,16 @@ const AdminMessagesScreen = ({navigation}) => {
   const displayedConversations = showArchived ? archivedConversations : conversations;
 
   return (
-    <SafeAreaView style={globalStyles.container} edges={['top']}>
-      <View style={{padding: 20, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB'}}>
-        <Text style={globalStyles.heading2}>Messages</Text>
-        <Text style={{fontSize: 14, color: '#6B7280', marginTop: 4}}>
+    <SafeAreaView style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]} edges={['top']}>
+      <View style={{padding: 20, backgroundColor: isDark ? theme.colors.surface : '#FFFFFF', borderBottomWidth: 1, borderBottomColor: isDark ? theme.colors.border : '#E5E7EB'}}>
+        <Text style={[globalStyles.heading2, isDark && {color: theme.colors.text}]}>Messages</Text>
+        <Text style={{fontSize: 14, color: isDark ? theme.colors.textSecondary : '#6B7280', marginTop: 4}}>
           Swipe left for options
         </Text>
       </View>
 
       {/* Tabs */}
-      <View style={{flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB'}}>
+      <View style={{flexDirection: 'row', backgroundColor: isDark ? theme.colors.surface : '#FFFFFF', borderBottomWidth: 1, borderBottomColor: isDark ? theme.colors.border : '#E5E7EB'}}>
         <TouchableOpacity
           style={{
             flex: 1,
@@ -273,7 +277,7 @@ const AdminMessagesScreen = ({navigation}) => {
             borderBottomColor: !showArchived ? '#00B14F' : 'transparent',
           }}
           onPress={() => setShowArchived(false)}>
-          <Text style={{fontWeight: '600', color: !showArchived ? '#00B14F' : '#6B7280'}}>
+          <Text style={{fontWeight: '600', color: !showArchived ? '#00B14F' : (isDark ? theme.colors.textSecondary : '#6B7280')}}>
             Active ({conversations.length})
           </Text>
         </TouchableOpacity>
@@ -287,8 +291,8 @@ const AdminMessagesScreen = ({navigation}) => {
           }}
           onPress={() => setShowArchived(true)}>
           <View style={{flexDirection: 'row', alignItems: 'center'}}>
-            <Icon name="archive" size={16} color={showArchived ? '#F59E0B' : '#6B7280'} style={{marginRight: 4}} />
-            <Text style={{fontWeight: '600', color: showArchived ? '#F59E0B' : '#6B7280'}}>
+            <Icon name="archive" size={16} color={showArchived ? '#F59E0B' : (isDark ? theme.colors.textSecondary : '#6B7280')} style={{marginRight: 4}} />
+            <Text style={{fontWeight: '600', color: showArchived ? '#F59E0B' : (isDark ? theme.colors.textSecondary : '#6B7280')}}>
               Archived ({archivedConversations.length})
             </Text>
           </View>
@@ -303,20 +307,28 @@ const AdminMessagesScreen = ({navigation}) => {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#00B14F']} />
           }
+          getItemLayout={(data, index) => ({
+            length: 90, // Approximate height of message row
+            offset: 90 * index,
+            index,
+          })}
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
+          windowSize={5}
         />
       ) : (
         <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80}}>
           <View style={{
             width: 100, height: 100, borderRadius: 50,
-            backgroundColor: '#F3F4F6', justifyContent: 'center',
+            backgroundColor: isDark ? theme.colors.surface : '#F3F4F6', justifyContent: 'center',
             alignItems: 'center', marginBottom: 20,
           }}>
-            <Icon name={showArchived ? 'archive-outline' : 'chatbubbles-outline'} size={50} color="#9CA3AF" />
+            <Icon name={showArchived ? 'archive-outline' : 'chatbubbles-outline'} size={50} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
           </View>
-          <Text style={{fontSize: 18, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
+          <Text style={{fontSize: 18, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', marginBottom: 8}}>
             {showArchived ? 'No archived messages' : 'No messages yet'}
           </Text>
-          <Text style={{fontSize: 14, color: '#6B7280', textAlign: 'center', paddingHorizontal: 40}}>
+          <Text style={{fontSize: 14, color: isDark ? theme.colors.textSecondary : '#6B7280', textAlign: 'center', paddingHorizontal: 40}}>
             {showArchived 
               ? 'Archived conversations will appear here'
               : 'When providers or clients message you, their conversations will appear here'}

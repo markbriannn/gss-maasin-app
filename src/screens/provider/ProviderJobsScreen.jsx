@@ -16,6 +16,9 @@ import {collection, query, where, getDocs, doc, updateDoc, getDoc} from 'firebas
 import {db} from '../../config/firebase';
 import {globalStyles} from '../../css/globalStyles';
 import {dashboardStyles} from '../../css/dashboardStyles';
+import {TierBadge, BadgeList} from '../../components/gamification';
+import {getGamificationData} from '../../services/gamificationService';
+import {getClientTier, getClientBadges} from '../../utils/gamification';
 
 const ProviderJobsScreen = ({navigation}) => {
   const {user} = useAuth();
@@ -55,8 +58,8 @@ const ProviderJobsScreen = ({navigation}) => {
           // 1. Not assigned to anyone, OR assigned to this provider
           // 2. Not rejected or cancelled
           if (!data.providerId || data.providerId === userId) {
-            // Get client info
-            let clientInfo = {name: 'Unknown Client', phone: 'N/A'};
+            // Get client info with gamification data
+            let clientInfo = {name: 'Unknown Client', phone: 'N/A', tier: null, badges: []};
             if (data.clientId) {
               try {
                 const clientDoc = await getDoc(doc(db, 'users', data.clientId));
@@ -66,6 +69,12 @@ const ProviderJobsScreen = ({navigation}) => {
                     name: `${clientData.firstName || ''} ${clientData.lastName || ''}`.trim() || 'Client',
                     phone: clientData.phone || 'N/A',
                   };
+                }
+                // Get client gamification data
+                const gamificationData = await getGamificationData(data.clientId, 'CLIENT');
+                if (gamificationData) {
+                  clientInfo.tier = getClientTier(gamificationData.points || 0);
+                  clientInfo.badges = getClientBadges(gamificationData.stats || {});
                 }
               } catch (e) {}
             }
@@ -425,9 +434,19 @@ const ProviderJobsScreen = ({navigation}) => {
         </View>
       )}
 
-      <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 4}}>
+      <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap'}}>
         <Icon name="person" size={14} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
         <Text style={{fontSize: 13, color: isDark ? theme.colors.textSecondary : '#6B7280', marginLeft: 6}}>{job.client?.name}</Text>
+        {job.client?.tier && job.client.tier.name !== 'Regular' && (
+          <View style={{marginLeft: 8}}>
+            <TierBadge tier={job.client.tier} size="small" />
+          </View>
+        )}
+        {job.client?.badges && job.client.badges.length > 0 && (
+          <View style={{marginLeft: 6}}>
+            <BadgeList badges={job.client.badges} maxDisplay={2} size="small" />
+          </View>
+        )}
       </View>
 
       <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 4}}>

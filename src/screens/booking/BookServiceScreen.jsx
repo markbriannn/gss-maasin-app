@@ -25,6 +25,7 @@ import {useAuth} from '../../context/AuthContext';
 import {useTheme} from '../../context/ThemeContext';
 import smsEmailService from '../../services/smsEmailService';
 import {sendBookingConfirmation} from '../../services/emailJSService';
+import {attemptBooking} from '../../utils/rateLimiter';
 
 const BookServiceScreen = ({navigation, route}) => {
   const {user} = useAuth();
@@ -48,9 +49,7 @@ const BookServiceScreen = ({navigation, route}) => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [mediaFiles, setMediaFiles] = useState([]); // For images and videos
-  const [useCustomPrice, setUseCustomPrice] = useState(false);
-  const [customPrice, setCustomPrice] = useState('');
-  const [priceNote, setPriceNote] = useState(''); // Reason for custom price
+
   
   // Date/Time picker states
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -242,19 +241,18 @@ const BookServiceScreen = ({navigation, route}) => {
       return;
     }
 
-    // Validate custom price if used
-    if (useCustomPrice && (!customPrice || parseFloat(customPrice) <= 0)) {
-      Alert.alert('Error', 'Please enter a valid offer price');
+    // Check rate limit before proceeding
+    const rateLimitCheck = await attemptBooking(user?.uid);
+    if (!rateLimitCheck.allowed) {
+      Alert.alert('Please Wait', rateLimitCheck.message);
       return;
     }
 
     setIsLoading(true);
     try {
-      // Determine if using custom price or provider's fixed price
-      const isCustomOffer = useCustomPrice && customPrice;
-      const offeredPrice = isCustomOffer ? parseFloat(customPrice) : providerFixedPrice;
-      const systemFee = offeredPrice * 0.05; // 5% system fee
-      const totalAmount = offeredPrice + systemFee;
+      // Calculate pricing based on provider's fixed price
+      const systemFee = providerFixedPrice * 0.05; // 5% system fee
+      const totalAmount = providerFixedPrice + systemFee;
 
       const jobData = {
         ...formData,
@@ -264,25 +262,14 @@ const BookServiceScreen = ({navigation, route}) => {
         clientName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Client',
         providerId: actualProviderId || null,
         providerName: displayProviderName || null,
-        status: isCustomOffer ? 'pending_negotiation' : 'pending', // Different status for offers
+        status: 'pending',
         // Pricing breakdown
-        providerFixedPrice: providerFixedPrice, // Original provider price
-        offeredPrice: offeredPrice, // Client's offered price (same as providerFixedPrice if not custom)
-        providerPrice: isCustomOffer ? null : offeredPrice, // Final agreed price (null if negotiating)
+        providerFixedPrice: providerFixedPrice,
+        providerPrice: providerFixedPrice,
         priceType: provider?.priceType || 'per_job',
         systemFee: systemFee,
         systemFeePercentage: 5,
         totalAmount: totalAmount,
-        // Negotiation fields
-        isNegotiable: isCustomOffer,
-        priceNote: priceNote || null, // Client's reason for custom price
-        negotiationHistory: isCustomOffer ? [{
-          type: 'client_offer',
-          amount: offeredPrice,
-          note: priceNote,
-          timestamp: new Date().toISOString(),
-          by: 'client',
-        }] : [],
         // Include client's location data for the service address
         streetAddress: user?.streetAddress || '',
         houseNumber: user?.houseNumber || '',
@@ -398,91 +385,11 @@ const BookServiceScreen = ({navigation, route}) => {
                   </Text>
                 </View>
 
-                {/* Custom Price Offer Toggle */}
-                <TouchableOpacity
-                  onPress={() => setUseCustomPrice(!useCustomPrice)}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: useCustomPrice ? (isDark ? '#78350F' : '#FEF3C7') : (isDark ? theme.colors.card : '#F3F4F6'),
-                    padding: 12,
-                    borderRadius: 8,
-                    marginVertical: 12,
-                    borderWidth: 1,
-                    borderColor: useCustomPrice ? '#F59E0B' : (isDark ? theme.colors.border : '#E5E7EB'),
-                  }}>
-                  <Icon 
-                    name={useCustomPrice ? 'checkbox' : 'square-outline'} 
-                    size={20} 
-                    color={useCustomPrice ? '#F59E0B' : (isDark ? theme.colors.textSecondary : '#6B7280')} 
-                  />
-                  <View style={{marginLeft: 10, flex: 1}}>
-                    <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937'}}>
-                      Make a different offer
-                    </Text>
-                    <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>
-                      For small jobs or budget negotiation
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-
-                {/* Custom Price Input */}
-                {useCustomPrice && (
-                  <View style={{marginBottom: 12}}>
-                    <Text style={{fontSize: 13, color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 6}}>
-                      Your Offer Price (₱)
-                    </Text>
-                    <View style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      backgroundColor: isDark ? theme.colors.card : '#FFFFFF',
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: '#F59E0B',
-                      paddingHorizontal: 12,
-                    }}>
-                      <Text style={{fontSize: 16, color: '#F59E0B', fontWeight: '600'}}>₱</Text>
-                      <TextInput
-                        style={{
-                          flex: 1,
-                          fontSize: 16,
-                          color: isDark ? theme.colors.text : '#1F2937',
-                          paddingVertical: 10,
-                          paddingHorizontal: 8,
-                        }}
-                        placeholder="Enter your offer"
-                        placeholderTextColor={isDark ? theme.colors.textSecondary : '#9CA3AF'}
-                        keyboardType="numeric"
-                        value={customPrice}
-                        onChangeText={setCustomPrice}
-                      />
-                    </View>
-                    <Text style={{fontSize: 13, color: isDark ? theme.colors.textSecondary : '#374151', marginTop: 10, marginBottom: 6}}>
-                      Reason for offer (optional)
-                    </Text>
-                    <TextInput
-                      style={{
-                        backgroundColor: isDark ? theme.colors.card : '#FFFFFF',
-                        borderRadius: 8,
-                        borderWidth: 1,
-                        borderColor: isDark ? theme.colors.border : '#E5E7EB',
-                        padding: 10,
-                        fontSize: 14,
-                        color: isDark ? theme.colors.text : '#1F2937',
-                      }}
-                      placeholder="e.g., Small job, just a quick fix..."
-                      placeholderTextColor={isDark ? theme.colors.textSecondary : '#9CA3AF'}
-                      value={priceNote}
-                      onChangeText={setPriceNote}
-                    />
-                  </View>
-                )}
-
                 {/* Calculated Totals */}
-                <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
+                <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, marginTop: 12}}>
                   <Text style={{fontSize: 14, color: isDark ? theme.colors.textSecondary : '#4B5563'}}>System Fee (5%)</Text>
                   <Text style={{fontSize: 14, fontWeight: '500', color: isDark ? theme.colors.text : '#1F2937'}}>
-                    ₱{(((useCustomPrice && customPrice ? parseFloat(customPrice) : providerFixedPrice) || 0) * 0.05).toLocaleString()}
+                    ₱{((providerFixedPrice || 0) * 0.05).toLocaleString()}
                   </Text>
                 </View>
                 <View style={{
@@ -493,26 +400,10 @@ const BookServiceScreen = ({navigation, route}) => {
                   borderTopColor: isDark ? '#065F46' : '#BBF7D0',
                 }}>
                   <Text style={{fontSize: 16, fontWeight: '700', color: isDark ? theme.colors.text : '#1F2937'}}>Total</Text>
-                  <Text style={{fontSize: 16, fontWeight: '700', color: useCustomPrice ? '#F59E0B' : '#00B14F'}}>
-                    ₱{(((useCustomPrice && customPrice ? parseFloat(customPrice) : providerFixedPrice) || 0) * 1.05).toLocaleString()}
+                  <Text style={{fontSize: 16, fontWeight: '700', color: '#00B14F'}}>
+                    ₱{((providerFixedPrice || 0) * 1.05).toLocaleString()}
                   </Text>
                 </View>
-
-                {useCustomPrice && (
-                  <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: isDark ? '#78350F' : '#FEF3C7',
-                    padding: 10,
-                    borderRadius: 8,
-                    marginTop: 12,
-                  }}>
-                    <Icon name="information-circle" size={18} color="#F59E0B" />
-                    <Text style={{fontSize: 12, color: isDark ? '#FCD34D' : '#92400E', marginLeft: 8, flex: 1}}>
-                      The provider can accept, counter, or decline your offer.
-                    </Text>
-                  </View>
-                )}
               </View>
             )}
           </View>

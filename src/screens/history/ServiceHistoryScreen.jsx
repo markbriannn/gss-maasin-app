@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -50,9 +51,19 @@ const ServiceHistoryScreen = ({ navigation }) => {
     { key: 'year', label: 'This Year' },
   ];
 
+  const sortOptions = [
+    { key: 'date_desc', label: 'Newest First', icon: 'arrow-down' },
+    { key: 'date_asc', label: 'Oldest First', icon: 'arrow-up' },
+    { key: 'amount_desc', label: 'Highest Amount', icon: 'trending-up' },
+    { key: 'amount_asc', label: 'Lowest Amount', icon: 'trending-down' },
+  ];
+
+  const [sortBy, setSortBy] = useState('date_desc');
+  const [showSortModal, setShowSortModal] = useState(false);
+
   useEffect(() => {
     loadHistory();
-  }, [activeFilter, selectedPeriod]);
+  }, [activeFilter, selectedPeriod, sortBy]);
 
   const loadHistory = async () => {
     try {
@@ -182,8 +193,20 @@ const ServiceHistoryScreen = ({ navigation }) => {
         });
       }
 
-      // Sort by date descending
-      historyList.sort((a, b) => b.date - a.date);
+      // Sort based on selected option
+      switch (sortBy) {
+        case 'date_asc':
+          historyList.sort((a, b) => a.date - b.date);
+          break;
+        case 'amount_desc':
+          historyList.sort((a, b) => b.amount - a.amount);
+          break;
+        case 'amount_asc':
+          historyList.sort((a, b) => a.amount - b.amount);
+          break;
+        default: // date_desc
+          historyList.sort((a, b) => b.date - a.date);
+      }
 
       // Apply search filter
       let filteredList = historyList;
@@ -382,22 +405,37 @@ const ServiceHistoryScreen = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Search Bar */}
-      <View style={[styles.searchContainer, isDark && {backgroundColor: theme.colors.card, borderColor: theme.colors.border}]}>
-        <Icon name="search" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
-        <TextInput
-          style={[styles.searchInput, isDark && {color: theme.colors.text}]}
-          placeholder="Search by service, name, or location..."
-          placeholderTextColor={isDark ? theme.colors.textSecondary : '#9CA3AF'}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={loadHistory}
-        />
-        {searchQuery ? (
-          <TouchableOpacity onPress={() => { setSearchQuery(''); loadHistory(); }}>
-            <Icon name="close-circle" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
-          </TouchableOpacity>
-        ) : null}
+      {/* Search Bar with Sort Button */}
+      <View style={{flexDirection: 'row', paddingHorizontal: 16, gap: 8}}>
+        <View style={[styles.searchContainer, {flex: 1, marginHorizontal: 0}, isDark && {backgroundColor: theme.colors.card, borderColor: theme.colors.border}]}>
+          <Icon name="search" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
+          <TextInput
+            style={[styles.searchInput, isDark && {color: theme.colors.text}]}
+            placeholder="Search by service, name, or location..."
+            placeholderTextColor={isDark ? theme.colors.textSecondary : '#9CA3AF'}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={loadHistory}
+          />
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => { setSearchQuery(''); loadHistory(); }}>
+              <Icon name="close-circle" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        <TouchableOpacity
+          style={{
+            backgroundColor: isDark ? theme.colors.card : '#FFFFFF',
+            borderRadius: 12,
+            padding: 12,
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: isDark ? theme.colors.border : '#E5E7EB',
+          }}
+          onPress={() => setShowSortModal(true)}>
+          <Icon name="swap-vertical" size={22} color="#00B14F" />
+        </TouchableOpacity>
       </View>
 
       {/* Period Selector */}
@@ -480,6 +518,76 @@ const ServiceHistoryScreen = ({ navigation }) => {
           )}
         </ScrollView>
       )}
+
+      {/* Sort Modal */}
+      <Modal
+        visible={showSortModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowSortModal(false)}>
+        <TouchableOpacity
+          style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end'}}
+          activeOpacity={1}
+          onPress={() => setShowSortModal(false)}>
+          <View style={{
+            backgroundColor: isDark ? theme.colors.surface : '#FFFFFF',
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            padding: 20,
+          }}>
+            <View style={{alignItems: 'center', marginBottom: 16}}>
+              <View style={{width: 40, height: 4, backgroundColor: '#D1D5DB', borderRadius: 2}} />
+            </View>
+            <Text style={{fontSize: 18, fontWeight: '700', color: isDark ? theme.colors.text : '#1F2937', marginBottom: 16}}>
+              Sort By
+            </Text>
+            {sortOptions.map((option) => (
+              <TouchableOpacity
+                key={option.key}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingVertical: 14,
+                  borderBottomWidth: 1,
+                  borderBottomColor: isDark ? theme.colors.border : '#F3F4F6',
+                }}
+                onPress={() => {
+                  setSortBy(option.key);
+                  setShowSortModal(false);
+                }}>
+                <Icon
+                  name={option.icon}
+                  size={20}
+                  color={sortBy === option.key ? '#00B14F' : (isDark ? theme.colors.textSecondary : '#6B7280')}
+                />
+                <Text style={{
+                  flex: 1,
+                  marginLeft: 12,
+                  fontSize: 15,
+                  color: sortBy === option.key ? '#00B14F' : (isDark ? theme.colors.text : '#1F2937'),
+                  fontWeight: sortBy === option.key ? '600' : '400',
+                }}>
+                  {option.label}
+                </Text>
+                {sortBy === option.key && (
+                  <Icon name="checkmark-circle" size={22} color="#00B14F" />
+                )}
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#F3F4F6',
+                borderRadius: 12,
+                paddingVertical: 14,
+                alignItems: 'center',
+                marginTop: 16,
+              }}
+              onPress={() => setShowSortModal(false)}>
+              <Text style={{fontSize: 15, fontWeight: '600', color: '#6B7280'}}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 };

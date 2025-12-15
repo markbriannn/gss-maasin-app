@@ -18,6 +18,8 @@ import {collection, query, where, getDocs, doc, updateDoc, getDoc} from 'firebas
 import {db} from '../../config/firebase';
 import {dashboardStyles} from '../../css/dashboardStyles';
 import {useJobNotifications, useUserNotifications, useOfflineSupport} from '../../hooks/useRealtimeService';
+import {TierCard} from '../../components/gamification';
+import {getUserTierAndBadges} from '../../services/gamificationService';
 
 const getGreeting = () => {
   const hour = new Date().getHours();
@@ -37,6 +39,7 @@ const ProviderDashboardScreen = ({navigation}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [providerStatus, setProviderStatus] = useState('pending');
+  const [gamificationData, setGamificationData] = useState(null);
   
   // Real-time hooks
   const {online, queueOperation} = useOfflineSupport();
@@ -193,6 +196,10 @@ const ProviderDashboardScreen = ({navigation}) => {
       }
       
       setAvailableJobs(available.slice(0, 5));
+
+      // Fetch gamification data
+      const gamification = await getUserTierAndBadges(userId, 'PROVIDER');
+      setGamificationData(gamification);
 
     } catch (error) {
       console.error('Error loading dashboard:', error);
@@ -375,6 +382,22 @@ const ProviderDashboardScreen = ({navigation}) => {
             <Text style={[dashboardStyles.statLabel, isDark && {color: theme.colors.textSecondary}]}>Rating</Text>
           </View>
         </View>
+
+        {/* Gamification Card */}
+        {gamificationData && (
+          <View style={{paddingHorizontal: 16, marginBottom: 16}}>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>
+              <Text style={[dashboardStyles.sectionTitle, isDark && {color: theme.colors.text}]}>Your Progress</Text>
+              <TouchableOpacity 
+                style={{flexDirection: 'row', alignItems: 'center'}}
+                onPress={() => navigation.navigate('Leaderboard')}>
+                <Icon name="trophy" size={16} color="#F59E0B" />
+                <Text style={{fontSize: 13, color: '#F59E0B', fontWeight: '600', marginLeft: 4}}>Leaderboard</Text>
+              </TouchableOpacity>
+            </View>
+            <TierCard points={gamificationData.points} isProvider={true} />
+          </View>
+        )}
 
         {/* Quick Actions */}
         <View style={dashboardStyles.sectionHeader}>

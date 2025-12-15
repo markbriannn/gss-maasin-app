@@ -11,6 +11,7 @@
 //    CLOUDINARY_UPLOAD_PRESET=servease_uploads
 
 import {CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET} from '@env';
+import {optimizeWithPreset, IMAGE_PRESETS} from '../utils/imageOptimizer';
 
 // Fallback values if env vars not set
 const CLOUD_NAME = CLOUDINARY_CLOUD_NAME || 'dvyxswc6o';
@@ -22,15 +23,31 @@ const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/ima
  * Upload image to Cloudinary (free tier)
  * @param {string} imageUri - Local image URI from image picker
  * @param {string} folder - Folder name (e.g., 'profiles', 'chats', 'documents')
+ * @param {string} preset - Image optimization preset (profile, document, chat, thumbnail)
  * @returns {Promise<string>} - Download URL of uploaded image
  */
-export const uploadImage = async (imageUri, folder = 'uploads') => {
+export const uploadImage = async (imageUri, folder = 'uploads', preset = null) => {
   try {
+    let finalUri = imageUri;
+    
+    // Optimize image before upload if preset is provided
+    if (preset && IMAGE_PRESETS[preset]) {
+      try {
+        const optimized = await optimizeWithPreset(imageUri, preset);
+        if (optimized.uri && !optimized.error) {
+          finalUri = optimized.uri;
+          console.log(`Image optimized: ${preset} preset applied`);
+        }
+      } catch (optimizeError) {
+        console.warn('Image optimization failed, using original:', optimizeError);
+      }
+    }
+    
     // Create form data
     const formData = new FormData();
     
     // Get filename from URI
-    const filename = imageUri.split('/').pop() || `image_${Date.now()}.jpg`;
+    const filename = finalUri.split('/').pop() || `image_${Date.now()}.jpg`;
     
     // Determine file type
     const match = /\.(\w+)$/.exec(filename);
@@ -38,7 +55,7 @@ export const uploadImage = async (imageUri, folder = 'uploads') => {
     
     // Append file to form data
     formData.append('file', {
-      uri: imageUri,
+      uri: finalUri,
       type: type,
       name: filename,
     });
@@ -74,24 +91,24 @@ export const uploadImage = async (imageUri, folder = 'uploads') => {
 };
 
 /**
- * Upload profile photo
+ * Upload profile photo (optimized for profile display)
  */
 export const uploadProfilePhoto = async (imageUri, userId) => {
-  return uploadImage(imageUri, `profiles/${userId}`);
+  return uploadImage(imageUri, `profiles/${userId}`, 'profile');
 };
 
 /**
- * Upload chat image
+ * Upload chat image (optimized for chat)
  */
 export const uploadChatImage = async (imageUri, conversationId) => {
-  return uploadImage(imageUri, `chats/${conversationId}`);
+  return uploadImage(imageUri, `chats/${conversationId}`, 'chat');
 };
 
 /**
- * Upload document (ID, certificates, etc.)
+ * Upload document (ID, certificates, etc. - higher quality)
  */
 export const uploadDocument = async (imageUri, userId) => {
-  return uploadImage(imageUri, `documents/${userId}`);
+  return uploadImage(imageUri, `documents/${userId}`, 'document');
 };
 
 /**

@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {View, Text} from 'react-native';
+import {View, Text, Animated} from 'react-native';
 import {createStackNavigator} from '@react-navigation/stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createDrawerNavigator} from '@react-navigation/drawer';
@@ -9,6 +9,7 @@ import {useAuth} from '../context/AuthContext';
 import {useTheme} from '../context/ThemeContext';
 import {db} from '../config/firebase';
 import {collection, query, where, onSnapshot} from 'firebase/firestore';
+import AnimatedTabIcon from '../components/animations/AnimatedTabIcon';
 
 // Badge Component
 const BadgeIcon = ({iconName, focused, color, size, count}) => (
@@ -303,6 +304,7 @@ import AdminAnalyticsScreen from '../screens/admin/AdminAnalyticsScreen';
 import AdminMapScreen from '../screens/admin/AdminMapScreen';
 import AdminMessagesScreen from '../screens/admin/AdminMessagesScreen';
 import AdminEarningsScreen from '../screens/admin/AdminEarningsScreen';
+import AdminSettingsScreen from '../screens/admin/AdminSettingsScreen';
 
 // Chat Screen
 import ChatScreen from '../screens/chat/ChatScreen';
@@ -316,6 +318,9 @@ import ServiceReceiptScreen from '../screens/history/ServiceReceiptScreen';
 
 // Navigation Screen
 import DirectionsScreen from '../screens/navigation/DirectionsScreen';
+
+// Gamification Screen
+import LeaderboardScreen from '../screens/gamification/LeaderboardScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -482,6 +487,7 @@ function AdminTabs() {
 export default function AppNavigator() {
   const {isAuthenticated, userRole, isLoading} = useAuth();
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(null);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
 
   useEffect(() => {
     checkOnboardingStatus();
@@ -493,12 +499,15 @@ export default function AppNavigator() {
       setHasSeenOnboarding(seen === 'true');
     } catch (error) {
       console.error('Error checking onboarding status:', error);
-      setHasSeenOnboarding(false);
+      setHasSeenOnboarding(true); // Default to true on error to skip onboarding
+    } finally {
+      setOnboardingChecked(true);
     }
   };
 
-  if (isLoading || hasSeenOnboarding === null) {
-    return null; // Splash screen is shown in App.jsx
+  if (isLoading || !onboardingChecked) {
+    // Return a green background to prevent white flash during loading
+    return <View style={{flex: 1, backgroundColor: '#00B14F'}} />;
   }
 
   // Normalize role to uppercase for comparison
@@ -508,18 +517,57 @@ export default function AppNavigator() {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        cardStyleInterpolator: ({current: {progress}}) => ({
-          cardStyle: {
-            opacity: progress,
+        gestureEnabled: true,
+        gestureDirection: 'horizontal',
+        cardStyleInterpolator: ({current, next, layouts}) => {
+          return {
+            cardStyle: {
+              transform: [
+                {
+                  translateX: current.progress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [layouts.screen.width, 0],
+                  }),
+                },
+              ],
+              opacity: current.progress.interpolate({
+                inputRange: [0, 0.5, 1],
+                outputRange: [0, 0.5, 1],
+              }),
+            },
+            overlayStyle: {
+              opacity: current.progress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 0.5],
+              }),
+            },
+          };
+        },
+        transitionSpec: {
+          open: {
+            animation: 'timing',
+            config: {
+              duration: 250,
+            },
           },
-        }),
+          close: {
+            animation: 'timing',
+            config: {
+              duration: 200,
+            },
+          },
+        },
       }}>
       {!isAuthenticated ? (
         <>
-          {!hasSeenOnboarding && (
+          {!hasSeenOnboarding ? (
             <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-          )}
-          <Stack.Screen name="GuestHome" component={GuestHomeScreen} />
+          ) : null}
+          <Stack.Screen 
+            name="GuestHome" 
+            component={GuestHomeScreen}
+            options={{animationEnabled: false}}
+          />
           <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="PhoneOTP" component={PhoneOTPScreen} />
@@ -538,14 +586,16 @@ export default function AppNavigator() {
           <Stack.Screen name="AdminMain" component={AdminTabs} />
           <Stack.Screen name="AdminAnalytics" component={AdminAnalyticsScreen} />
           <Stack.Screen name="AdminEarnings" component={AdminEarningsScreen} />
-          <Stack.Screen name="AdminChat" component={ChatScreen} />
-          <Stack.Screen name="Chat" component={ChatScreen} />
+          <Stack.Screen name="AdminSettings" component={AdminSettingsScreen} />
+          <Stack.Screen name="AdminChat" component={ChatScreen} options={{gestureEnabled: false}} />
+          <Stack.Screen name="Chat" component={ChatScreen} options={{gestureEnabled: false}} />
           <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
           <Stack.Screen name="Help" component={HelpScreen} />
           <Stack.Screen name="Terms" component={TermsScreen} />
           <Stack.Screen name="About" component={AboutScreen} />
+          <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
         </>
       ) : normalizedRole === 'PROVIDER' ? (
         <>
@@ -553,7 +603,7 @@ export default function AppNavigator() {
           <Stack.Screen name="ProviderJobDetails" component={ProviderJobDetailsScreen} />
           <Stack.Screen name="ProviderTracking" component={ProviderTrackingScreen} />
           <Stack.Screen name="Directions" component={DirectionsScreen} />
-          <Stack.Screen name="Chat" component={ChatScreen} />
+          <Stack.Screen name="Chat" component={ChatScreen} options={{gestureEnabled: false}} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="ServiceHistory" component={ServiceHistoryScreen} />
           <Stack.Screen name="ServiceReceipt" component={ServiceReceiptScreen} />
@@ -566,6 +616,7 @@ export default function AppNavigator() {
           <Stack.Screen name="Wallet" component={WalletScreen} />
           <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
           <Stack.Screen name="PayoutSetup" component={PayoutSetupScreen} />
+          <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
         </>
       ) : (
         <>
@@ -574,7 +625,7 @@ export default function AppNavigator() {
           <Stack.Screen name="HireProvider" component={BookServiceScreen} />
           <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
           <Stack.Screen name="Tracking" component={JobTrackingScreen} />
-          <Stack.Screen name="Chat" component={ChatScreen} />
+          <Stack.Screen name="Chat" component={ChatScreen} options={{gestureEnabled: false}} />
           <Stack.Screen name="Review" component={ReviewScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />
@@ -586,6 +637,7 @@ export default function AppNavigator() {
           <Stack.Screen name="About" component={AboutScreen} />
           <Stack.Screen name="ServiceHistory" component={ServiceHistoryScreen} />
           <Stack.Screen name="ServiceReceipt" component={ServiceReceiptScreen} />
+          <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
         </>
       )}
     </Stack.Navigator>

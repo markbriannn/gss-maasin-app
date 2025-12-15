@@ -202,17 +202,17 @@ export const chatStyles = StyleSheet.create({
 
   // Quick Replies
   quickRepliesContainer: {
-    paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
+    minHeight: 50,
   },
   quickReplyButton: {
     backgroundColor: '#F3F4F6',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
     marginRight: 8,
   },
   quickReplyText: {

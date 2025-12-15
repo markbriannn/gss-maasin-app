@@ -13,6 +13,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import {db} from '../config/firebase';
+import notificationService from './notificationService';
 
 // Collection names
 const CONVERSATIONS_COLLECTION = 'conversations';
@@ -145,6 +146,18 @@ export const sendMessage = async (conversationId, senderId, text, senderName = '
         lastSenderName: senderName,
         updatedAt: serverTimestamp(),
         unreadCount,
+      });
+      
+      // Send push notification to other participants
+      conversationData.participants.forEach(participantId => {
+        if (participantId !== senderId) {
+          notificationService.pushNewMessage(
+            participantId,
+            senderName,
+            text,
+            conversationId
+          ).catch(() => {});
+        }
       });
     }
     

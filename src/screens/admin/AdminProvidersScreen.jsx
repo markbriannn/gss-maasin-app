@@ -15,6 +15,7 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {adminStyles} from '../../css/adminStyles';
+import {useTheme} from '../../context/ThemeContext';
 import {
   collection,
   query,
@@ -26,10 +27,12 @@ import {
 import {db} from '../../config/firebase';
 import smsEmailService from '../../services/smsEmailService';
 import {sendProviderApprovalEmail} from '../../services/emailJSService';
+import notificationService from '../../services/notificationService';
 
 const {width: screenWidth} = Dimensions.get('window');
 
 const AdminProvidersScreen = ({navigation, route}) => {
+  const {isDark, theme} = useTheme();
   const {openProviderId} = route.params || {};
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -243,6 +246,10 @@ const AdminProvidersScreen = ({navigation, route}) => {
                   sendProviderApprovalEmail(provider.email, provider.name || 'Provider', true)
                     .catch(err => console.log('Email notification failed:', err));
                 }
+                
+                // Send push notification (works even when app is closed!)
+                notificationService.pushProviderApproved(provider.id)
+                  .catch(err => console.log('Push notification failed:', err));
               } catch (notifError) {
                 console.log('Failed to send approval notification:', notifError);
               }
@@ -346,7 +353,7 @@ const AdminProvidersScreen = ({navigation, route}) => {
     
     return (
       <TouchableOpacity 
-        style={adminStyles.providerCard}
+        style={[adminStyles.providerCard, isDark && {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}
         onPress={() => openProviderDetail(item)}
         activeOpacity={0.7}
       >
@@ -357,12 +364,12 @@ const AdminProvidersScreen = ({navigation, route}) => {
             </Text>
           </View>
           <View style={adminStyles.providerInfo}>
-            <Text style={adminStyles.providerName}>{item.name}</Text>
+            <Text style={[adminStyles.providerName, isDark && {color: theme.colors.text}]}>{item.name}</Text>
             <Text style={adminStyles.providerService}>{item.service}</Text>
             {item.status === 'approved' && item.rating > 0 && (
               <View style={adminStyles.providerRating}>
                 <Icon name="star" size={14} color="#F59E0B" />
-                <Text style={adminStyles.providerRatingText}>
+                <Text style={[adminStyles.providerRatingText, isDark && {color: theme.colors.textSecondary}]}>
                   {item.rating.toFixed(1)} ({item.completedJobs} jobs)
                 </Text>
               </View>
@@ -375,18 +382,18 @@ const AdminProvidersScreen = ({navigation, route}) => {
           </View>
         </View>
 
-        <View style={adminStyles.providerDetails}>
+        <View style={[adminStyles.providerDetails, isDark && {backgroundColor: theme.colors.background}]}>
           <View style={adminStyles.providerDetailRow}>
-            <Icon name="mail-outline" size={16} color="#9CA3AF" />
-            <Text style={adminStyles.providerDetailText}>{item.email}</Text>
+            <Icon name="mail-outline" size={16} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
+            <Text style={[adminStyles.providerDetailText, isDark && {color: theme.colors.textSecondary}]}>{item.email}</Text>
           </View>
           <View style={adminStyles.providerDetailRow}>
-            <Icon name="call-outline" size={16} color="#9CA3AF" />
-            <Text style={adminStyles.providerDetailText}>{item.phone}</Text>
+            <Icon name="call-outline" size={16} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
+            <Text style={[adminStyles.providerDetailText, isDark && {color: theme.colors.textSecondary}]}>{item.phone}</Text>
           </View>
           <View style={adminStyles.providerDetailRow}>
-            <Icon name="calendar-outline" size={16} color="#9CA3AF" />
-            <Text style={adminStyles.providerDetailText}>Registered: {item.registeredDate}</Text>
+            <Icon name="calendar-outline" size={16} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
+            <Text style={[adminStyles.providerDetailText, isDark && {color: theme.colors.textSecondary}]}>Registered: {item.registeredDate}</Text>
           </View>
         </View>
 
@@ -455,16 +462,16 @@ const AdminProvidersScreen = ({navigation, route}) => {
         onRequestClose={() => setShowDetailModal(false)}
       >
         <View style={adminStyles.modalOverlay}>
-          <View style={adminStyles.modalContent}>
+          <View style={[adminStyles.modalContent, isDark && {backgroundColor: theme.colors.surface}]}>
             <View style={adminStyles.modalHandle} />
             
-            <View style={adminStyles.modalHeader}>
-              <Text style={adminStyles.modalTitle}>Provider Details</Text>
+            <View style={[adminStyles.modalHeader, isDark && {borderBottomColor: theme.colors.border}]}>
+              <Text style={[adminStyles.modalTitle, isDark && {color: theme.colors.text}]}>Provider Details</Text>
               <TouchableOpacity 
                 style={adminStyles.modalCloseButton}
                 onPress={() => setShowDetailModal(false)}
               >
-                <Icon name="close" size={24} color="#6B7280" />
+                <Icon name="close" size={24} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
               </TouchableOpacity>
             </View>
 
@@ -475,7 +482,7 @@ const AdminProvidersScreen = ({navigation, route}) => {
                     {selectedProvider.name.split(' ').map(n => n[0]).join('')}
                   </Text>
                 </View>
-                <Text style={[adminStyles.providerName, {fontSize: 20, marginTop: 12}]}>
+                <Text style={[adminStyles.providerName, {fontSize: 20, marginTop: 12}, isDark && {color: theme.colors.text}]}>
                   {selectedProvider.name}
                 </Text>
                 <Text style={adminStyles.providerService}>{selectedProvider.service}</Text>
@@ -486,15 +493,15 @@ const AdminProvidersScreen = ({navigation, route}) => {
                 </View>
               </View>
 
-              <View style={adminStyles.modalSection}>
-                <Text style={adminStyles.modalSectionTitle}>Contact Information</Text>
+              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Contact Information</Text>
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="mail" size={20} color="#00B14F" />
-                  <Text style={adminStyles.modalInfoText}>{selectedProvider.email}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedProvider.email}</Text>
                 </View>
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="call" size={20} color="#00B14F" />
-                  <Text style={adminStyles.modalInfoText}>{selectedProvider.phone}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedProvider.phone}</Text>
                 </View>
               </View>
               
@@ -562,26 +569,26 @@ const AdminProvidersScreen = ({navigation, route}) => {
               </View>
 
               {selectedProvider.status === 'approved' && (
-                <View style={adminStyles.modalSection}>
-                  <Text style={adminStyles.modalSectionTitle}>Performance</Text>
+                <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
+                  <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Performance</Text>
                   <View style={adminStyles.modalInfoRow}>
                     <Icon name="star" size={20} color="#F59E0B" />
-                    <Text style={adminStyles.modalInfoText}>
+                    <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>
                       Rating: {selectedProvider.rating.toFixed(1)} / 5.0
                     </Text>
                   </View>
                   <View style={adminStyles.modalInfoRow}>
                     <Icon name="checkmark-done" size={20} color="#00B14F" />
-                    <Text style={adminStyles.modalInfoText}>
+                    <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>
                       Completed Jobs: {selectedProvider.completedJobs}
                     </Text>
                   </View>
                 </View>
               )}
 
-              <View style={adminStyles.modalSection}>
-                <Text style={adminStyles.modalSectionTitle}>Submitted Documents</Text>
-                <Text style={{fontSize: 13, color: '#6B7280', marginBottom: 12}}>
+              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Submitted Documents</Text>
+                <Text style={{fontSize: 13, color: isDark ? theme.colors.textSecondary : '#6B7280', marginBottom: 12}}>
                   Tap to view full document
                 </Text>
                 <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 12}}>
@@ -759,11 +766,11 @@ const AdminProvidersScreen = ({navigation, route}) => {
                 </View>
               </View>
 
-              <View style={adminStyles.modalSection}>
-                <Text style={adminStyles.modalSectionTitle}>Account Info</Text>
+              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Account Info</Text>
                 <View style={adminStyles.modalInfoRow}>
-                  <Icon name="calendar" size={20} color="#6B7280" />
-                  <Text style={adminStyles.modalInfoText}>
+                  <Icon name="calendar" size={20} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
+                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>
                     Registered: {selectedProvider.registeredDate}
                   </Text>
                 </View>
@@ -817,25 +824,25 @@ const AdminProvidersScreen = ({navigation, route}) => {
   const stats = getStats();
 
   return (
-    <SafeAreaView style={adminStyles.container} edges={['top']}>
-      <View style={adminStyles.header}>
-        <Text style={adminStyles.headerTitle}>Providers</Text>
-        <Text style={adminStyles.headerSubtitle}>Manage service providers</Text>
+    <SafeAreaView style={[adminStyles.container, isDark && {backgroundColor: theme.colors.background}]} edges={['top']}>
+      <View style={[adminStyles.header, isDark && {backgroundColor: theme.colors.surface}]}>
+        <Text style={[adminStyles.headerTitle, isDark && {color: theme.colors.text}]}>Providers</Text>
+        <Text style={[adminStyles.headerSubtitle, isDark && {color: theme.colors.textSecondary}]}>Manage service providers</Text>
       </View>
 
       {/* Search Bar */}
-      <View style={adminStyles.searchContainer}>
-        <Icon name="search-outline" size={20} color="#9CA3AF" style={adminStyles.searchIcon} />
+      <View style={[adminStyles.searchContainer, isDark && {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
+        <Icon name="search-outline" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} style={adminStyles.searchIcon} />
         <TextInput
-          style={adminStyles.searchInput}
+          style={[adminStyles.searchInput, isDark && {color: theme.colors.text}]}
           placeholder="Search providers..."
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={isDark ? theme.colors.textTertiary : '#9CA3AF'}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Icon name="close-circle" size={20} color="#9CA3AF" />
+            <Icon name="close-circle" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
           </TouchableOpacity>
         )}
       </View>
@@ -870,20 +877,20 @@ const AdminProvidersScreen = ({navigation, route}) => {
       </View>
 
       {/* Stats Bar */}
-      <View style={adminStyles.statsBar}>
+      <View style={[adminStyles.statsBar, isDark && {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
         <View style={adminStyles.statItem}>
-          <Text style={adminStyles.statNumber}>{stats.pending}</Text>
-          <Text style={adminStyles.statLabel}>Pending</Text>
+          <Text style={[adminStyles.statNumber, isDark && {color: theme.colors.text}]}>{stats.pending}</Text>
+          <Text style={[adminStyles.statLabel, isDark && {color: theme.colors.textSecondary}]}>Pending</Text>
         </View>
-        <View style={adminStyles.statDivider} />
+        <View style={[adminStyles.statDivider, isDark && {backgroundColor: theme.colors.border}]} />
         <View style={adminStyles.statItem}>
-          <Text style={adminStyles.statNumber}>{stats.approved}</Text>
-          <Text style={adminStyles.statLabel}>Approved</Text>
+          <Text style={[adminStyles.statNumber, isDark && {color: theme.colors.text}]}>{stats.approved}</Text>
+          <Text style={[adminStyles.statLabel, isDark && {color: theme.colors.textSecondary}]}>Approved</Text>
         </View>
-        <View style={adminStyles.statDivider} />
+        <View style={[adminStyles.statDivider, isDark && {backgroundColor: theme.colors.border}]} />
         <View style={adminStyles.statItem}>
-          <Text style={adminStyles.statNumber}>{stats.suspended}</Text>
-          <Text style={adminStyles.statLabel}>Suspended</Text>
+          <Text style={[adminStyles.statNumber, isDark && {color: theme.colors.text}]}>{stats.suspended}</Text>
+          <Text style={[adminStyles.statLabel, isDark && {color: theme.colors.textSecondary}]}>Suspended</Text>
         </View>
       </View>
 
@@ -894,11 +901,11 @@ const AdminProvidersScreen = ({navigation, route}) => {
         </View>
       ) : providers.length === 0 ? (
         <View style={adminStyles.emptyContainer}>
-          <View style={adminStyles.emptyIcon}>
-            <Icon name="people-outline" size={40} color="#9CA3AF" />
+          <View style={[adminStyles.emptyIcon, isDark && {backgroundColor: theme.colors.surface}]}>
+            <Icon name="people-outline" size={40} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
           </View>
-          <Text style={adminStyles.emptyText}>No providers found</Text>
-          <Text style={adminStyles.emptySubtext}>
+          <Text style={[adminStyles.emptyText, isDark && {color: theme.colors.text}]}>No providers found</Text>
+          <Text style={[adminStyles.emptySubtext, isDark && {color: theme.colors.textSecondary}]}>
             {searchQuery ? 'Try a different search term' : 'No providers match the selected filter'}
           </Text>
         </View>
@@ -910,6 +917,15 @@ const AdminProvidersScreen = ({navigation, route}) => {
           contentContainerStyle={adminStyles.listContent}
           style={adminStyles.listContainer}
           showsVerticalScrollIndicator={false}
+          getItemLayout={(data, index) => ({
+            length: 200, // Approximate height of provider card
+            offset: 200 * index,
+            index,
+          })}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
         />
       )}
 

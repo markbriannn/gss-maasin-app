@@ -372,14 +372,17 @@ export const splashStyles = StyleSheet.create({
   },
   loadingContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
+    height: 20,
   },
   loadingDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 4,
+    marginHorizontal: 6,
   },
   loadingDotDelay1: {
     opacity: 0.7,

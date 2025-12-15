@@ -7,6 +7,83 @@ import {API_BASE_URL} from '@env';
 const FCM_TOKEN_KEY = '@fcm_token';
 const API_URL = API_BASE_URL || 'http://localhost:3001/api';
 
+// ========== PUSH NOTIFICATION SENDER (via Backend) ==========
+
+/**
+ * Send push notification to a specific user (even when app is closed)
+ * This calls your backend which uses Firebase Admin SDK
+ */
+const sendPushNotification = async (userId, title, body, data = {}) => {
+  try {
+    if (!userId) {
+      console.log('[Push] No userId provided, skipping');
+      return {success: false};
+    }
+    
+    const response = await axios.post(`${API_URL}/notifications/send`, {
+      userId,
+      title,
+      body,
+      data: {
+        ...data,
+        timestamp: new Date().toISOString(),
+      },
+    });
+    
+    console.log('[Push] Notification sent to user:', userId);
+    return {success: true, messageId: response.data?.messageId};
+  } catch (error) {
+    // Non-critical - user may not have FCM token
+    console.log('[Push] Failed to send (non-critical):', error.message);
+    return {success: false, error: error.message};
+  }
+};
+
+/**
+ * Send push notification to all admins
+ */
+const sendPushToAdmins = async (title, body, data = {}) => {
+  try {
+    const response = await axios.post(`${API_URL}/notifications/send-to-admins`, {
+      title,
+      body,
+      data: {
+        ...data,
+        timestamp: new Date().toISOString(),
+      },
+    });
+    
+    console.log('[Push] Notification sent to admins');
+    return {success: true, sent: response.data?.sent};
+  } catch (error) {
+    console.log('[Push] Failed to send to admins:', error.message);
+    return {success: false, error: error.message};
+  }
+};
+
+/**
+ * Send push notification to a topic (e.g., all providers)
+ */
+const sendPushToTopic = async (topic, title, body, data = {}) => {
+  try {
+    const response = await axios.post(`${API_URL}/notifications/send-to-topic`, {
+      topic,
+      title,
+      body,
+      data: {
+        ...data,
+        timestamp: new Date().toISOString(),
+      },
+    });
+    
+    console.log('[Push] Notification sent to topic:', topic);
+    return {success: true, messageId: response.data?.messageId};
+  } catch (error) {
+    console.log('[Push] Failed to send to topic:', error.message);
+    return {success: false, error: error.message};
+  }
+};
+
 class NotificationService {
   constructor() {
     this.fcmToken = null;
@@ -40,20 +117,47 @@ class NotificationService {
 
   async getFCMToken() {
     try {
+      // Check if messaging is available
+      if (!messaging) {
+        console.log('[FCM] Firebase messaging not available');
+        return null;
+      }
+
       let fcmToken = await AsyncStorage.getItem(FCM_TOKEN_KEY);
       
       if (!fcmToken) {
-        fcmToken = await messaging().getToken();
-        if (fcmToken) {
-          await AsyncStorage.setItem(FCM_TOKEN_KEY, fcmToken);
+        // Add timeout to prevent hanging
+        const tokenPromise = messaging().getToken();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('FCM token timeout')), 10000)
+        );
+        
+        try {
+          fcmToken = await Promise.race([tokenPromise, timeoutPromise]);
+          if (fcmToken) {
+            await AsyncStorage.setItem(FCM_TOKEN_KEY, fcmToken);
+          }
+        } catch (tokenError) {
+          // Handle specific FCM errors gracefully
+          if (tokenError.message?.includes('SERVICE_NOT_AVAILABLE') || 
+              tokenError.message?.includes('timeout')) {
+            console.log('[FCM] Google Play Services unavailable - push notifications disabled');
+            return null;
+          }
+          throw tokenError;
         }
       }
       
       this.fcmToken = fcmToken;
-      console.log('FCM Token:', fcmToken);
+      console.log('[FCM] Token obtained successfully');
       return fcmToken;
     } catch (error) {
-      console.error('Error getting FCM token:', error);
+      // Don't log as error if it's just unavailable services
+      if (error.message?.includes('SERVICE_NOT_AVAILABLE')) {
+        console.log('[FCM] Push notifications unavailable on this device');
+      } else {
+        console.log('[FCM] Token error (non-critical):', error.message);
+      }
       return null;
     }
   }
@@ -67,10 +171,13 @@ class NotificationService {
           token,
           platform: Platform.OS,
         });
-        console.log('Device token registered for user:', userId);
+        console.log('[FCM] Device token registered for user:', userId);
+      } else if (!token) {
+        console.log('[FCM] No token available - skipping device registration');
       }
     } catch (error) {
-      console.error('Error registering device token:', error);
+      // Non-critical error - app works without push notifications
+      console.log('[FCM] Device registration skipped:', error.message);
     }
   }
 
@@ -147,17 +254,27 @@ class NotificationService {
   }
 
   subscribeToTopic(topic) {
-    return messaging()
-      .subscribeToTopic(topic)
-      .then(() => console.log(`Subscribed to topic: ${topic}`))
-      .catch((error) => console.error(`Error subscribing to topic ${topic}:`, error));
+    try {
+      return messaging()
+        .subscribeToTopic(topic)
+        .then(() => console.log(`[FCM] Subscribed to: ${topic}`))
+        .catch(() => console.log(`[FCM] Topic subscription skipped: ${topic}`));
+    } catch (error) {
+      console.log(`[FCM] Topic subscription unavailable: ${topic}`);
+      return Promise.resolve();
+    }
   }
 
   unsubscribeFromTopic(topic) {
-    return messaging()
-      .unsubscribeFromTopic(topic)
-      .then(() => console.log(`Unsubscribed from topic: ${topic}`))
-      .catch((error) => console.error(`Error unsubscribing from topic ${topic}:`, error));
+    try {
+      return messaging()
+        .unsubscribeFromTopic(topic)
+        .then(() => console.log(`[FCM] Unsubscribed from: ${topic}`))
+        .catch(() => console.log(`[FCM] Topic unsubscription skipped: ${topic}`));
+    } catch (error) {
+      console.log(`[FCM] Topic unsubscription unavailable: ${topic}`);
+      return Promise.resolve();
+    }
   }
 
   cleanup() {
@@ -340,6 +457,157 @@ class NotificationService {
       `How was your experience with ${providerName}? Your feedback helps other clients!`,
       {type: 'rating_reminder', jobId: jobData.id}
     );
+  }
+
+  // ========== PUSH NOTIFICATION METHODS (Background/Closed App) ==========
+
+  /**
+   * Send push notification to a specific user
+   * Works even when app is closed!
+   */
+  async sendPushToUser(userId, title, body, data = {}) {
+    return sendPushNotification(userId, title, body, data);
+  }
+
+  /**
+   * Send push notification to all admins
+   */
+  async sendPushToAdmins(title, body, data = {}) {
+    return sendPushToAdmins(title, body, data);
+  }
+
+  /**
+   * Send push notification to a topic
+   */
+  async sendPushToTopic(topic, title, body, data = {}) {
+    return sendPushToTopic(topic, title, body, data);
+  }
+
+  // ========== COMBINED NOTIFICATIONS (Local + Push) ==========
+
+  /**
+   * Notify client about job acceptance (local + push)
+   */
+  async pushJobAccepted(clientId, jobData, providerName) {
+    const title = '🎉 Job Accepted!';
+    const body = `${providerName} has accepted your ${jobData.serviceCategory || 'service'} request!`;
+    
+    // Send push notification (works when app is closed)
+    await this.sendPushToUser(clientId, title, body, {
+      type: 'job_accepted',
+      jobId: jobData.id,
+    });
+  }
+
+  /**
+   * Notify provider about new available job (local + push)
+   */
+  async pushNewJobAvailable(providerId, jobData) {
+    const title = '📋 New Job Available!';
+    const body = `New ${jobData.serviceCategory || 'service'} job in your area. ${jobData.isNegotiable ? `Client offers ₱${(jobData.offeredPrice || 0).toLocaleString()}` : 'Tap to view details.'}`;
+    
+    await this.sendPushToUser(providerId, title, body, {
+      type: 'new_job',
+      jobId: jobData.id,
+    });
+  }
+
+  /**
+   * Notify admins about new job request
+   */
+  async pushNewJobToAdmins(jobData, clientName) {
+    const title = '📋 New Job Request';
+    const body = `${clientName || 'Client'} requested ${jobData.serviceCategory || 'service'}${jobData.isNegotiable ? ` - Offers ₱${(jobData.offeredPrice || 0).toLocaleString()}` : ''}`;
+    
+    await this.sendPushToAdmins(title, body, {
+      type: 'new_job',
+      jobId: jobData.id,
+    });
+  }
+
+  /**
+   * Notify client about admin approval
+   */
+  async pushAdminApproved(clientId, jobData) {
+    const title = '✅ Request Approved';
+    const body = `Your ${jobData.serviceCategory || 'service'} request has been approved and sent to providers.`;
+    
+    await this.sendPushToUser(clientId, title, body, {
+      type: 'admin_approved',
+      jobId: jobData.id,
+    });
+  }
+
+  /**
+   * Notify client about counter offer
+   */
+  async pushCounterOffer(clientId, jobData) {
+    const title = '💰 Counter Offer Received!';
+    const body = `Provider offers ₱${(jobData.counterOfferPrice || 0).toLocaleString()} for your ${jobData.serviceCategory || 'service'} request.`;
+    
+    await this.sendPushToUser(clientId, title, body, {
+      type: 'counter_offer',
+      jobId: jobData.id,
+    });
+  }
+
+  /**
+   * Notify provider about counter offer accepted
+   */
+  async pushCounterOfferAccepted(providerId, jobData) {
+    const title = '🎉 Counter Offer Accepted!';
+    const body = `Client accepted your offer of ₱${(jobData.counterOfferPrice || 0).toLocaleString()} for ${jobData.serviceCategory || 'service'}.`;
+    
+    await this.sendPushToUser(providerId, title, body, {
+      type: 'counter_accepted',
+      jobId: jobData.id,
+    });
+  }
+
+  /**
+   * Notify client about job status change
+   */
+  async pushJobStatusUpdate(clientId, jobData, status) {
+    const statusMessages = {
+      traveling: {title: '🚗 Provider On The Way', body: `Your provider is traveling to your location.`},
+      arrived: {title: '📍 Provider Arrived', body: `Your provider has arrived at your location.`},
+      in_progress: {title: '🔧 Job Started', body: `Your ${jobData.serviceCategory || 'service'} job is now in progress.`},
+      completed: {title: '✅ Job Completed', body: `Your ${jobData.serviceCategory || 'service'} job has been completed. Please leave a review!`},
+      cancelled: {title: '❌ Job Cancelled', body: `Your ${jobData.serviceCategory || 'service'} job has been cancelled.`},
+    };
+    
+    const message = statusMessages[status];
+    if (message) {
+      await this.sendPushToUser(clientId, message.title, message.body, {
+        type: `job_${status}`,
+        jobId: jobData.id,
+      });
+    }
+  }
+
+  /**
+   * Notify about new message
+   */
+  async pushNewMessage(userId, senderName, messagePreview, conversationId) {
+    const title = `💬 ${senderName}`;
+    const body = messagePreview.length > 50 ? messagePreview.substring(0, 50) + '...' : messagePreview;
+    
+    await this.sendPushToUser(userId, title, body, {
+      type: 'new_message',
+      conversationId,
+    });
+  }
+
+  /**
+   * Notify provider about account approval
+   */
+  async pushProviderApproved(providerId) {
+    const title = '🎉 Account Approved!';
+    const body = 'Congratulations! Your provider account has been approved. You can now receive job requests.';
+    
+    await this.sendPushToUser(providerId, title, body, {
+      type: 'provider_approved',
+    });
   }
 }
 

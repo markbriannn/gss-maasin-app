@@ -58,9 +58,10 @@ const FavoritesScreen = ({navigation}) => {
                 providerId: data.providerId,
                 name: `${providerData.firstName || ''} ${providerData.lastName || ''}`.trim() || 'Provider',
                 service: providerData.serviceCategory || providerData.category || 'Service Provider',
-                rating: providerData.rating || 0,
-                totalJobs: providerData.completedJobs || 0,
-                image: providerData.profileImage || null,
+                rating: providerData.rating || providerData.averageRating || 0,
+                reviewCount: providerData.reviewCount || 0,
+                totalJobs: providerData.completedJobs || providerData.jobsCompleted || 0,
+                image: providerData.profileImage || providerData.profilePhoto || null,
               };
             }
           } catch (e) {
@@ -157,13 +158,17 @@ const FavoritesScreen = ({navigation}) => {
                   {item.service}
                 </Text>
                 <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 4}}>
-                  <Icon name="star" size={14} color="#FBBF24" />
+                  <Icon name="star" size={14} color={(item.rating > 0 || item.reviewCount > 0) ? "#FBBF24" : "#D1D5DB"} />
                   <Text style={{fontSize: 14, color: isDark ? theme.colors.text : '#1F2937', marginLeft: 4}}>
-                    {item.rating.toFixed(1)}
+                    {(item.rating > 0 || item.reviewCount > 0) 
+                      ? `${item.rating.toFixed(1)} (${item.reviewCount} ${item.reviewCount === 1 ? 'review' : 'reviews'})`
+                      : 'New Provider'}
                   </Text>
-                  <Text style={{fontSize: 14, color: isDark ? theme.colors.textSecondary : '#9CA3AF', marginLeft: 8}}>
-                    • {item.totalJobs} jobs
-                  </Text>
+                  {item.totalJobs > 0 && (
+                    <Text style={{fontSize: 14, color: isDark ? theme.colors.textSecondary : '#9CA3AF', marginLeft: 8}}>
+                      • {item.totalJobs} jobs
+                    </Text>
+                  )}
                 </View>
               </View>
               <TouchableOpacity onPress={() => handleRemoveFavorite(item.id)}>

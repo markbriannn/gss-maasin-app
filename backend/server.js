@@ -6,6 +6,7 @@ const { Server } = require('socket.io');
 const paymentRoutes = require('./routes/payments');
 const notificationRoutes = require('./routes/notifications');
 const emailRoutes = require('./routes/email');
+const authRoutes = require('./routes/auth');
 const { initializeFirebase } = require('./config/firebase');
 const { setupSocketHandlers } = require('./socket/handlers');
 
@@ -27,6 +28,7 @@ app.use(express.json());
 app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/auth', authRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

@@ -15,6 +15,7 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {adminStyles} from '../../css/adminStyles';
+import {useTheme} from '../../context/ThemeContext';
 import {
   collection,
   query,
@@ -31,6 +32,7 @@ const {width} = Dimensions.get('window');
 const MEDIA_SIZE = (width - 60) / 3;
 
 const AdminJobsScreen = ({navigation, route}) => {
+  const {isDark, theme} = useTheme();
   const {openJobId} = route?.params || {};
   const [selectedMedia, setSelectedMedia] = useState(null);
   const [showMediaModal, setShowMediaModal] = useState(false);
@@ -500,14 +502,14 @@ const AdminJobsScreen = ({navigation, route}) => {
     
     return (
       <TouchableOpacity 
-        style={adminStyles.jobCard}
+        style={[adminStyles.jobCard, isDark && {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}
         onPress={() => openJobDetail(item)}
         activeOpacity={0.7}
       >
         <View style={adminStyles.jobHeader}>
           <View style={{flex: 1}}>
-            <Text style={adminStyles.jobId}>{item.id}</Text>
-            <Text style={adminStyles.jobTitle}>{item.title}</Text>
+            <Text style={[adminStyles.jobId, isDark && {color: theme.colors.textSecondary}]}>{item.id}</Text>
+            <Text style={[adminStyles.jobTitle, isDark && {color: theme.colors.text}]}>{item.title}</Text>
             <Text style={adminStyles.jobCategory}>{item.category}</Text>
           </View>
           <View style={[adminStyles.jobStatusBadge, {backgroundColor: statusStyle.backgroundColor}]}>
@@ -517,21 +519,21 @@ const AdminJobsScreen = ({navigation, route}) => {
           </View>
         </View>
 
-        <View style={adminStyles.jobParties}>
+        <View style={[adminStyles.jobParties, isDark && {backgroundColor: theme.colors.background}]}>
           <View style={adminStyles.jobParty}>
-            <Text style={adminStyles.jobPartyLabel}>Client</Text>
-            <Text style={adminStyles.jobPartyName}>{item.client.name}</Text>
+            <Text style={[adminStyles.jobPartyLabel, isDark && {color: theme.colors.textSecondary}]}>Client</Text>
+            <Text style={[adminStyles.jobPartyName, isDark && {color: theme.colors.text}]}>{item.client.name}</Text>
           </View>
-          <View style={adminStyles.jobPartyDivider} />
+          <View style={[adminStyles.jobPartyDivider, isDark && {backgroundColor: theme.colors.border}]} />
           <View style={adminStyles.jobParty}>
-            <Text style={adminStyles.jobPartyLabel}>Provider</Text>
-            <Text style={adminStyles.jobPartyName}>{item.provider.name}</Text>
+            <Text style={[adminStyles.jobPartyLabel, isDark && {color: theme.colors.textSecondary}]}>Provider</Text>
+            <Text style={[adminStyles.jobPartyName, isDark && {color: theme.colors.text}]}>{item.provider.name}</Text>
           </View>
         </View>
 
         <View style={adminStyles.jobFooter}>
           <Text style={adminStyles.jobAmount}>₱{item.amount.toLocaleString()}</Text>
-          <Text style={adminStyles.jobDate}>
+          <Text style={[adminStyles.jobDate, isDark && {color: theme.colors.textSecondary}]}>
             {item.scheduledDate} • {item.scheduledTime}
           </Text>
         </View>
@@ -563,23 +565,23 @@ const AdminJobsScreen = ({navigation, route}) => {
         onRequestClose={() => setShowDetailModal(false)}
       >
         <View style={adminStyles.modalOverlay}>
-          <View style={adminStyles.modalContent}>
+          <View style={[adminStyles.modalContent, isDark && {backgroundColor: theme.colors.surface}]}>
             <View style={adminStyles.modalHandle} />
             
-            <View style={adminStyles.modalHeader}>
-              <Text style={adminStyles.modalTitle}>Job Details</Text>
+            <View style={[adminStyles.modalHeader, isDark && {borderBottomColor: theme.colors.border}]}>
+              <Text style={[adminStyles.modalTitle, isDark && {color: theme.colors.text}]}>Job Details</Text>
               <TouchableOpacity 
                 style={adminStyles.modalCloseButton}
                 onPress={() => setShowDetailModal(false)}
               >
-                <Icon name="close" size={24} color="#6B7280" />
+                <Icon name="close" size={24} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={adminStyles.modalBody}>
+            <ScrollView style={adminStyles.modalBody} contentContainerStyle={{paddingBottom: 20}}>
               <View style={{alignItems: 'center', marginBottom: 20}}>
-                <Text style={{fontSize: 14, color: '#9CA3AF'}}>{selectedJob.id}</Text>
-                <Text style={{fontSize: 20, fontWeight: '700', color: '#1F2937', marginTop: 4}}>
+                <Text style={{fontSize: 14, color: isDark ? theme.colors.textTertiary : '#9CA3AF'}}>{selectedJob.id}</Text>
+                <Text style={{fontSize: 20, fontWeight: '700', color: isDark ? theme.colors.text : '#1F2937', marginTop: 4}}>
                   {selectedJob.title}
                 </Text>
                 <Text style={{fontSize: 16, color: '#00B14F', marginTop: 4}}>
@@ -592,13 +594,13 @@ const AdminJobsScreen = ({navigation, route}) => {
                 </View>
               </View>
 
-              <View style={adminStyles.modalSection}>
-                <Text style={adminStyles.modalSectionTitle}>Service Amount</Text>
+              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Service Amount</Text>
                 <Text style={{fontSize: 28, fontWeight: '700', color: '#00B14F'}}>
                   ₱{selectedJob.amount.toLocaleString()}
                 </Text>
                 {selectedJob.systemFee > 0 && (
-                  <Text style={{fontSize: 12, color: '#6B7280', marginTop: 4}}>
+                  <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginTop: 4}}>
                     Provider: ₱{selectedJob.providerPrice?.toLocaleString() || 0} + Fee: ₱{selectedJob.systemFee?.toLocaleString() || 0}
                   </Text>
                 )}
@@ -637,15 +639,15 @@ const AdminJobsScreen = ({navigation, route}) => {
                 </View>
               )}
 
-              <View style={adminStyles.modalSection}>
-                <Text style={adminStyles.modalSectionTitle}>Client</Text>
+              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Client</Text>
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="person" size={20} color="#3B82F6" />
-                  <Text style={adminStyles.modalInfoText}>{selectedJob.client.name}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.client.name}</Text>
                 </View>
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="call" size={20} color="#3B82F6" />
-                  <Text style={adminStyles.modalInfoText}>{selectedJob.client.phone}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.client.phone}</Text>
                 </View>
                 <View style={{flexDirection: 'row', marginTop: 10, gap: 8}}>
                   <TouchableOpacity
@@ -679,15 +681,15 @@ const AdminJobsScreen = ({navigation, route}) => {
                 </View>
               </View>
 
-              <View style={adminStyles.modalSection}>
-                <Text style={adminStyles.modalSectionTitle}>Provider</Text>
+              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Provider</Text>
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="person" size={20} color="#00B14F" />
-                  <Text style={adminStyles.modalInfoText}>{selectedJob.provider.name}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.provider.name}</Text>
                 </View>
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="call" size={20} color="#00B14F" />
-                  <Text style={adminStyles.modalInfoText}>{selectedJob.provider.phone}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.provider.phone}</Text>
                 </View>
                 <View style={{flexDirection: 'row', marginTop: 10, gap: 8}}>
                   <TouchableOpacity
@@ -721,40 +723,40 @@ const AdminJobsScreen = ({navigation, route}) => {
                 </View>
               </View>
 
-              <View style={adminStyles.modalSection}>
-                <Text style={adminStyles.modalSectionTitle}>Schedule</Text>
+              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Schedule</Text>
                 <View style={adminStyles.modalInfoRow}>
-                  <Icon name="calendar" size={20} color="#6B7280" />
-                  <Text style={adminStyles.modalInfoText}>{selectedJob.scheduledDate}</Text>
+                  <Icon name="calendar" size={20} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
+                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.scheduledDate}</Text>
                 </View>
                 <View style={adminStyles.modalInfoRow}>
-                  <Icon name="time" size={20} color="#6B7280" />
-                  <Text style={adminStyles.modalInfoText}>{selectedJob.scheduledTime}</Text>
+                  <Icon name="time" size={20} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
+                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.scheduledTime}</Text>
                 </View>
               </View>
 
-              <View style={adminStyles.modalSection}>
-                <Text style={adminStyles.modalSectionTitle}>Location</Text>
+              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Location</Text>
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="location" size={20} color="#EF4444" />
-                  <Text style={adminStyles.modalInfoText}>{selectedJob.location}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.location}</Text>
                 </View>
               </View>
 
-              <View style={adminStyles.modalSection}>
-                <Text style={adminStyles.modalSectionTitle}>Description</Text>
-                <Text style={{fontSize: 15, color: '#4B5563', lineHeight: 22}}>
+              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Description</Text>
+                <Text style={{fontSize: 15, color: isDark ? theme.colors.text : '#4B5563', lineHeight: 22}}>
                   {selectedJob.description}
                 </Text>
               </View>
 
               {/* Media Gallery - Client's Photos/Videos of the Problem */}
               {selectedJob.media && selectedJob.media.length > 0 && (
-                <View style={adminStyles.modalSection}>
-                  <Text style={adminStyles.modalSectionTitle}>
+                <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
+                  <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>
                     📸 Client's Photos/Videos ({selectedJob.media.length})
                   </Text>
-                  <Text style={{fontSize: 12, color: '#6B7280', marginBottom: 8}}>
+                  <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginBottom: 8}}>
                     Photos/videos of the problem submitted by client
                   </Text>
                   <View style={{flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, gap: 8}}>
@@ -770,9 +772,9 @@ const AdminJobsScreen = ({navigation, route}) => {
                           height: MEDIA_SIZE,
                           borderRadius: 12,
                           overflow: 'hidden',
-                          backgroundColor: '#F3F4F6',
+                          backgroundColor: isDark ? theme.colors.background : '#F3F4F6',
                           borderWidth: 2,
-                          borderColor: '#E5E7EB',
+                          borderColor: isDark ? theme.colors.border : '#E5E7EB',
                         }}
                       >
                         {(item.uri || item.thumbnail || (typeof item === 'string' && item)) ? (
@@ -827,7 +829,7 @@ const AdminJobsScreen = ({navigation, route}) => {
               )}
             </ScrollView>
 
-            <View style={[adminStyles.modalFooter, {flexDirection: 'column'}]}>
+            <View style={[adminStyles.modalFooter, {flexDirection: 'column'}, isDark && {backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border}]}>
               {/* Pending jobs - Admin can approve or reject */}
               {(selectedJob.status === 'pending' || selectedJob.status === 'pending_negotiation' || selectedJob.status === 'counter_offer') && (
                 <>
@@ -968,25 +970,25 @@ const AdminJobsScreen = ({navigation, route}) => {
   const stats = getStats();
 
   return (
-    <SafeAreaView style={adminStyles.container} edges={['top']}>
-      <View style={adminStyles.header}>
-        <Text style={adminStyles.headerTitle}>Jobs</Text>
-        <Text style={adminStyles.headerSubtitle}>Monitor and manage all jobs</Text>
+    <SafeAreaView style={[adminStyles.container, isDark && {backgroundColor: theme.colors.background}]} edges={['top']}>
+      <View style={[adminStyles.header, isDark && {backgroundColor: theme.colors.surface}]}>
+        <Text style={[adminStyles.headerTitle, isDark && {color: theme.colors.text}]}>Jobs</Text>
+        <Text style={[adminStyles.headerSubtitle, isDark && {color: theme.colors.textSecondary}]}>Monitor and manage all jobs</Text>
       </View>
 
       {/* Search Bar */}
-      <View style={adminStyles.searchContainer}>
-        <Icon name="search-outline" size={20} color="#9CA3AF" style={adminStyles.searchIcon} />
+      <View style={[adminStyles.searchContainer, isDark && {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
+        <Icon name="search-outline" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} style={adminStyles.searchIcon} />
         <TextInput
-          style={adminStyles.searchInput}
+          style={[adminStyles.searchInput, isDark && {color: theme.colors.text}]}
           placeholder="Search jobs, clients, providers..."
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={isDark ? theme.colors.textTertiary : '#9CA3AF'}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Icon name="close-circle" size={20} color="#9CA3AF" />
+            <Icon name="close-circle" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
           </TouchableOpacity>
         )}
       </View>
@@ -1021,25 +1023,25 @@ const AdminJobsScreen = ({navigation, route}) => {
       </View>
 
       {/* Stats Bar */}
-      <View style={adminStyles.statsBar}>
+      <View style={[adminStyles.statsBar, isDark && {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
         <View style={adminStyles.statItem}>
-          <Text style={adminStyles.statNumber}>{stats.pending}</Text>
-          <Text style={adminStyles.statLabel}>Pending</Text>
+          <Text style={[adminStyles.statNumber, isDark && {color: theme.colors.text}]}>{stats.pending}</Text>
+          <Text style={[adminStyles.statLabel, isDark && {color: theme.colors.textSecondary}]}>Pending</Text>
         </View>
-        <View style={adminStyles.statDivider} />
+        <View style={[adminStyles.statDivider, isDark && {backgroundColor: theme.colors.border}]} />
         <View style={adminStyles.statItem}>
-          <Text style={adminStyles.statNumber}>{stats.inProgress}</Text>
-          <Text style={adminStyles.statLabel}>Active</Text>
+          <Text style={[adminStyles.statNumber, isDark && {color: theme.colors.text}]}>{stats.inProgress}</Text>
+          <Text style={[adminStyles.statLabel, isDark && {color: theme.colors.textSecondary}]}>Active</Text>
         </View>
-        <View style={adminStyles.statDivider} />
+        <View style={[adminStyles.statDivider, isDark && {backgroundColor: theme.colors.border}]} />
         <View style={adminStyles.statItem}>
-          <Text style={adminStyles.statNumber}>{stats.completed}</Text>
-          <Text style={adminStyles.statLabel}>Done</Text>
+          <Text style={[adminStyles.statNumber, isDark && {color: theme.colors.text}]}>{stats.completed}</Text>
+          <Text style={[adminStyles.statLabel, isDark && {color: theme.colors.textSecondary}]}>Done</Text>
         </View>
-        <View style={adminStyles.statDivider} />
+        <View style={[adminStyles.statDivider, isDark && {backgroundColor: theme.colors.border}]} />
         <View style={adminStyles.statItem}>
           <Text style={[adminStyles.statNumber, {color: '#DC2626'}]}>{stats.disputed}</Text>
-          <Text style={adminStyles.statLabel}>Disputed</Text>
+          <Text style={[adminStyles.statLabel, isDark && {color: theme.colors.textSecondary}]}>Disputed</Text>
         </View>
       </View>
 
@@ -1050,11 +1052,11 @@ const AdminJobsScreen = ({navigation, route}) => {
         </View>
       ) : jobs.length === 0 ? (
         <View style={adminStyles.emptyContainer}>
-          <View style={adminStyles.emptyIcon}>
-            <Icon name="briefcase-outline" size={40} color="#9CA3AF" />
+          <View style={[adminStyles.emptyIcon, isDark && {backgroundColor: theme.colors.surface}]}>
+            <Icon name="briefcase-outline" size={40} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
           </View>
-          <Text style={adminStyles.emptyText}>No jobs found</Text>
-          <Text style={adminStyles.emptySubtext}>
+          <Text style={[adminStyles.emptyText, isDark && {color: theme.colors.text}]}>No jobs found</Text>
+          <Text style={[adminStyles.emptySubtext, isDark && {color: theme.colors.textSecondary}]}>
             {searchQuery ? 'Try a different search term' : 'No jobs match the selected filter'}
           </Text>
         </View>
@@ -1066,6 +1068,15 @@ const AdminJobsScreen = ({navigation, route}) => {
           contentContainerStyle={adminStyles.listContent}
           style={adminStyles.listContainer}
           showsVerticalScrollIndicator={false}
+          getItemLayout={(data, index) => ({
+            length: 180, // Approximate height of job card
+            offset: 180 * index,
+            index,
+          })}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
         />
       )}
 

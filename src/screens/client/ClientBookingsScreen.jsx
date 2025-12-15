@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback} from 'react';
+import {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,8 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {useFocusEffect} from '@react-navigation/native';
 import {useAuth} from '../../context/AuthContext';
+import {useTheme} from '../../context/ThemeContext';
 import {collection, query, where, onSnapshot, doc, getDoc} from 'firebase/firestore';
 import {db} from '../../config/firebase';
 import {globalStyles} from '../../css/globalStyles';
@@ -18,10 +18,12 @@ import {dashboardStyles} from '../../css/dashboardStyles';
 
 const ClientBookingsScreen = ({navigation}) => {
   const {user} = useAuth();
+  const {isDark, theme} = useTheme();
   const [activeTab, setActiveTab] = useState('PENDING');
   const [bookings, setBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [sortBy, setSortBy] = useState('date_desc'); // date_desc, date_asc, amount_desc, amount_asc
 
   // Real-time listener for bookings
   useEffect(() => {
@@ -112,8 +114,20 @@ const ClientBookingsScreen = ({navigation}) => {
           });
         }
 
-        // Sort by newest first (descending)
-        bookingsList.sort((a, b) => b.createdAtRaw - a.createdAtRaw);
+        // Sort based on selected option
+        switch (sortBy) {
+          case 'date_asc':
+            bookingsList.sort((a, b) => a.createdAtRaw - b.createdAtRaw);
+            break;
+          case 'amount_desc':
+            bookingsList.sort((a, b) => b.amount - a.amount);
+            break;
+          case 'amount_asc':
+            bookingsList.sort((a, b) => a.amount - b.amount);
+            break;
+          default: // date_desc
+            bookingsList.sort((a, b) => b.createdAtRaw - a.createdAtRaw);
+        }
 
         setBookings(bookingsList);
         setIsLoading(false);
@@ -127,7 +141,7 @@ const ClientBookingsScreen = ({navigation}) => {
     );
 
     return () => unsubscribe();
-  }, [user, activeTab]);
+  }, [user, activeTab, sortBy]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -218,12 +232,12 @@ const ClientBookingsScreen = ({navigation}) => {
   ];
 
   return (
-    <SafeAreaView style={dashboardStyles.container} edges={['top']}>
-      <View style={dashboardStyles.header}>
-        <Text style={dashboardStyles.headerName}>My Bookings</Text>
+    <SafeAreaView style={[dashboardStyles.container, isDark && {backgroundColor: theme.colors.background}]} edges={['top']}>
+      <View style={[dashboardStyles.header, isDark && {backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border}]}>
+        <Text style={[dashboardStyles.headerName, isDark && {color: theme.colors.text}]}>My Bookings</Text>
       </View>
 
-      <View style={{flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF'}}>
+      <View style={{flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: isDark ? theme.colors.card : '#FFFFFF'}}>
         {tabs.map((tab) => (
           <TouchableOpacity
             key={tab.key}
@@ -239,7 +253,7 @@ const ClientBookingsScreen = ({navigation}) => {
               style={{
                 fontSize: 14,
                 fontWeight: activeTab === tab.key ? '600' : '400',
-                color: activeTab === tab.key ? '#00B14F' : '#6B7280',
+                color: activeTab === tab.key ? '#00B14F' : (isDark ? theme.colors.textSecondary : '#6B7280'),
               }}>
               {tab.label}
             </Text>
@@ -247,11 +261,45 @@ const ClientBookingsScreen = ({navigation}) => {
         ))}
       </View>
 
+      {/* Sort Options */}
+      <View style={{flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, backgroundColor: isDark ? theme.colors.background : '#F9FAFB', alignItems: 'center'}}>
+        <Text style={{fontSize: 13, color: isDark ? theme.colors.textSecondary : '#6B7280', marginRight: 8}}>Sort:</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {[
+            {key: 'date_desc', label: 'Newest'},
+            {key: 'date_asc', label: 'Oldest'},
+            {key: 'amount_desc', label: 'Highest ₱'},
+            {key: 'amount_asc', label: 'Lowest ₱'},
+          ].map((option) => (
+            <TouchableOpacity
+              key={option.key}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 16,
+                backgroundColor: sortBy === option.key ? '#00B14F' : (isDark ? theme.colors.surface : '#FFFFFF'),
+                marginRight: 8,
+                borderWidth: 1,
+                borderColor: sortBy === option.key ? '#00B14F' : (isDark ? theme.colors.border : '#E5E7EB'),
+              }}
+              onPress={() => setSortBy(option.key)}>
+              <Text style={{
+                fontSize: 12,
+                fontWeight: sortBy === option.key ? '600' : '400',
+                color: sortBy === option.key ? '#FFFFFF' : (isDark ? theme.colors.text : '#374151'),
+              }}>
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       <ScrollView
-        style={{flex: 1}}
+        style={{flex: 1, backgroundColor: isDark ? theme.colors.background : '#F9FAFB'}}
         contentContainerStyle={dashboardStyles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#00B14F']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#00B14F']} tintColor="#00B14F" />
         }>
         {isLoading ? (
           <View style={dashboardStyles.loadingContainer}>
@@ -261,7 +309,7 @@ const ClientBookingsScreen = ({navigation}) => {
           bookings.map((job) => (
             <TouchableOpacity
               key={job.id}
-              style={dashboardStyles.jobCard}
+              style={[dashboardStyles.jobCard, isDark && {backgroundColor: theme.colors.card, borderColor: theme.colors.border}]}
               onPress={() => handleJobPress(job.id)}>
               <View style={dashboardStyles.jobCardHeader}>
                 <View style={dashboardStyles.jobCategoryBadge}>
@@ -286,7 +334,7 @@ const ClientBookingsScreen = ({navigation}) => {
                 </View>
               </View>
 
-              <Text style={dashboardStyles.jobTitle}>{job.title}</Text>
+              <Text style={[dashboardStyles.jobTitle, isDark && {color: theme.colors.text}]}>{job.title}</Text>
 
               {/* Counter Offer Alert */}
               {job.status === 'COUNTER_OFFER' && (
@@ -364,21 +412,21 @@ const ClientBookingsScreen = ({navigation}) => {
               )}
 
               <View style={dashboardStyles.jobClient}>
-                <Icon name="person-outline" size={16} color="#6B7280" />
-                <Text style={dashboardStyles.jobClientText}>
+                <Icon name="person-outline" size={16} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
+                <Text style={[dashboardStyles.jobClientText, isDark && {color: theme.colors.textSecondary}]}>
                   Provider: {job.provider?.name || 'Not assigned'}
                 </Text>
               </View>
 
               <View style={dashboardStyles.jobLocation}>
-                <Icon name="location-outline" size={16} color="#6B7280" />
-                <Text style={dashboardStyles.jobLocationText}>
+                <Icon name="location-outline" size={16} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
+                <Text style={[dashboardStyles.jobLocationText, isDark && {color: theme.colors.textSecondary}]}>
                   {job.location}
                 </Text>
               </View>
 
               <View style={dashboardStyles.jobFooter}>
-                <Text style={dashboardStyles.jobTime}>
+                <Text style={[dashboardStyles.jobTime, isDark && {color: theme.colors.textSecondary}]}>
                   {job.createdAt}
                 </Text>
                 <View style={dashboardStyles.jobActions}>
@@ -402,11 +450,11 @@ const ClientBookingsScreen = ({navigation}) => {
           ))
         ) : (
           <View style={dashboardStyles.emptyState}>
-            <Icon name="calendar-outline" size={80} color="#E5E7EB" />
-            <Text style={dashboardStyles.emptyStateTitle}>
+            <Icon name="calendar-outline" size={80} color={isDark ? theme.colors.border : '#E5E7EB'} />
+            <Text style={[dashboardStyles.emptyStateTitle, isDark && {color: theme.colors.text}]}>
               No {activeTab.toLowerCase()} bookings
             </Text>
-            <Text style={dashboardStyles.emptyStateText}>
+            <Text style={[dashboardStyles.emptyStateText, isDark && {color: theme.colors.textSecondary}]}>
               Your {activeTab.toLowerCase()} jobs will appear here
             </Text>
           </View>

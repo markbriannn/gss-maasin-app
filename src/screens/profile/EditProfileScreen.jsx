@@ -20,7 +20,7 @@ import {authStyles} from '../../css/authStyles';
 import {editProfileStyles as styles} from '../../css/profileStyles';
 import {useAuth} from '../../context/AuthContext';
 import {useTheme} from '../../context/ThemeContext';
-import {MAASIN_BARANGAYS} from '../../config/constants';
+import {MAASIN_BARANGAYS, APP_CONFIG} from '../../config/constants';
 import locationService from '../../services/locationService';
 import {db} from '../../config/firebase';
 import {doc, updateDoc} from 'firebase/firestore';
@@ -520,7 +520,7 @@ const EditProfileScreen = ({navigation}) => {
             <View style={[styles.pricingInfoBox, isDark && {backgroundColor: theme.colors.card}]}>
               <Icon name="information-circle" size={20} color="#3B82F6" />
               <Text style={[styles.pricingInfoText, isDark && {color: theme.colors.textSecondary}]}>
-                Clients will see your price displayed as "₱{formData.fixedPrice || '0'} {formData.priceType === 'per_job' ? 'per job' : 'per hire'}". A 5% system fee will be added when clients book your service.
+                Clients will see your price displayed as "{APP_CONFIG.CURRENCY_SYMBOL}{formData.fixedPrice || '0'} {formData.priceType === 'per_job' ? 'per job' : 'per hire'}". A {APP_CONFIG.SERVICE_FEE_PERCENTAGE}% system fee will be added when clients book your service.
               </Text>
             </View>
           </>
@@ -550,7 +550,7 @@ const EditProfileScreen = ({navigation}) => {
             ref={mapRef}
             style={styles.map}
             provider={PROVIDER_GOOGLE}
-            region={region}
+            initialRegion={region}
             onRegionChangeComplete={setRegion}
             showsUserLocation>
             <Marker

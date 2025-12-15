@@ -12,15 +12,16 @@ import {
   Image,
   Alert,
   Modal,
+  ScrollView,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
-import {globalStyles} from '../../css/globalStyles';
 import {chatStyles as styles} from '../../css/chatStyles';
 import {useAuth} from '../../context/AuthContext';
 import {useTheme} from '../../context/ThemeContext';
 import {uploadChatImage} from '../../services/imageUploadService';
+import {AnimatedMessage} from '../../components/animations';
 import {
   getOrCreateConversation,
   sendMessage as sendFirebaseMessage,
@@ -29,6 +30,7 @@ import {
   setTypingStatus,
   subscribeToTypingStatus,
 } from '../../services/messageService';
+import {attemptMessage} from '../../utils/rateLimiter';
 
 const ChatScreen = ({route, navigation}) => {
   const {user} = useAuth();
@@ -93,28 +95,6 @@ const ChatScreen = ({route, navigation}) => {
 
   const clearSelectedImage = () => {
     setSelectedImage(null);
-  };
-
-  const uploadAndSendImage = async (image) => {
-    if (!conversationId || !user?.uid) return;
-    
-    setUploadingImage(true);
-    try {
-      // Upload to Cloudinary (free tier - no Firebase Storage needed)
-      const downloadUrl = await uploadChatImage(image.uri, conversationId);
-
-      // Send message with image
-      const senderName = user?.firstName 
-        ? `${user.firstName} ${user.lastName || ''}`.trim()
-        : 'User';
-      
-      await sendFirebaseMessage(conversationId, user.uid, '📷 Image', senderName, downloadUrl);
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      Alert.alert('Upload Failed', 'Could not upload image. Please check your internet connection and try again.');
-    } finally {
-      setUploadingImage(false);
-    }
   };
   
   // Typing animation
@@ -248,6 +228,13 @@ const ChatScreen = ({route, navigation}) => {
     // Allow sending if there's text OR a selected image
     if ((!message.trim() && !selectedImage) || !conversationId || sending) return;
 
+    // Check rate limit before sending
+    const rateLimitCheck = await attemptMessage(user?.uid);
+    if (!rateLimitCheck.allowed) {
+      Alert.alert('Slow Down', rateLimitCheck.message);
+      return;
+    }
+
     const messageText = message.trim();
     const imageToSend = selectedImage;
     
@@ -309,7 +296,7 @@ const ChatScreen = ({route, navigation}) => {
     const hasImage = item.imageUrl;
 
     return (
-      <View style={{
+      <AnimatedMessage isOwn={isMe} style={{
         alignItems: isMe ? 'flex-end' : 'flex-start',
         marginVertical: 4,
         marginHorizontal: 16,
@@ -389,7 +376,7 @@ const ChatScreen = ({route, navigation}) => {
             Read
           </Text>
         )}
-      </View>
+      </AnimatedMessage>
     );
   };
 
@@ -534,26 +521,48 @@ const ChatScreen = ({route, navigation}) => {
 
       {/* Quick Replies */}
       <View style={[styles.quickRepliesContainer, isDark && {backgroundColor: theme.colors.card, borderTopColor: theme.colors.border}]}>
-        <FlatList
+        <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={[
-            'Hello! How can I help?',
-            'Do you have complete tools?',
-            'When are you available?',
-            'What\'s your rate?',
-            'Thank you!',
-          ]}
-          keyExtractor={(item, index) => index.toString()}
-          renderItem={({item}) => (
+          contentContainerStyle={{paddingHorizontal: 12, paddingVertical: 4}}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled={true}
+          directionalLockEnabled={true}
+        >
+          {(user?.role?.toUpperCase() === 'ADMIN' 
+            ? [
+                'Hello! How can I assist you?',
+                'Your request is being processed.',
+                'Please provide more details.',
+                'We\'ll get back to you shortly.',
+                'Thank you for contacting us!',
+              ]
+            : user?.role?.toUpperCase() === 'PROVIDER'
+            ? [
+                'Hello! I\'m available.',
+                'Yes, I have complete tools.',
+                'I can start right away.',
+                'On my way now!',
+                'Job completed. Thank you!',
+              ]
+            : [
+                'Hello! Are you available?',
+                'Do you have complete tools?',
+                'When can you start?',
+                'What\'s your rate?',
+                'Thank you!',
+              ]
+          ).map((item, index) => (
             <TouchableOpacity
+              key={index}
               style={[styles.quickReplyButton, isDark && {backgroundColor: theme.colors.border}]}
               onPress={() => setMessage(item)}
+              activeOpacity={0.7}
             >
               <Text style={[styles.quickReplyText, isDark && {color: theme.colors.text}]}>{item}</Text>
             </TouchableOpacity>
-          )}
-        />
+          ))}
+        </ScrollView>
       </View>
 
       {/* Image Preview Modal */}

@@ -5,6 +5,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {globalStyles} from '../../css/globalStyles';
 import {useAuth} from '../../context/AuthContext';
 import {useTheme} from '../../context/ThemeContext';
+import {APP_CONFIG} from '../../config/constants';
 
 const HelpScreen = ({navigation}) => {
   const {user} = useAuth();
@@ -21,7 +22,7 @@ const HelpScreen = ({navigation}) => {
     {
       id: 2,
       question: 'How does payment work?',
-      answer: 'You can pay via GCash, Maya, or Cash. A 5% service fee is added to the provider\'s price. Payment is processed after service completion.',
+      answer: `You can pay via GCash, Maya, or Cash. A ${APP_CONFIG.SERVICE_FEE_PERCENTAGE}% service fee is added to the provider's price. Payment is processed after service completion.`,
     },
     {
       id: 3,
@@ -55,12 +56,12 @@ const HelpScreen = ({navigation}) => {
     {
       id: 2,
       question: 'How do I get paid?',
-      answer: 'After completing a job, earnings are added to your wallet. You can request a payout to your GCash or Maya account anytime (minimum ₱100).',
+      answer: `After completing a job, earnings are added to your wallet. You can request a payout to your GCash or Maya account anytime (minimum ${APP_CONFIG.CURRENCY_SYMBOL}${APP_CONFIG.MINIMUM_PAYOUT_AMOUNT}).`,
     },
     {
       id: 3,
       question: 'What is the service fee?',
-      answer: 'GSS Maasin charges a 5% service fee on each completed job. This is deducted from your earnings automatically.',
+      answer: `${APP_CONFIG.APP_NAME} charges a ${APP_CONFIG.SERVICE_FEE_PERCENTAGE}% service fee on each completed job. This is deducted from your earnings automatically.`,
     },
     {
       id: 4,

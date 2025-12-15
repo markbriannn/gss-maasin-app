@@ -48,20 +48,24 @@ const EmailVerificationScreen = ({navigation, route}) => {
     const newCode = generateCode();
     setGeneratedCode(newCode);
     
+    console.log('[EmailVerification] Sending code to:', email);
+    console.log('[EmailVerification] Generated code:', newCode);
+    
     try {
       const result = await sendEmailJSCode(email, newCode);
+      console.log('[EmailVerification] Result:', JSON.stringify(result));
+      
       if (result.success) {
-        setCountdown(60); // 60 second cooldown
-        Alert.alert('Code Sent', `A verification code has been sent to ${email}`);
-      } else {
-        // Still show success for UX, code is stored locally
         setCountdown(60);
         Alert.alert('Code Sent', `A verification code has been sent to ${email}`);
+      } else {
+        setCountdown(60);
+        Alert.alert('Email Error', `Failed to send email: ${result.error || 'Unknown error'}. Code: ${newCode}`);
       }
     } catch (error) {
-      // Still allow verification with local code
+      console.log('[EmailVerification] Error:', error.message);
       setCountdown(60);
-      Alert.alert('Code Sent', `A verification code has been sent to ${email}`);
+      Alert.alert('Error', `Failed to send: ${error.message}. Code: ${newCode}`);
     } finally {
       setIsSending(false);
     }

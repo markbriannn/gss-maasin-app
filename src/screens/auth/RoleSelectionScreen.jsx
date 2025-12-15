@@ -157,10 +157,10 @@ const RoleSelectionScreen = ({navigation}) => {
               </TouchableOpacity>
             </View>
 
-            {/* Content */}
+            {/* Content - Role-specific terms */}
             <ScrollView style={{padding: 20, maxHeight: 400}}>
               <Text style={{fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 16}}>
-                Welcome to GSS Maasin Service App. By registering and using our platform, you agree to the following terms:
+                Welcome to GSS Maasin Service App. By registering as a {selectedRole === 'CLIENT' ? 'Client' : 'Service Provider'}, you agree to the following terms:
               </Text>
 
               <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
@@ -172,44 +172,91 @@ const RoleSelectionScreen = ({navigation}) => {
                 • You must be at least 18 years old to register.
               </Text>
 
-              <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
-                2. Service Usage
-              </Text>
-              <Text style={{fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 16}}>
-                • Clients agree to pay for services rendered as agreed with providers.{'\n'}
-                • Providers agree to deliver services professionally and on time.{'\n'}
-                • All users must treat each other with respect and professionalism.
-              </Text>
+              {selectedRole === 'CLIENT' ? (
+                <>
+                  <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
+                    2. Client Responsibilities
+                  </Text>
+                  <Text style={{fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 16}}>
+                    • You agree to pay for services rendered as agreed with providers.{'\n'}
+                    • Provide accurate job descriptions and requirements.{'\n'}
+                    • Treat service providers with respect and professionalism.{'\n'}
+                    • Be available at the scheduled service time and location.
+                  </Text>
+
+                  <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
+                    3. Booking & Payments
+                  </Text>
+                  <Text style={{fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 16}}>
+                    • A 5% service fee is added to all bookings.{'\n'}
+                    • Payments can be made via GCash, Maya, or Cash.{'\n'}
+                    • Cancellations must be made at least 2 hours before scheduled time.{'\n'}
+                    • Refunds are subject to our refund policy and admin approval.
+                  </Text>
+
+                  <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
+                    4. Reviews & Ratings
+                  </Text>
+                  <Text style={{fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 16}}>
+                    • You may leave honest reviews for completed services.{'\n'}
+                    • Reviews must be truthful and not contain offensive content.{'\n'}
+                    • Fake or malicious reviews may result in account suspension.
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
+                    2. Provider Requirements
+                  </Text>
+                  <Text style={{fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 16}}>
+                    • Submit valid government ID and required documents for verification.{'\n'}
+                    • Your account requires admin approval before activation.{'\n'}
+                    • Maintain professional conduct and quality service at all times.{'\n'}
+                    • Keep your availability status updated accurately.
+                  </Text>
+
+                  <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
+                    3. Service Delivery
+                  </Text>
+                  <Text style={{fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 16}}>
+                    • Arrive on time for scheduled appointments.{'\n'}
+                    • Bring all necessary tools and equipment for the job.{'\n'}
+                    • Complete work as described in the booking agreement.{'\n'}
+                    • Communicate promptly with clients about any issues.
+                  </Text>
+
+                  <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
+                    4. Earnings & Payouts
+                  </Text>
+                  <Text style={{fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 16}}>
+                    • A 5% service fee is deducted from your earnings.{'\n'}
+                    • Minimum payout amount is ₱100.{'\n'}
+                    • Payouts are processed to your registered GCash/Maya account.{'\n'}
+                    • You are responsible for your own tax obligations.
+                  </Text>
+
+                  <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
+                    5. Quality Standards
+                  </Text>
+                  <Text style={{fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 16}}>
+                    • Maintain a minimum rating to remain active on the platform.{'\n'}
+                    • Respond to job requests within a reasonable time.{'\n'}
+                    • Handle customer complaints professionally.
+                  </Text>
+                </>
+              )}
 
               <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
-                3. Payments & Fees
-              </Text>
-              <Text style={{fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 16}}>
-                • A 5% service fee is charged on all completed transactions.{'\n'}
-                • Payments can be made via GCash, Maya, or Cash.{'\n'}
-                • Refunds are subject to our refund policy and admin approval.
-              </Text>
-
-              <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
-                4. Provider Requirements
-              </Text>
-              <Text style={{fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 16}}>
-                • Providers must submit valid government ID and other required documents.{'\n'}
-                • Provider accounts require admin approval before activation.{'\n'}
-                • Providers must maintain professional conduct at all times.
-              </Text>
-
-              <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
-                5. Privacy & Data
+                {selectedRole === 'CLIENT' ? '5' : '6'}. Privacy & Data
               </Text>
               <Text style={{fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 16}}>
                 • We collect and process your data as described in our Privacy Policy.{'\n'}
                 • Your personal information is protected and not shared without consent.{'\n'}
-                • Location data is used to connect you with nearby services.
+                • Location data is used to connect you with nearby {selectedRole === 'CLIENT' ? 'providers' : 'clients'}.
               </Text>
 
               <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
-                6. Prohibited Activities
+                {selectedRole === 'CLIENT' ? '6' : '7'}. Prohibited Activities
               </Text>
               <Text style={{fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 16}}>
                 • Fraudulent activities or misrepresentation.{'\n'}
@@ -218,7 +265,7 @@ const RoleSelectionScreen = ({navigation}) => {
               </Text>
 
               <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
-                7. Account Termination
+                {selectedRole === 'CLIENT' ? '7' : '8'}. Account Termination
               </Text>
               <Text style={{fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 24}}>
                 • We reserve the right to suspend or terminate accounts that violate these terms.{'\n'}

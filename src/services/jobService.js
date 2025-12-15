@@ -11,6 +11,7 @@ import {
   orderBy,
   serverTimestamp,
 } from 'firebase/firestore';
+import notificationService from './notificationService';
 
 // System fee percentage (5%)
 const SYSTEM_FEE_PERCENTAGE = 0.05;
@@ -56,7 +57,12 @@ export const jobService = {
       };
       
       const jobRef = await addDoc(collection(db, 'bookings'), finalJobData);
-      return {id: jobRef.id, ...finalJobData};
+      const createdJob = {id: jobRef.id, ...finalJobData};
+      
+      // Send push notification to admins about new job request
+      notificationService.pushNewJobToAdmins(createdJob, jobData.clientName).catch(() => {});
+      
+      return createdJob;
     } catch (error) {
       console.error('Error creating job request:', error);
       throw error;
@@ -136,14 +142,24 @@ export const jobService = {
   },
 
   // Accept Job (Provider)
-  acceptJob: async (jobId, providerId) => {
+  acceptJob: async (jobId, providerId, providerName = 'Provider') => {
     try {
+      // Get job data first for notification
+      const jobDoc = await getDoc(doc(db, 'bookings', jobId));
+      const jobData = jobDoc.exists() ? jobDoc.data() : {};
+      
       await updateDoc(doc(db, 'bookings', jobId), {
         providerId,
         status: 'accepted',
         acceptedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      
+      // Send push notification to client
+      if (jobData.clientId) {
+        notificationService.pushJobAccepted(jobData.clientId, {id: jobId, ...jobData}, providerName).catch(() => {});
+      }
+      
       return {success: true};
     } catch (error) {
       console.error('Error accepting job:', error);
@@ -186,11 +202,20 @@ export const jobService = {
   // Start Traveling
   startTraveling: async (jobId, providerId) => {
     try {
+      const jobDoc = await getDoc(doc(db, 'bookings', jobId));
+      const jobData = jobDoc.exists() ? jobDoc.data() : {};
+      
       await updateDoc(doc(db, 'bookings', jobId), {
         status: 'traveling',
         travelStartedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      
+      // Notify client
+      if (jobData.clientId) {
+        notificationService.pushJobStatusUpdate(jobData.clientId, {id: jobId, ...jobData}, 'traveling').catch(() => {});
+      }
+      
       return {success: true};
     } catch (error) {
       console.error('Error starting travel:', error);
@@ -201,11 +226,20 @@ export const jobService = {
   // Mark as Arrived
   markAsArrived: async (jobId, providerId) => {
     try {
+      const jobDoc = await getDoc(doc(db, 'bookings', jobId));
+      const jobData = jobDoc.exists() ? jobDoc.data() : {};
+      
       await updateDoc(doc(db, 'bookings', jobId), {
         status: 'arrived',
         arrivedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      
+      // Notify client
+      if (jobData.clientId) {
+        notificationService.pushJobStatusUpdate(jobData.clientId, {id: jobId, ...jobData}, 'arrived').catch(() => {});
+      }
+      
       return {success: true};
     } catch (error) {
       console.error('Error marking arrived:', error);
@@ -216,11 +250,20 @@ export const jobService = {
   // Start Work
   startWork: async (jobId, providerId) => {
     try {
+      const jobDoc = await getDoc(doc(db, 'bookings', jobId));
+      const jobData = jobDoc.exists() ? jobDoc.data() : {};
+      
       await updateDoc(doc(db, 'bookings', jobId), {
         status: 'in_progress',
         workStartedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      
+      // Notify client
+      if (jobData.clientId) {
+        notificationService.pushJobStatusUpdate(jobData.clientId, {id: jobId, ...jobData}, 'in_progress').catch(() => {});
+      }
+      
       return {success: true};
     } catch (error) {
       console.error('Error starting work:', error);
@@ -231,11 +274,20 @@ export const jobService = {
   // Complete Work
   completeWork: async (jobId, providerId) => {
     try {
+      const jobDoc = await getDoc(doc(db, 'bookings', jobId));
+      const jobData = jobDoc.exists() ? jobDoc.data() : {};
+      
       await updateDoc(doc(db, 'bookings', jobId), {
         status: 'completed',
         completedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      
+      // Notify client
+      if (jobData.clientId) {
+        notificationService.pushJobStatusUpdate(jobData.clientId, {id: jobId, ...jobData}, 'completed').catch(() => {});
+      }
+      
       return {success: true};
     } catch (error) {
       console.error('Error completing work:', error);
@@ -280,6 +332,10 @@ export const jobService = {
   // Admin Approve Job - Allows provider to act on the job
   adminApproveJob: async (jobId, adminId, notes = '') => {
     try {
+      // Get job data first for notification
+      const jobDoc = await getDoc(doc(db, 'bookings', jobId));
+      const jobData = jobDoc.exists() ? jobDoc.data() : {};
+      
       await updateDoc(doc(db, 'bookings', jobId), {
         adminApproved: true,
         approvedAt: serverTimestamp(),
@@ -287,6 +343,18 @@ export const jobService = {
         adminNotes: notes,
         updatedAt: serverTimestamp(),
       });
+      
+      // Send push notification to client
+      if (jobData.clientId) {
+        notificationService.pushAdminApproved(jobData.clientId, {id: jobId, ...jobData}).catch(() => {});
+      }
+      
+      // Notify providers about new available job (via topic)
+      notificationService.sendPushToTopic('new_jobs', '📋 New Job Available!', 
+        `New ${jobData.serviceCategory || 'service'} job is available. Tap to view.`,
+        {type: 'new_job', jobId}
+      ).catch(() => {});
+      
       return {success: true};
     } catch (error) {
       console.error('Error approving job:', error);
@@ -342,6 +410,10 @@ export const jobService = {
   // Provider sends counter offer
   sendCounterOffer: async (jobId, providerId, counterPrice, counterNote = '') => {
     try {
+      // Get job data first for notification
+      const jobDoc = await getDoc(doc(db, 'bookings', jobId));
+      const jobData = jobDoc.exists() ? jobDoc.data() : {};
+      
       const systemFee = counterPrice * SYSTEM_FEE_PERCENTAGE;
       const totalAmount = counterPrice + systemFee;
       
@@ -354,9 +426,19 @@ export const jobService = {
         counterOfferTotal: totalAmount,
         counterOfferBy: providerId,
         counterOfferAt: serverTimestamp(),
-        negotiationHistory: [], // Will be populated with arrayUnion in actual implementation
+        negotiationHistory: [],
         updatedAt: serverTimestamp(),
       });
+      
+      // Send push notification to client about counter offer
+      if (jobData.clientId) {
+        notificationService.pushCounterOffer(jobData.clientId, {
+          id: jobId,
+          ...jobData,
+          counterOfferPrice,
+        }).catch(() => {});
+      }
+      
       return {success: true, counterPrice, systemFee, totalAmount};
     } catch (error) {
       console.error('Error sending counter offer:', error);
@@ -389,6 +471,15 @@ export const jobService = {
         counterOfferAcceptedBy: clientId,
         updatedAt: serverTimestamp(),
       });
+      
+      // Send push notification to provider
+      if (jobData.counterOfferBy || jobData.providerId) {
+        notificationService.pushCounterOfferAccepted(
+          jobData.counterOfferBy || jobData.providerId,
+          {id: jobId, ...jobData, counterOfferPrice: agreedPrice}
+        ).catch(() => {});
+      }
+      
       return {success: true, agreedPrice, systemFee, totalAmount};
     } catch (error) {
       console.error('Error accepting counter offer:', error);

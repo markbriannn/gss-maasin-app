@@ -286,24 +286,32 @@ export const NotificationProvider = ({children}) => {
       const hasPermission = await notificationService.requestPermission();
       
       if (hasPermission) {
-        await notificationService.registerDeviceToken(user.id);
+        // Register device token - this may fail on emulators without Google Play Services
+        // but that's okay, the app will still work without push notifications
+        await notificationService.registerDeviceToken(user.id || user.uid);
         
-        notificationService.onNotificationReceived((remoteMessage) => {
-          handleNotificationReceived(remoteMessage);
-        });
-        
-        notificationService.onNotificationOpened((remoteMessage) => {
-          handleNotificationOpened(remoteMessage);
-        });
-        
-        notificationService.onTokenRefresh((token) => {
-          console.log('FCM token refreshed:', token);
-        });
-        
-        subscribeToUserTopics();
+        try {
+          notificationService.onNotificationReceived((remoteMessage) => {
+            handleNotificationReceived(remoteMessage);
+          });
+          
+          notificationService.onNotificationOpened((remoteMessage) => {
+            handleNotificationOpened(remoteMessage);
+          });
+          
+          notificationService.onTokenRefresh((token) => {
+            console.log('[FCM] Token refreshed');
+          });
+          
+          subscribeToUserTopics();
+        } catch (fcmError) {
+          // FCM listeners may fail on devices without Google Play Services
+          console.log('[FCM] Push notification listeners unavailable:', fcmError.message);
+        }
       }
     } catch (error) {
-      console.error('Error initializing notifications:', error);
+      // Non-critical - app works without push notifications
+      console.log('[Notifications] Init skipped:', error.message);
     }
   };
 
@@ -332,13 +340,18 @@ export const NotificationProvider = ({children}) => {
     // navigation.navigate('JobDetails', { jobId });
   };
 
-  const subscribeToUserTopics = () => {
+  const subscribeToUserTopics = async () => {
     if (user) {
-      notificationService.subscribeToTopic(`user_${user.id}`);
-      notificationService.subscribeToTopic(`role_${user.role.toLowerCase()}`);
-      
-      if (user.role === 'PROVIDER') {
-        notificationService.subscribeToTopic('new_jobs');
+      try {
+        await notificationService.subscribeToTopic(`user_${user.id || user.uid}`);
+        await notificationService.subscribeToTopic(`role_${user.role?.toLowerCase() || 'client'}`);
+        
+        if (user.role === 'PROVIDER') {
+          await notificationService.subscribeToTopic('new_jobs');
+        }
+      } catch (error) {
+        // Non-critical - topics may fail without FCM
+        console.log('[FCM] Topic subscription skipped');
       }
     }
   };

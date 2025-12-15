@@ -8,6 +8,9 @@ import {db} from '../../config/firebase';
 import {doc, getDoc, collection, query, where, getDocs, onSnapshot} from 'firebase/firestore';
 import {useAuth} from '../../context/AuthContext';
 import {useTheme} from '../../context/ThemeContext';
+import {APP_CONFIG} from '../../config/constants';
+import {TierBadge, BadgeList} from '../../components/gamification';
+import {getUserTierAndBadges} from '../../services/gamificationService';
 
 const mapProviderData = (data = {}, id) => {
   const normalizedRating = (() => {
@@ -66,6 +69,7 @@ const ProviderProfileScreen = ({navigation, route}) => {
   const [isLoading, setIsLoading] = useState(!initialProvider);
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [gamificationData, setGamificationData] = useState(null);
   // Use providerId from params, or passedProvider.id, or fallback to current user (for provider viewing own profile)
   const fallbackProviderId = providerId || passedProvider?.id || user?.uid;
   const viewingSelf = provider?.id && user?.uid && provider.id === user.uid;
@@ -112,7 +116,14 @@ const ProviderProfileScreen = ({navigation, route}) => {
     console.log('[ProviderProfile] Fetching reviews for provider:', targetProviderId);
     fetchReviews(targetProviderId);
     fetchProviderStats(targetProviderId);
+    fetchGamificationData(targetProviderId);
   }, [provider?.id, fallbackProviderId]);
+
+  const fetchGamificationData = async (pid) => {
+    if (!pid) return;
+    const data = await getUserTierAndBadges(pid, 'PROVIDER');
+    setGamificationData(data);
+  };
   
   const fetchReviews = async (providerIdParam) => {
     const pid = providerIdParam || provider?.id;
@@ -300,7 +311,7 @@ const ProviderProfileScreen = ({navigation, route}) => {
 
   return (
     <SafeAreaView style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]} edges={['top']}>
-      <ScrollView style={{flex: 1}}>
+      <ScrollView style={{flex: 1}} contentContainerStyle={{paddingBottom: 100}}>
         {/* Header with back button */}
         <View style={[styles.header, isDark && {backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border}]}>
           <TouchableOpacity 
@@ -340,8 +351,27 @@ const ProviderProfileScreen = ({navigation, route}) => {
               </View>
             )}
           </View>
-          <Text style={[styles.service, isDark && {color: theme.colors.textSecondary}]}>{provider.service}</Text>
+          {provider.service && (
+            <Text style={[styles.service, isDark && {color: theme.colors.textSecondary}]}>{provider.service}</Text>
+          )}
           
+          {/* Gamification Tier & Badges */}
+          {gamificationData && (
+            <View style={{alignItems: 'center', marginTop: 8, marginBottom: 8}}>
+              <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
+                <TierBadge tier={gamificationData.tier} size="medium" />
+                <View style={{marginLeft: 10, backgroundColor: isDark ? theme.colors.border : '#F3F4F6', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12}}>
+                  <Text style={{fontSize: 13, fontWeight: '600', color: isDark ? theme.colors.text : '#374151'}}>
+                    {gamificationData.points?.toLocaleString() || 0} pts
+                  </Text>
+                </View>
+              </View>
+              {gamificationData.badges && gamificationData.badges.length > 0 && (
+                <BadgeList badges={gamificationData.badges} maxDisplay={4} size="small" />
+              )}
+            </View>
+          )}
+
           {/* Rating */}
           { (stats.rating ?? provider.rating) !== null && (
             <View style={styles.ratingContainer}>
@@ -425,7 +455,7 @@ const ProviderProfileScreen = ({navigation, route}) => {
               marginTop: 12,
             }}>
               <Text style={{fontSize: 11, color: isDark ? '#FCD34D' : '#92400E'}}>
-                + 5% service fee applies at checkout
+                + {APP_CONFIG.SERVICE_FEE_PERCENTAGE}% service fee applies at checkout
               </Text>
             </View>
           </View>
@@ -540,14 +570,20 @@ const ProviderProfileScreen = ({navigation, route}) => {
         </View>
       </ScrollView>
 
-        {/* Bottom Action Button */}
+        {/* Bottom Action Button - Compact */}
         {viewingSelf ? (
-          <View style={[styles.bottomAction, isDark && {backgroundColor: theme.colors.card, borderTopColor: theme.colors.border}]}>
+          <View style={[styles.bottomAction, {padding: 10, flexDirection: 'row'}, isDark && {backgroundColor: theme.colors.card, borderTopColor: theme.colors.border}]}>
             <TouchableOpacity 
-              style={[styles.hireButton, {backgroundColor: '#3B82F6'}]}
+              style={[styles.hireButton, {backgroundColor: '#F59E0B', flex: 0.4, marginRight: 8, paddingVertical: 10, flexDirection: 'row', justifyContent: 'center'}]}
+              onPress={() => navigation.navigate('Leaderboard')}>
+              <Icon name="trophy" size={16} color="#FFFFFF" style={{marginRight: 4}} />
+              <Text style={[styles.hireButtonText, {fontSize: 14}]}>Leaderboard</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.hireButton, {backgroundColor: '#3B82F6', flex: 0.6, paddingVertical: 10, flexDirection: 'row', justifyContent: 'center'}]}
               onPress={() => navigation.navigate('EditProfile')}>
-              <Icon name="create-outline" size={20} color="#FFFFFF" style={{marginRight: 8}} />
-              <Text style={styles.hireButtonText}>Edit Profile</Text>
+              <Icon name="create-outline" size={16} color="#FFFFFF" style={{marginRight: 4}} />
+              <Text style={[styles.hireButtonText, {fontSize: 14}]}>Edit Profile</Text>
             </TouchableOpacity>
           </View>
         ) : (

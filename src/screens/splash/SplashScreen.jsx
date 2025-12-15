@@ -1,5 +1,5 @@
 import React, {useEffect, useRef} from 'react';
-import {View, Text, Image, Animated} from 'react-native';
+import {View, Text, Image, Animated, Easing} from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import {splashStyles as styles} from '../../css/authStyles';
 
@@ -7,6 +7,14 @@ const SplashScreen = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.3)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  
+  // Loading dots animations - scale and opacity for smooth effect
+  const dot1Scale = useRef(new Animated.Value(0.3)).current;
+  const dot2Scale = useRef(new Animated.Value(0.3)).current;
+  const dot3Scale = useRef(new Animated.Value(0.3)).current;
+  const dot1Opacity = useRef(new Animated.Value(0.3)).current;
+  const dot2Opacity = useRef(new Animated.Value(0.3)).current;
+  const dot3Opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
     // Start animations
@@ -24,7 +32,7 @@ const SplashScreen = () => {
       }),
     ]).start();
 
-    // Pulse animation
+    // Pulse animation for logo
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -39,6 +47,46 @@ const SplashScreen = () => {
         }),
       ])
     ).start();
+
+    // Loading dots wave animation
+    const createDotAnimation = (scaleAnim, opacityAnim, delay) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.parallel([
+            Animated.timing(scaleAnim, {
+              toValue: 1,
+              duration: 400,
+              easing: Easing.out(Easing.ease),
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacityAnim, {
+              toValue: 1,
+              duration: 400,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.parallel([
+            Animated.timing(scaleAnim, {
+              toValue: 0.3,
+              duration: 400,
+              easing: Easing.in(Easing.ease),
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacityAnim, {
+              toValue: 0.3,
+              duration: 400,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.delay(400),
+        ])
+      );
+    };
+
+    createDotAnimation(dot1Scale, dot1Opacity, 0).start();
+    createDotAnimation(dot2Scale, dot2Opacity, 200).start();
+    createDotAnimation(dot3Scale, dot3Opacity, 400).start();
   }, []);
 
   return (
@@ -80,9 +128,33 @@ const SplashScreen = () => {
           },
         ]}>
         <View style={styles.loadingContainer}>
-          <View style={styles.loadingDot} />
-          <View style={[styles.loadingDot, styles.loadingDotDelay1]} />
-          <View style={[styles.loadingDot, styles.loadingDotDelay2]} />
+          <Animated.View 
+            style={[
+              styles.loadingDot, 
+              {
+                transform: [{scale: dot1Scale}],
+                opacity: dot1Opacity,
+              }
+            ]} 
+          />
+          <Animated.View 
+            style={[
+              styles.loadingDot, 
+              {
+                transform: [{scale: dot2Scale}],
+                opacity: dot2Opacity,
+              }
+            ]} 
+          />
+          <Animated.View 
+            style={[
+              styles.loadingDot, 
+              {
+                transform: [{scale: dot3Scale}],
+                opacity: dot3Opacity,
+              }
+            ]} 
+          />
         </View>
         <Text style={styles.footerText}>Loading...</Text>
       </Animated.View>

@@ -346,7 +346,7 @@ export const adminStyles = StyleSheet.create({
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'flex-end',
   },
   modalContent: {
@@ -354,7 +354,7 @@ export const adminStyles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 12,
-    maxHeight: '80%',
+    maxHeight: '90%',
     flex: 0,
   },
   modalHandle: {
@@ -411,7 +411,7 @@ export const adminStyles = StyleSheet.create({
   modalFooter: {
     flexDirection: 'row',
     padding: 16,
-    paddingBottom: 24,
+    paddingBottom: 34,
     gap: 12,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',

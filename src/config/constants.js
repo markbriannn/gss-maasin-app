@@ -120,3 +120,18 @@ export const WITHDRAWAL_STATUS = {
   COMPLETED: 'COMPLETED',
   REJECTED: 'REJECTED',
 };
+
+// App Configuration
+export const APP_CONFIG = {
+  SERVICE_FEE_PERCENTAGE: 5,
+  MINIMUM_PAYOUT_AMOUNT: 100,
+  CURRENCY_SYMBOL: '₱',
+  APP_NAME: 'GSS Maasin',
+  SUPPORT_EMAIL: 'support@gssmaasin.com',
+  DEFAULT_LOCATION: {
+    latitude: 10.1347,
+    longitude: 124.8413,
+    city: 'Maasin City',
+    province: 'Southern Leyte',
+  },
+};

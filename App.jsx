@@ -1,5 +1,5 @@
-import React, {useEffect, useState} from 'react';
-import {StatusBar, LogBox} from 'react-native';
+import React, {useEffect, useState, useRef} from 'react';
+import {StatusBar, LogBox, Animated, StyleSheet} from 'react-native';
 import {NavigationContainer, DefaultTheme, DarkTheme} from '@react-navigation/native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
@@ -9,7 +9,14 @@ import {AuthProvider} from './src/context/AuthContext';
 import {ThemeProvider, useTheme} from './src/context/ThemeContext';
 import {SocketProvider} from './src/context/SocketContext';
 import {NotificationProvider} from './src/context/NotificationContext';
+import {NetworkProvider} from './src/context/NetworkContext';
+import {PushNotificationProvider} from './src/context/PushNotificationContext';
 import SplashScreen from './src/screens/splash/SplashScreen';
+import ErrorBoundary from './src/components/common/ErrorBoundary';
+import {setBackgroundMessageHandler} from './src/services/pushNotificationService';
+
+// Set up background message handler (must be outside component)
+setBackgroundMessageHandler();
 
 enableScreens();
 
@@ -64,32 +71,59 @@ const AppContent = () => {
 
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
+  const splashOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Simulate splash screen duration
-    setTimeout(() => {
+    // Wait for splash duration then fade out
+    const timer = setTimeout(() => {
+      // Start loading the main app
       setIsLoading(false);
+      
+      // Fade out splash screen
+      Animated.timing(splashOpacity, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowSplash(false);
+      });
     }, 3000);
+
+    return () => clearTimeout(timer);
   }, []);
 
-  if (isLoading) {
-    return <SplashScreen />;
-  }
-
   return (
-    <GestureHandlerRootView style={{flex: 1}}>
-      <SafeAreaProvider>
-        <ThemeProvider>
-          <AuthProvider>
-            <NotificationProvider>
-              <SocketProvider>
-                <AppContent />
-              </SocketProvider>
-            </NotificationProvider>
-          </AuthProvider>
-        </ThemeProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{flex: 1, backgroundColor: '#00B14F'}}>
+        <SafeAreaProvider>
+          <NetworkProvider>
+            <ThemeProvider>
+              <AuthProvider>
+                <NotificationProvider>
+                  <PushNotificationProvider>
+                    <SocketProvider>
+                      {!isLoading && <AppContent />}
+                      {showSplash && (
+                        <Animated.View 
+                          style={[
+                            StyleSheet.absoluteFill, 
+                            {opacity: splashOpacity}
+                          ]}
+                          pointerEvents={isLoading ? 'auto' : 'none'}
+                        >
+                          <SplashScreen />
+                        </Animated.View>
+                      )}
+                    </SocketProvider>
+                  </PushNotificationProvider>
+                </NotificationProvider>
+              </AuthProvider>
+            </ThemeProvider>
+          </NetworkProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 };
 

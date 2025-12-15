@@ -4,35 +4,48 @@
  */
 
 const EMAILJS_SERVICE_ID = 'service_lkj52eb';
-const EMAILJS_OTP_TEMPLATE_ID = 'template_ai6l56u';
+const EMAILJS_OTP_TEMPLATE_ID = 'template_zae2z8b';
 const EMAILJS_NOTIFICATION_TEMPLATE_ID = 'template_738r616';
 const EMAILJS_PUBLIC_KEY = 'iC39I71dBYX0IRiXg';
+const EMAILJS_PRIVATE_KEY = 'z2GJT7xQMAIk_XwxAeFgK';
 
 /**
  * Send email using EmailJS REST API
  */
 const sendEmailJS = async (templateId, templateParams) => {
   try {
+    console.log('[EmailJS] Sending email...');
+    console.log('[EmailJS] Template ID:', templateId);
+    console.log('[EmailJS] Params:', JSON.stringify(templateParams));
+    
+    const payload = {
+      service_id: EMAILJS_SERVICE_ID,
+      template_id: templateId,
+      user_id: EMAILJS_PUBLIC_KEY,
+      accessToken: EMAILJS_PRIVATE_KEY,
+      template_params: templateParams,
+    };
+    
+    console.log('[EmailJS] Full payload:', JSON.stringify(payload));
+    
     const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        service_id: EMAILJS_SERVICE_ID,
-        template_id: templateId,
-        user_id: EMAILJS_PUBLIC_KEY,
-        template_params: templateParams,
-      }),
+      body: JSON.stringify(payload),
     });
+
+    const responseText = await response.text();
+    console.log('[EmailJS] Response status:', response.status);
+    console.log('[EmailJS] Response:', responseText);
 
     if (response.ok) {
       console.log('[EmailJS] Email sent successfully');
       return {success: true};
     } else {
-      const errorText = await response.text();
-      console.log('[EmailJS] Failed to send email:', errorText);
-      return {success: false, error: errorText};
+      console.log('[EmailJS] Failed to send email:', responseText);
+      return {success: false, error: responseText};
     }
   } catch (error) {
     console.log('[EmailJS] Error sending email:', error.message);

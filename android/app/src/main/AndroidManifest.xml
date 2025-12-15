@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -24,6 +25,23 @@
       <meta-data
         android:name="com.google.android.geo.API_KEY"
         android:value="AIzaSyC-qP1WOx8JSM6DfcAkIEmKQ8AQiAtiL9k"/>
+
+      <!-- FCM Default Notification Channel -->
+      <meta-data
+        android:name="com.google.firebase.messaging.default_notification_channel_id"
+        android:value="gss_notifications"
+        tools:replace="android:value"/>
+      
+      <!-- FCM Default Notification Icon -->
+      <meta-data
+        android:name="com.google.firebase.messaging.default_notification_icon"
+        android:resource="@mipmap/ic_launcher"/>
+      
+      <!-- FCM Default Notification Color -->
+      <meta-data
+        android:name="com.google.firebase.messaging.default_notification_color"
+        android:resource="@color/notification_color"
+        tools:replace="android:resource"/>
 
       <activity
         android:name=".MainActivity"

@@ -391,7 +391,6 @@ export const providerProfileStyles = StyleSheet.create({
   },
   servicesSection: {
     padding: 16,
-    paddingBottom: 100,
   },
   servicesList: {
     flexDirection: 'row',
