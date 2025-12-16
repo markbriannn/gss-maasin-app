@@ -171,14 +171,30 @@ const NotificationsScreen = ({navigation}) => {
         const unsubJobs = onSnapshot(jobsQuery, () => generateNotifications(), handleError);
         unsubscribers.push(unsubJobs);
       } else if (normalizedRole === 'PROVIDER') {
-        // Listen to available jobs
-        const jobsQuery = query(
-          collection(db, 'bookings'),
-          where('status', 'in', ['pending', 'pending_negotiation']),
-          where('adminApproved', '==', true)
-        );
-        const unsubJobs = onSnapshot(jobsQuery, () => generateNotifications(), handleError);
-        unsubscribers.push(unsubJobs);
+        // Listen to available jobs (admin approved, not yet assigned)
+        try {
+          const availableJobsQuery = query(
+            collection(db, 'bookings'),
+            where('adminApproved', '==', true),
+            where('status', 'in', ['pending', 'pending_negotiation'])
+          );
+          const unsubAvailable = onSnapshot(availableJobsQuery, () => generateNotifications(), handleError);
+          unsubscribers.push(unsubAvailable);
+        } catch (e) {
+          console.log('[NotificationsScreen] Available jobs query error:', e.message);
+        }
+
+        // Also listen to provider's own jobs
+        try {
+          const myJobsQuery = query(
+            collection(db, 'bookings'),
+            where('providerId', '==', user.uid)
+          );
+          const unsubMyJobs = onSnapshot(myJobsQuery, () => generateNotifications(), handleError);
+          unsubscribers.push(unsubMyJobs);
+        } catch (e) {
+          console.log('[NotificationsScreen] My jobs query error:', e.message);
+        }
       } else {
         // CLIENT - Listen to own bookings
         const bookingsQuery = query(
@@ -271,32 +287,79 @@ const NotificationsScreen = ({navigation}) => {
           }
         });
       } else if (normalizedRole === 'PROVIDER') {
-        // Provider: available jobs
-        const availableJobsQuery = query(
-          collection(db, 'bookings'),
-          where('status', 'in', ['pending', 'pending_negotiation']),
-          where('adminApproved', '==', true)
-        );
-        const availableJobsSnapshot = await getDocs(availableJobsQuery);
-        availableJobsSnapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          if (!data.providerId) {
-            const notifId = `available_${docSnap.id}`;
-            notificationsList.push({
-              id: notifId,
-              type: 'job_request',
-              icon: data.isNegotiable ? 'pricetag' : 'briefcase',
-              iconColor: data.isNegotiable ? '#F59E0B' : '#3B82F6',
-              title: data.isNegotiable ? 'New Job with Offer' : 'New Job Available',
-              message: data.isNegotiable 
-                ? `Client offers ₱${(data.offeredPrice || 0).toLocaleString()} for ${data.serviceCategory || 'service'}`
-                : `${data.clientName || 'Client'} needs ${data.serviceCategory || 'service'}`,
-              time: formatTime(data.createdAt),
-              read: currentReadIds.has(notifId),
-              jobId: docSnap.id,
-            });
-          }
-        });
+        // Provider: available jobs (admin approved, not yet assigned)
+        try {
+          const availableJobsQuery = query(
+            collection(db, 'bookings'),
+            where('adminApproved', '==', true),
+            where('status', 'in', ['pending', 'pending_negotiation'])
+          );
+          const availableJobsSnapshot = await getDocs(availableJobsQuery);
+          availableJobsSnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            if (!data.providerId) {
+              const notifId = `available_${docSnap.id}`;
+              notificationsList.push({
+                id: notifId,
+                type: 'job_request',
+                icon: data.isNegotiable ? 'pricetag' : 'briefcase',
+                iconColor: data.isNegotiable ? '#F59E0B' : '#3B82F6',
+                title: data.isNegotiable ? 'New Job with Offer' : 'New Job Available',
+                message: data.isNegotiable 
+                  ? `Client offers ₱${(data.offeredPrice || 0).toLocaleString()} for ${data.serviceCategory || 'service'}`
+                  : `${data.clientName || 'Client'} needs ${data.serviceCategory || 'service'}`,
+                time: formatTime(data.createdAt),
+                read: currentReadIds.has(notifId),
+                jobId: docSnap.id,
+              });
+            }
+          });
+        } catch (e) {
+          console.log('[NotificationsScreen] Available jobs query error:', e.message);
+        }
+
+        // Provider: my assigned jobs (show status updates)
+        try {
+          const myJobsQuery = query(
+            collection(db, 'bookings'),
+            where('providerId', '==', user.uid)
+          );
+          const myJobsSnapshot = await getDocs(myJobsQuery);
+          myJobsSnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const status = data.status;
+            const notifId = `myjob_${status}_${docSnap.id}`;
+            
+            // Define notification content based on status for provider
+            const statusConfig = {
+              'accepted': { icon: 'checkmark-circle', iconColor: '#10B981', title: 'Job Accepted', message: `You accepted ${data.serviceCategory || 'service'} from ${data.clientName || 'Client'}` },
+              'traveling': { icon: 'car', iconColor: '#3B82F6', title: 'On The Way', message: `Traveling to ${data.clientName || 'client'}'s location` },
+              'arrived': { icon: 'location', iconColor: '#10B981', title: 'Arrived', message: `You arrived at ${data.clientName || 'client'}'s location` },
+              'in_progress': { icon: 'construct', iconColor: '#8B5CF6', title: 'Work In Progress', message: `Working on ${data.serviceCategory || 'service'}` },
+              'pending_completion': { icon: 'checkmark-done', iconColor: '#F59E0B', title: 'Awaiting Confirmation', message: `Waiting for ${data.clientName || 'client'} to confirm completion` },
+              'pending_payment': { icon: 'card', iconColor: '#3B82F6', title: 'Awaiting Payment', message: `Waiting for payment from ${data.clientName || 'client'}` },
+              'payment_received': { icon: 'cash', iconColor: '#10B981', title: 'Payment Received!', message: `₱${(data.providerPrice || data.totalAmount || 0).toLocaleString()} received for ${data.serviceCategory || 'service'}` },
+              'completed': { icon: 'trophy', iconColor: '#10B981', title: 'Job Completed!', message: `${data.serviceCategory || 'Service'} completed successfully` },
+            };
+            
+            const config = statusConfig[status];
+            if (config) {
+              notificationsList.push({
+                id: notifId,
+                type: 'my_job',
+                icon: config.icon,
+                iconColor: config.iconColor,
+                title: config.title,
+                message: config.message,
+                time: formatTime(data.updatedAt || data.createdAt),
+                read: currentReadIds.has(notifId),
+                jobId: docSnap.id,
+              });
+            }
+          });
+        } catch (e) {
+          console.log('[NotificationsScreen] My jobs query error:', e.message);
+        }
       } else {
         // Client: booking updates
         const myBookingsQuery = query(
@@ -545,6 +608,7 @@ const NotificationsScreen = ({navigation}) => {
         }
         break;
       case 'job_request':
+      case 'my_job':
         // Provider: go to job details
         if (normalizedRole === 'PROVIDER' && notification.jobId) {
           navigation.navigate('ProviderJobDetails', { jobId: notification.jobId });
