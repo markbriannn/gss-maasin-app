@@ -204,9 +204,23 @@ export const getUserConversations = async (userId) => {
         const userDoc = await getDoc(doc(db, 'users', otherUserId));
         if (userDoc.exists()) {
           const userData = userDoc.data();
+          // Build name with multiple fallbacks
+          let userName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+          if (!userName) {
+            userName = userData.displayName || userData.name || null;
+          }
+          // For admins without a name, show "GSS Support"
+          if (!userName && userData.role === 'ADMIN') {
+            userName = 'GSS Support';
+          }
+          // Final fallback
+          if (!userName) {
+            userName = userData.email?.split('@')[0] || 'User';
+          }
+          
           otherUser = {
             id: otherUserId,
-            name: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'User',
+            name: userName,
             role: userData.role,
             profilePhoto: userData.profilePhoto || userData.photoURL || userData.avatar || null,
           };
@@ -291,9 +305,23 @@ export const subscribeToConversations = (userId, callback) => {
               const userDoc = await getDoc(doc(db, 'users', otherUserId));
               if (userDoc.exists()) {
                 const userData = userDoc.data();
+                // Build name with multiple fallbacks
+                let userName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+                if (!userName) {
+                  userName = userData.displayName || userData.name || null;
+                }
+                // For admins without a name, show "GSS Support"
+                if (!userName && userData.role === 'ADMIN') {
+                  userName = 'GSS Support';
+                }
+                // Final fallback
+                if (!userName) {
+                  userName = userData.email?.split('@')[0] || 'User';
+                }
+                
                 otherUser = {
                   id: otherUserId,
-                  name: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'User',
+                  name: userName,
                   role: userData.role,
                   profilePhoto:
                     userData.profilePhoto || userData.photoURL || userData.avatar || null,

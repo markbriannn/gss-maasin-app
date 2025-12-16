@@ -127,6 +127,8 @@ export const authService = {
     // Upload documents to Firebase Storage
     const validIdUrl = await authService.uploadDocument(userId, 'validId', documents?.validId?.uri);
     const selfieUrl = await authService.uploadDocument(userId, 'selfie', documents?.selfie?.uri);
+    const barangayClearanceUrl = await authService.uploadDocument(userId, 'barangayClearance', documents?.barangayClearance?.uri);
+    const policeClearanceUrl = await authService.uploadDocument(userId, 'policeClearance', documents?.policeClearance?.uri);
     
     // Upload certifications if any
     const certificationUrls = [];
@@ -146,6 +148,10 @@ export const authService = {
         governmentIdUrl: validIdUrl,
         selfie: documents?.selfie?.fileName || null,
         selfieUrl: selfieUrl,
+        barangayClearance: documents?.barangayClearance?.fileName || null,
+        barangayClearanceUrl: barangayClearanceUrl,
+        policeClearance: documents?.policeClearance?.fileName || null,
+        policeClearanceUrl: policeClearanceUrl,
         certificates: Array.isArray(documents?.certifications)
           ? documents.certifications.map((c) => c?.fileName).filter(Boolean)
           : [],

@@ -126,6 +126,14 @@ const AdminProvidersScreen = ({navigation, route}) => {
               submitted: !!data.documents?.selfie || !!data.documents?.selfieUrl,
               url: data.documents?.selfieUrl || null,
             },
+            barangayClearance: {
+              submitted: !!data.documents?.barangayClearance || !!data.documents?.barangayClearanceUrl,
+              url: data.documents?.barangayClearanceUrl || null,
+            },
+            policeClearance: {
+              submitted: !!data.documents?.policeClearance || !!data.documents?.policeClearanceUrl,
+              url: data.documents?.policeClearanceUrl || null,
+            },
             clearance: {
               submitted: !!data.documents?.clearance || !!data.documents?.clearanceUrl,
               url: data.documents?.clearanceUrl || null,
@@ -678,7 +686,7 @@ const AdminProvidersScreen = ({navigation, route}) => {
                     </View>
                   </TouchableOpacity>
 
-                  {/* NBI/Police Clearance */}
+                  {/* Barangay Clearance */}
                   <TouchableOpacity
                     style={{
                       width: (screenWidth - 80) / 3,
@@ -687,20 +695,20 @@ const AdminProvidersScreen = ({navigation, route}) => {
                       overflow: 'hidden',
                       backgroundColor: '#F3F4F6',
                       borderWidth: 2,
-                      borderColor: selectedProvider.documents.clearance?.submitted && selectedProvider.documents.clearance?.url ? '#00B14F' : '#EF4444',
+                      borderColor: selectedProvider.documents.barangayClearance?.submitted && selectedProvider.documents.barangayClearance?.url ? '#00B14F' : '#EF4444',
                     }}
-                    disabled={!selectedProvider.documents.clearance?.submitted || !selectedProvider.documents.clearance?.url}
+                    disabled={!selectedProvider.documents.barangayClearance?.submitted || !selectedProvider.documents.barangayClearance?.url}
                     onPress={() => {
-                      if (selectedProvider.documents.clearance?.url) {
-                        setSelectedImage(selectedProvider.documents.clearance.url);
-                        setSelectedImageTitle('NBI/Police Clearance');
+                      if (selectedProvider.documents.barangayClearance?.url) {
+                        setSelectedImage(selectedProvider.documents.barangayClearance.url);
+                        setSelectedImageTitle('Barangay Clearance');
                         setShowImageModal(true);
                       }
                     }}
                   >
-                    {selectedProvider.documents.clearance?.submitted && selectedProvider.documents.clearance?.url ? (
+                    {selectedProvider.documents.barangayClearance?.submitted && selectedProvider.documents.barangayClearance?.url ? (
                       <Image
-                        source={{uri: selectedProvider.documents.clearance.url}}
+                        source={{uri: selectedProvider.documents.barangayClearance.url}}
                         style={{width: '100%', height: '100%'}}
                         resizeMode="cover"
                       />
@@ -717,7 +725,53 @@ const AdminProvidersScreen = ({navigation, route}) => {
                       backgroundColor: 'rgba(0,0,0,0.6)',
                       padding: 4,
                     }}>
-                      <Text style={{color: '#FFF', fontSize: 10, textAlign: 'center'}}>Clearance</Text>
+                      <Text style={{color: '#FFF', fontSize: 10, textAlign: 'center'}}>Brgy Clearance</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Second row of documents */}
+                <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 12}}>
+                  {/* Police Clearance */}
+                  <TouchableOpacity
+                    style={{
+                      width: (screenWidth - 80) / 3,
+                      aspectRatio: 1,
+                      borderRadius: 12,
+                      overflow: 'hidden',
+                      backgroundColor: '#F3F4F6',
+                      borderWidth: 2,
+                      borderColor: selectedProvider.documents.policeClearance?.submitted && selectedProvider.documents.policeClearance?.url ? '#00B14F' : '#EF4444',
+                    }}
+                    disabled={!selectedProvider.documents.policeClearance?.submitted || !selectedProvider.documents.policeClearance?.url}
+                    onPress={() => {
+                      if (selectedProvider.documents.policeClearance?.url) {
+                        setSelectedImage(selectedProvider.documents.policeClearance.url);
+                        setSelectedImageTitle('Police Clearance');
+                        setShowImageModal(true);
+                      }
+                    }}
+                  >
+                    {selectedProvider.documents.policeClearance?.submitted && selectedProvider.documents.policeClearance?.url ? (
+                      <Image
+                        source={{uri: selectedProvider.documents.policeClearance.url}}
+                        style={{width: '100%', height: '100%'}}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                        <Icon name="close-circle" size={32} color="#EF4444" />
+                      </View>
+                    )}
+                    <View style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      backgroundColor: 'rgba(0,0,0,0.6)',
+                      padding: 4,
+                    }}>
+                      <Text style={{color: '#FFF', fontSize: 10, textAlign: 'center'}}>Police Clearance</Text>
                     </View>
                   </TouchableOpacity>
 

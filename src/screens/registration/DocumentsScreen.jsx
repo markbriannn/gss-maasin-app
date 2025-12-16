@@ -17,6 +17,8 @@ import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 const DocumentsScreen = ({navigation, route}) => {
   const [documents, setDocuments] = useState({
     validId: null,
+    barangayClearance: null,
+    policeClearance: null,
     certifications: [],
     selfie: null,
   });
@@ -32,6 +34,32 @@ const DocumentsScreen = ({navigation, route}) => {
     } catch (error) {
       Alert.alert('Upload error', 'Unable to select ID. Please try again.');
       console.error('Valid ID upload error:', error);
+    }
+  };
+
+  const handleUploadBarangayClearance = async () => {
+    try {
+      const result = await launchImageLibrary({mediaType: 'photo', quality: 0.8});
+      if (result?.assets && result.assets.length > 0) {
+        const barangayClearance = result.assets[0];
+        setDocuments((prev) => ({...prev, barangayClearance}));
+      }
+    } catch (error) {
+      Alert.alert('Upload error', 'Unable to select Barangay Clearance. Please try again.');
+      console.error('Barangay Clearance upload error:', error);
+    }
+  };
+
+  const handleUploadPoliceClearance = async () => {
+    try {
+      const result = await launchImageLibrary({mediaType: 'photo', quality: 0.8});
+      if (result?.assets && result.assets.length > 0) {
+        const policeClearance = result.assets[0];
+        setDocuments((prev) => ({...prev, policeClearance}));
+      }
+    } catch (error) {
+      Alert.alert('Upload error', 'Unable to select Police Clearance. Please try again.');
+      console.error('Police Clearance upload error:', error);
     }
   };
 
@@ -129,6 +157,48 @@ const DocumentsScreen = ({navigation, route}) => {
           </TouchableOpacity>
 
           <Text style={{fontSize: 16, fontWeight: '600', color: '#1F2937', marginBottom: 12}}>
+            Barangay Clearance *
+          </Text>
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#F9FAFB',
+              borderRadius: 12,
+              borderWidth: 2,
+              borderColor: documents.barangayClearance ? '#00B14F' : '#E5E7EB',
+              borderStyle: documents.barangayClearance ? 'solid' : 'dashed',
+              padding: 24,
+              alignItems: 'center',
+              marginBottom: 24,
+            }}
+            onPress={handleUploadBarangayClearance}>
+            <Icon name="document-text-outline" size={48} color={documents.barangayClearance ? '#00B14F' : '#9CA3AF'} />
+            <Text style={{fontSize: 14, color: documents.barangayClearance ? '#00B14F' : '#6B7280', marginTop: 12}}>
+              {documents.barangayClearance ? 'Barangay Clearance Uploaded ✓' : 'Upload Barangay Clearance'}
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={{fontSize: 16, fontWeight: '600', color: '#1F2937', marginBottom: 12}}>
+            Police Clearance *
+          </Text>
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#F9FAFB',
+              borderRadius: 12,
+              borderWidth: 2,
+              borderColor: documents.policeClearance ? '#00B14F' : '#E5E7EB',
+              borderStyle: documents.policeClearance ? 'solid' : 'dashed',
+              padding: 24,
+              alignItems: 'center',
+              marginBottom: 24,
+            }}
+            onPress={handleUploadPoliceClearance}>
+            <Icon name="shield-checkmark-outline" size={48} color={documents.policeClearance ? '#00B14F' : '#9CA3AF'} />
+            <Text style={{fontSize: 14, color: documents.policeClearance ? '#00B14F' : '#6B7280', marginTop: 12}}>
+              {documents.policeClearance ? 'Police Clearance Uploaded ✓' : 'Upload Police Clearance'}
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={{fontSize: 16, fontWeight: '600', color: '#1F2937', marginBottom: 12}}>
             Certifications (Optional)
           </Text>
           <TouchableOpacity
@@ -136,17 +206,17 @@ const DocumentsScreen = ({navigation, route}) => {
               backgroundColor: '#F9FAFB',
               borderRadius: 12,
               borderWidth: 2,
-              borderColor: '#E5E7EB',
-              borderStyle: 'dashed',
-              padding: 32,
+              borderColor: documents.certifications.length > 0 ? '#00B14F' : '#E5E7EB',
+              borderStyle: documents.certifications.length > 0 ? 'solid' : 'dashed',
+              padding: 24,
               alignItems: 'center',
               marginBottom: 24,
             }}
             onPress={handleUploadCertifications}>
-            <Icon name="cloud-upload-outline" size={48} color="#9CA3AF" />
-            <Text style={{fontSize: 14, color: '#6B7280', marginTop: 12}}>
+            <Icon name="ribbon-outline" size={48} color={documents.certifications.length > 0 ? '#00B14F' : '#9CA3AF'} />
+            <Text style={{fontSize: 14, color: documents.certifications.length > 0 ? '#00B14F' : '#6B7280', marginTop: 12}}>
               {documents.certifications.length > 0
-                ? `${documents.certifications.length} file(s) uploaded`
+                ? `${documents.certifications.length} certification(s) uploaded ✓`
                 : 'Upload Certifications'}
             </Text>
           </TouchableOpacity>
@@ -179,13 +249,21 @@ const DocumentsScreen = ({navigation, route}) => {
         </View>
 
         <TouchableOpacity
-          style={[authStyles.button, authStyles.buttonPrimary]}
+          style={[
+            authStyles.button, 
+            authStyles.buttonPrimary,
+            (!documents.validId || !documents.barangayClearance || !documents.policeClearance || !documents.selfie) && {opacity: 0.5}
+          ]}
           onPress={handleSubmit}
-          disabled={!documents.validId || !documents.selfie}>
+          disabled={!documents.validId || !documents.barangayClearance || !documents.policeClearance || !documents.selfie}>
           <Text style={[authStyles.buttonText, authStyles.buttonTextPrimary]}>
             Submit Application
           </Text>
         </TouchableOpacity>
+
+        <Text style={{fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginTop: 12}}>
+          * Required documents for verification
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
