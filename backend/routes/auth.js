@@ -90,11 +90,16 @@ router.post('/reset-password', async (req, res) => {
     // Clear the reset code
     resetCodes.delete(emailLower);
 
-    // Log password change in Firestore
+    // Log password change in Firestore (use set with merge in case doc doesn't exist)
     const db = getDb();
-    await db.collection('users').doc(user.uid).update({
-      passwordChangedAt: new Date(),
-    });
+    try {
+      await db.collection('users').doc(user.uid).set({
+        passwordChangedAt: new Date(),
+      }, { merge: true });
+    } catch (firestoreError) {
+      // Non-critical - password was already updated in Auth
+      console.log('Firestore update skipped:', firestoreError.message);
+    }
 
     res.json({ success: true, message: 'Password updated successfully' });
   } catch (error) {
