@@ -215,14 +215,37 @@ const ClientMessagesScreen = ({navigation}) => {
         )}
         <View style={{flex: 1}}>
           <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4}}>
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: conversation.unreadCount > 0 ? '700' : '600',
-                color: isDark ? theme.colors.text : '#1F2937',
-              }}>
-              {conversation.otherUser?.name || 'Unknown'}
-            </Text>
+            <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: conversation.unreadCount > 0 ? '700' : '600',
+                  color: isDark ? theme.colors.text : '#1F2937',
+                }}
+                numberOfLines={1}>
+                {conversation.otherUser?.name || 'Unknown'}
+              </Text>
+              {/* Role Badge */}
+              {conversation.otherUser?.role && (
+                <View
+                  style={{
+                    marginLeft: 8,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                    backgroundColor:
+                      conversation.otherUser.role === 'ADMIN'
+                        ? '#8B5CF6'
+                        : conversation.otherUser.role === 'PROVIDER'
+                        ? '#3B82F6'
+                        : '#10B981',
+                  }}>
+                  <Text style={{fontSize: 10, fontWeight: '700', color: '#FFFFFF'}}>
+                    {conversation.otherUser.role}
+                  </Text>
+                </View>
+              )}
+            </View>
             <Text
               style={{
                 fontSize: 12,
