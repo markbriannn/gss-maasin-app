@@ -225,26 +225,24 @@ const ClientMessagesScreen = ({navigation}) => {
                 numberOfLines={1}>
                 {conversation.otherUser?.name || 'Unknown'}
               </Text>
-              {/* Role Badge */}
-              {conversation.otherUser?.role && (
-                <View
-                  style={{
-                    marginLeft: 8,
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 4,
-                    backgroundColor:
-                      conversation.otherUser.role === 'ADMIN'
-                        ? '#8B5CF6'
-                        : conversation.otherUser.role === 'PROVIDER'
-                        ? '#3B82F6'
-                        : '#10B981',
-                  }}>
-                  <Text style={{fontSize: 10, fontWeight: '700', color: '#FFFFFF'}}>
-                    {conversation.otherUser.role}
-                  </Text>
-                </View>
-              )}
+              {/* Role Badge - Only show ADMIN or PROVIDER (not CLIENT since this is client screen) */}
+              {conversation.otherUser?.role &&
+                (conversation.otherUser.role === 'ADMIN' ||
+                  conversation.otherUser.role === 'PROVIDER') && (
+                  <View
+                    style={{
+                      marginLeft: 8,
+                      paddingHorizontal: 8,
+                      paddingVertical: 2,
+                      borderRadius: 4,
+                      backgroundColor:
+                        conversation.otherUser.role === 'ADMIN' ? '#8B5CF6' : '#3B82F6',
+                    }}>
+                    <Text style={{fontSize: 10, fontWeight: '700', color: '#FFFFFF'}}>
+                      {conversation.otherUser.role}
+                    </Text>
+                  </View>
+                )}
             </View>
             <Text
               style={{
