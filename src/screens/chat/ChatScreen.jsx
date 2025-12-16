@@ -36,7 +36,7 @@ const ChatScreen = ({route, navigation}) => {
   const {user} = useAuth();
   const {isDark, theme} = useTheme();
   const {recipient, jobId, jobTitle, conversationId: existingConversationId} = route.params || {};
-  
+
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [conversationId, setConversationId] = useState(existingConversationId || null);
@@ -96,7 +96,7 @@ const ChatScreen = ({route, navigation}) => {
   const clearSelectedImage = () => {
     setSelectedImage(null);
   };
-  
+
   // Typing animation
   const dot1Anim = useRef(new Animated.Value(0)).current;
   const dot2Anim = useRef(new Animated.Value(0)).current;
@@ -138,7 +138,10 @@ const ChatScreen = ({route, navigation}) => {
         }
 
         if (!recipient?.id || !user?.uid) {
-          console.log('Missing recipient or user:', {recipientId: recipient?.id, userId: user?.uid});
+          console.log('Missing recipient or user:', {
+            recipientId: recipient?.id,
+            userId: user?.uid,
+          });
           setLoading(false);
           Alert.alert('Error', 'Unable to start conversation. Recipient information is missing.');
           return;
@@ -146,10 +149,10 @@ const ChatScreen = ({route, navigation}) => {
 
         // Get or create conversation (pass recipient role for admin conversations)
         const conversation = await getOrCreateConversation(
-          user.uid, 
-          recipient.id, 
+          user.uid,
+          recipient.id,
           jobId || null,
-          recipient.role || null // Pass recipient role to create separate conversations
+          recipient.role || null, // Pass recipient role to create separate conversations
         );
         setConversationId(conversation.id);
         setLoading(false);
@@ -189,28 +192,31 @@ const ChatScreen = ({route, navigation}) => {
   }, [conversationId, user?.uid]);
 
   // Handle typing indicator
-  const handleTextChange = useCallback((text) => {
-    setMessage(text);
-    
-    if (!conversationId || !user?.uid) return;
-    
-    // Clear existing timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-    
-    // Set typing status
-    if (text.trim() && !isTyping) {
-      setIsTyping(true);
-      setTypingStatus(conversationId, user.uid, true);
-    }
-    
-    // Clear typing after 2 seconds of inactivity
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-      setTypingStatus(conversationId, user.uid, false);
-    }, 2000);
-  }, [conversationId, user?.uid, isTyping]);
+  const handleTextChange = useCallback(
+    (text) => {
+      setMessage(text);
+
+      if (!conversationId || !user?.uid) return;
+
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      // Set typing status
+      if (text.trim() && !isTyping) {
+        setIsTyping(true);
+        setTypingStatus(conversationId, user.uid, true);
+      }
+
+      // Clear typing after 2 seconds of inactivity
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsTyping(false);
+        setTypingStatus(conversationId, user.uid, false);
+      }, 2000);
+    },
+    [conversationId, user?.uid, isTyping],
+  );
 
   // Cleanup typing status on unmount
   useEffect(() => {
@@ -237,11 +243,11 @@ const ChatScreen = ({route, navigation}) => {
 
     const messageText = message.trim();
     const imageToSend = selectedImage;
-    
+
     setMessage('');
     setSelectedImage(null);
     setSending(true);
-    
+
     // Clear typing status immediately
     setIsTyping(false);
     if (conversationId && user?.uid) {
@@ -249,10 +255,10 @@ const ChatScreen = ({route, navigation}) => {
     }
 
     try {
-      const senderName = user?.firstName 
+      const senderName = user?.firstName
         ? `${user.firstName} ${user.lastName || ''}`.trim()
         : 'User';
-      
+
       // If there's an image, upload and send it
       if (imageToSend) {
         setUploadingImage(true);
@@ -260,11 +266,11 @@ const ChatScreen = ({route, navigation}) => {
           const downloadUrl = await uploadChatImage(imageToSend.uri, conversationId);
           // Send with optional caption (message text)
           await sendFirebaseMessage(
-            conversationId, 
-            user.uid, 
-            messageText || '📷 Image', 
-            senderName, 
-            downloadUrl
+            conversationId,
+            user.uid,
+            messageText || '📷 Image',
+            senderName,
+            downloadUrl,
           );
         } catch (error) {
           console.error('Error uploading image:', error);
@@ -296,39 +302,48 @@ const ChatScreen = ({route, navigation}) => {
     const hasImage = item.imageUrl;
 
     return (
-      <AnimatedMessage isOwn={isMe} style={{
-        alignItems: isMe ? 'flex-end' : 'flex-start',
-        marginVertical: 4,
-        marginHorizontal: 16,
-      }}>
+      <AnimatedMessage
+        isOwn={isMe}
+        style={{
+          alignItems: isMe ? 'flex-end' : 'flex-start',
+          marginVertical: 4,
+          marginHorizontal: 16,
+        }}>
         {/* Sender name for others */}
         {!isMe && (
-          <Text style={{fontSize: 11, color: isDark ? theme.colors.textSecondary : '#6B7280', marginBottom: 2, marginLeft: 4}}>
+          <Text
+            style={{
+              fontSize: 11,
+              color: isDark ? theme.colors.textSecondary : '#6B7280',
+              marginBottom: 2,
+              marginLeft: 4,
+            }}>
             {item.senderName || 'User'}
           </Text>
         )}
-        
-        <View style={{
-          maxWidth: '80%',
-          backgroundColor: isMe ? '#00B14F' : (isDark ? theme.colors.card : '#FFFFFF'),
-          borderRadius: 20,
-          borderTopRightRadius: isMe ? 4 : 20,
-          borderTopLeftRadius: isMe ? 20 : 4,
-          paddingHorizontal: hasImage ? 4 : 16,
-          paddingVertical: hasImage ? 4 : 10,
-          paddingBottom: 10,
-          shadowColor: '#000',
-          shadowOffset: {width: 0, height: 1},
-          shadowOpacity: 0.05,
-          shadowRadius: 2,
-          elevation: 1,
-          overflow: 'hidden',
-        }}>
+
+        <View
+          style={{
+            maxWidth: '80%',
+            backgroundColor: isMe ? '#00B14F' : isDark ? theme.colors.card : '#FFFFFF',
+            borderRadius: 20,
+            borderTopRightRadius: isMe ? 4 : 20,
+            borderTopLeftRadius: isMe ? 20 : 4,
+            paddingHorizontal: hasImage ? 4 : 16,
+            paddingVertical: hasImage ? 4 : 10,
+            paddingBottom: 10,
+            shadowColor: '#000',
+            shadowOffset: {width: 0, height: 1},
+            shadowOpacity: 0.05,
+            shadowRadius: 2,
+            elevation: 1,
+            overflow: 'hidden',
+          }}>
           {/* Image */}
           {hasImage && (
             <TouchableOpacity onPress={() => setImagePreview(item.imageUrl)}>
-              <Image 
-                source={{uri: item.imageUrl}} 
+              <Image
+                source={{uri: item.imageUrl}}
                 style={{
                   width: 200,
                   height: 200,
@@ -339,42 +354,49 @@ const ChatScreen = ({route, navigation}) => {
               />
             </TouchableOpacity>
           )}
-          
+
           {/* Text (hide if just image placeholder) */}
           {item.text && item.text !== '📷 Image' && (
-            <Text style={{
-              fontSize: 15,
-              color: isMe ? '#FFFFFF' : (isDark ? theme.colors.text : '#1F2937'),
-              lineHeight: 20,
-              paddingHorizontal: hasImage ? 12 : 0,
-            }}>
+            <Text
+              style={{
+                fontSize: 15,
+                color: isMe ? '#FFFFFF' : isDark ? theme.colors.text : '#1F2937',
+                lineHeight: 20,
+                paddingHorizontal: hasImage ? 12 : 0,
+              }}>
               {item.text}
             </Text>
           )}
-          
-          <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 4, paddingHorizontal: hasImage ? 8 : 0}}>
-            <Text style={{
-              fontSize: 11,
-              color: isMe ? 'rgba(255,255,255,0.7)' : '#9CA3AF',
+
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              marginTop: 4,
+              paddingHorizontal: hasImage ? 8 : 0,
             }}>
+            <Text
+              style={{
+                fontSize: 11,
+                color: isMe ? 'rgba(255,255,255,0.7)' : '#9CA3AF',
+              }}>
               {formatTime(item.timestamp)}
             </Text>
             {isMe && (
-              <Icon 
-                name={item.read ? "checkmark-done" : "checkmark"} 
-                size={14} 
-                color={item.read ? "#34D399" : "rgba(255,255,255,0.5)"} 
+              <Icon
+                name={item.read ? 'checkmark-done' : 'checkmark'}
+                size={14}
+                color={item.read ? '#34D399' : 'rgba(255,255,255,0.5)'}
                 style={{marginLeft: 4}}
               />
             )}
           </View>
         </View>
-        
+
         {/* Read receipt text for last message */}
         {showReadReceipt && item.read && (
-          <Text style={{fontSize: 10, color: '#10B981', marginTop: 2, marginRight: 4}}>
-            Read
-          </Text>
+          <Text style={{fontSize: 10, color: '#10B981', marginTop: 2, marginRight: 4}}>Read</Text>
         )}
       </AnimatedMessage>
     );
@@ -382,54 +404,67 @@ const ChatScreen = ({route, navigation}) => {
 
   // Typing indicator component
   const TypingIndicator = () => (
-    <View style={{
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginHorizontal: 16,
-      marginVertical: 8,
-    }}>
-      <View style={{
-        backgroundColor: isDark ? theme.colors.card : '#FFFFFF',
-        borderRadius: 20,
-        borderTopLeftRadius: 4,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+    <View
+      style={{
         flexDirection: 'row',
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: {width: 0, height: 1},
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 1,
+        marginHorizontal: 16,
+        marginVertical: 8,
       }}>
-        <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginRight: 8}}>
+      <View
+        style={{
+          backgroundColor: isDark ? theme.colors.card : '#FFFFFF',
+          borderRadius: 20,
+          borderTopLeftRadius: 4,
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          shadowColor: '#000',
+          shadowOffset: {width: 0, height: 1},
+          shadowOpacity: 0.05,
+          shadowRadius: 2,
+          elevation: 1,
+        }}>
+        <Text
+          style={{
+            fontSize: 12,
+            color: isDark ? theme.colors.textSecondary : '#6B7280',
+            marginRight: 8,
+          }}>
           {recipient?.name?.split(' ')[0] || 'User'} is typing
         </Text>
         <View style={{flexDirection: 'row', alignItems: 'center'}}>
-          <Animated.View style={{
-            width: 6,
-            height: 6,
-            borderRadius: 3,
-            backgroundColor: '#9CA3AF',
-            marginHorizontal: 2,
-            opacity: dot1Anim,
-          }} />
-          <Animated.View style={{
-            width: 6,
-            height: 6,
-            borderRadius: 3,
-            backgroundColor: '#9CA3AF',
-            marginHorizontal: 2,
-            opacity: dot2Anim,
-          }} />
-          <Animated.View style={{
-            width: 6,
-            height: 6,
-            borderRadius: 3,
-            backgroundColor: '#9CA3AF',
-            marginHorizontal: 2,
-            opacity: dot3Anim,
-          }} />
+          <Animated.View
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: '#9CA3AF',
+              marginHorizontal: 2,
+              opacity: dot1Anim,
+            }}
+          />
+          <Animated.View
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: '#9CA3AF',
+              marginHorizontal: 2,
+              opacity: dot2Anim,
+            }}
+          />
+          <Animated.View
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: '#9CA3AF',
+              marginHorizontal: 2,
+              opacity: dot3Anim,
+            }}
+          />
         </View>
       </View>
     </View>
@@ -437,32 +472,55 @@ const ChatScreen = ({route, navigation}) => {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, isDark && {backgroundColor: theme.colors.background}]} edges={['top']}>
+      <SafeAreaView
+        style={[styles.container, isDark && {backgroundColor: theme.colors.background}]}
+        edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#00B14F" />
-          <Text style={[styles.loadingText, isDark && {color: theme.colors.textSecondary}]}>Loading conversation...</Text>
+          <Text style={[styles.loadingText, isDark && {color: theme.colors.textSecondary}]}>
+            Loading conversation...
+          </Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, isDark && {backgroundColor: theme.colors.background}]} edges={['top']}>
+    <SafeAreaView
+      style={[styles.container, isDark && {backgroundColor: theme.colors.background}]}
+      edges={['top']}>
       {/* Header */}
-      <View style={[styles.header, isDark && {backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border}]}>
-        <TouchableOpacity 
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
+      <View
+        style={[
+          styles.header,
+          isDark && {backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border},
+        ]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Icon name="arrow-back" size={24} color={isDark ? theme.colors.text : '#1F2937'} />
         </TouchableOpacity>
-        
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {recipient?.name?.split(' ').map(n => n[0]).join('') || 'U'}
-          </Text>
-        </View>
-        
+
+        {recipient?.profilePhoto ? (
+          <Image
+            source={{uri: recipient.profilePhoto}}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              marginRight: 12,
+              backgroundColor: '#E5E7EB',
+            }}
+          />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {recipient?.name
+                ?.split(' ')
+                .map((n) => n[0])
+                .join('') || 'U'}
+            </Text>
+          </View>
+        )}
+
         <View style={styles.headerInfo}>
           <Text style={[styles.headerName, isDark && {color: theme.colors.text}]}>
             {recipient?.name || 'User'}
@@ -474,17 +532,18 @@ const ChatScreen = ({route, navigation}) => {
           ) : (
             <View style={styles.onlineIndicator}>
               <View style={styles.onlineDot} />
-              <Text style={[styles.onlineText, isDark && {color: theme.colors.textSecondary}]}>Online</Text>
+              <Text style={[styles.onlineText, isDark && {color: theme.colors.textSecondary}]}>
+                Online
+              </Text>
             </View>
           )}
         </View>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.callButton}
           onPress={() => {
             // Could add call functionality here
-          }}
-        >
+          }}>
           <Icon name="call-outline" size={22} color="#00B14F" />
         </TouchableOpacity>
       </View>
@@ -510,7 +569,11 @@ const ChatScreen = ({route, navigation}) => {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Icon name="chatbubble-ellipses-outline" size={50} color={isDark ? theme.colors.border : '#D1D5DB'} />
+            <Icon
+              name="chatbubble-ellipses-outline"
+              size={50}
+              color={isDark ? theme.colors.border : '#D1D5DB'}
+            />
             <Text style={[styles.emptyText, isDark && {color: theme.colors.textSecondary}]}>
               Start the conversation
             </Text>
@@ -520,26 +583,29 @@ const ChatScreen = ({route, navigation}) => {
       />
 
       {/* Quick Replies */}
-      <View style={[styles.quickRepliesContainer, isDark && {backgroundColor: theme.colors.card, borderTopColor: theme.colors.border}]}>
+      <View
+        style={[
+          styles.quickRepliesContainer,
+          isDark && {backgroundColor: theme.colors.card, borderTopColor: theme.colors.border},
+        ]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{paddingHorizontal: 12, paddingVertical: 4}}
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled={true}
-          directionalLockEnabled={true}
-        >
-          {(user?.role?.toUpperCase() === 'ADMIN' 
+          directionalLockEnabled={true}>
+          {(user?.role?.toUpperCase() === 'ADMIN'
             ? [
                 'Hello! How can I assist you?',
                 'Your request is being processed.',
                 'Please provide more details.',
-                'We\'ll get back to you shortly.',
+                "We'll get back to you shortly.",
                 'Thank you for contacting us!',
               ]
             : user?.role?.toUpperCase() === 'PROVIDER'
             ? [
-                'Hello! I\'m available.',
+                "Hello! I'm available.",
                 'Yes, I have complete tools.',
                 'I can start right away.',
                 'On my way now!',
@@ -549,7 +615,7 @@ const ChatScreen = ({route, navigation}) => {
                 'Hello! Are you available?',
                 'Do you have complete tools?',
                 'When can you start?',
-                'What\'s your rate?',
+                "What's your rate?",
                 'Thank you!',
               ]
           ).map((item, index) => (
@@ -557,9 +623,10 @@ const ChatScreen = ({route, navigation}) => {
               key={index}
               style={[styles.quickReplyButton, isDark && {backgroundColor: theme.colors.border}]}
               onPress={() => setMessage(item)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.quickReplyText, isDark && {color: theme.colors.text}]}>{item}</Text>
+              activeOpacity={0.7}>
+              <Text style={[styles.quickReplyText, isDark && {color: theme.colors.text}]}>
+                {item}
+              </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -567,15 +634,21 @@ const ChatScreen = ({route, navigation}) => {
 
       {/* Image Preview Modal */}
       <Modal visible={!!imagePreview} transparent animationType="fade">
-        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center'}}>
-          <TouchableOpacity 
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.9)',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+          <TouchableOpacity
             style={{position: 'absolute', top: 50, right: 20, zIndex: 10}}
             onPress={() => setImagePreview(null)}>
             <Icon name="close" size={32} color="#FFFFFF" />
           </TouchableOpacity>
           {imagePreview && (
-            <Image 
-              source={{uri: imagePreview}} 
+            <Image
+              source={{uri: imagePreview}}
               style={{width: '90%', height: '70%'}}
               resizeMode="contain"
             />
@@ -584,21 +657,20 @@ const ChatScreen = ({route, navigation}) => {
       </Modal>
 
       {/* Input Area */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {/* Selected Image Preview */}
         {selectedImage && (
-          <View style={{
-            backgroundColor: isDark ? theme.colors.card : '#F3F4F6',
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            borderTopWidth: 1,
-            borderTopColor: isDark ? theme.colors.border : '#E5E7EB',
-          }}>
+          <View
+            style={{
+              backgroundColor: isDark ? theme.colors.card : '#F3F4F6',
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderTopWidth: 1,
+              borderTopColor: isDark ? theme.colors.border : '#E5E7EB',
+            }}>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <Image 
-                source={{uri: selectedImage.uri}} 
+              <Image
+                source={{uri: selectedImage.uri}}
                 style={{
                   width: 60,
                   height: 60,
@@ -608,14 +680,24 @@ const ChatScreen = ({route, navigation}) => {
                 resizeMode="cover"
               />
               <View style={{flex: 1}}>
-                <Text style={{fontSize: 13, color: isDark ? theme.colors.text : '#374151', fontWeight: '500'}}>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: isDark ? theme.colors.text : '#374151',
+                    fontWeight: '500',
+                  }}>
                   Image selected
                 </Text>
-                <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginTop: 2}}>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: isDark ? theme.colors.textSecondary : '#6B7280',
+                    marginTop: 2,
+                  }}>
                   Add a caption or tap send
                 </Text>
               </View>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={clearSelectedImage}
                 style={{
                   padding: 8,
@@ -628,19 +710,26 @@ const ChatScreen = ({route, navigation}) => {
           </View>
         )}
 
-        <View style={[styles.inputContainer, isDark && {backgroundColor: theme.colors.card, borderTopColor: theme.colors.border}]}>
-          <TouchableOpacity style={styles.attachButton} onPress={handleAttachment} disabled={uploadingImage || sending}>
+        <View
+          style={[
+            styles.inputContainer,
+            isDark && {backgroundColor: theme.colors.card, borderTopColor: theme.colors.border},
+          ]}>
+          <TouchableOpacity
+            style={styles.attachButton}
+            onPress={handleAttachment}
+            disabled={uploadingImage || sending}>
             {uploadingImage ? (
               <ActivityIndicator size="small" color="#00B14F" />
             ) : (
               <Icon name="image-outline" size={26} color="#00B14F" />
             )}
           </TouchableOpacity>
-          
+
           <View style={[styles.inputWrapper, isDark && {backgroundColor: theme.colors.border}]}>
             <TextInput
               style={[styles.textInput, isDark && {color: theme.colors.text}]}
-              placeholder={selectedImage ? "Add a caption..." : "Type a message..."}
+              placeholder={selectedImage ? 'Add a caption...' : 'Type a message...'}
               placeholderTextColor={isDark ? theme.colors.textSecondary : '#9CA3AF'}
               value={message}
               onChangeText={handleTextChange}
@@ -648,25 +737,30 @@ const ChatScreen = ({route, navigation}) => {
               editable={!sending && !uploadingImage}
             />
             <TouchableOpacity style={styles.emojiButton}>
-              <Icon name="happy-outline" size={22} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
+              <Icon
+                name="happy-outline"
+                size={22}
+                color={isDark ? theme.colors.textSecondary : '#6B7280'}
+              />
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.sendButton,
-              (message.trim() || selectedImage) && !sending && !uploadingImage ? styles.sendButtonActive : styles.sendButtonInactive
+              (message.trim() || selectedImage) && !sending && !uploadingImage
+                ? styles.sendButtonActive
+                : styles.sendButtonInactive,
             ]}
             onPress={sendMessage}
-            disabled={(!message.trim() && !selectedImage) || sending || uploadingImage}
-          >
+            disabled={(!message.trim() && !selectedImage) || sending || uploadingImage}>
             {sending || uploadingImage ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Icon 
-                name="send" 
-                size={20} 
-                color={(message.trim() || selectedImage) ? '#FFFFFF' : '#9CA3AF'} 
+              <Icon
+                name="send"
+                size={20}
+                color={message.trim() || selectedImage ? '#FFFFFF' : '#9CA3AF'}
               />
             )}
           </TouchableOpacity>

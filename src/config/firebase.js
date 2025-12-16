@@ -20,7 +20,10 @@ import {
 LogBox.ignoreLogs([
   'WebChannelConnection RPC',
   '@firebase/firestore: Firestore',
+  '@firebase/firestore:',
   'transport errored',
+  'stream 0x',
+  'Name: undefined Message: undefined',
   'FIRESTORE (12.6.0) INTERNAL ASSERTION FAILED',
   'Unexpected state',
   'INTERNAL ASSERTION FAILED',
@@ -29,6 +32,21 @@ LogBox.ignoreLogs([
   'Require cycle:',
   'INTERNAL UNHANDLED ERROR',
 ]);
+
+// Also suppress console warnings for Firestore network issues
+const originalWarn = console.warn;
+console.warn = (...args) => {
+  const message = args[0]?.toString() || '';
+  if (
+    message.includes('WebChannelConnection') ||
+    message.includes('@firebase/firestore') ||
+    message.includes('transport errored') ||
+    message.includes('stream 0x')
+  ) {
+    return; // Suppress Firestore network warnings
+  }
+  originalWarn.apply(console, args);
+};
 
 const firebaseConfig = {
   apiKey: FIREBASE_API_KEY,

@@ -31,6 +31,20 @@ import {sendBookingConfirmation, sendJobRejectionEmail} from '../../services/ema
 const {width} = Dimensions.get('window');
 const MEDIA_SIZE = (width - 60) / 3;
 
+// Helper function to format date and time
+const formatDateTime = (date) => {
+  if (!date) return 'Unknown';
+  const options = {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  };
+  return date.toLocaleString('en-US', options);
+};
+
 const AdminJobsScreen = ({navigation, route}) => {
   const {isDark, theme} = useTheme();
   const {openJobId} = route?.params || {};
@@ -155,7 +169,7 @@ const AdminJobsScreen = ({navigation, route}) => {
             scheduledTime: data.scheduledTime || data.time || 'TBD',
             location: data.location || data.address || 'Not specified',
             description: data.description || data.notes || '',
-            createdAt: data.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown',
+            createdAt: data.createdAt?.toDate?.() ? formatDateTime(data.createdAt.toDate()) : 'Unknown',
             createdAtRaw: data.createdAt?.toDate?.() || new Date(0),
             completedAt: data.completedAt?.toDate?.()?.toLocaleDateString() || null,
             cancelReason: data.cancelReason || null,
@@ -174,6 +188,10 @@ const AdminJobsScreen = ({navigation, route}) => {
             additionalCharges: data.additionalCharges || [],
             // Admin approval status
             adminApproved: data.adminApproved || false,
+            // Payment preference
+            paymentPreference: data.paymentPreference || 'pay_later',
+            isPaidUpfront: data.isPaidUpfront || false,
+            upfrontPaidAmount: data.upfrontPaidAmount || 0,
             // Keep raw data
             rawData: data,
           };
@@ -531,8 +549,38 @@ const AdminJobsScreen = ({navigation, route}) => {
           </View>
         </View>
 
+        {/* Submitted Date/Time */}
+        <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4}}>
+          <Icon name="time-outline" size={14} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
+          <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#9CA3AF', marginLeft: 6}}>
+            Submitted: {item.createdAt}
+          </Text>
+        </View>
+
         <View style={adminStyles.jobFooter}>
-          <Text style={adminStyles.jobAmount}>₱{item.amount.toLocaleString()}</Text>
+          <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+            <Text style={adminStyles.jobAmount}>₱{item.amount.toLocaleString()}</Text>
+            {/* Payment Preference Badge */}
+            <View style={{
+              backgroundColor: item.paymentPreference === 'pay_first' ? '#D1FAE5' : '#DBEAFE',
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              borderRadius: 6,
+            }}>
+              <Text style={{
+                fontSize: 10,
+                fontWeight: '600',
+                color: item.paymentPreference === 'pay_first' ? '#059669' : '#2563EB',
+              }}>
+                {item.paymentPreference === 'pay_first' ? 'PAY FIRST' : 'PAY LATER'}
+              </Text>
+            </View>
+            {item.isPaidUpfront && (
+              <View style={{backgroundColor: '#10B981', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4}}>
+                <Text style={{fontSize: 9, fontWeight: '600', color: '#FFFFFF'}}>PAID</Text>
+              </View>
+            )}
+          </View>
           <Text style={[adminStyles.jobDate, isDark && {color: theme.colors.textSecondary}]}>
             {item.scheduledDate} • {item.scheduledTime}
           </Text>
@@ -604,6 +652,38 @@ const AdminJobsScreen = ({navigation, route}) => {
                     Provider: ₱{selectedJob.providerPrice?.toLocaleString() || 0} + Fee: ₱{selectedJob.systemFee?.toLocaleString() || 0}
                   </Text>
                 )}
+              </View>
+
+              {/* Payment Preference */}
+              <View style={[adminStyles.modalSection, {
+                backgroundColor: selectedJob.paymentPreference === 'pay_first' ? '#D1FAE5' : '#DBEAFE',
+                padding: 16,
+                borderRadius: 12,
+              }]}>
+                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <Icon 
+                      name={selectedJob.paymentPreference === 'pay_first' ? 'card' : 'time'} 
+                      size={24} 
+                      color={selectedJob.paymentPreference === 'pay_first' ? '#059669' : '#2563EB'} 
+                    />
+                    <View style={{marginLeft: 12}}>
+                      <Text style={{fontSize: 14, fontWeight: '700', color: selectedJob.paymentPreference === 'pay_first' ? '#059669' : '#2563EB'}}>
+                        {selectedJob.paymentPreference === 'pay_first' ? 'Pay First' : 'Pay Later'}
+                      </Text>
+                      <Text style={{fontSize: 12, color: selectedJob.paymentPreference === 'pay_first' ? '#047857' : '#1D4ED8'}}>
+                        {selectedJob.paymentPreference === 'pay_first' 
+                          ? 'Client pays before service' 
+                          : 'Client pays after completion'}
+                      </Text>
+                    </View>
+                  </View>
+                  {selectedJob.isPaidUpfront && (
+                    <View style={{backgroundColor: '#10B981', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6}}>
+                      <Text style={{fontSize: 12, fontWeight: '600', color: '#FFFFFF'}}>PAID ₱{selectedJob.upfrontPaidAmount?.toLocaleString() || 0}</Text>
+                    </View>
+                  )}
+                </View>
               </View>
 
               {/* Negotiation Info */}
@@ -743,21 +823,24 @@ const AdminJobsScreen = ({navigation, route}) => {
                 </View>
               </View>
 
-              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
-                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Description</Text>
-                <Text style={{fontSize: 15, color: isDark ? theme.colors.text : '#4B5563', lineHeight: 22}}>
-                  {selectedJob.description}
-                </Text>
-              </View>
+              {/* Additional Notes from Client */}
+              {selectedJob.description && selectedJob.description !== 'See attached photos/videos' && (
+                <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
+                  <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Additional Notes</Text>
+                  <Text style={{fontSize: 15, color: isDark ? theme.colors.text : '#4B5563', lineHeight: 22}}>
+                    {selectedJob.description}
+                  </Text>
+                </View>
+              )}
 
               {/* Media Gallery - Client's Photos/Videos of the Problem */}
               {selectedJob.media && selectedJob.media.length > 0 && (
                 <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
                   <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>
-                    📸 Client's Photos/Videos ({selectedJob.media.length})
+                    Problem Photos/Videos ({selectedJob.media.length})
                   </Text>
                   <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginBottom: 8}}>
-                    Photos/videos of the problem submitted by client
+                    Uploaded by client showing the issue
                   </Text>
                   <View style={{flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, gap: 8}}>
                     {selectedJob.media.map((item, index) => (

@@ -49,6 +49,35 @@ const JobDetailsScreen = ({navigation, route}) => {
   const [paymentError, setPaymentError] = useState(null);
   const appState = useRef(AppState.currentState);
 
+  // Manual verify payment function
+  const handleVerifyPayment = async () => {
+    const bookingId = jobData?.id || jobId;
+    if (!bookingId) return;
+    
+    setIsCheckingPayment(true);
+    setPaymentError(null);
+    
+    try {
+      const result = await paymentService.verifyAndProcessPayment(bookingId);
+      console.log('Payment verification result:', result);
+      
+      if (result.success && result.status === 'paid') {
+        Alert.alert('Payment Successful', 'Your payment has been processed successfully!');
+      } else if (result.status === 'failed') {
+        setPaymentError('Payment failed or expired. Please try again.');
+      } else if (result.status === 'pending') {
+        Alert.alert('Payment Pending', 'Your payment is still being processed. Please complete the payment in GCash/Maya app.');
+      } else if (result.status === 'error') {
+        setPaymentError(result.error || 'Could not verify payment. Please try again.');
+      }
+    } catch (error) {
+      console.log('Payment verification error:', error);
+      setPaymentError('Could not connect to server. Please check your internet and try again.');
+    } finally {
+      setIsCheckingPayment(false);
+    }
+  };
+
   // Check payment status when app returns from background (after GCash/Maya checkout)
   useEffect(() => {
     const subscription = AppState.addEventListener('change', async (nextAppState) => {
@@ -74,6 +103,9 @@ const JobDetailsScreen = ({navigation, route}) => {
           } else if (result.status === 'pending') {
             // Still pending, user might not have completed payment
             console.log('Payment still pending');
+          } else if (result.status === 'error') {
+            // Server error - show message but don't block user
+            console.log('Server error during verification:', result.error);
           }
         } catch (error) {
           console.log('Payment verification error:', error);
@@ -128,6 +160,11 @@ const JobDetailsScreen = ({navigation, route}) => {
             offeredPrice: data.offeredPrice,
             isNegotiable: data.isNegotiable,
             createdAt: data.createdAt?.toDate?.()?.toLocaleDateString() || new Date().toLocaleDateString(),
+            // Payment preference
+            paymentPreference: data.paymentPreference || 'pay_later',
+            isPaidUpfront: data.isPaidUpfront || false,
+            upfrontPaidAmount: data.upfrontPaidAmount || 0,
+            additionalCharges: data.additionalCharges || [],
           }));
         }
         setIsLoading(false);
@@ -318,6 +355,21 @@ const JobDetailsScreen = ({navigation, route}) => {
     setShowPaymentModal(true);
   };
 
+  // Pay First - Client pays upfront before service starts
+  const handlePayUpfront = () => {
+    Alert.alert(
+      'Pay First',
+      `Pay ₱${(jobData?.totalAmount || jobData?.amount || 0).toLocaleString()} now before the service starts?`,
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Pay Now',
+          onPress: () => setShowPaymentModal(true),
+        },
+      ]
+    );
+  };
+
   // Process payment based on selected method
   const processPayment = async (method) => {
     // Calculate total including approved additional charges
@@ -326,6 +378,21 @@ const JobDetailsScreen = ({navigation, route}) => {
     const amount = baseAmount + additionalChargesTotal;
     const bookingId = jobData.id || jobId;
     const userId = user?.uid || user?.id;
+    
+    // PayMongo minimum amount is ₱100 for GCash/Maya
+    if ((method === 'gcash' || method === 'maya') && amount < 100) {
+      Alert.alert(
+        'Minimum Amount Required',
+        `The minimum payment amount for ${method === 'gcash' ? 'GCash' : 'Maya'} is ₱100. Your total is ₱${amount.toLocaleString()}.`,
+        [{text: 'OK'}]
+      );
+      return;
+    }
+    
+    // Check if this is an upfront payment (Pay First flow)
+    const isUpfrontPayment = jobData.paymentPreference === 'pay_first' && 
+                             !jobData.isPaidUpfront && 
+                             (jobData.status === 'accepted' || jobData.status === 'traveling' || jobData.status === 'arrived');
 
     setIsProcessingPayment(true);
     setSelectedPaymentMethod(method);
@@ -342,14 +409,30 @@ const JobDetailsScreen = ({navigation, route}) => {
         );
 
         if (result.success) {
-          await updateDoc(doc(db, 'bookings', bookingId), {
-            status: 'payment_received',
-            clientPaidAt: serverTimestamp(),
-            paymentMethod: 'cash',
-            updatedAt: serverTimestamp(),
-          });
-          setJobData(prev => ({...prev, status: 'payment_received'}));
-          notificationService.notifyPaymentReceived?.(jobData);
+          // Different update for upfront vs completion payment
+          if (isUpfrontPayment) {
+            await updateDoc(doc(db, 'bookings', bookingId), {
+              isPaidUpfront: true,
+              upfrontPaidAmount: amount,
+              upfrontPaidAt: serverTimestamp(),
+              paymentMethod: 'cash',
+              updatedAt: serverTimestamp(),
+            });
+            setJobData(prev => ({...prev, isPaidUpfront: true, upfrontPaidAmount: amount}));
+            setShowPaymentModal(false);
+            Alert.alert('Payment Complete', 'Thank you! The provider can now start working on your job.');
+          } else {
+            await updateDoc(doc(db, 'bookings', bookingId), {
+              status: 'payment_received',
+              clientPaidAt: serverTimestamp(),
+              paymentMethod: 'cash',
+              updatedAt: serverTimestamp(),
+            });
+            setJobData(prev => ({...prev, status: 'payment_received'}));
+            notificationService.notifyPaymentReceived?.(jobData);
+            setShowPaymentModal(false);
+            Alert.alert('Payment Recorded', 'The provider will confirm receipt of payment to complete the job.');
+          }
           
           // Send payment receipt email to client via EmailJS
           if (user?.email) {
@@ -362,9 +445,6 @@ const JobDetailsScreen = ({navigation, route}) => {
               paymentMethod: 'Cash',
             }).catch(err => console.log('Payment receipt email failed:', err));
           }
-          
-          setShowPaymentModal(false);
-          Alert.alert('Payment Recorded', 'The provider will confirm receipt of payment to complete the job.');
         } else {
           setPaymentError(result.error || 'Failed to record payment');
           Alert.alert('Error', result.error || 'Failed to record payment');
@@ -392,7 +472,7 @@ const JobDetailsScreen = ({navigation, route}) => {
             // Show info that they need to complete payment
             Alert.alert(
               'Complete Payment',
-              `Please complete your ${method === 'gcash' ? 'GCash' : 'Maya'} payment in the browser. The app will update automatically once payment is confirmed.`,
+              `Please complete your ${method === 'gcash' ? 'GCash' : 'Maya'} payment in the browser.\n\nIf the page appears blank or doesn't load, please wait a few seconds and refresh the page.\n\nOnce payment is complete, return to the app and tap "Verify Payment" to confirm.`,
               [{text: 'OK'}]
             );
           } else {
@@ -875,6 +955,43 @@ const JobDetailsScreen = ({navigation, route}) => {
           </View>
         )}
 
+        {/* Payment Preference */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Payment Method</Text>
+          <View style={{
+            backgroundColor: jobData.paymentPreference === 'pay_first' ? '#D1FAE5' : '#DBEAFE',
+            borderRadius: 12,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: jobData.paymentPreference === 'pay_first' ? '#A7F3D0' : '#BFDBFE',
+          }}>
+            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
+              <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                <Icon 
+                  name={jobData.paymentPreference === 'pay_first' ? 'card' : 'time'} 
+                  size={24} 
+                  color={jobData.paymentPreference === 'pay_first' ? '#059669' : '#2563EB'} 
+                />
+                <View style={{marginLeft: 12}}>
+                  <Text style={{fontSize: 16, fontWeight: '700', color: jobData.paymentPreference === 'pay_first' ? '#059669' : '#2563EB'}}>
+                    {jobData.paymentPreference === 'pay_first' ? 'Pay First' : 'Pay Later'}
+                  </Text>
+                  <Text style={{fontSize: 12, color: jobData.paymentPreference === 'pay_first' ? '#047857' : '#1D4ED8'}}>
+                    {jobData.paymentPreference === 'pay_first' 
+                      ? 'Pay before service starts' 
+                      : 'Pay after job completion'}
+                  </Text>
+                </View>
+              </View>
+              {jobData.isPaidUpfront && (
+                <View style={{backgroundColor: '#10B981', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8}}>
+                  <Text style={{fontSize: 12, fontWeight: '700', color: '#FFFFFF'}}>PAID</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+
         {/* Price Info */}
         {(jobData.price || jobData.estimatedPrice || jobData.totalAmount) && (
           <View style={styles.section}>
@@ -1164,6 +1281,76 @@ const JobDetailsScreen = ({navigation, route}) => {
           </View>
         )}
 
+        {/* PAY FIRST - Client needs to pay before provider starts work */}
+        {jobData.paymentPreference === 'pay_first' && 
+         !jobData.isPaidUpfront && 
+         (jobData.status === 'accepted' || jobData.status === 'traveling' || jobData.status === 'arrived') && (
+          <View style={styles.actionSection}>
+            <View style={{
+              backgroundColor: '#FEF3C7',
+              padding: 16,
+              borderRadius: 12,
+              marginBottom: 16,
+              alignItems: 'center',
+              borderWidth: 2,
+              borderColor: '#F59E0B',
+            }}>
+              <Icon name="alert-circle" size={32} color="#F59E0B" />
+              <Text style={{fontSize: 18, fontWeight: '700', color: '#92400E', marginTop: 8}}>
+                Payment Required First
+              </Text>
+              <Text style={{fontSize: 22, fontWeight: '700', color: '#D97706', marginTop: 8}}>
+                ₱{(jobData?.totalAmount || jobData?.amount || 0).toLocaleString()}
+              </Text>
+              <Text style={{fontSize: 13, color: '#B45309', marginTop: 8, textAlign: 'center'}}>
+                You selected "Pay First". Please pay now so the provider can start working.
+              </Text>
+            </View>
+            <TouchableOpacity 
+              style={{
+                backgroundColor: '#F59E0B',
+                borderRadius: 12,
+                paddingVertical: 16,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+              }}
+              onPress={handlePayUpfront}>
+              <Icon name="card" size={20} color="#FFFFFF" />
+              <Text style={{color: '#FFFFFF', fontWeight: '700', fontSize: 16, marginLeft: 8}}>
+                Pay Now (Before Service)
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* PAY FIRST - Already paid, waiting for work */}
+        {jobData.paymentPreference === 'pay_first' && 
+         jobData.isPaidUpfront && 
+         (jobData.status === 'accepted' || jobData.status === 'traveling' || jobData.status === 'arrived' || jobData.status === 'in_progress') && (
+          <View style={styles.actionSection}>
+            <View style={{
+              backgroundColor: '#D1FAE5',
+              padding: 16,
+              borderRadius: 12,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: '#A7F3D0',
+            }}>
+              <Icon name="checkmark-circle" size={32} color="#059669" />
+              <Text style={{fontSize: 16, fontWeight: '700', color: '#065F46', marginTop: 8}}>
+                Payment Complete
+              </Text>
+              <Text style={{fontSize: 14, color: '#047857', marginTop: 4}}>
+                ₱{(jobData.upfrontPaidAmount || jobData.totalAmount || 0).toLocaleString()} paid
+              </Text>
+              <Text style={{fontSize: 13, color: '#059669', marginTop: 8, textAlign: 'center'}}>
+                Provider can now proceed with the work. You'll be notified when complete.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Pending Completion - Client needs to confirm work is done */}
         {jobData.status === 'pending_completion' && (
           <View style={styles.actionSection}>
@@ -1340,6 +1527,33 @@ const JobDetailsScreen = ({navigation, route}) => {
               <Text style={{color: '#FFFFFF', fontWeight: '600', fontSize: 16, marginLeft: 8}}>
                 {paymentError ? 'Retry Payment' : 'Pay Now'}
               </Text>
+            </TouchableOpacity>
+
+            {/* Manual Verify Payment Button - for when user already paid but status not updated */}
+            <TouchableOpacity 
+              style={{
+                backgroundColor: '#F3F4F6',
+                borderRadius: 12,
+                paddingVertical: 14,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+                marginTop: 12,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+              }}
+              onPress={handleVerifyPayment}
+              disabled={isCheckingPayment}>
+              {isCheckingPayment ? (
+                <ActivityIndicator size="small" color="#6B7280" />
+              ) : (
+                <>
+                  <Icon name="checkmark-circle-outline" size={18} color="#6B7280" />
+                  <Text style={{color: '#6B7280', fontWeight: '600', fontSize: 14, marginLeft: 8}}>
+                    Already Paid? Verify Payment
+                  </Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -1674,39 +1888,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               )}
             </TouchableOpacity>
 
-            {/* Cash Option */}
-            <TouchableOpacity
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                padding: 16,
-                backgroundColor: selectedPaymentMethod === 'cash' ? '#FEF3C7' : '#F9FAFB',
-                borderRadius: 12,
-                borderWidth: 2,
-                borderColor: selectedPaymentMethod === 'cash' ? '#F59E0B' : '#E5E7EB',
-              }}
-              onPress={() => processPayment('cash')}
-              disabled={isProcessingPayment}>
-              <View style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: '#F59E0B',
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}>
-                <Icon name="cash" size={24} color="#FFFFFF" />
-              </View>
-              <View style={{flex: 1, marginLeft: 12}}>
-                <Text style={{fontSize: 16, fontWeight: '600', color: '#1F2937'}}>Cash</Text>
-                <Text style={{fontSize: 13, color: '#6B7280'}}>Pay cash directly to provider</Text>
-              </View>
-              {isProcessingPayment && selectedPaymentMethod === 'cash' ? (
-                <ActivityIndicator color="#F59E0B" />
-              ) : (
-                <Icon name="chevron-forward" size={20} color="#9CA3AF" />
-              )}
-            </TouchableOpacity>
+            {/* Cash option removed - only GCash and Maya allowed */}
 
             <Text style={{fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginTop: 16}}>
               Secure payment powered by PayMongo

@@ -8,6 +8,9 @@ import {collection, query, where, onSnapshot} from 'firebase/firestore';
 const NotificationContext = createContext();
 const READ_NOTIFICATIONS_KEY = '@read_notifications';
 
+// Track shown notification popups to prevent duplicates
+const shownPopupIds = new Set();
+
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
   // Return default values if context is not available (during initial render)
@@ -316,11 +319,49 @@ export const NotificationProvider = ({children}) => {
   };
 
   const handleNotificationReceived = (remoteMessage) => {
+    const notificationData = remoteMessage.data || {};
+    const normalizedRole = userRole?.toUpperCase() || 'CLIENT';
+    const title = remoteMessage.notification?.title || '';
+    const body = remoteMessage.notification?.body || '';
+    
+    // BLOCK all "New Job Request" notifications for non-admins
+    // These are admin-only notifications
+    const isNewJobNotification = 
+      notificationData.type === 'new_job' || 
+      title.includes('New Job Request') || 
+      title.includes('Job Request') ||
+      body.includes('requested');
+    
+    if (isNewJobNotification && normalizedRole !== 'ADMIN') {
+      console.log('[Notifications] Blocking job request notification for non-admin');
+      return; // Completely block - don't show popup, don't add to list
+    }
+    
+    // Generate unique ID for this notification to prevent duplicates
+    const notifUniqueId = `${notificationData.type || 'unknown'}_${notificationData.jobId || ''}_${remoteMessage.messageId || Date.now()}`;
+    
+    // Skip if we've already shown this notification popup
+    if (shownPopupIds.has(notifUniqueId)) {
+      console.log('[Notifications] Skipping duplicate notification:', notifUniqueId);
+      return;
+    }
+    
+    // Mark this notification as shown
+    shownPopupIds.add(notifUniqueId);
+    
+    // Clean up old entries after 5 minutes to prevent memory leak
+    setTimeout(() => {
+      shownPopupIds.delete(notifUniqueId);
+    }, 5 * 60 * 1000);
+    
+    // Show local notification popup for valid notifications
+    notificationService.showLocalNotification(title, body, notificationData);
+    
     const newNotification = {
       id: Date.now().toString(),
-      title: remoteMessage.notification?.title || '',
-      body: remoteMessage.notification?.body || '',
-      data: remoteMessage.data || {},
+      title,
+      body,
+      data: notificationData,
       timestamp: new Date(),
       read: false,
     };

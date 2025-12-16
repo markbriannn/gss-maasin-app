@@ -34,6 +34,65 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Payment redirect pages (for GCash/Maya after payment)
+app.get('/payment/success', (req, res) => {
+  const { bookingId } = req.query;
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Payment Successful</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: linear-gradient(135deg, #00B14F 0%, #008F3F 100%); }
+        .container { text-align: center; padding: 40px; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); max-width: 400px; margin: 20px; }
+        .icon { font-size: 80px; margin-bottom: 20px; }
+        h1 { color: #00B14F; margin-bottom: 10px; }
+        p { color: #666; margin-bottom: 30px; }
+        .btn { background: #00B14F; color: white; padding: 15px 40px; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="icon">✅</div>
+        <h1>Payment Successful!</h1>
+        <p>Your payment has been processed successfully. You can now close this page and return to the app.</p>
+        <a href="gss-maasin://payment-success?bookingId=${bookingId || ''}" class="btn">Return to App</a>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+app.get('/payment/failed', (req, res) => {
+  const { bookingId } = req.query;
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Payment Failed</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); }
+        .container { text-align: center; padding: 40px; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); max-width: 400px; margin: 20px; }
+        .icon { font-size: 80px; margin-bottom: 20px; }
+        h1 { color: #EF4444; margin-bottom: 10px; }
+        p { color: #666; margin-bottom: 30px; }
+        .btn { background: #EF4444; color: white; padding: 15px 40px; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="icon">❌</div>
+        <h1>Payment Failed</h1>
+        <p>Your payment could not be processed. Please return to the app and try again.</p>
+        <a href="gss-maasin://payment-failed?bookingId=${bookingId || ''}" class="btn">Return to App</a>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
 setupSocketHandlers(io);
 
 app.use((err, req, res, next) => {

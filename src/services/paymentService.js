@@ -125,7 +125,12 @@ export const paymentService = {
   verifyAndProcessPayment: async (bookingId) => {
     console.log('Verifying payment for booking:', bookingId);
     try {
-      const response = await apiClient.post(`/payments/verify-and-process/${bookingId}`);
+      // Use retry wrapper to handle Render cold starts (server may be sleeping)
+      const response = await withRetry(
+        () => apiClient.post(`/payments/verify-and-process/${bookingId}`),
+        3, // 3 retries
+        2000 // 2 second delay between retries
+      );
       console.log('Verify payment response:', response.data);
       return {
         success: true,
@@ -134,7 +139,11 @@ export const paymentService = {
       };
     } catch (error) {
       console.error('Error verifying payment:', error);
-      return { success: false, error: error.response?.data?.error || error.message };
+      // Provide user-friendly error message
+      const errorMessage = error.response?.status === 404
+        ? 'Payment verification service unavailable. Please try again in a moment.'
+        : getErrorMessage(error);
+      return { success: false, error: errorMessage, status: 'error' };
     }
   },
 

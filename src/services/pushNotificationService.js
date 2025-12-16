@@ -124,17 +124,12 @@ class PushNotificationService {
     return messaging().onMessage(async (remoteMessage) => {
       console.log('Foreground message received:', remoteMessage);
       
-      // Show in-app notification or alert
+      // Pass to callback - let the callback decide whether to show notification
+      // Don't show any default alert here to avoid duplicates
       if (callback) {
         callback(remoteMessage);
-      } else {
-        // Default: show alert
-        Alert.alert(
-          remoteMessage.notification?.title || 'New Notification',
-          remoteMessage.notification?.body || '',
-          [{text: 'OK'}]
-        );
       }
+      // Removed default Alert.alert to prevent duplicate notifications
     });
   }
 

@@ -5,7 +5,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {authStyles} from '../../css/authStyles';
 import {sendPasswordResetCode} from '../../services/emailJSService';
 import {attemptPasswordReset} from '../../utils/rateLimiter';
-import {APP_CONFIG} from '../../config/constants';
+import {API_CONFIG} from '../../config/config';
 
 const ForgotPasswordScreen = ({navigation}) => {
   const [email, setEmail] = useState('');
@@ -14,8 +14,6 @@ const ForgotPasswordScreen = ({navigation}) => {
   const [showCodeInput, setShowCodeInput] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [generatedCode, setGeneratedCode] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async () => {
     if (!email) {
@@ -40,20 +38,18 @@ const ForgotPasswordScreen = ({navigation}) => {
     setIsLoading(true);
     try {
       // Generate code via backend (validates user exists)
-      const response = await fetch(`${APP_CONFIG.API_URL}/api/auth/generate-reset-code`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/generate-reset-code`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({email: email.toLowerCase()}),
       });
-      
+
       const data = await response.json();
-      
+
       if (data.code) {
-        setGeneratedCode(data.code);
-        
         // Send reset code via EmailJS
         await sendPasswordResetCode(email, data.code);
-        
+
         setShowCodeInput(true);
         Alert.alert(
           'Code Sent',
@@ -92,7 +88,7 @@ const ForgotPasswordScreen = ({navigation}) => {
     setIsLoading(true);
     try {
       // Call backend to verify code and update password
-      const response = await fetch(`${APP_CONFIG.API_URL}/api/auth/reset-password`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/reset-password`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
@@ -101,13 +97,13 @@ const ForgotPasswordScreen = ({navigation}) => {
           newPassword: newPassword,
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to reset password');
       }
-      
+
       Alert.alert(
         'Success!',
         'Your password has been updated. You can now login with your new password.',
@@ -116,7 +112,7 @@ const ForgotPasswordScreen = ({navigation}) => {
             text: 'Go to Login',
             onPress: () => navigation.navigate('Login'),
           },
-        ]
+        ],
       );
     } catch (error) {
       Alert.alert('Error', error.message || 'Failed to reset password');
@@ -128,17 +124,15 @@ const ForgotPasswordScreen = ({navigation}) => {
   return (
     <SafeAreaView style={authStyles.container}>
       <ScrollView contentContainerStyle={authStyles.scrollContent}>
-        <TouchableOpacity
-          style={{marginBottom: 24}}
-          onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={{marginBottom: 24}} onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
 
         <Text style={authStyles.title}>Forgot Password?</Text>
         <Text style={authStyles.subtitle}>
-          {showCodeInput 
+          {showCodeInput
             ? 'Enter the 6-digit code sent to your email'
-            : 'Enter your email address and we\'ll send you a reset code'}
+            : "Enter your email address and we'll send you a reset code"}
         </Text>
 
         {!showCodeInput ? (
@@ -179,7 +173,12 @@ const ForgotPasswordScreen = ({navigation}) => {
             </View>
 
             <View style={authStyles.inputContainer}>
-              <Icon name="lock-closed-outline" size={20} color="#9CA3AF" style={authStyles.inputIcon} />
+              <Icon
+                name="lock-closed-outline"
+                size={20}
+                color="#9CA3AF"
+                style={authStyles.inputIcon}
+              />
               <TextInput
                 style={authStyles.input}
                 placeholder="New Password"
@@ -190,7 +189,12 @@ const ForgotPasswordScreen = ({navigation}) => {
             </View>
 
             <View style={authStyles.inputContainer}>
-              <Icon name="lock-closed-outline" size={20} color="#9CA3AF" style={authStyles.inputIcon} />
+              <Icon
+                name="lock-closed-outline"
+                size={20}
+                color="#9CA3AF"
+                style={authStyles.inputIcon}
+              />
               <TextInput
                 style={authStyles.input}
                 placeholder="Confirm Password"
@@ -217,9 +221,7 @@ const ForgotPasswordScreen = ({navigation}) => {
                 setNewPassword('');
                 setConfirmPassword('');
               }}>
-              <Text style={{color: '#6B7280', fontSize: 14}}>
-                Didn't receive code? Try again
-              </Text>
+              <Text style={{color: '#6B7280', fontSize: 14}}>Didn't receive code? Try again</Text>
             </TouchableOpacity>
           </>
         )}
@@ -227,9 +229,7 @@ const ForgotPasswordScreen = ({navigation}) => {
         <TouchableOpacity
           style={{marginTop: 16, alignSelf: 'center'}}
           onPress={() => navigation.navigate('Login')}>
-          <Text style={{color: '#00B14F', fontSize: 14, fontWeight: '600'}}>
-            Back to Login
-          </Text>
+          <Text style={{color: '#00B14F', fontSize: 14, fontWeight: '600'}}>Back to Login</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

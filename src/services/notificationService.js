@@ -193,15 +193,8 @@ class NotificationService {
     this.onNotificationListener = messaging().onMessage(async (remoteMessage) => {
       console.log('Notification received in foreground:', remoteMessage);
       
-      if (Platform.OS === 'android') {
-        // Show local notification for Android when app is in foreground
-        this.showLocalNotification(
-          remoteMessage.notification?.title || 'New Notification',
-          remoteMessage.notification?.body || '',
-          remoteMessage.data || {}
-        );
-      }
-      
+      // Let the callback handle showing notifications
+      // The callback (NotificationContext) will decide whether to show based on user role
       callback(remoteMessage);
     });
     

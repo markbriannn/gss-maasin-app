@@ -5,9 +5,9 @@ const RATE_LIMIT_PREFIX = '@rate_limit_';
 // Rate limit configurations
 const LIMITS = {
   booking: {
-    maxAttempts: 5,      // Max 5 bookings
+    maxAttempts: 20,     // Max 20 bookings per hour (increased from 5)
     windowMs: 60 * 60 * 1000,  // Per hour
-    cooldownMs: 5 * 60 * 1000, // 5 min cooldown after limit hit
+    cooldownMs: 1 * 60 * 1000, // 1 min cooldown after limit hit (reduced from 5)
   },
   message: {
     maxAttempts: 20,     // Max 20 messages
@@ -216,6 +216,7 @@ const rateLimiter = new RateLimiter();
 export const checkBookingLimit = (userId) => rateLimiter.checkLimit('booking', userId);
 export const recordBookingAttempt = (userId) => rateLimiter.recordAttempt('booking', userId);
 export const attemptBooking = (userId) => rateLimiter.attempt('booking', userId);
+export const resetBookingLimit = (userId) => rateLimiter.reset('booking', userId);
 
 export const checkMessageLimit = (userId) => rateLimiter.checkLimit('message', userId);
 export const recordMessageAttempt = (userId) => rateLimiter.recordAttempt('message', userId);

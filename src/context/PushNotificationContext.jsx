@@ -38,8 +38,8 @@ export const PushNotificationProvider = ({children}) => {
         // Listen for token refresh
         const unsubscribeTokenRefresh = pushNotificationService.onTokenRefresh(user.uid);
 
-        // Handle foreground messages
-        const unsubscribeForeground = pushNotificationService.onForegroundMessage(handleForegroundMessage);
+        // NOTE: Foreground messages are handled by NotificationContext to avoid duplicates
+        // Don't register another listener here
 
         // Handle notification tap from background
         pushNotificationService.onNotificationOpenedApp(handleNotificationTap);
@@ -53,7 +53,6 @@ export const PushNotificationProvider = ({children}) => {
 
         return () => {
           unsubscribeTokenRefresh();
-          unsubscribeForeground();
         };
       }
     } catch (error) {
@@ -61,21 +60,11 @@ export const PushNotificationProvider = ({children}) => {
     }
   };
 
-  // Handle foreground message - show in-app alert
+  // Handle foreground message - DO NOT show alert here
+  // NotificationContext handles showing the popup to avoid duplicates
   const handleForegroundMessage = (remoteMessage) => {
-    const {notification, data} = remoteMessage;
-    
-    Alert.alert(
-      notification?.title || 'New Notification',
-      notification?.body || '',
-      [
-        {text: 'Dismiss', style: 'cancel'},
-        {
-          text: 'View',
-          onPress: () => handleNotificationTap(remoteMessage),
-        },
-      ]
-    );
+    console.log('[PushNotifications] Foreground message received, handled by NotificationContext');
+    // Don't show any Alert here - NotificationContext will handle it
   };
 
   // Handle notification tap - navigate to relevant screen

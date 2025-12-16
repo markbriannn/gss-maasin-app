@@ -3,48 +3,69 @@ import {API_BASE_URL} from '@env';
 
 const API_URL = API_BASE_URL || null;
 
+// Semaphore SMS API Configuration
+const SEMAPHORE_API_KEY = '2edfd7cdc71dd465db606963a70a88f4';
+const SEMAPHORE_API_URL = 'https://api.semaphore.co/api/v4/messages';
+// Note: Custom sender names require approval in Semaphore dashboard
+// Known issues: Semaphore can be unreliable with Smart numbers
+// Consider alternatives like Infobip, M360, or Prelude for production
+
 /**
  * SMS and Email Notification Service
  * Sends booking confirmations, status updates via SMS and Email
- * 
- * NOTE: This service requires a backend API to actually send SMS/emails.
- * If no backend is configured, notifications are logged but not sent.
- * To enable real notifications, set API_BASE_URL in your .env file.
+ * Uses Semaphore API for SMS in the Philippines
  */
 class SMSEmailService {
   constructor() {
     this.apiUrl = API_URL;
     this.isConfigured = !!API_URL;
+    this.semaphoreApiKey = SEMAPHORE_API_KEY;
   }
 
   /**
-   * Send SMS notification
+   * Send SMS notification via Semaphore API
    * @param {string} phoneNumber - Recipient phone number (Philippine format)
    * @param {string} message - SMS message content
    */
   async sendSMS(phoneNumber, message) {
     // Format Philippine phone number
     const formattedPhone = this.formatPhoneNumber(phoneNumber);
+    // Semaphore expects number without + prefix
+    const numberOnly = formattedPhone.replace('+', '');
     
-    // If no backend configured, just log and return success (dev mode)
-    if (!this.isConfigured) {
-      console.log('[SMS - Dev Mode] Would send to:', formattedPhone);
-      console.log('[SMS - Dev Mode] Message:', message);
-      return {success: true, devMode: true};
-    }
+    console.log('[SMS] Sending to:', numberOnly);
+    console.log('[SMS] Message:', message);
     
     try {
-      const response = await axios.post(`${this.apiUrl}/notifications/sms`, {
-        to: formattedPhone,
-        message: message,
-      }, {timeout: 10000});
+      // Use Semaphore API with form-urlencoded format
+      const params = new URLSearchParams();
+      params.append('apikey', this.semaphoreApiKey);
+      params.append('number', numberOnly);
+      params.append('message', message);
       
-      console.log('SMS sent successfully:', response.data);
-      return {success: true, data: response.data};
+      const response = await axios.post(SEMAPHORE_API_URL, params.toString(), {
+        timeout: 15000,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      
+      console.log('[SMS] Semaphore response:', JSON.stringify(response.data));
+      
+      // Check if Semaphore returned success (returns array with message_id)
+      if (response.data && Array.isArray(response.data) && response.data[0]?.message_id) {
+        return {success: true, data: response.data};
+      } else if (response.data && response.data.message_id) {
+        return {success: true, data: response.data};
+      } else {
+        const errorMsg = response.data?.message || response.data?.[0]?.message || 'SMS sending failed';
+        console.log('[SMS] Failed:', errorMsg);
+        return {success: false, error: errorMsg, data: response.data};
+      }
     } catch (error) {
-      // Don't spam console with network errors in dev
-      console.log('[SMS] Failed to send (backend unavailable):', formattedPhone);
-      return {success: false, error: error.message};
+      const errorMsg = error.response?.data?.message || error.response?.data || error.message;
+      console.log('[SMS] Error sending via Semaphore:', errorMsg);
+      return {success: false, error: typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)};
     }
   }
 
@@ -509,11 +530,100 @@ class SMSEmailService {
   }
 
   /**
-   * Send OTP via SMS for phone verification
+   * Generate a 6-digit OTP
    */
-  async sendOTP(phoneNumber, otp) {
-    const smsMessage = `GSS Maasin: Your verification code is ${otp}. Valid for 5 minutes. Do not share this code with anyone.`;
-    return this.sendSMS(phoneNumber, smsMessage);
+  generateOTP() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  /**
+   * Send OTP via Semaphore's standard messages endpoint
+   * https://api.semaphore.co/api/v4/messages
+   * @param {string} phoneNumber - Phone number to send OTP to
+   * @param {number} maxRetries - Maximum retry attempts (default: 2)
+   * @returns {Promise<{success: boolean, otp?: string, error?: string}>}
+   */
+  async sendOTP(phoneNumber, maxRetries = 2) {
+    // Validate phone number first
+    if (!phoneNumber || typeof phoneNumber !== 'string') {
+      console.log('[OTP] Invalid phone number provided:', phoneNumber);
+      return {success: false, error: 'Invalid phone number'};
+    }
+    
+    const formattedPhone = this.formatPhoneNumber(phoneNumber).replace('+', '');
+    
+    // Validate formatted phone (should be 12 digits for PH: 63 + 10 digits)
+    if (!formattedPhone || formattedPhone.length < 11) {
+      console.log('[OTP] Phone number too short:', formattedPhone);
+      return {success: false, error: 'Phone number is too short'};
+    }
+    
+    const otp = this.generateOTP();
+    
+    console.log('[OTP] Sending SMS to:', formattedPhone);
+    console.log('[OTP] Code:', otp);
+    
+    let lastError = null;
+    
+    // Retry logic for Semaphore reliability issues
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[OTP] Attempt ${attempt}/${maxRetries}`);
+        
+        // Use Semaphore's standard messages endpoint
+        const params = new URLSearchParams();
+        params.append('apikey', this.semaphoreApiKey);
+        params.append('number', formattedPhone);
+        params.append('message', `Your GSS Maasin verification code is ${otp}. Valid for 5 minutes.`);
+        
+        const response = await axios.post(
+          'https://api.semaphore.co/api/v4/messages',
+          params.toString(),
+          {
+            timeout: 20000, // Increased timeout
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+          }
+        );
+        
+        console.log('[OTP] Semaphore response:', JSON.stringify(response.data));
+        
+        // Check if message was accepted (returns array with message_id)
+        if (response.data && Array.isArray(response.data) && response.data[0]?.message_id) {
+          return {success: true, otp: otp, data: response.data[0]};
+        }
+        
+        if (response.data && response.data.message_id) {
+          return {success: true, otp: otp, data: response.data};
+        }
+        
+        // If we got a response but no message_id, it's a soft failure
+        lastError = response.data?.message || response.data?.[0]?.message || 'No message_id in response';
+        console.log(`[OTP] Attempt ${attempt} soft failure:`, lastError);
+        
+      } catch (error) {
+        lastError = error.response?.data || error.message;
+        console.log(`[OTP] Attempt ${attempt} error:`, lastError);
+        
+        // Don't retry on validation errors (4xx)
+        if (error.response?.status >= 400 && error.response?.status < 500) {
+          break;
+        }
+      }
+      
+      // Wait before retry (exponential backoff)
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
+    }
+    
+    console.log('[OTP] All attempts failed');
+    return {
+      success: false, 
+      error: typeof lastError === 'string' ? lastError : JSON.stringify(lastError),
+      otp: otp // Return OTP anyway for dev/testing fallback
+    };
   }
 
   /**

@@ -287,6 +287,11 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           client: clientInfo,
           clientName: data.clientName,
           createdAt: data.createdAt?.toDate?.()?.toLocaleDateString() || new Date().toLocaleDateString(),
+          // Payment preference
+          paymentPreference: data.paymentPreference || 'pay_later',
+          isPaidUpfront: data.isPaidUpfront || false,
+          upfrontPaidAmount: data.upfrontPaidAmount || 0,
+          additionalCharges: data.additionalCharges || [],
         });
       }
     } catch (error) {
@@ -953,8 +958,8 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
             <Text style={styles.categoryText}>{jobData.serviceCategory}</Text>
           </View>
           
-          {/* Description - More prominent display */}
-          {jobData.description && (
+          {/* Additional Notes from Client */}
+          {jobData.description && jobData.description !== 'See attached photos/videos' && (
             <View style={{
               backgroundColor: '#F9FAFB',
               borderRadius: 12,
@@ -965,14 +970,14 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
             }}>
               <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
                 <Icon name="chatbox-ellipses" size={16} color="#6B7280" />
-                <Text style={{fontSize: 13, fontWeight: '600', color: '#4B5563', marginLeft: 6}}>Client's Description</Text>
+                <Text style={{fontSize: 13, fontWeight: '600', color: '#4B5563', marginLeft: 6}}>Additional Notes</Text>
               </View>
               <Text style={{fontSize: 14, color: '#374151', lineHeight: 22}}>{jobData.description}</Text>
             </View>
           )}
 
-          {/* Additional notes if any */}
-          {jobData.notes && jobData.notes !== jobData.description && (
+          {/* Legacy notes field if different from description */}
+          {jobData.notes && jobData.notes !== jobData.description && jobData.notes !== 'See attached photos/videos' && (
             <View style={{
               backgroundColor: '#FEF3C7',
               borderRadius: 12,
@@ -1135,13 +1140,13 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           </View>
         </View>
 
-        {/* Media Files - Enhanced for provider to see client's photos/videos */}
+        {/* Media Files - Problem photos/videos from client */}
         {jobData.mediaFiles && jobData.mediaFiles.length > 0 && (
           <View style={styles.section}>
             <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12}}>
               <View style={{flexDirection: 'row', alignItems: 'center'}}>
                 <Icon name="images" size={20} color="#3B82F6" />
-                <Text style={[styles.sectionTitle, {marginLeft: 8, marginBottom: 0}]}>Client's Photos/Videos</Text>
+                <Text style={[styles.sectionTitle, {marginLeft: 8, marginBottom: 0}]}>Problem Photos/Videos</Text>
               </View>
               <View style={{backgroundColor: '#EFF6FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12}}>
                 <Text style={{fontSize: 12, fontWeight: '600', color: '#3B82F6'}}>{jobData.mediaFiles.length} file(s)</Text>
@@ -1152,7 +1157,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
             <View style={{backgroundColor: '#F0FDF4', padding: 10, borderRadius: 8, marginBottom: 12, flexDirection: 'row', alignItems: 'center'}}>
               <Icon name="information-circle" size={16} color="#10B981" />
               <Text style={{fontSize: 12, color: '#047857', marginLeft: 6, flex: 1}}>
-                Tap any image/video to view full screen. Review these to understand the job scope.
+                Tap any image/video to view full screen. Review these to understand the issue.
               </Text>
             </View>
             
@@ -1216,6 +1221,48 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
             </View>
           </View>
         )}
+
+        {/* Payment Preference */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Payment Method</Text>
+          <View style={{
+            backgroundColor: jobData.paymentPreference === 'pay_first' ? '#D1FAE5' : '#DBEAFE',
+            borderRadius: 12,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: jobData.paymentPreference === 'pay_first' ? '#A7F3D0' : '#BFDBFE',
+          }}>
+            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
+              <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                <Icon 
+                  name={jobData.paymentPreference === 'pay_first' ? 'card' : 'time'} 
+                  size={24} 
+                  color={jobData.paymentPreference === 'pay_first' ? '#059669' : '#2563EB'} 
+                />
+                <View style={{marginLeft: 12}}>
+                  <Text style={{fontSize: 16, fontWeight: '700', color: jobData.paymentPreference === 'pay_first' ? '#059669' : '#2563EB'}}>
+                    {jobData.paymentPreference === 'pay_first' ? 'Pay First' : 'Pay Later'}
+                  </Text>
+                  <Text style={{fontSize: 12, color: jobData.paymentPreference === 'pay_first' ? '#047857' : '#1D4ED8'}}>
+                    {jobData.paymentPreference === 'pay_first' 
+                      ? 'Client pays before you start' 
+                      : 'Client pays after job completion'}
+                  </Text>
+                </View>
+              </View>
+              {jobData.isPaidUpfront && (
+                <View style={{backgroundColor: '#10B981', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8}}>
+                  <Text style={{fontSize: 12, fontWeight: '700', color: '#FFFFFF'}}>PAID</Text>
+                </View>
+              )}
+            </View>
+            {jobData.paymentPreference === 'pay_first' && (
+              <Text style={{fontSize: 11, color: '#047857', marginTop: 10, fontStyle: 'italic'}}>
+                You can still request additional charges if extra work or materials are needed.
+              </Text>
+            )}
+          </View>
+        </View>
 
         {/* Earnings - Your Payment */}
         <View style={styles.section}>
@@ -1388,11 +1435,60 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               
               {jobData.status === 'accepted' && (
                 <View>
+                  {/* Pay First - Waiting for client payment */}
+                  {jobData.paymentPreference === 'pay_first' && !jobData.isPaidUpfront && (
+                    <View style={{
+                      backgroundColor: '#FEF3C7',
+                      padding: 16,
+                      borderRadius: 12,
+                      marginBottom: 16,
+                      alignItems: 'center',
+                      borderWidth: 2,
+                      borderColor: '#F59E0B',
+                    }}>
+                      <Icon name="time" size={32} color="#F59E0B" />
+                      <Text style={{fontSize: 16, fontWeight: '700', color: '#92400E', marginTop: 8}}>
+                        Waiting for Client Payment
+                      </Text>
+                      <Text style={{fontSize: 13, color: '#B45309', marginTop: 4, textAlign: 'center'}}>
+                        Client selected "Pay First". You can start traveling once they complete payment.
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {/* Pay First - Client has paid, can proceed */}
+                  {jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront && (
+                    <View style={{
+                      backgroundColor: '#D1FAE5',
+                      padding: 12,
+                      borderRadius: 10,
+                      marginBottom: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <Icon name="checkmark-circle" size={20} color="#059669" />
+                      <Text style={{fontSize: 14, fontWeight: '600', color: '#065F46', marginLeft: 8}}>
+                        Client Paid ₱{(jobData.upfrontPaidAmount || jobData.totalAmount || 0).toLocaleString()} - Ready to Start!
+                      </Text>
+                    </View>
+                  )}
+                  
                   <TouchableOpacity 
-                    style={[styles.actionButton, styles.startButton]} 
-                    onPress={handleStartTraveling}>
+                    style={[
+                      styles.actionButton, 
+                      styles.startButton,
+                      // Disable if Pay First and not paid yet
+                      (jobData.paymentPreference === 'pay_first' && !jobData.isPaidUpfront) && {backgroundColor: '#9CA3AF'}
+                    ]} 
+                    onPress={handleStartTraveling}
+                    disabled={jobData.paymentPreference === 'pay_first' && !jobData.isPaidUpfront}>
                     <Icon name="navigate" size={20} color="#FFFFFF" />
-                    <Text style={styles.startButtonText}>Start Traveling</Text>
+                    <Text style={styles.startButtonText}>
+                      {jobData.paymentPreference === 'pay_first' && !jobData.isPaidUpfront 
+                        ? 'Waiting for Payment...' 
+                        : 'Start Traveling'}
+                    </Text>
                   </TouchableOpacity>
                   <TouchableOpacity 
                     style={{

@@ -594,7 +594,7 @@ const ProviderProfileScreen = ({navigation, route}) => {
                 providerId: provider.id,
                 provider: provider
               })}>
-              <Text style={styles.hireButtonText}>Hire Now</Text>
+              <Text style={styles.hireButtonText}>Contact Us</Text>
             </TouchableOpacity>
           </View>
         )}

@@ -597,14 +597,14 @@ const ClientHomeScreen = ({navigation}) => {
                           </Text>
                         </AnimatedButton>
                       </View>
-                      {/* Bottom row: Hire Now */}
+                      {/* Bottom row: Contact Us */}
                       <AnimatedButton 
                         style={[mapStyles.hireButton, {width: '100%'}]}
                         onPress={() => navigation.navigate('HireProvider', {
                           providerId: provider.id,
                           provider: provider
                         })}>
-                        <Text style={mapStyles.hireButtonText}>Hire Now</Text>
+                        <Text style={mapStyles.hireButtonText}>Contact Us</Text>
                       </AnimatedButton>
                     </View>
                   </AnimatedCard>

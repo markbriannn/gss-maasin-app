@@ -17,7 +17,7 @@ const HelpScreen = ({navigation}) => {
     {
       id: 1,
       question: 'How do I book a service?',
-      answer: 'Browse providers on the map or home screen, select one, view their profile, and tap "Hire Now" to create a booking.',
+      answer: 'Browse providers on the map or home screen, select one, view their profile, and tap "Contact Us" to create a booking.',
     },
     {
       id: 2,

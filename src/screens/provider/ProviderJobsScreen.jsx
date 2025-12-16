@@ -16,6 +16,20 @@ import {collection, query, where, getDocs, doc, updateDoc, getDoc} from 'firebas
 import {db} from '../../config/firebase';
 import {globalStyles} from '../../css/globalStyles';
 import {dashboardStyles} from '../../css/dashboardStyles';
+
+// Helper function to format date and time
+const formatDateTime = (date) => {
+  if (!date) return 'Unknown';
+  const options = {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  };
+  return date.toLocaleString('en-US', options);
+};
 import {TierBadge, BadgeList} from '../../components/gamification';
 import {getGamificationData} from '../../services/gamificationService';
 import {getClientTier, getClientBadges} from '../../utils/gamification';
@@ -103,7 +117,7 @@ const ProviderJobsScreen = ({navigation}) => {
               scheduledTime: data.scheduledTime || 'TBD',
               location: fullLocation,
               description: data.description || '',
-              createdAt: data.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown',
+              createdAt: data.createdAt?.toDate?.() ? formatDateTime(data.createdAt.toDate()) : 'Unknown',
               createdAtRaw: data.createdAt?.toDate?.() || new Date(0),
               // Media files from client
               mediaFiles: data.mediaFiles || [],
@@ -116,6 +130,9 @@ const ProviderJobsScreen = ({navigation}) => {
               // Admin approval status - IMPORTANT
               adminApproved: data.adminApproved || false,
               adminRejected: data.adminRejected || false,
+              // Payment preference
+              paymentPreference: data.paymentPreference || 'pay_later',
+              isPaidUpfront: data.isPaidUpfront || false,
             });
           }
         }
@@ -169,7 +186,7 @@ const ProviderJobsScreen = ({navigation}) => {
             scheduledTime: data.scheduledTime || 'TBD',
             location: fullLocation,
             description: data.description || '',
-            createdAt: data.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown',
+            createdAt: data.createdAt?.toDate?.() ? formatDateTime(data.createdAt.toDate()) : 'Unknown',
             createdAtRaw: data.createdAt?.toDate?.() || new Date(0),
           });
         }
@@ -429,7 +446,7 @@ const ProviderJobsScreen = ({navigation}) => {
         }}>
           <Icon name="images" size={14} color="#3B82F6" />
           <Text style={{fontSize: 12, color: '#1E40AF', marginLeft: 6}}>
-            📸 {job.mediaFiles?.length} photo/video attached - tap to view
+            {job.mediaFiles?.length} problem photo/video - tap to view
           </Text>
         </View>
       )}
@@ -454,10 +471,18 @@ const ProviderJobsScreen = ({navigation}) => {
         <Text style={{fontSize: 13, color: isDark ? theme.colors.textSecondary : '#6B7280', marginLeft: 6}} numberOfLines={1}>{job.location}</Text>
       </View>
 
-      <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
+      <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 4}}>
         <Icon name="calendar" size={14} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
         <Text style={{fontSize: 13, color: isDark ? theme.colors.textSecondary : '#6B7280', marginLeft: 6}}>
           {job.scheduledDate} {job.scheduledTime && `at ${job.scheduledTime}`}
+        </Text>
+      </View>
+
+      {/* Submitted Date/Time */}
+      <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
+        <Icon name="time-outline" size={14} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
+        <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#9CA3AF', marginLeft: 6}}>
+          Submitted: {job.createdAt}
         </Text>
       </View>
 
@@ -469,9 +494,31 @@ const ProviderJobsScreen = ({navigation}) => {
         borderTopColor: isDark ? theme.colors.border : '#F3F4F6',
         paddingTop: 12,
       }}>
-        <Text style={{fontSize: 18, fontWeight: '700', color: '#00B14F'}}>
-          ₱{job.amount?.toLocaleString() || 0}
-        </Text>
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+          <Text style={{fontSize: 18, fontWeight: '700', color: '#00B14F'}}>
+            ₱{job.amount?.toLocaleString() || 0}
+          </Text>
+          {/* Payment Preference Badge */}
+          <View style={{
+            backgroundColor: job.paymentPreference === 'pay_first' ? '#D1FAE5' : '#DBEAFE',
+            paddingHorizontal: 6,
+            paddingVertical: 2,
+            borderRadius: 4,
+          }}>
+            <Text style={{
+              fontSize: 9,
+              fontWeight: '600',
+              color: job.paymentPreference === 'pay_first' ? '#059669' : '#2563EB',
+            }}>
+              {job.paymentPreference === 'pay_first' ? 'PAY FIRST' : 'PAY LATER'}
+            </Text>
+          </View>
+          {job.isPaidUpfront && (
+            <View style={{backgroundColor: '#10B981', paddingHorizontal: 4, paddingVertical: 2, borderRadius: 4}}>
+              <Text style={{fontSize: 8, fontWeight: '600', color: '#FFFFFF'}}>PAID</Text>
+            </View>
+          )}
+        </View>
         
         {activeTab === 'available' && job.adminApproved && (
           <TouchableOpacity

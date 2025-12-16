@@ -430,7 +430,7 @@ const AnimatedHireButton = ({onPress}) => {
       activeOpacity={1}>
       <Animated.View
         style={[styles.hireButton, {transform: [{scale: scaleAnim}]}]}>
-        <Text style={styles.hireButtonText}>Hire Now</Text>
+        <Text style={styles.hireButtonText}>Contact Us</Text>
       </Animated.View>
     </TouchableOpacity>
   );

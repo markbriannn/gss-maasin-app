@@ -1,4 +1,4 @@
-import React, {useState, useRef} from 'react';
+import {useState, useRef} from 'react';
 import {
   View,
   Text,
@@ -31,43 +31,38 @@ const LocationScreen = ({navigation, route}) => {
     longitude: 124.8513,
   });
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
-  const [region, setRegion] = useState({
-    latitude: 10.1335,
-    longitude: 124.8513,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
-  });
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const geocodingAbortRef = useRef(false);
 
   // Find matching barangay from our list
   const findMatchingBarangay = (barangayName) => {
     if (!barangayName) return '';
-    
+
     const normalizedName = barangayName.toLowerCase().trim();
-    
+
     // Try exact match first
-    const exactMatch = MAASIN_BARANGAYS.find(
-      b => b.toLowerCase() === normalizedName
-    );
+    const exactMatch = MAASIN_BARANGAYS.find((b) => b.toLowerCase() === normalizedName);
     if (exactMatch) return exactMatch;
-    
+
     // Try partial match
     const partialMatch = MAASIN_BARANGAYS.find(
-      b => normalizedName.includes(b.toLowerCase()) || b.toLowerCase().includes(normalizedName)
+      (b) => normalizedName.includes(b.toLowerCase()) || b.toLowerCase().includes(normalizedName),
     );
     if (partialMatch) return partialMatch;
-    
+
     // Try removing common prefixes/suffixes
     const cleanedName = normalizedName
       .replace(/^(brgy\.?|barangay)\s*/i, '')
       .replace(/,.*$/, '')
       .trim();
-    
+
     const cleanMatch = MAASIN_BARANGAYS.find(
-      b => b.toLowerCase() === cleanedName || 
-           cleanedName.includes(b.toLowerCase()) || 
-           b.toLowerCase().includes(cleanedName)
+      (b) =>
+        b.toLowerCase() === cleanedName ||
+        cleanedName.includes(b.toLowerCase()) ||
+        b.toLowerCase().includes(cleanedName),
     );
-    
+
     return cleanMatch || '';
   };
 
@@ -75,23 +70,26 @@ const LocationScreen = ({navigation, route}) => {
   const getAddressFromCoordinates = async (lat, lng) => {
     try {
       const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=AIzaSyC-qP1WOx8JSM6DfcAkIEmKQ8AQiAtiL9k&language=en`
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=AIzaSyC-qP1WOx8JSM6DfcAkIEmKQ8AQiAtiL9k&language=en`,
       );
       const data = await response.json();
-      
-      console.log('Geocoding response:', JSON.stringify(data.results?.[0]?.address_components, null, 2));
-      
+
+      console.log(
+        'Geocoding response:',
+        JSON.stringify(data.results?.[0]?.address_components, null, 2),
+      );
+
       if (data.results && data.results.length > 0) {
         let streetNumber = '';
         let route = '';
         let barangay = '';
         let neighborhood = '';
         let sublocality = '';
-        
+
         // Check all results for barangay info
         for (const result of data.results) {
           const addressComponents = result.address_components;
-          
+
           for (const component of addressComponents) {
             // Get street info
             if (component.types.includes('street_number')) {
@@ -100,20 +98,24 @@ const LocationScreen = ({navigation, route}) => {
             if (component.types.includes('route')) {
               route = route || component.long_name;
             }
-            
+
             // Try different types that might contain barangay
-            if (component.types.includes('sublocality_level_1') || 
-                component.types.includes('sublocality')) {
+            if (
+              component.types.includes('sublocality_level_1') ||
+              component.types.includes('sublocality')
+            ) {
               sublocality = sublocality || component.long_name;
             }
             if (component.types.includes('neighborhood')) {
               neighborhood = neighborhood || component.long_name;
             }
-            if (component.types.includes('political') && 
-                component.long_name.toLowerCase().includes('brgy')) {
+            if (
+              component.types.includes('political') &&
+              component.long_name.toLowerCase().includes('brgy')
+            ) {
               barangay = barangay || component.long_name;
             }
-            
+
             // Check if the component name matches any barangay
             const matchedBarangay = findMatchingBarangay(component.long_name);
             if (matchedBarangay && !barangay) {
@@ -121,15 +123,19 @@ const LocationScreen = ({navigation, route}) => {
             }
           }
         }
-        
+
         // Try to find barangay from various fields
-        const detectedBarangay = barangay || 
-          findMatchingBarangay(sublocality) || 
+        const detectedBarangay =
+          barangay ||
+          findMatchingBarangay(sublocality) ||
           findMatchingBarangay(neighborhood) ||
           findMatchingBarangay(data.results[0].formatted_address);
+
+        // Filter out "Unnamed Road" - let user fill it in manually
+        const cleanStreetAddress = route && !route.toLowerCase().includes('unnamed') ? route : '';
         
         return {
-          streetAddress: route || '',
+          streetAddress: cleanStreetAddress,
           houseNumber: streetNumber || '',
           fullAddress: data.results[0].formatted_address,
           barangay: detectedBarangay,
@@ -149,31 +155,27 @@ const LocationScreen = ({navigation, route}) => {
     setIsLoadingLocation(true);
     try {
       const location = await locationService.getCurrentLocation();
-      
+
       if (location) {
         const {latitude, longitude} = location;
-        
-        // Update map region
-        setRegion({
-          latitude,
-          longitude,
-          latitudeDelta: 0.005,
-          longitudeDelta: 0.005,
-        });
-        
+
+        // Update map region - removed setRegion since it's not defined
         // Animate map to new location
-        mapRef.current?.animateToRegion({
-          latitude,
-          longitude,
-          latitudeDelta: 0.005,
-          longitudeDelta: 0.005,
-        }, 1000);
-        
+        mapRef.current?.animateToRegion(
+          {
+            latitude,
+            longitude,
+            latitudeDelta: 0.005,
+            longitudeDelta: 0.005,
+          },
+          1000,
+        );
+
         // Get address and barangay from Google API
         const addressData = await getAddressFromCoordinates(latitude, longitude);
-        
+
         const detectedBarangay = addressData?.barangay || '';
-        
+
         setFormData({
           ...formData,
           latitude,
@@ -182,23 +184,28 @@ const LocationScreen = ({navigation, route}) => {
           streetAddress: addressData?.streetAddress || '',
           houseNumber: addressData?.houseNumber || '',
         });
-        
+
         if (detectedBarangay) {
           Alert.alert(
             'Location Found',
-            `Your location has been detected.\nBarangay: ${detectedBarangay}${addressData?.streetAddress ? `\nStreet: ${addressData.streetAddress}` : ''}\n\nPlease verify the barangay is correct.`,
-            [{text: 'OK'}]
+            `Your location has been detected.\nBarangay: ${detectedBarangay}${
+              addressData?.streetAddress ? `\nStreet: ${addressData.streetAddress}` : ''
+            }\n\nPlease verify the barangay is correct.`,
+            [{text: 'OK'}],
           );
         } else {
           Alert.alert(
             'Location Found',
             `Your location has been detected but we couldn't identify your barangay automatically.\n\nPlease select your barangay from the list below.`,
-            [{text: 'OK'}]
+            [{text: 'OK'}],
           );
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'Could not get your current location. Please enable location services and try again.');
+      Alert.alert(
+        'Error',
+        'Could not get your current location. Please enable location services and try again.',
+      );
     } finally {
       setIsLoadingLocation(false);
     }
@@ -207,48 +214,99 @@ const LocationScreen = ({navigation, route}) => {
   // Handle map press to set location
   const handleMapPress = async (event) => {
     const {latitude, longitude} = event.nativeEvent.coordinate;
-    
-    setFormData(prev => ({
+
+    // Update coordinates immediately
+    setFormData((prev) => ({
       ...prev,
       latitude,
       longitude,
     }));
-    
-    // Get address and barangay from Google API
-    const addressData = await getAddressFromCoordinates(latitude, longitude);
-    
-    setFormData(prev => ({
-      ...prev,
-      latitude,
-      longitude,
-      barangay: addressData?.barangay || prev.barangay,
-      streetAddress: addressData?.streetAddress || prev.streetAddress,
-    }));
+
+    // Get address in background (don't block)
+    setIsGeocoding(true);
+    try {
+      const addressData = await getAddressFromCoordinates(latitude, longitude);
+      if (!geocodingAbortRef.current) {
+        setFormData((prev) => ({
+          ...prev,
+          barangay: addressData?.barangay || prev.barangay,
+          streetAddress: addressData?.streetAddress || prev.streetAddress,
+        }));
+      }
+    } finally {
+      setIsGeocoding(false);
+    }
   };
 
   // Handle marker drag end
   const handleMarkerDragEnd = async (event) => {
     const {latitude, longitude} = event.nativeEvent.coordinate;
-    
-    const addressData = await getAddressFromCoordinates(latitude, longitude);
-    
-    setFormData(prev => ({
+
+    // Update coordinates immediately
+    setFormData((prev) => ({
       ...prev,
       latitude,
       longitude,
-      barangay: addressData?.barangay || prev.barangay,
-      streetAddress: addressData?.streetAddress || prev.streetAddress,
     }));
+
+    // Get address in background (don't block)
+    setIsGeocoding(true);
+    try {
+      const addressData = await getAddressFromCoordinates(latitude, longitude);
+      if (!geocodingAbortRef.current) {
+        setFormData((prev) => ({
+          ...prev,
+          barangay: addressData?.barangay || prev.barangay,
+          streetAddress: addressData?.streetAddress || prev.streetAddress,
+        }));
+      }
+    } finally {
+      setIsGeocoding(false);
+    }
   };
 
   const handleNext = () => {
-    if (formData.barangay && formData.streetAddress) {
-      navigation.navigate('PhoneVerification', {
-        ...route.params,
-        location: formData,
-      });
-    } else {
+    // Validate required fields
+    if (!formData.barangay || !formData.streetAddress) {
       Alert.alert('Required Fields', 'Please select your barangay and enter your street address.');
+      return;
+    }
+
+    // Prevent navigation if still loading or geocoding
+    if (isLoadingLocation || isGeocoding) {
+      Alert.alert('Please Wait', 'Location is still being processed. Please wait a moment.');
+      return;
+    }
+
+    // Abort any pending geocoding
+    geocodingAbortRef.current = true;
+
+    // Prevent navigation if still loading
+    if (isLoadingLocation) {
+      return;
+    }
+
+    try {
+      // Get existing params and merge with location data
+      const params = {
+        ...(route?.params || {}),
+        location: {
+          barangay: formData.barangay,
+          streetAddress: formData.streetAddress,
+          houseNumber: formData.houseNumber,
+          landmark: formData.landmark,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+        },
+      };
+      
+      console.log('[LocationScreen] Navigating to Password with params:', params);
+      
+      // Navigate immediately without setTimeout
+      navigation.navigate('Password', params);
+    } catch (error) {
+      console.error('[LocationScreen] Navigation error:', error);
+      Alert.alert('Error', 'Failed to proceed. Please try again.');
     }
   };
 
@@ -256,14 +314,14 @@ const LocationScreen = ({navigation, route}) => {
     <SafeAreaView style={authStyles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={authStyles.progressBar}>
-          <View style={[authStyles.progressFill, {width: '42%'}]} />
+          <View style={[authStyles.progressFill, {width: '70%'}]} />
         </View>
-        <Text style={authStyles.stepIndicator}>Step 3 of 7</Text>
+        <Text style={authStyles.stepIndicator}>Step 5 of 7</Text>
         <Text style={authStyles.title}>Set Your Location</Text>
         <Text style={authStyles.subtitle}>Where are you located in Maasin City?</Text>
 
         {/* Use Current Location Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.currentLocationButton}
           onPress={useCurrentLocation}
           disabled={isLoadingLocation}>
@@ -283,8 +341,12 @@ const LocationScreen = ({navigation, route}) => {
             ref={mapRef}
             style={styles.map}
             provider={PROVIDER_GOOGLE}
-            initialRegion={region}
-            onRegionChangeComplete={setRegion}
+            initialRegion={{
+              latitude: 10.1335,
+              longitude: 124.8513,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            }}
             onPress={handleMapPress}
             showsUserLocation
             showsMyLocationButton={false}>
@@ -374,12 +436,23 @@ const LocationScreen = ({navigation, route}) => {
         <TouchableOpacity
           style={[
             styles.continueButton,
-            (!formData.barangay || !formData.streetAddress) && styles.continueButtonDisabled
+            (!formData.barangay || !formData.streetAddress || isLoadingLocation || isGeocoding) && styles.continueButtonDisabled,
           ]}
           onPress={handleNext}
-          disabled={!formData.barangay || !formData.streetAddress}>
-          <Text style={styles.continueButtonText}>Continue</Text>
-          <Icon name="arrow-forward" size={20} color="#FFFFFF" />
+          disabled={!formData.barangay || !formData.streetAddress || isLoadingLocation || isGeocoding}>
+          {isLoadingLocation || isGeocoding ? (
+            <>
+              <ActivityIndicator size="small" color="#FFFFFF" />
+              <Text style={[styles.continueButtonText, {marginLeft: 8}]}>
+                {isLoadingLocation ? 'Getting location...' : 'Processing...'}
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.continueButtonText}>Continue</Text>
+              <Icon name="arrow-forward" size={20} color="#FFFFFF" />
+            </>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

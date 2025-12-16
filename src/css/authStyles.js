@@ -96,6 +96,9 @@ export const authStyles = StyleSheet.create({
   inputRightIcon: {
     padding: 8,
   },
+  passwordToggle: {
+    padding: 8,
+  },
   errorText: {
     fontSize: 12,
     color: '#EF4444',
@@ -161,6 +164,13 @@ export const authStyles = StyleSheet.create({
   },
   
   // Buttons
+  button: {
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
   buttonPrimary: {
     backgroundColor: '#00B14F',
     paddingVertical: 16,
@@ -173,6 +183,17 @@ export const authStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  // Alias for buttonPrimaryText (used by some screens)
+  buttonTextPrimary: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  // Generic button text style
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   buttonDisabled: {
     backgroundColor: '#E5E7EB',
@@ -303,6 +324,12 @@ export const authStyles = StyleSheet.create({
   progressFill: {
     height: '100%',
     backgroundColor: '#00B14F',
+    borderRadius: 2,
+  },
+  stepIndicator: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 16,
   },
   progressText: {
     fontSize: 12,
