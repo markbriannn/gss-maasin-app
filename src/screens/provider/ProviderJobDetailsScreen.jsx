@@ -20,6 +20,7 @@ import {jobDetailsStyles as styles} from '../../css/jobDetailsStyles';
 import {db} from '../../config/firebase';
 import {doc, getDoc, updateDoc, serverTimestamp, onSnapshot} from 'firebase/firestore';
 import {useAuth} from '../../context/AuthContext';
+import {useTheme} from '../../context/ThemeContext';
 import Video from 'react-native-video';
 import notificationService from '../../services/notificationService';
 import smsEmailService from '../../services/smsEmailService';
@@ -34,6 +35,7 @@ const {width: SCREEN_WIDTH, height: SCREEN_HEIGHT} = Dimensions.get('window');
 const ProviderJobDetailsScreen = ({navigation, route}) => {
   const {job, jobId} = route.params || {};
   const {user} = useAuth();
+  const {isDark, theme} = useTheme();
   const [jobData, setJobData] = useState(job || null);
   const [isLoading, setIsLoading] = useState(!job);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -900,7 +902,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={globalStyles.container}>
+      <SafeAreaView style={[globalStyles.container, {backgroundColor: isDark ? '#111827' : '#FFFFFF'}]}>
         <View style={globalStyles.centerContainer}>
           <ActivityIndicator size="large" color="#00B14F" />
         </View>
@@ -910,33 +912,33 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
 
   if (!jobData) {
     return (
-      <SafeAreaView style={globalStyles.container}>
-        <View style={styles.header}>
+      <SafeAreaView style={[globalStyles.container, {backgroundColor: isDark ? '#111827' : '#FFFFFF'}]}>
+        <View style={[styles.header, {backgroundColor: isDark ? '#1F2937' : '#FFFFFF'}]}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Icon name="arrow-back" size={24} color="#1F2937" />
+            <Icon name="arrow-back" size={24} color={isDark ? '#F9FAFB' : '#1F2937'} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Job Details</Text>
+          <Text style={[styles.headerTitle, {color: isDark ? '#F9FAFB' : '#1F2937'}]}>Job Details</Text>
           <View style={{width: 24}} />
         </View>
         <View style={globalStyles.centerContainer}>
-          <Text style={globalStyles.bodyMedium}>Job not found</Text>
+          <Text style={[globalStyles.bodyMedium, {color: isDark ? '#9CA3AF' : '#6B7280'}]}>Job not found</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={globalStyles.container} edges={['top']}>
+    <SafeAreaView style={[globalStyles.container, {backgroundColor: isDark ? '#111827' : '#FFFFFF'}]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, {backgroundColor: isDark ? '#1F2937' : '#FFFFFF'}]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color="#1F2937" />
+          <Icon name="arrow-back" size={24} color={isDark ? '#F9FAFB' : '#1F2937'} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Job Details</Text>
+        <Text style={[styles.headerTitle, {color: isDark ? '#F9FAFB' : '#1F2937'}]}>Job Details</Text>
         <View style={{width: 24}} />
       </View>
 
-      <ScrollView style={{flex: 1}} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{flex: 1, backgroundColor: isDark ? '#111827' : '#F9FAFB'}} showsVerticalScrollIndicator={false}>
         {/* Status Banner */}
         <View style={[styles.statusBanner, {backgroundColor: getStatusColor(jobData.status) + '15'}]}>
           <View style={[styles.statusDot, {backgroundColor: getStatusColor(jobData.status)}]} />
@@ -946,22 +948,22 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
         </View>
 
         {/* Job Info - Enhanced to show all client submitted details */}
-        <View style={styles.section}>
+        <View style={[styles.section, {backgroundColor: isDark ? '#1F2937' : '#FFFFFF'}]}>
           <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
             <Icon name="document-text" size={20} color="#00B14F" />
-            <Text style={[styles.sectionTitle, {marginLeft: 8, marginBottom: 0}]}>Job Request Details</Text>
+            <Text style={[styles.sectionTitle, {marginLeft: 8, marginBottom: 0, color: isDark ? '#F9FAFB' : '#1F2937'}]}>Job Request Details</Text>
           </View>
           
-          <Text style={styles.jobTitle}>{jobData.title || jobData.serviceCategory}</Text>
-          <View style={styles.categoryTag}>
+          <Text style={[styles.jobTitle, {color: isDark ? '#F9FAFB' : '#1F2937'}]}>{jobData.title || jobData.serviceCategory}</Text>
+          <View style={[styles.categoryTag, {backgroundColor: isDark ? '#064E3B' : '#ECFDF5'}]}>
             <Icon name="construct" size={14} color="#00B14F" />
-            <Text style={styles.categoryText}>{jobData.serviceCategory}</Text>
+            <Text style={[styles.categoryText, {color: isDark ? '#6EE7B7' : '#059669'}]}>{jobData.serviceCategory}</Text>
           </View>
           
           {/* Additional Notes from Client */}
           {jobData.description && jobData.description !== 'See attached photos/videos' && (
             <View style={{
-              backgroundColor: '#F9FAFB',
+              backgroundColor: isDark ? '#374151' : '#F9FAFB',
               borderRadius: 12,
               padding: 14,
               marginTop: 12,
@@ -969,17 +971,17 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               borderLeftColor: '#00B14F',
             }}>
               <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
-                <Icon name="chatbox-ellipses" size={16} color="#6B7280" />
-                <Text style={{fontSize: 13, fontWeight: '600', color: '#4B5563', marginLeft: 6}}>Additional Notes</Text>
+                <Icon name="chatbox-ellipses" size={16} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                <Text style={{fontSize: 13, fontWeight: '600', color: isDark ? '#D1D5DB' : '#4B5563', marginLeft: 6}}>Additional Notes</Text>
               </View>
-              <Text style={{fontSize: 14, color: '#374151', lineHeight: 22}}>{jobData.description}</Text>
+              <Text style={{fontSize: 14, color: isDark ? '#E5E7EB' : '#374151', lineHeight: 22}}>{jobData.description}</Text>
             </View>
           )}
 
           {/* Legacy notes field if different from description */}
           {jobData.notes && jobData.notes !== jobData.description && jobData.notes !== 'See attached photos/videos' && (
             <View style={{
-              backgroundColor: '#FEF3C7',
+              backgroundColor: isDark ? '#78350F' : '#FEF3C7',
               borderRadius: 12,
               padding: 14,
               marginTop: 12,
@@ -988,28 +990,28 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
             }}>
               <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
                 <Icon name="alert-circle" size={16} color="#F59E0B" />
-                <Text style={{fontSize: 13, fontWeight: '600', color: '#92400E', marginLeft: 6}}>Additional Notes</Text>
+                <Text style={{fontSize: 13, fontWeight: '600', color: isDark ? '#FDE68A' : '#92400E', marginLeft: 6}}>Additional Notes</Text>
               </View>
-              <Text style={{fontSize: 14, color: '#78350F', lineHeight: 22}}>{jobData.notes}</Text>
+              <Text style={{fontSize: 14, color: isDark ? '#FEF3C7' : '#78350F', lineHeight: 22}}>{jobData.notes}</Text>
             </View>
           )}
         </View>
 
         {/* Client Info */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Client</Text>
-          <View style={styles.personCard}>
-            <View style={styles.personAvatar}>
+        <View style={[styles.section, {backgroundColor: isDark ? '#1F2937' : '#FFFFFF'}]}>
+          <Text style={[styles.sectionTitle, {color: isDark ? '#F9FAFB' : '#1F2937'}]}>Client</Text>
+          <View style={[styles.personCard, {backgroundColor: isDark ? '#374151' : '#F9FAFB'}]}>
+            <View style={[styles.personAvatar, {backgroundColor: isDark ? '#4B5563' : '#E5E7EB'}]}>
               {jobData.client?.photo ? (
                 <Image source={{uri: jobData.client.photo}} style={styles.avatarImage} />
               ) : (
-                <Icon name="person" size={30} color="#6B7280" />
+                <Icon name="person" size={30} color={isDark ? '#9CA3AF' : '#6B7280'} />
               )}
             </View>
             <View style={styles.personInfo}>
-              <Text style={styles.personName}>{jobData.client?.name || jobData.clientName || 'Client'}</Text>
+              <Text style={[styles.personName, {color: isDark ? '#F9FAFB' : '#1F2937'}]}>{jobData.client?.name || jobData.clientName || 'Client'}</Text>
               {jobData.client?.barangay && (
-                <Text style={styles.personSubtext} numberOfLines={1}>
+                <Text style={[styles.personSubtext, {color: isDark ? '#9CA3AF' : '#6B7280'}]} numberOfLines={1}>
                   Brgy. {jobData.client.barangay}, Maasin City
                 </Text>
               )}
@@ -1018,7 +1020,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                 <View style={{marginTop: 4, flexDirection: 'row', alignItems: 'center'}}>
                   <TierBadge tier={jobData.client.tier} size="small" />
                   {jobData.client.points > 0 && (
-                    <Text style={{fontSize: 11, color: '#6B7280', marginLeft: 6}}>
+                    <Text style={{fontSize: 11, color: isDark ? '#9CA3AF' : '#6B7280', marginLeft: 6}}>
                       {jobData.client.points.toLocaleString()} pts
                     </Text>
                   )}
@@ -1028,10 +1030,10 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           </View>
           
           {/* Client Badges or New Client indicator */}
-          <View style={{marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E5E7EB'}}>
+          <View style={{marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: isDark ? '#374151' : '#E5E7EB'}}>
             {jobData.client?.badges?.length > 0 ? (
               <>
-                <Text style={{fontSize: 12, color: '#6B7280', marginBottom: 6}}>Client Badges</Text>
+                <Text style={{fontSize: 12, color: isDark ? '#9CA3AF' : '#6B7280', marginBottom: 6}}>Client Badges</Text>
                 <BadgeList badges={jobData.client.badges} maxDisplay={4} size="small" />
               </>
             ) : (
@@ -1043,48 +1045,48 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           </View>
           
           {/* Address Details - Always show service location */}
-          <View style={{backgroundColor: '#F9FAFB', borderRadius: 10, padding: 12, marginTop: 8}}>
+          <View style={{backgroundColor: isDark ? '#374151' : '#F9FAFB', borderRadius: 10, padding: 12, marginTop: 8}}>
             <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
               <Icon name="location" size={18} color="#00B14F" />
-              <Text style={{fontWeight: '600', color: '#1F2937', marginLeft: 6}}>Service Location</Text>
+              <Text style={{fontWeight: '600', color: isDark ? '#F9FAFB' : '#1F2937', marginLeft: 6}}>Service Location</Text>
             </View>
             
             {/* Barangay */}
             <View style={{flexDirection: 'row', marginBottom: 6}}>
-              <Text style={{fontSize: 13, color: '#6B7280', width: 100}}>Barangay:</Text>
-              <Text style={{fontSize: 14, color: '#1F2937', fontWeight: '500', flex: 1}}>
+              <Text style={{fontSize: 13, color: isDark ? '#9CA3AF' : '#6B7280', width: 100}}>Barangay:</Text>
+              <Text style={{fontSize: 14, color: isDark ? '#E5E7EB' : '#1F2937', fontWeight: '500', flex: 1}}>
                 {jobData.client?.barangay || jobData.barangay || 'Not specified'}
               </Text>
             </View>
             
             {/* Street Address */}
             <View style={{flexDirection: 'row', marginBottom: 6}}>
-              <Text style={{fontSize: 13, color: '#6B7280', width: 100}}>Street:</Text>
-              <Text style={{fontSize: 14, color: '#1F2937', fontWeight: '500', flex: 1}}>
+              <Text style={{fontSize: 13, color: isDark ? '#9CA3AF' : '#6B7280', width: 100}}>Street:</Text>
+              <Text style={{fontSize: 14, color: isDark ? '#E5E7EB' : '#1F2937', fontWeight: '500', flex: 1}}>
                 {jobData.client?.streetAddress || jobData.streetAddress || 'Not specified'}
               </Text>
             </View>
             
             {/* House/Building Number */}
             <View style={{flexDirection: 'row', marginBottom: 6}}>
-              <Text style={{fontSize: 13, color: '#6B7280', width: 100}}>House/Bldg:</Text>
-              <Text style={{fontSize: 14, color: '#1F2937', fontWeight: '500', flex: 1}}>
+              <Text style={{fontSize: 13, color: isDark ? '#9CA3AF' : '#6B7280', width: 100}}>House/Bldg:</Text>
+              <Text style={{fontSize: 14, color: isDark ? '#E5E7EB' : '#1F2937', fontWeight: '500', flex: 1}}>
                 {jobData.client?.houseNumber || jobData.houseNumber || 'Not specified'}
               </Text>
             </View>
             
             {/* Landmark */}
             <View style={{flexDirection: 'row', marginBottom: 6}}>
-              <Text style={{fontSize: 13, color: '#6B7280', width: 100}}>Landmark:</Text>
-              <Text style={{fontSize: 14, color: '#1F2937', fontWeight: '500', flex: 1}}>
+              <Text style={{fontSize: 13, color: isDark ? '#9CA3AF' : '#6B7280', width: 100}}>Landmark:</Text>
+              <Text style={{fontSize: 14, color: isDark ? '#E5E7EB' : '#1F2937', fontWeight: '500', flex: 1}}>
                 {jobData.client?.landmark || jobData.landmark || 'None'}
               </Text>
             </View>
             
             {/* City */}
-            <View style={{flexDirection: 'row', paddingTop: 6, borderTopWidth: 1, borderTopColor: '#E5E7EB'}}>
-              <Text style={{fontSize: 13, color: '#6B7280', width: 100}}>City:</Text>
-              <Text style={{fontSize: 14, color: '#1F2937', fontWeight: '500', flex: 1}}>
+            <View style={{flexDirection: 'row', paddingTop: 6, borderTopWidth: 1, borderTopColor: isDark ? '#4B5563' : '#E5E7EB'}}>
+              <Text style={{fontSize: 13, color: isDark ? '#9CA3AF' : '#6B7280', width: 100}}>City:</Text>
+              <Text style={{fontSize: 14, color: isDark ? '#E5E7EB' : '#1F2937', fontWeight: '500', flex: 1}}>
                 Maasin City, Southern Leyte
               </Text>
             </View>
@@ -1093,22 +1095,22 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           {/* Contact & Direction Buttons - Only show after admin approval */}
           {jobData.adminApproved ? (
             <View style={styles.contactButtons}>
-              <TouchableOpacity style={styles.contactButton} onPress={handleCallClient}>
+              <TouchableOpacity style={[styles.contactButton, {backgroundColor: isDark ? '#374151' : '#F0FDF4'}]} onPress={handleCallClient}>
                 <Icon name="call" size={18} color="#00B14F" />
-                <Text style={styles.contactButtonText}>Call</Text>
+                <Text style={[styles.contactButtonText, {color: isDark ? '#6EE7B7' : '#059669'}]}>Call</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.contactButton} onPress={handleMessageClient}>
+              <TouchableOpacity style={[styles.contactButton, {backgroundColor: isDark ? '#374151' : '#F0FDF4'}]} onPress={handleMessageClient}>
                 <Icon name="chatbubble" size={18} color="#00B14F" />
-                <Text style={styles.contactButtonText}>Message</Text>
+                <Text style={[styles.contactButtonText, {color: isDark ? '#6EE7B7' : '#059669'}]}>Message</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.contactButton} onPress={handleGetDirections}>
+              <TouchableOpacity style={[styles.contactButton, {backgroundColor: isDark ? '#374151' : '#F0FDF4'}]} onPress={handleGetDirections}>
                 <Icon name="navigate" size={18} color="#00B14F" />
-                <Text style={styles.contactButtonText}>Directions</Text>
+                <Text style={[styles.contactButtonText, {color: isDark ? '#6EE7B7' : '#059669'}]}>Directions</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <View style={{
-              backgroundColor: '#FEF3C7',
+              backgroundColor: isDark ? '#78350F' : '#FEF3C7',
               padding: 12,
               borderRadius: 8,
               flexDirection: 'row',
@@ -1116,7 +1118,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               marginTop: 12,
             }}>
               <Icon name="time-outline" size={18} color="#F59E0B" />
-              <Text style={{fontSize: 13, color: '#92400E', marginLeft: 8, flex: 1}}>
+              <Text style={{fontSize: 13, color: isDark ? '#FDE68A' : '#92400E', marginLeft: 8, flex: 1}}>
                 Contact options will be available once admin approves this request
               </Text>
             </View>
@@ -1124,17 +1126,17 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
         </View>
 
         {/* Date & Time */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Schedule</Text>
+        <View style={[styles.section, {backgroundColor: isDark ? '#1F2937' : '#FFFFFF'}]}>
+          <Text style={[styles.sectionTitle, {color: isDark ? '#F9FAFB' : '#1F2937'}]}>Schedule</Text>
           <View style={styles.infoRow}>
-            <Icon name="calendar-outline" size={20} color="#6B7280" />
-            <Text style={styles.infoText}>
+            <Icon name="calendar-outline" size={20} color={isDark ? '#9CA3AF' : '#6B7280'} />
+            <Text style={[styles.infoText, {color: isDark ? '#E5E7EB' : '#374151'}]}>
               {jobData.scheduledDate || jobData.date || 'Not specified'}
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <Icon name="time-outline" size={20} color="#6B7280" />
-            <Text style={styles.infoText}>
+            <Icon name="time-outline" size={20} color={isDark ? '#9CA3AF' : '#6B7280'} />
+            <Text style={[styles.infoText, {color: isDark ? '#E5E7EB' : '#374151'}]}>
               {jobData.scheduledTime || jobData.time || 'Not specified'}
             </Text>
           </View>
@@ -1142,21 +1144,21 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
 
         {/* Media Files - Problem photos/videos from client */}
         {jobData.mediaFiles && jobData.mediaFiles.length > 0 && (
-          <View style={styles.section}>
+          <View style={[styles.section, {backgroundColor: isDark ? '#1F2937' : '#FFFFFF'}]}>
             <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12}}>
               <View style={{flexDirection: 'row', alignItems: 'center'}}>
                 <Icon name="images" size={20} color="#3B82F6" />
-                <Text style={[styles.sectionTitle, {marginLeft: 8, marginBottom: 0}]}>Problem Photos/Videos</Text>
+                <Text style={[styles.sectionTitle, {marginLeft: 8, marginBottom: 0, color: isDark ? '#F9FAFB' : '#1F2937'}]}>Problem Photos/Videos</Text>
               </View>
-              <View style={{backgroundColor: '#EFF6FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12}}>
+              <View style={{backgroundColor: isDark ? '#1E3A5F' : '#EFF6FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12}}>
                 <Text style={{fontSize: 12, fontWeight: '600', color: '#3B82F6'}}>{jobData.mediaFiles.length} file(s)</Text>
               </View>
             </View>
             
             {/* Helpful hint */}
-            <View style={{backgroundColor: '#F0FDF4', padding: 10, borderRadius: 8, marginBottom: 12, flexDirection: 'row', alignItems: 'center'}}>
+            <View style={{backgroundColor: isDark ? '#064E3B' : '#F0FDF4', padding: 10, borderRadius: 8, marginBottom: 12, flexDirection: 'row', alignItems: 'center'}}>
               <Icon name="information-circle" size={16} color="#10B981" />
-              <Text style={{fontSize: 12, color: '#047857', marginLeft: 6, flex: 1}}>
+              <Text style={{fontSize: 12, color: isDark ? '#6EE7B7' : '#047857', marginLeft: 6, flex: 1}}>
                 Tap any image/video to view full screen. Review these to understand the issue.
               </Text>
             </View>
@@ -1223,27 +1225,33 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
         )}
 
         {/* Payment Preference */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Payment Method</Text>
+        <View style={[styles.section, {backgroundColor: isDark ? '#1F2937' : '#FFFFFF'}]}>
+          <Text style={[styles.sectionTitle, {color: isDark ? '#F9FAFB' : '#1F2937'}]}>Payment Method</Text>
           <View style={{
-            backgroundColor: jobData.paymentPreference === 'pay_first' ? '#D1FAE5' : '#DBEAFE',
+            backgroundColor: jobData.paymentPreference === 'pay_first' 
+              ? (isDark ? '#064E3B' : '#D1FAE5') 
+              : (isDark ? '#1E3A5F' : '#DBEAFE'),
             borderRadius: 12,
             padding: 16,
             borderWidth: 1,
-            borderColor: jobData.paymentPreference === 'pay_first' ? '#A7F3D0' : '#BFDBFE',
+            borderColor: jobData.paymentPreference === 'pay_first' 
+              ? (isDark ? '#10B981' : '#A7F3D0') 
+              : (isDark ? '#3B82F6' : '#BFDBFE'),
           }}>
             <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
               <View style={{flexDirection: 'row', alignItems: 'center'}}>
                 <Icon 
                   name={jobData.paymentPreference === 'pay_first' ? 'card' : 'time'} 
                   size={24} 
-                  color={jobData.paymentPreference === 'pay_first' ? '#059669' : '#2563EB'} 
+                  color={jobData.paymentPreference === 'pay_first' ? '#10B981' : '#3B82F6'} 
                 />
                 <View style={{marginLeft: 12}}>
-                  <Text style={{fontSize: 16, fontWeight: '700', color: jobData.paymentPreference === 'pay_first' ? '#059669' : '#2563EB'}}>
+                  <Text style={{fontSize: 16, fontWeight: '700', color: jobData.paymentPreference === 'pay_first' ? '#10B981' : '#3B82F6'}}>
                     {jobData.paymentPreference === 'pay_first' ? 'Pay First' : 'Pay Later'}
                   </Text>
-                  <Text style={{fontSize: 12, color: jobData.paymentPreference === 'pay_first' ? '#047857' : '#1D4ED8'}}>
+                  <Text style={{fontSize: 12, color: jobData.paymentPreference === 'pay_first' 
+                    ? (isDark ? '#6EE7B7' : '#047857') 
+                    : (isDark ? '#93C5FD' : '#1D4ED8')}}>
                     {jobData.paymentPreference === 'pay_first' 
                       ? 'Client pays before you start' 
                       : 'Client pays after job completion'}
@@ -1257,7 +1265,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               )}
             </View>
             {jobData.paymentPreference === 'pay_first' && (
-              <Text style={{fontSize: 11, color: '#047857', marginTop: 10, fontStyle: 'italic'}}>
+              <Text style={{fontSize: 11, color: isDark ? '#6EE7B7' : '#047857', marginTop: 10, fontStyle: 'italic'}}>
                 You can still request additional charges if extra work or materials are needed.
               </Text>
             )}
@@ -1265,20 +1273,20 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
         </View>
 
         {/* Earnings - Your Payment */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your Earnings</Text>
+        <View style={[styles.section, {backgroundColor: isDark ? '#1F2937' : '#FFFFFF'}]}>
+          <Text style={[styles.sectionTitle, {color: isDark ? '#F9FAFB' : '#1F2937'}]}>Your Earnings</Text>
           <View style={{
-            backgroundColor: '#F0FDF4',
+            backgroundColor: isDark ? '#064E3B' : '#F0FDF4',
             borderRadius: 12,
             padding: 16,
             borderWidth: 1,
-            borderColor: '#BBF7D0',
+            borderColor: isDark ? '#10B981' : '#BBF7D0',
           }}>
             <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
-              <Text style={{fontSize: 14, color: '#4B5563'}}>
+              <Text style={{fontSize: 14, color: isDark ? '#D1D5DB' : '#4B5563'}}>
                 Your Service Price ({jobData.priceType === 'per_hire' ? 'per hire' : 'per job'})
               </Text>
-              <Text style={{fontSize: 14, fontWeight: '600', color: '#1F2937'}}>
+              <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? '#F9FAFB' : '#1F2937'}}>
                 ₱{(jobData.providerPrice || jobData.price || 0).toLocaleString()}
               </Text>
             </View>
@@ -2009,51 +2017,51 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
         onRequestClose={() => setShowDiscountModal(false)}>
         <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end'}}>
           <View style={{
-            backgroundColor: '#FFFFFF',
+            backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
             padding: 20,
           }}>
             <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20}}>
-              <Text style={{fontSize: 18, fontWeight: '700', color: '#1F2937'}}>Give Discount</Text>
+              <Text style={{fontSize: 18, fontWeight: '700', color: isDark ? '#F9FAFB' : '#1F2937'}}>Give Discount</Text>
               <TouchableOpacity onPress={() => setShowDiscountModal(false)}>
-                <Icon name="close" size={24} color="#6B7280" />
+                <Icon name="close" size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
               </TouchableOpacity>
             </View>
 
             <View style={{
-              backgroundColor: '#D1FAE5',
+              backgroundColor: isDark ? '#064E3B' : '#D1FAE5',
               borderRadius: 12,
               padding: 12,
               marginBottom: 16,
               flexDirection: 'row',
               alignItems: 'center',
             }}>
-              <Icon name="heart" size={20} color="#059669" />
-              <Text style={{fontSize: 13, color: '#065F46', marginLeft: 8, flex: 1}}>
+              <Icon name="heart" size={20} color="#10B981" />
+              <Text style={{fontSize: 13, color: isDark ? '#6EE7B7' : '#065F46', marginLeft: 8, flex: 1}}>
                 Job was easier than expected? Give the client a discount as a goodwill gesture!
               </Text>
             </View>
 
             <View style={{
-              backgroundColor: '#F3F4F6',
+              backgroundColor: isDark ? '#374151' : '#F3F4F6',
               borderRadius: 12,
               padding: 12,
               marginBottom: 16,
             }}>
-              <Text style={{fontSize: 13, color: '#6B7280'}}>Current Price</Text>
-              <Text style={{fontSize: 20, fontWeight: '700', color: '#1F2937'}}>
+              <Text style={{fontSize: 13, color: isDark ? '#9CA3AF' : '#6B7280'}}>Current Price</Text>
+              <Text style={{fontSize: 20, fontWeight: '700', color: isDark ? '#F9FAFB' : '#1F2937'}}>
                 ₱{(jobData?.providerPrice || jobData?.totalAmount || 0).toLocaleString()}
               </Text>
             </View>
 
-            <Text style={{fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8}}>
+            <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? '#D1D5DB' : '#374151', marginBottom: 8}}>
               Discount Amount (₱) *
             </Text>
             <View style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: '#F9FAFB',
+              backgroundColor: isDark ? '#374151' : '#F9FAFB',
               borderRadius: 12,
               borderWidth: 1,
               borderColor: '#10B981',
@@ -2062,40 +2070,42 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
             }}>
               <Text style={{fontSize: 18, color: '#10B981', fontWeight: '700'}}>-₱</Text>
               <TextInput
-                style={{flex: 1, fontSize: 18, color: '#1F2937', paddingVertical: 14, paddingHorizontal: 8}}
+                style={{flex: 1, fontSize: 18, color: isDark ? '#F9FAFB' : '#1F2937', paddingVertical: 14, paddingHorizontal: 8}}
                 placeholder="Enter discount"
+                placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
                 keyboardType="numeric"
                 value={discountAmount}
                 onChangeText={setDiscountAmount}
               />
             </View>
 
-            <Text style={{fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8}}>
+            <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? '#D1D5DB' : '#374151', marginBottom: 8}}>
               Reason (Optional)
             </Text>
             <TextInput
               style={{
-                backgroundColor: '#F9FAFB',
+                backgroundColor: isDark ? '#374151' : '#F9FAFB',
                 borderRadius: 12,
                 borderWidth: 1,
-                borderColor: '#E5E7EB',
+                borderColor: isDark ? '#4B5563' : '#E5E7EB',
                 padding: 12,
                 fontSize: 14,
-                color: '#1F2937',
+                color: isDark ? '#F9FAFB' : '#1F2937',
                 marginBottom: 20,
               }}
               placeholder="e.g., Quick fix, simple job..."
+              placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
               value={discountReason}
               onChangeText={setDiscountReason}
             />
 
             {discountAmount && (
-              <View style={{backgroundColor: '#D1FAE5', borderRadius: 12, padding: 12, marginBottom: 16}}>
-                <Text style={{fontSize: 13, color: '#065F46'}}>New price after discount:</Text>
-                <Text style={{fontSize: 20, fontWeight: '700', color: '#059669'}}>
+              <View style={{backgroundColor: isDark ? '#064E3B' : '#D1FAE5', borderRadius: 12, padding: 12, marginBottom: 16}}>
+                <Text style={{fontSize: 13, color: isDark ? '#6EE7B7' : '#065F46'}}>New price after discount:</Text>
+                <Text style={{fontSize: 20, fontWeight: '700', color: '#10B981'}}>
                   ₱{(((jobData?.providerPrice || jobData?.totalAmount || 0) - parseFloat(discountAmount || 0)) * 1.05).toLocaleString()}
                 </Text>
-                <Text style={{fontSize: 12, color: '#065F46', marginTop: 4}}>
+                <Text style={{fontSize: 12, color: isDark ? '#6EE7B7' : '#065F46', marginTop: 4}}>
                   You'll receive: ₱{((jobData?.providerPrice || jobData?.totalAmount || 0) - parseFloat(discountAmount || 0)).toLocaleString()}
                 </Text>
               </View>
