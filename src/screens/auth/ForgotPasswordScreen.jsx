@@ -15,6 +15,30 @@ const ForgotPasswordScreen = ({navigation}) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // Helper function to fetch with retry
+  const fetchWithRetry = async (url, options, maxRetries = 2) => {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
+
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+        return response;
+      } catch (error) {
+        if (attempt === maxRetries) {
+          throw error;
+        }
+        // Wait 2 seconds before retry
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+  };
+
   const handleSubmit = async () => {
     if (!email) {
       Alert.alert('Error', 'Please enter your email address');
@@ -37,24 +61,45 @@ const ForgotPasswordScreen = ({navigation}) => {
 
     setIsLoading(true);
     try {
-      // Generate code via backend (validates user exists)
-      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/generate-reset-code`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({email: email.toLowerCase()}),
-      });
+      // First, wake up the server with a health check
+      try {
+        await fetch(`${API_CONFIG.BASE_URL.replace('/api', '')}/api/health`, {
+          method: 'GET',
+        });
+      } catch {
+        // Ignore health check errors, continue with main request
+      }
+
+      // Generate code via backend (validates user exists) - with retry
+      const response = await fetchWithRetry(
+        `${API_CONFIG.BASE_URL}/auth/generate-reset-code`,
+        {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({email: email.toLowerCase()}),
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Server error. Please try again.');
+      }
 
       const data = await response.json();
 
       if (data.code) {
         // Send reset code via EmailJS
-        await sendPasswordResetCode(email, data.code);
+        const emailResult = await sendPasswordResetCode(email, data.code);
 
-        setShowCodeInput(true);
-        Alert.alert(
-          'Code Sent',
-          'A 6-digit reset code has been sent to your email. Please check your inbox (and spam folder).',
-        );
+        if (emailResult.success) {
+          setShowCodeInput(true);
+          Alert.alert(
+            'Code Sent',
+            'A 6-digit reset code has been sent to your email. Please check your inbox (and spam folder).',
+          );
+        } else {
+          throw new Error('Failed to send email. Please try again.');
+        }
       } else {
         // Still show success for security (don't reveal if email exists)
         Alert.alert(
@@ -63,7 +108,14 @@ const ForgotPasswordScreen = ({navigation}) => {
         );
       }
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to send reset code. Please try again.');
+      if (error.name === 'AbortError') {
+        Alert.alert(
+          'Connection Timeout',
+          'Server is taking too long to respond. Please check your internet connection and try again.',
+        );
+      } else {
+        Alert.alert('Error', error.message || 'Failed to send reset code. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
