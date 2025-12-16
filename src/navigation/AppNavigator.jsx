@@ -589,6 +589,7 @@ export default function AppNavigator() {
           <Stack.Screen name="AdminSettings" component={AdminSettingsScreen} />
           <Stack.Screen name="AdminChat" component={ChatScreen} options={{gestureEnabled: false}} />
           <Stack.Screen name="Chat" component={ChatScreen} options={{gestureEnabled: false}} />
+          <Stack.Screen name="ProviderProfile" component={ProviderProfileScreen} />
           <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />

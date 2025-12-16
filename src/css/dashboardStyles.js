@@ -12,9 +12,9 @@ export const dashboardStyles = StyleSheet.create({
   // Header Section
   header: {
     backgroundColor: '#00B14F',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 24,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 60,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },

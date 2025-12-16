@@ -10,6 +10,16 @@ const READ_NOTIFICATIONS_KEY = '@read_notifications';
 
 // Track shown notification popups to prevent duplicates
 const shownPopupIds = new Set();
+// Track last notification timestamp to prevent rapid duplicates
+let lastNotificationTime = 0;
+const MIN_NOTIFICATION_INTERVAL = 2000; // 2 seconds minimum between same notifications
+
+// Global navigation ref for notification handling
+let globalNavigationRef = null;
+
+export const setNotificationNavigationRef = (ref) => {
+  globalNavigationRef = ref;
+};
 
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
@@ -159,14 +169,22 @@ export const NotificationProvider = ({children}) => {
 
     try {
       if (normalizedRole === 'CLIENT') {
-        // Client: count bookings with updates (all active statuses that need attention)
+        // Client: count bookings with updates + unread notifications
+        let bookingsCount = 0;
+        let unreadNotificationsCount = 0;
+        
+        const updateClientCount = () => {
+          setUnreadCount(bookingsCount + unreadNotificationsCount);
+        };
+        
+        // Query 1: Bookings with updates
         const bookingsQuery = query(
           collection(db, 'bookings'),
           where('clientId', '==', user.uid),
           where('status', 'in', ['accepted', 'in_progress', 'traveling', 'arrived', 'pending_completion', 'pending_payment', 'counter_offer', 'payment_received', 'completed'])
         );
         
-        const unsub = onSnapshot(
+        const unsubBookings = onSnapshot(
           bookingsQuery, 
           (snapshot) => {
             console.log('[Notifications] Client bookings snapshot received:', snapshot.docs.length, 'docs');
@@ -185,24 +203,52 @@ export const NotificationProvider = ({children}) => {
                 console.log(`[Notifications] Unread: ${notifId}`);
               }
             });
-            console.log('[Notifications] Client unread count:', count);
-            setUnreadCount(count);
+            console.log('[Notifications] Client bookings unread count:', count);
+            bookingsCount = count;
+            updateClientCount();
           },
           handleError
         );
-        unsubscribersRef.current.push(unsub);
+        unsubscribersRef.current.push(unsubBookings);
+        
+        // Query 2: Unread notifications for this client
+        const notificationsQuery = query(
+          collection(db, 'notifications'),
+          where('targetUserId', '==', user.uid),
+          where('read', '==', false)
+        );
+        
+        const unsubNotifications = onSnapshot(
+          notificationsQuery,
+          (snapshot) => {
+            unreadNotificationsCount = snapshot.docs.length;
+            console.log('[Notifications] Client unread notifications:', unreadNotificationsCount);
+            updateClientCount();
+          },
+          handleError
+        );
+        unsubscribersRef.current.push(unsubNotifications);
       } else if (normalizedRole === 'PROVIDER') {
-        // Provider: count available jobs (admin approved, pending)
-        const jobsQuery = query(
+        // Provider: count available jobs + own job status updates
+        let availableJobsCount = 0;
+        let myJobsCount = 0;
+        
+        const updateProviderCount = () => {
+          const total = availableJobsCount + myJobsCount;
+          console.log('[Notifications] Provider total unread:', total, '(available:', availableJobsCount, ', myJobs:', myJobsCount, ')');
+          setUnreadCount(total);
+        };
+        
+        // Query 1: Available jobs (admin approved, pending, not assigned)
+        const availableJobsQuery = query(
           collection(db, 'bookings'),
           where('status', 'in', ['pending', 'pending_negotiation']),
           where('adminApproved', '==', true)
         );
         
-        const unsub = onSnapshot(
-          jobsQuery, 
+        const unsubAvailable = onSnapshot(
+          availableJobsQuery, 
           (snapshot) => {
-            // Store docs in ref for recalculation
             notificationDocsRef.current.jobs = snapshot.docs;
             const currentReadIds = readIdsRef.current;
             const availableJobs = snapshot.docs.filter(doc => {
@@ -210,11 +256,46 @@ export const NotificationProvider = ({children}) => {
               const notifId = `available_${doc.id}`;
               return !data.providerId && !currentReadIds.has(notifId);
             });
-            setUnreadCount(availableJobs.length);
+            availableJobsCount = availableJobs.length;
+            updateProviderCount();
           },
           handleError
         );
-        unsubscribersRef.current.push(unsub);
+        unsubscribersRef.current.push(unsubAvailable);
+        
+        // Query 2: Provider's own jobs with status updates
+        const myJobsQuery = query(
+          collection(db, 'bookings'),
+          where('providerId', '==', user.uid)
+        );
+        
+        const unsubMyJobs = onSnapshot(
+          myJobsQuery,
+          (snapshot) => {
+            const currentReadIds = readIdsRef.current;
+            let count = 0;
+            
+            // Count unread job status notifications
+            snapshot.docs.forEach(doc => {
+              const data = doc.data();
+              const status = data.status;
+              // Only count statuses that generate notifications
+              const notifiableStatuses = ['accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion', 'pending_payment', 'payment_received', 'completed'];
+              if (notifiableStatuses.includes(status)) {
+                const notifId = `myjob_${status}_${doc.id}`;
+                if (!currentReadIds.has(notifId)) {
+                  count++;
+                }
+              }
+            });
+            
+            myJobsCount = count;
+            console.log('[Notifications] Provider myJobs unread:', myJobsCount);
+            updateProviderCount();
+          },
+          handleError
+        );
+        unsubscribersRef.current.push(unsubMyJobs);
       } else if (normalizedRole === 'ADMIN') {
         // Admin: count pending providers + pending jobs (excluding read ones)
         const updateAdminCount = () => {
@@ -288,6 +369,11 @@ export const NotificationProvider = ({children}) => {
     try {
       const hasPermission = await notificationService.requestPermission();
       
+      // Set up navigation callback for VIEW button in notifications
+      notificationService.setNavigationCallback((data) => {
+        handleNotificationNavigation(data);
+      });
+      
       if (hasPermission) {
         // Register device token - this may fail on emulators without Google Play Services
         // but that's okay, the app will still work without push notifications
@@ -318,6 +404,73 @@ export const NotificationProvider = ({children}) => {
     }
   };
 
+  // Handle navigation when VIEW button is tapped on notification
+  const handleNotificationNavigation = (data) => {
+    if (!globalNavigationRef) {
+      console.log('[Notifications] Navigation ref not set');
+      return;
+    }
+
+    const {type, jobId, providerId, conversationId, senderId, senderName} = data || {};
+
+    switch (type) {
+      case 'new_job':
+      case 'job_update':
+      case 'job_approved':
+        if (jobId) {
+          globalNavigationRef.navigate('ProviderJobDetails', {jobId});
+        }
+        break;
+
+      case 'booking_accepted':
+      case 'booking_update':
+      case 'counter_offer':
+      case 'additional_charge':
+      case 'job_started':
+      case 'job_completed':
+        if (jobId) {
+          globalNavigationRef.navigate('JobDetails', {jobId});
+        }
+        break;
+
+      case 'new_message':
+        if (conversationId) {
+          globalNavigationRef.navigate('Chat', {
+            conversationId,
+            recipient: {id: senderId, name: senderName},
+          });
+        }
+        break;
+
+      case 'provider_approved':
+        globalNavigationRef.navigate('ProviderMain');
+        break;
+
+      case 'provider_suspended':
+      case 'account_suspended':
+        // Navigate to AdminProviders screen with the provider ID to open their details
+        if (providerId) {
+          globalNavigationRef.navigate('AdminMain', {
+            screen: 'Providers',
+            params: {openProviderId: providerId},
+          });
+        }
+        break;
+
+      case 'payment_received':
+        globalNavigationRef.navigate('Earnings');
+        break;
+
+      case 'new_review':
+        globalNavigationRef.navigate('ProviderProfile');
+        break;
+
+      default:
+        // Navigate to notifications screen for unknown types
+        globalNavigationRef.navigate('Notifications');
+    }
+  };
+
   const handleNotificationReceived = (remoteMessage) => {
     const notificationData = remoteMessage.data || {};
     const normalizedRole = userRole?.toUpperCase() || 'CLIENT';
@@ -338,13 +491,28 @@ export const NotificationProvider = ({children}) => {
     }
     
     // Generate unique ID for this notification to prevent duplicates
-    const notifUniqueId = `${notificationData.type || 'unknown'}_${notificationData.jobId || ''}_${remoteMessage.messageId || Date.now()}`;
+    const notifUniqueId = `${notificationData.type || 'unknown'}_${notificationData.jobId || notificationData.providerId || ''}_${remoteMessage.messageId || Date.now()}`;
     
     // Skip if we've already shown this notification popup
     if (shownPopupIds.has(notifUniqueId)) {
       console.log('[Notifications] Skipping duplicate notification:', notifUniqueId);
       return;
     }
+    
+    // Also check if this is a notification the admin just triggered (don't show to admin)
+    // Admin shouldn't see the suspension notification they just sent
+    if (notificationData.type === 'account_suspended' && normalizedRole === 'ADMIN') {
+      console.log('[Notifications] Blocking suspension notification for admin who triggered it');
+      return;
+    }
+    
+    // Prevent rapid duplicate notifications (within 2 seconds)
+    const now = Date.now();
+    if (now - lastNotificationTime < MIN_NOTIFICATION_INTERVAL) {
+      console.log('[Notifications] Blocking rapid duplicate notification');
+      return;
+    }
+    lastNotificationTime = now;
     
     // Mark this notification as shown
     shownPopupIds.add(notifUniqueId);

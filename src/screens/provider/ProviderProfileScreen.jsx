@@ -334,7 +334,7 @@ const ProviderProfileScreen = ({navigation, route}) => {
               </View>
             )}
           </View>
-          <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
+          <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap'}}>
             <Text style={[styles.name, isDark && {color: theme.colors.text}]}>{provider.name}</Text>
             {(provider.status === 'approved' || provider.providerStatus === 'approved') && (
               <View style={{
@@ -350,9 +350,45 @@ const ProviderProfileScreen = ({navigation, route}) => {
                 <Text style={{color: '#FFFFFF', fontSize: 11, fontWeight: '600', marginLeft: 4}}>Verified</Text>
               </View>
             )}
+            {provider.isSuspended && (
+              <View style={{
+                backgroundColor: '#EF4444',
+                borderRadius: 12,
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                marginLeft: 8,
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}>
+                <Icon name="ban" size={14} color="#FFFFFF" />
+                <Text style={{color: '#FFFFFF', fontSize: 11, fontWeight: '600', marginLeft: 4}}>Suspended</Text>
+              </View>
+            )}
           </View>
           {provider.service && (
             <Text style={[styles.service, isDark && {color: theme.colors.textSecondary}]}>{provider.service}</Text>
+          )}
+          
+          {/* Suspension Notice */}
+          {provider.isSuspended && (
+            <View style={{
+              backgroundColor: isDark ? '#7F1D1D' : '#FEE2E2',
+              borderRadius: 12,
+              padding: 12,
+              marginTop: 12,
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+            }}>
+              <Icon name="warning" size={20} color={isDark ? '#FCA5A5' : '#DC2626'} />
+              <View style={{flex: 1, marginLeft: 10}}>
+                <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? '#FCA5A5' : '#DC2626', marginBottom: 4}}>
+                  This provider is currently suspended
+                </Text>
+                <Text style={{fontSize: 12, color: isDark ? '#FECACA' : '#991B1B'}}>
+                  This provider is not available for booking at this time.
+                </Text>
+              </View>
+            </View>
           )}
           
           {/* Gamification Tier & Badges */}
@@ -571,7 +607,8 @@ const ProviderProfileScreen = ({navigation, route}) => {
       </ScrollView>
 
         {/* Bottom Action Button - Compact */}
-        {viewingSelf ? (
+        {/* Hide for admin users - they don't need to hire providers */}
+        {user?.role?.toUpperCase() === 'ADMIN' ? null : viewingSelf ? (
           <View style={[styles.bottomAction, {padding: 10, flexDirection: 'row'}, isDark && {backgroundColor: theme.colors.card, borderTopColor: theme.colors.border}]}>
             <TouchableOpacity 
               style={[styles.hireButton, {backgroundColor: '#F59E0B', flex: 0.4, marginRight: 8, paddingVertical: 10, flexDirection: 'row', justifyContent: 'center'}]}
@@ -588,14 +625,22 @@ const ProviderProfileScreen = ({navigation, route}) => {
           </View>
         ) : (
           <View style={[styles.bottomAction, isDark && {backgroundColor: theme.colors.card, borderTopColor: theme.colors.border}]}>
-            <TouchableOpacity 
-              style={styles.hireButton}
-              onPress={() => navigation.navigate('HireProvider', {
-                providerId: provider.id,
-                provider: provider
-              })}>
-              <Text style={styles.hireButtonText}>Contact Us</Text>
-            </TouchableOpacity>
+            {provider.isSuspended ? (
+              <View 
+                style={[styles.hireButton, {backgroundColor: '#9CA3AF', flexDirection: 'row', justifyContent: 'center'}]}>
+                <Icon name="ban" size={18} color="#FFFFFF" style={{marginRight: 6}} />
+                <Text style={styles.hireButtonText}>Provider Suspended</Text>
+              </View>
+            ) : (
+              <TouchableOpacity 
+                style={styles.hireButton}
+                onPress={() => navigation.navigate('HireProvider', {
+                  providerId: provider.id,
+                  provider: provider
+                })}>
+                <Text style={styles.hireButtonText}>Contact Us</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
     </SafeAreaView>

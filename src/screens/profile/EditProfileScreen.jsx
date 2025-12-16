@@ -383,13 +383,13 @@ const EditProfileScreen = ({navigation}) => {
   };
 
   return (
-    <SafeAreaView style={[authStyles.container, isDark && {backgroundColor: theme.colors.background}]}>
+    <SafeAreaView style={[authStyles.container, isDark && {backgroundColor: theme.colors.background}]} edges={['top']}>
       <View style={[styles.header, isDark && {backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border}]}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{width: 70}}>
           <Icon name="arrow-back" size={24} color={isDark ? theme.colors.text : '#1F2937'} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, isDark && {color: theme.colors.text}]}>Edit Profile</Text>
-        <TouchableOpacity onPress={handleSave} disabled={isLoading}>
+        <TouchableOpacity onPress={handleSave} disabled={isLoading} style={{width: 70, alignItems: 'flex-end'}}>
           <Text style={styles.saveButton}>
             {isLoading ? 'Saving...' : 'Save'}
           </Text>

@@ -36,7 +36,14 @@ service firebase.storage {
     }
     
     // Provider documents (ID, certificates, etc.)
+    // Allow authenticated users to write to their own folder
     match /documents/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // Provider registration documents - allow newly registered users
+    match /providers/{userId}/documents/{allPaths=**} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated() && isOwner(userId);
     }

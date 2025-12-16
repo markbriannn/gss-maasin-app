@@ -217,12 +217,17 @@ class NotificationService {
       });
   }
 
-  showLocalNotification(title, body, data = {}) {
+  showLocalNotification(title, body, data = {}, onViewPress = null) {
     Alert.alert(title, body, [
       {
         text: 'View',
         onPress: () => {
           console.log('Notification action:', data);
+          if (onViewPress) {
+            onViewPress(data);
+          } else if (this.navigationCallback) {
+            this.navigationCallback(data);
+          }
         },
       },
       {
@@ -230,6 +235,11 @@ class NotificationService {
         style: 'cancel',
       },
     ]);
+  }
+
+  // Set navigation callback for handling VIEW button taps
+  setNavigationCallback(callback) {
+    this.navigationCallback = callback;
   }
 
   async setBadgeCount(count) {

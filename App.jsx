@@ -1,6 +1,6 @@
 import React, {useEffect, useState, useRef} from 'react';
 import {StatusBar, LogBox, Animated, StyleSheet} from 'react-native';
-import {NavigationContainer, DefaultTheme, DarkTheme} from '@react-navigation/native';
+import {NavigationContainer, DefaultTheme, DarkTheme, createNavigationContainerRef} from '@react-navigation/native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {enableScreens} from 'react-native-screens';
@@ -8,12 +8,15 @@ import AppNavigator from './src/navigation/AppNavigator';
 import {AuthProvider} from './src/context/AuthContext';
 import {ThemeProvider, useTheme} from './src/context/ThemeContext';
 import {SocketProvider} from './src/context/SocketContext';
-import {NotificationProvider} from './src/context/NotificationContext';
+import {NotificationProvider, setNotificationNavigationRef} from './src/context/NotificationContext';
 import {NetworkProvider} from './src/context/NetworkContext';
 import {PushNotificationProvider} from './src/context/PushNotificationContext';
 import SplashScreen from './src/screens/splash/SplashScreen';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import {setBackgroundMessageHandler} from './src/services/pushNotificationService';
+
+// Create navigation ref for notification handling
+const navigationRef = createNavigationContainerRef();
 
 // Set up background message handler (must be outside component)
 setBackgroundMessageHandler();
@@ -58,7 +61,14 @@ const AppContent = () => {
   const {isDark} = useTheme();
   
   return (
-    <NavigationContainer theme={isDark ? CustomDarkTheme : CustomLightTheme}>
+    <NavigationContainer 
+      ref={navigationRef}
+      theme={isDark ? CustomDarkTheme : CustomLightTheme}
+      onReady={() => {
+        // Set navigation ref for notification handling
+        setNotificationNavigationRef(navigationRef);
+      }}
+    >
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={isDark ? '#111827' : '#ffffff'}

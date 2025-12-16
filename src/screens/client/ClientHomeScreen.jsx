@@ -56,6 +56,7 @@ const ClientHomeScreen = ({navigation}) => {
   // Bottom sheet animation
   const panelHeight = useRef(new Animated.Value(PANEL_MID_HEIGHT)).current;
   const lastGestureDy = useRef(0);
+  const [isPanelExpanded, setIsPanelExpanded] = useState(true); // true when panel is at mid or max height
   
   const panResponder = useRef(
     PanResponder.create({
@@ -101,6 +102,9 @@ const ClientHomeScreen = ({navigation}) => {
             snapTo = PANEL_MID_HEIGHT;
           }
         }
+        
+        // Update panel expanded state
+        setIsPanelExpanded(snapTo !== PANEL_MIN_HEIGHT);
         
         Animated.spring(panelHeight, {
           toValue: snapTo,
@@ -192,9 +196,10 @@ const ClientHomeScreen = ({navigation}) => {
       snapshot.forEach((doc) => {
         const data = doc.data();
         
-        // Check if provider is approved
+        // Check if provider is approved and not suspended
         const isApproved = data.providerStatus === 'approved' || data.status === 'approved';
-        if (!isApproved) return;
+        const isSuspended = data.status === 'suspended' || data.providerStatus === 'suspended';
+        if (!isApproved || isSuspended) return;
         
         // Only show online providers
         if (!data.isOnline) return;
@@ -467,7 +472,16 @@ const ClientHomeScreen = ({navigation}) => {
         </ScrollView>
       </View>
 
-      <Animated.View style={[mapStyles.bottomPanel, isDark && {backgroundColor: theme.colors.card}, {height: panelHeight}]}>
+      {/* My Location button - rendered BEFORE panel so it goes behind when panel expands */}
+      <View style={[mapStyles.floatingButtonContainer, mapStyles.myLocationButton, {zIndex: 1}]} pointerEvents="box-none">
+        <TouchableOpacity
+          style={mapStyles.floatingButton}
+          onPress={handleMyLocation}>
+          <Icon name="locate" size={24} color="#00B14F" />
+        </TouchableOpacity>
+      </View>
+
+      <Animated.View style={[mapStyles.bottomPanel, isDark && {backgroundColor: theme.colors.card}, {height: panelHeight, zIndex: 2}]}>
         <View {...panResponder.panHandlers}>
           <View style={mapStyles.panelHandle} />
         </View>
@@ -612,9 +626,9 @@ const ClientHomeScreen = ({navigation}) => {
               ))}
             </ScrollView>
           ) : (
-            <View style={globalStyles.centerContainer}>
-              <Icon name="search-outline" size={48} color="#D1D5DB" />
-              <Text style={[globalStyles.bodyMedium, {marginTop: 12, textAlign: 'center'}]}>
+            <View style={[globalStyles.centerContainer, {backgroundColor: 'transparent'}]}>
+              <Icon name="search-outline" size={48} color={isDark ? theme.colors.textSecondary : '#D1D5DB'} />
+              <Text style={[globalStyles.bodyMedium, {marginTop: 12, textAlign: 'center', color: isDark ? theme.colors.textSecondary : '#6B7280'}]}>
                 {searchQuery ? `No providers found for "${searchQuery}"` : 'No providers found in your area'}
               </Text>
               {searchQuery && (
@@ -626,14 +640,6 @@ const ClientHomeScreen = ({navigation}) => {
           )}
         </View>
       </Animated.View>
-
-      <View style={[mapStyles.floatingButtonContainer, mapStyles.myLocationButton]} pointerEvents="box-none">
-        <TouchableOpacity
-          style={mapStyles.floatingButton}
-          onPress={handleMyLocation}>
-          <Icon name="locate" size={24} color="#00B14F" />
-        </TouchableOpacity>
-      </View>
 
       <View style={[mapStyles.floatingButtonContainer, mapStyles.notificationButton]} pointerEvents="box-none">
         <TouchableOpacity 

@@ -7,7 +7,6 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
-  Dimensions,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {Picker} from '@react-native-picker/picker';
@@ -17,8 +16,6 @@ import {authStyles} from '../../css/authStyles';
 import {locationStyles as styles} from '../../css/profileStyles';
 import {MAASIN_BARANGAYS} from '../../config/constants';
 import locationService from '../../services/locationService';
-
-const {width} = Dimensions.get('window');
 
 const LocationScreen = ({navigation, route}) => {
   const mapRef = useRef(null);
@@ -33,6 +30,7 @@ const LocationScreen = ({navigation, route}) => {
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const geocodingAbortRef = useRef(false);
+  const hasNavigatedRef = useRef(false);
 
   // Find matching barangay from our list
   const findMatchingBarangay = (barangayName) => {
@@ -213,6 +211,9 @@ const LocationScreen = ({navigation, route}) => {
 
   // Handle map press to set location
   const handleMapPress = async (event) => {
+    // Ignore if already navigated
+    if (hasNavigatedRef.current) return;
+    
     const {latitude, longitude} = event.nativeEvent.coordinate;
 
     // Update coordinates immediately
@@ -226,7 +227,7 @@ const LocationScreen = ({navigation, route}) => {
     setIsGeocoding(true);
     try {
       const addressData = await getAddressFromCoordinates(latitude, longitude);
-      if (!geocodingAbortRef.current) {
+      if (!geocodingAbortRef.current && !hasNavigatedRef.current) {
         setFormData((prev) => ({
           ...prev,
           barangay: addressData?.barangay || prev.barangay,
@@ -234,12 +235,17 @@ const LocationScreen = ({navigation, route}) => {
         }));
       }
     } finally {
-      setIsGeocoding(false);
+      if (!hasNavigatedRef.current) {
+        setIsGeocoding(false);
+      }
     }
   };
 
   // Handle marker drag end
   const handleMarkerDragEnd = async (event) => {
+    // Ignore if already navigated
+    if (hasNavigatedRef.current) return;
+    
     const {latitude, longitude} = event.nativeEvent.coordinate;
 
     // Update coordinates immediately
@@ -253,7 +259,7 @@ const LocationScreen = ({navigation, route}) => {
     setIsGeocoding(true);
     try {
       const addressData = await getAddressFromCoordinates(latitude, longitude);
-      if (!geocodingAbortRef.current) {
+      if (!geocodingAbortRef.current && !hasNavigatedRef.current) {
         setFormData((prev) => ({
           ...prev,
           barangay: addressData?.barangay || prev.barangay,
@@ -261,11 +267,19 @@ const LocationScreen = ({navigation, route}) => {
         }));
       }
     } finally {
-      setIsGeocoding(false);
+      if (!hasNavigatedRef.current) {
+        setIsGeocoding(false);
+      }
     }
   };
 
   const handleNext = () => {
+    // Prevent any navigation if already navigated
+    if (hasNavigatedRef.current) {
+      console.log('[LocationScreen] Already navigated, ignoring');
+      return;
+    }
+
     // Validate required fields
     if (!formData.barangay || !formData.streetAddress) {
       Alert.alert('Required Fields', 'Please select your barangay and enter your street address.');
@@ -281,33 +295,31 @@ const LocationScreen = ({navigation, route}) => {
     // Abort any pending geocoding
     geocodingAbortRef.current = true;
 
-    // Prevent navigation if still loading
-    if (isLoadingLocation) {
-      return;
-    }
+    // Mark as navigated - this will persist until component remounts
+    hasNavigatedRef.current = true;
 
-    try {
-      // Get existing params and merge with location data
-      const params = {
-        ...(route?.params || {}),
-        location: {
-          barangay: formData.barangay,
-          streetAddress: formData.streetAddress,
-          houseNumber: formData.houseNumber,
-          landmark: formData.landmark,
-          latitude: formData.latitude,
-          longitude: formData.longitude,
-        },
-      };
-      
-      console.log('[LocationScreen] Navigating to Password with params:', params);
-      
-      // Navigate immediately without setTimeout
-      navigation.navigate('Password', params);
-    } catch (error) {
-      console.error('[LocationScreen] Navigation error:', error);
-      Alert.alert('Error', 'Failed to proceed. Please try again.');
-    }
+    // Get existing params and merge with location data
+    const params = {
+      ...(route?.params || {}),
+      location: {
+        barangay: formData.barangay,
+        streetAddress: formData.streetAddress,
+        houseNumber: formData.houseNumber,
+        landmark: formData.landmark,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
+      },
+    };
+    
+    console.log('[LocationScreen] Navigating to Password with params:', params);
+    console.log('[LocationScreen] Current navigation state:', JSON.stringify(navigation.getState()));
+    
+    // Use navigate with key to ensure unique screen
+    navigation.navigate({
+      name: 'Password',
+      params,
+      key: `Password-${Date.now()}`,
+    });
   };
 
   return (
@@ -372,7 +384,9 @@ const LocationScreen = ({navigation, route}) => {
           <Picker
             selectedValue={formData.barangay}
             onValueChange={(value) => {
-              setFormData({...formData, barangay: value});
+              if (!hasNavigatedRef.current) {
+                setFormData({...formData, barangay: value});
+              }
             }}
             style={styles.picker}>
             <Picker.Item label="Select Barangay" value="" />

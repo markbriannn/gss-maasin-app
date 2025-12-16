@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,20 @@ const PasswordScreen = ({navigation, route}) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  useEffect(() => {
+    console.log('[PasswordScreen] Mounted with params:', JSON.stringify(route?.params));
+    
+    // Add navigation listener to detect why we might be going back
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      console.log('[PasswordScreen] beforeRemove event:', e.data.action.type);
+    });
+    
+    return () => {
+      console.log('[PasswordScreen] Unmounting');
+      unsubscribe();
+    };
+  }, [navigation, route?.params]);
 
   const hasMinLength = password.length >= 8;
   const hasUppercase = /[A-Z]/.test(password);

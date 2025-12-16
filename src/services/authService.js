@@ -17,8 +17,8 @@ import {
   where,
   getDocs,
 } from 'firebase/firestore';
-import {ref, uploadBytes, getDownloadURL} from 'firebase/storage';
-import {auth, db, storage} from '../config/firebase';
+import {auth, db} from '../config/firebase';
+import {uploadDocument as uploadToCloudinary} from './imageUploadService';
 import authNative from '@react-native-firebase/auth';
 
 const getProfile = async (uid) => {
@@ -38,10 +38,29 @@ export const authService = {
     const credential = await signInWithEmailAndPassword(auth, email, password);
     const token = await credential.user.getIdToken();
     const profile = await getProfile(credential.user.uid);
+    
     // Block providers whose account is still pending approval
     if (profile?.status === 'pending') {
       throw new Error('Your provider account is pending admin approval.');
     }
+    
+    // Block suspended accounts and include the reason
+    if (profile?.status === 'suspended') {
+      const suspensionReason = profile?.suspensionReason || 'Your account has been suspended.';
+      const suspensionLabel = profile?.suspensionReasonLabel || 'Account Suspended';
+      const suspendedAt = profile?.suspendedAt?.toDate?.() 
+        ? profile.suspendedAt.toDate().toLocaleDateString() 
+        : 'Unknown date';
+      
+      const error = new Error('ACCOUNT_SUSPENDED');
+      error.suspensionDetails = {
+        reason: suspensionReason,
+        label: suspensionLabel,
+        suspendedAt: suspendedAt,
+      };
+      throw error;
+    }
+    
     // Backfill missing provider role for older records (non-pending)
     let resolvedRole = profile?.role;
     if (!resolvedRole && profile) {
@@ -97,16 +116,13 @@ export const authService = {
     return authService.register({...userData, role: 'CLIENT'});
   },
 
-  // Upload a document image to Firebase Storage
+  // Upload a document image to Cloudinary
   uploadDocument: async (userId, docType, imageUri) => {
     if (!imageUri) return null;
     try {
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
-      const filename = `providers/${userId}/documents/${docType}_${Date.now()}.jpg`;
-      const storageRef = ref(storage, filename);
-      await uploadBytes(storageRef, blob);
-      const downloadUrl = await getDownloadURL(storageRef);
+      console.log(`[authService] Uploading ${docType} for user ${userId}`);
+      const downloadUrl = await uploadToCloudinary(imageUri, userId);
+      console.log(`[authService] Successfully uploaded ${docType}:`, downloadUrl);
       return downloadUrl;
     } catch (error) {
       console.error(`Error uploading ${docType}:`, error);

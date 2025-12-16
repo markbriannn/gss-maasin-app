@@ -51,13 +51,19 @@ const EmailVerificationScreen = ({navigation, route}) => {
     }
   }, [email, generateCode, isSending]);
 
+  const hasNavigatedRef = useRef(false);
+
   const handleVerify = useCallback((enteredCodeParam) => {
+    // Prevent multiple navigations
+    if (hasNavigatedRef.current) return;
+    
     const enteredCode = enteredCodeParam || code.join('');
     if (enteredCode.length !== 6) return;
 
     setIsLoading(true);
     if (enteredCode === generatedCode) {
       setIsLoading(false);
+      hasNavigatedRef.current = true;
       navigation.navigate('Location', {
         ...otherParams,
         contactInfo: {...contactInfo, emailVerified: true},

@@ -13,8 +13,8 @@ export const editProfileStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingTop: 12,
+    paddingBottom: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
@@ -23,9 +23,11 @@ export const editProfileStyles = StyleSheet.create({
     padding: 8,
   },
   headerTitle: {
+    flex: 1,
     fontSize: 18,
     fontWeight: '600',
     color: '#111827',
+    textAlign: 'center',
   },
   saveButton: {
     paddingVertical: 8,
@@ -257,6 +259,7 @@ export const editProfileStyles = StyleSheet.create({
   // EditProfileScreen specific styles
   photoSection: {
     alignItems: 'center',
+    paddingTop: 24,
     marginBottom: 24,
   },
   photoContainer: {
@@ -268,7 +271,6 @@ export const editProfileStyles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
     position: 'relative',
-    overflow: 'hidden',
   },
   profileImage: {
     width: 100,
@@ -277,11 +279,11 @@ export const editProfileStyles = StyleSheet.create({
   },
   cameraIconContainer: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    bottom: 2,
+    right: 2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#00B14F',
     justifyContent: 'center',
     alignItems: 'center',

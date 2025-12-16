@@ -8,6 +8,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -40,6 +43,7 @@ const ProviderDashboardScreen = ({navigation}) => {
   const [refreshing, setRefreshing] = useState(false);
   const [providerStatus, setProviderStatus] = useState('pending');
   const [gamificationData, setGamificationData] = useState(null);
+  const [showMenuModal, setShowMenuModal] = useState(false);
   
   // Real-time hooks
   const {online, queueOperation} = useOfflineSupport();
@@ -230,28 +234,77 @@ const ProviderDashboardScreen = ({navigation}) => {
   };
 
   const handleMenuPress = () => {
-    // Show a menu with options: Profile, Settings, Logout
-    Alert.alert('Menu', 'Choose an option', [
-      {
-        text: 'Profile',
-        onPress: () => navigation.navigate('Profile'),
-      },
-      {
-        text: 'Settings',
-        onPress: () => navigation.navigate('Settings'),
-      },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: handleLogout,
-      },
-      {
-        text: 'Cancel',
-        onPress: () => {},
-        style: 'cancel',
-      },
-    ]);
+    setShowMenuModal(true);
   };
+
+  const menuOptions = [
+    {
+      id: 'profile',
+      icon: 'person-outline',
+      label: 'My Profile',
+      subtitle: 'View and manage your profile',
+      color: '#3B82F6',
+      onPress: () => {
+        setShowMenuModal(false);
+        navigation.navigate('Profile');
+      },
+    },
+    {
+      id: 'earnings',
+      icon: 'wallet-outline',
+      label: 'Earnings',
+      subtitle: 'View your earnings history',
+      color: '#10B981',
+      onPress: () => {
+        setShowMenuModal(false);
+        navigation.navigate('Earnings');
+      },
+    },
+    {
+      id: 'history',
+      icon: 'time-outline',
+      label: 'Service History',
+      subtitle: 'View completed services',
+      color: '#8B5CF6',
+      onPress: () => {
+        setShowMenuModal(false);
+        navigation.navigate('ServiceHistory');
+      },
+    },
+    {
+      id: 'settings',
+      icon: 'settings-outline',
+      label: 'Settings',
+      subtitle: 'App preferences & account',
+      color: '#6B7280',
+      onPress: () => {
+        setShowMenuModal(false);
+        navigation.navigate('Settings');
+      },
+    },
+    {
+      id: 'help',
+      icon: 'help-circle-outline',
+      label: 'Help & Support',
+      subtitle: 'Get help and FAQs',
+      color: '#F59E0B',
+      onPress: () => {
+        setShowMenuModal(false);
+        navigation.navigate('Help');
+      },
+    },
+    {
+      id: 'logout',
+      icon: 'log-out-outline',
+      label: 'Logout',
+      subtitle: 'Sign out of your account',
+      color: '#EF4444',
+      onPress: () => {
+        setShowMenuModal(false);
+        handleLogout();
+      },
+    },
+  ];
 
   const handleLogout = () => {
     Alert.alert(
@@ -304,25 +357,70 @@ const ProviderDashboardScreen = ({navigation}) => {
         }>
         
         <View style={dashboardStyles.header}>
-          <View style={dashboardStyles.headerTop}>
+          {/* Top Row: Menu, Greeting/Name, Notification, Online Toggle */}
+          <View style={{flexDirection: 'row', alignItems: 'center'}}>
             <TouchableOpacity
-              style={dashboardStyles.menuButton}
+              style={{padding: 8, marginRight: 8}}
               onPress={handleMenuPress}>
-              <Icon name="menu" size={28} color="#FFFFFF" />
+              <Icon name="menu" size={26} color="#FFFFFF" />
             </TouchableOpacity>
-            <View style={dashboardStyles.headerProfile}>
-              <View style={dashboardStyles.headerProfilePhoto}>
-                <Icon name="person" size={24} color="#FFFFFF" />
-              </View>
-              <View style={dashboardStyles.headerProfileInfo}>
-                <Text style={dashboardStyles.headerGreeting}>{getGreeting()}</Text>
-                <Text style={dashboardStyles.headerName}>
-                  {user?.firstName} {user?.lastName}
-                </Text>
-              </View>
+            
+            {/* Greeting and Name */}
+            <View style={{flex: 1}}>
+              <Text style={{fontSize: 13, color: 'rgba(255,255,255,0.8)'}}>
+                {getGreeting()},
+              </Text>
+              <Text style={{fontSize: 18, fontWeight: '700', color: '#FFFFFF'}} numberOfLines={1}>
+                {user?.firstName} {user?.lastName}
+              </Text>
             </View>
-            <View style={dashboardStyles.onlineToggle}>
-              <Text style={dashboardStyles.onlineToggleText}>
+            
+            {/* Notification Icon with Badge */}
+            <TouchableOpacity
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginRight: 10,
+              }}
+              onPress={() => navigation.navigate('Notifications')}>
+              <Icon name="notifications" size={22} color="#FFFFFF" />
+              {unreadCount > 0 && (
+                <View style={{
+                  position: 'absolute',
+                  top: 2,
+                  right: 2,
+                  minWidth: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  backgroundColor: '#EF4444',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  paddingHorizontal: 4,
+                  borderWidth: 2,
+                  borderColor: '#00B14F',
+                }}>
+                  <Text style={{fontSize: 10, fontWeight: '700', color: '#FFFFFF'}}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            
+            {/* Online Toggle */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              borderRadius: 20,
+              paddingLeft: 12,
+              paddingRight: 4,
+              paddingVertical: 4,
+            }}>
+              <Text style={{fontSize: 12, color: '#FFFFFF', fontWeight: '500', marginRight: 6}}>
                 {isOnline ? 'Online' : 'Offline'}
               </Text>
               <Switch
@@ -330,6 +428,7 @@ const ProviderDashboardScreen = ({navigation}) => {
                 onValueChange={handleToggleOnline}
                 trackColor={{false: '#9CA3AF', true: '#34D399'}}
                 thumbColor="#FFFFFF"
+                style={{transform: [{scaleX: 0.85}, {scaleY: 0.85}]}}
               />
             </View>
           </View>
@@ -356,6 +455,78 @@ const ProviderDashboardScreen = ({navigation}) => {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Notification Banner - Shows when there are unread notifications */}
+        {unreadCount > 0 && (
+          <TouchableOpacity
+            style={{
+              marginHorizontal: 16,
+              marginBottom: 16,
+              backgroundColor: isDark ? '#1E3A5F' : '#EFF6FF',
+              borderRadius: 14,
+              paddingVertical: 14,
+              paddingHorizontal: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderWidth: 1.5,
+              borderColor: isDark ? '#3B82F6' : '#93C5FD',
+            }}
+            onPress={() => navigation.navigate('Notifications')}>
+            <View style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: '#3B82F6',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+              <Icon name="notifications" size={24} color="#FFFFFF" />
+              <View style={{
+                position: 'absolute',
+                top: -4,
+                right: -4,
+                minWidth: 22,
+                height: 22,
+                borderRadius: 11,
+                backgroundColor: '#EF4444',
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderWidth: 2,
+                borderColor: isDark ? '#1E3A5F' : '#EFF6FF',
+              }}>
+                <Text style={{fontSize: 12, fontWeight: '700', color: '#FFFFFF'}}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            </View>
+            <View style={{flex: 1, marginLeft: 14, justifyContent: 'center'}}>
+              <Text style={{
+                fontSize: 16,
+                fontWeight: '700',
+                color: isDark ? '#FFFFFF' : '#1E40AF',
+              }}>
+                {unreadCount} New Notification{unreadCount > 1 ? 's' : ''}
+              </Text>
+              <Text style={{
+                fontSize: 13,
+                color: isDark ? '#93C5FD' : '#3B82F6',
+                marginTop: 3,
+              }}>
+                Tap to view all
+              </Text>
+            </View>
+            <View style={{
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              backgroundColor: isDark ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.15)',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+              <Icon name="chevron-forward" size={18} color={isDark ? '#93C5FD' : '#3B82F6'} />
+            </View>
+          </TouchableOpacity>
+        )}
 
         <View style={dashboardStyles.statsContainer}>
           <TouchableOpacity 
@@ -547,6 +718,171 @@ const ProviderDashboardScreen = ({navigation}) => {
           </View>
         )}
       </ScrollView>
+
+      {/* Custom Menu Modal */}
+      <Modal
+        visible={showMenuModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowMenuModal(false)}
+      >
+        <TouchableOpacity 
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'flex-end',
+          }}
+          activeOpacity={1}
+          onPress={() => setShowMenuModal(false)}
+        >
+          <TouchableOpacity 
+            activeOpacity={1} 
+            onPress={() => {}}
+            style={{
+              backgroundColor: isDark ? theme.colors.card : '#FFFFFF',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              paddingTop: 12,
+              paddingBottom: 34,
+              maxHeight: '80%',
+            }}
+          >
+            {/* Handle Bar */}
+            <View style={{
+              width: 40,
+              height: 4,
+              backgroundColor: isDark ? theme.colors.border : '#E5E7EB',
+              borderRadius: 2,
+              alignSelf: 'center',
+              marginBottom: 16,
+            }} />
+
+            {/* Header */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 20,
+              paddingBottom: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: isDark ? theme.colors.border : '#F3F4F6',
+            }}>
+              <View style={{
+                width: 50,
+                height: 50,
+                borderRadius: 25,
+                backgroundColor: '#00B14F',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginRight: 14,
+              }}>
+                <Icon name="person" size={24} color="#FFFFFF" />
+              </View>
+              <View style={{flex: 1}}>
+                <Text style={{
+                  fontSize: 18,
+                  fontWeight: '700',
+                  color: isDark ? theme.colors.text : '#1F2937',
+                }}>
+                  {user?.firstName} {user?.lastName}
+                </Text>
+                <Text style={{
+                  fontSize: 13,
+                  color: isDark ? theme.colors.textSecondary : '#6B7280',
+                  marginTop: 2,
+                }}>
+                  {user?.serviceCategory || 'Service Provider'}
+                </Text>
+              </View>
+              <View style={{
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 12,
+                backgroundColor: isOnline ? '#D1FAE5' : '#FEE2E2',
+              }}>
+                <Text style={{
+                  fontSize: 11,
+                  fontWeight: '600',
+                  color: isOnline ? '#059669' : '#DC2626',
+                }}>
+                  {isOnline ? 'Online' : 'Offline'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Menu Options */}
+            <ScrollView style={{paddingTop: 8}}>
+              {menuOptions.map((option, index) => (
+                <TouchableOpacity
+                  key={option.id}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: 14,
+                    paddingHorizontal: 20,
+                    borderBottomWidth: index < menuOptions.length - 1 ? 1 : 0,
+                    borderBottomColor: isDark ? theme.colors.border : '#F9FAFB',
+                  }}
+                  onPress={option.onPress}
+                >
+                  <View style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: isDark ? `${option.color}20` : `${option.color}15`,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginRight: 14,
+                  }}>
+                    <Icon name={option.icon} size={22} color={option.color} />
+                  </View>
+                  <View style={{flex: 1}}>
+                    <Text style={{
+                      fontSize: 15,
+                      fontWeight: '600',
+                      color: option.id === 'logout' ? '#EF4444' : (isDark ? theme.colors.text : '#1F2937'),
+                    }}>
+                      {option.label}
+                    </Text>
+                    <Text style={{
+                      fontSize: 12,
+                      color: isDark ? theme.colors.textSecondary : '#9CA3AF',
+                      marginTop: 2,
+                    }}>
+                      {option.subtitle}
+                    </Text>
+                  </View>
+                  <Icon 
+                    name="chevron-forward" 
+                    size={20} 
+                    color={isDark ? theme.colors.textSecondary : '#D1D5DB'} 
+                  />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Cancel Button */}
+            <View style={{paddingHorizontal: 20, paddingTop: 12}}>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: isDark ? theme.colors.border : '#F3F4F6',
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                }}
+                onPress={() => setShowMenuModal(false)}
+              >
+                <Text style={{
+                  fontSize: 15,
+                  fontWeight: '600',
+                  color: isDark ? theme.colors.text : '#6B7280',
+                }}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 };

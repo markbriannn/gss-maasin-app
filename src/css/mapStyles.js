@@ -211,7 +211,7 @@ export const mapStyles = StyleSheet.create({
     marginBottom: 12,
   },
   myLocationButton: {
-    bottom: 320,
+    bottom: 420,
   },
   notificationButton: {
     top: 8,

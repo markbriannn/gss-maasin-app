@@ -54,6 +54,7 @@ const PhoneVerificationScreen = ({navigation, route}) => {
   const [codeSent, setCodeSent] = useState(false);
   const inputRefs = useRef([]);
   const verifyingRef = useRef(false);
+  const hasNavigatedRef = useRef(false);
 
   const sendVerificationCode = useCallback(async () => {
     if (isSending || !isValidPhone) return;
@@ -79,12 +80,16 @@ const PhoneVerificationScreen = ({navigation, route}) => {
   }, [phoneNumber, isSending, isValidPhone]);
 
   const handleVerify = useCallback((enteredCodeParam) => {
+    // Prevent multiple navigations
+    if (hasNavigatedRef.current) return;
+    
     const enteredCode = enteredCodeParam || code.join('');
     if (enteredCode.length !== 6 || !generatedCode) return;
 
     setIsLoading(true);
     if (enteredCode === generatedCode) {
       setIsLoading(false);
+      hasNavigatedRef.current = true;
       navigation.navigate('EmailVerification', {
         ...otherParams,
         contactInfo: {...contactInfo, phoneVerified: true},

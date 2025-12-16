@@ -406,8 +406,8 @@ const ServiceHistoryScreen = ({ navigation }) => {
       </View>
 
       {/* Search Bar with Sort Button */}
-      <View style={{flexDirection: 'row', paddingHorizontal: 16, gap: 8}}>
-        <View style={[styles.searchContainer, {flex: 1, marginHorizontal: 0}, isDark && {backgroundColor: theme.colors.card, borderColor: theme.colors.border}]}>
+      <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12, gap: 8}}>
+        <View style={[styles.searchContainer, {flex: 1, marginHorizontal: 0, marginBottom: 0}, isDark && {backgroundColor: theme.colors.card, borderColor: theme.colors.border}]}>
           <Icon name="search" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
           <TextInput
             style={[styles.searchInput, isDark && {color: theme.colors.text}]}
@@ -427,7 +427,8 @@ const ServiceHistoryScreen = ({ navigation }) => {
           style={{
             backgroundColor: isDark ? theme.colors.card : '#FFFFFF',
             borderRadius: 12,
-            padding: 12,
+            width: 48,
+            height: 48,
             justifyContent: 'center',
             alignItems: 'center',
             borderWidth: 1,

@@ -49,6 +49,10 @@ const AdminMapScreen = ({navigation}) => {
           // Check both status and providerStatus fields for 'approved'
           const isApproved = data.status === 'approved' || data.providerStatus === 'approved';
           const isPending = data.status === 'pending' || data.providerStatus === 'pending' || (!data.status && !data.providerStatus);
+          const isSuspended = data.status === 'suspended' || data.providerStatus === 'suspended';
+          
+          // Skip suspended providers from the map
+          if (isSuspended) return;
           
           // Determine provider's current activity status
           let activityStatus = 'offline';

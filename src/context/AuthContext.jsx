@@ -76,6 +76,14 @@ export const AuthProvider = ({children}) => {
 
       return {success: true, user: response.user};
     } catch (error) {
+      // Handle suspended account with details
+      if (error.message === 'ACCOUNT_SUSPENDED' && error.suspensionDetails) {
+        return {
+          success: false,
+          error: 'ACCOUNT_SUSPENDED',
+          suspensionDetails: error.suspensionDetails,
+        };
+      }
       return {success: false, error: error.message};
     }
   };

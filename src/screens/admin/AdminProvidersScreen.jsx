@@ -23,13 +23,25 @@ import {
   getDocs,
   doc,
   updateDoc,
+  onSnapshot,
 } from 'firebase/firestore';
 import {db} from '../../config/firebase';
 import smsEmailService from '../../services/smsEmailService';
-import {sendProviderApprovalEmail} from '../../services/emailJSService';
+import {sendProviderApprovalEmail, sendNotificationEmail} from '../../services/emailJSService';
 import notificationService from '../../services/notificationService';
 
 const {width: screenWidth} = Dimensions.get('window');
+
+// Professional suspension reasons
+const SUSPENSION_REASONS = [
+  {id: 'policy_violation', label: 'Policy Violation', description: 'Violation of GSS Maasin terms of service or community guidelines.'},
+  {id: 'fraudulent_activity', label: 'Fraudulent Activity', description: 'Suspected fraudulent behavior or misrepresentation of services.'},
+  {id: 'customer_complaints', label: 'Multiple Customer Complaints', description: 'Repeated complaints from customers regarding service quality or conduct.'},
+  {id: 'incomplete_documentation', label: 'Incomplete Documentation', description: 'Required documents are missing, expired, or invalid.'},
+  {id: 'unprofessional_conduct', label: 'Unprofessional Conduct', description: 'Behavior that does not meet professional standards expected of service providers.'},
+  {id: 'safety_concerns', label: 'Safety Concerns', description: 'Actions or behavior that pose safety risks to customers or the community.'},
+  {id: 'other', label: 'Other', description: 'Please specify the reason below.'},
+];
 
 const AdminProvidersScreen = ({navigation, route}) => {
   const {isDark, theme} = useTheme();
@@ -44,6 +56,13 @@ const AdminProvidersScreen = ({navigation, route}) => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedImageTitle, setSelectedImageTitle] = useState('');
+  
+  // Suspension modal state
+  const [showSuspendModal, setShowSuspendModal] = useState(false);
+  const [suspendingProvider, setSuspendingProvider] = useState(null);
+  const [selectedReason, setSelectedReason] = useState(null);
+  const [customReason, setCustomReason] = useState('');
+  const [isSuspending, setIsSuspending] = useState(false);
 
   const filters = [
     {id: 'all', label: 'All'},
@@ -52,38 +71,19 @@ const AdminProvidersScreen = ({navigation, route}) => {
     {id: 'suspended', label: 'Suspended'},
   ];
 
-  // Fetch providers from Firebase
+  // Real-time listener for providers
   useEffect(() => {
-    fetchProviders();
-  }, []);
-
-  // Filter providers when filter or search changes
-  useEffect(() => {
-    filterProviders();
-  }, [activeFilter, searchQuery, allProviders]);
-
-  // Auto-open provider detail if openProviderId is passed
-  useEffect(() => {
-    if (openProviderId && allProviders.length > 0) {
-      const provider = allProviders.find(p => p.id === openProviderId);
-      if (provider) {
-        setSelectedProvider(provider);
-        setShowDetailModal(true);
-      }
-    }
-  }, [openProviderId, allProviders]);
-
-  const fetchProviders = async () => {
     setIsLoading(true);
-    try {
-      // Query users with role = 'PROVIDER'
-      const providersQuery = query(
-        collection(db, 'users'),
-        where('role', '==', 'PROVIDER')
-      );
-      
-      const snapshot = await getDocs(providersQuery);
-      const providersList = snapshot.docs.map(docSnap => {
+    
+    // Query users with role = 'PROVIDER'
+    const providersQuery = query(
+      collection(db, 'users'),
+      where('role', '==', 'PROVIDER')
+    );
+    
+    // Set up real-time listener
+    const unsubscribe = onSnapshot(providersQuery, async (snapshot) => {
+      const providersList = await Promise.all(snapshot.docs.map(async (docSnap) => {
         const data = docSnap.data();
         
         // Build full address from new fields
@@ -98,19 +98,34 @@ const AdminProvidersScreen = ({navigation, route}) => {
           fullAddress = data.address || data.location || 'Maasin City';
         }
         
+        // Fetch actual completed jobs count from bookings
+        let completedJobsCount = data.completedJobs || 0;
+        try {
+          const bookingsQuery = query(
+            collection(db, 'bookings'),
+            where('providerId', '==', docSnap.id),
+            where('status', '==', 'completed')
+          );
+          const bookingsSnap = await getDocs(bookingsQuery);
+          completedJobsCount = bookingsSnap.size;
+        } catch (e) {
+          console.log('Error fetching completed jobs:', e);
+        }
+        
         return {
           id: docSnap.id,
           name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email?.split('@')[0] || 'Unknown',
           email: data.email || '',
           phone: data.phone || data.phoneNumber || 'Not provided',
           service: data.serviceCategory || data.service || 'General Services',
-          status: data.status || 'pending', // Default to pending if not set
-          rating: data.rating || 0,
-          completedJobs: data.completedJobs || 0,
-          registeredDate: data.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown',
+          status: data.status || 'pending',
+          rating: data.rating || data.averageRating || 0,
+          completedJobs: completedJobsCount,
+          registeredDate: data.createdAt?.toDate?.() 
+            ? `${data.createdAt.toDate().toLocaleDateString()} at ${data.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`
+            : 'Unknown',
           registeredDateRaw: data.createdAt?.toDate?.() || new Date(0),
           location: fullAddress,
-          // New location fields
           streetAddress: data.streetAddress || '',
           houseNumber: data.houseNumber || '',
           barangay: data.barangay || '',
@@ -143,23 +158,48 @@ const AdminProvidersScreen = ({navigation, route}) => {
               urls: data.documents?.certificateUrls || [],
             },
           },
-          // Keep raw data for reference
+          suspensionReason: data.suspensionReason || null,
+          suspensionReasonLabel: data.suspensionReasonLabel || null,
+          suspendedAt: data.suspendedAt?.toDate?.() 
+            ? `${data.suspendedAt.toDate().toLocaleDateString()} at ${data.suspendedAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`
+            : null,
           rawData: data,
         };
-      });
+      }));
 
-      // Sort by newest first (descending by registration date)
+      // Sort by newest first
       providersList.sort((a, b) => b.registeredDateRaw - a.registeredDateRaw);
 
       setAllProviders(providersList);
       setProviders(providersList);
-    } catch (error) {
-      console.error('Error fetching providers:', error);
-      Alert.alert('Error', 'Failed to load providers. Please try again.');
-    } finally {
       setIsLoading(false);
+    }, (error) => {
+      console.error('Error listening to providers:', error);
+      Alert.alert('Error', 'Failed to load providers. Please try again.');
+      setIsLoading(false);
+    });
+
+    // Cleanup listener on unmount
+    return () => unsubscribe();
+  }, []);
+
+  // Filter providers when filter or search changes
+  useEffect(() => {
+    filterProviders();
+  }, [activeFilter, searchQuery, allProviders]);
+
+  // Auto-open provider detail if openProviderId is passed
+  useEffect(() => {
+    if (openProviderId && allProviders.length > 0) {
+      const provider = allProviders.find(p => p.id === openProviderId);
+      if (provider) {
+        setSelectedProvider(provider);
+        setShowDetailModal(true);
+      }
     }
-  };
+  }, [openProviderId, allProviders]);
+
+
 
   const filterProviders = () => {
     let filtered = [...allProviders];
@@ -206,15 +246,31 @@ const AdminProvidersScreen = ({navigation, route}) => {
   const updateProviderStatus = async (providerId, newStatus) => {
     try {
       const providerRef = doc(db, 'users', providerId);
-      await updateDoc(providerRef, {
+      const updateData = {
         status: newStatus,
         providerStatus: newStatus,
         updatedAt: new Date(),
-      });
+      };
+      
+      // If reactivating from suspended, clear suspension fields and set online
+      if (newStatus === 'approved') {
+        updateData.suspensionReason = null;
+        updateData.suspensionReasonLabel = null;
+        updateData.suspendedAt = null;
+        updateData.isOnline = true; // Set back online when reactivated
+      }
+      
+      await updateDoc(providerRef, updateData);
       
       // Update local state
       setAllProviders(prev => 
-        prev.map(p => p.id === providerId ? {...p, status: newStatus} : p)
+        prev.map(p => p.id === providerId ? {
+          ...p, 
+          status: newStatus,
+          suspensionReason: newStatus === 'approved' ? null : p.suspensionReason,
+          suspensionReasonLabel: newStatus === 'approved' ? null : p.suspensionReasonLabel,
+          suspendedAt: newStatus === 'approved' ? null : p.suspendedAt,
+        } : p)
       );
       return true;
     } catch (error) {
@@ -311,24 +367,94 @@ const AdminProvidersScreen = ({navigation, route}) => {
   };
 
   const handleSuspend = (provider) => {
-    Alert.alert(
-      'Suspend Provider',
-      `Are you sure you want to suspend ${provider.name}?`,
-      [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Suspend',
-          style: 'destructive',
-          onPress: async () => {
-            const success = await updateProviderStatus(provider.id, 'suspended');
-            if (success) {
-              setShowDetailModal(false);
-              Alert.alert('Done', 'Provider has been suspended');
-            }
-          },
-        },
-      ]
-    );
+    // Open suspension modal instead of simple alert
+    setSuspendingProvider(provider);
+    setSelectedReason(null);
+    setCustomReason('');
+    setShowSuspendModal(true);
+  };
+
+  const confirmSuspension = async () => {
+    if (!selectedReason) {
+      Alert.alert('Required', 'Please select a suspension reason.');
+      return;
+    }
+    if (selectedReason.id === 'other' && !customReason.trim()) {
+      Alert.alert('Required', 'Please provide a custom reason.');
+      return;
+    }
+
+    setIsSuspending(true);
+    try {
+      const reasonText = selectedReason.id === 'other' 
+        ? customReason.trim() 
+        : selectedReason.description;
+      const reasonLabel = selectedReason.id === 'other'
+        ? 'Other: ' + customReason.trim()
+        : selectedReason.label;
+
+      // Update Firestore with suspension details
+      const providerRef = doc(db, 'users', suspendingProvider.id);
+      await updateDoc(providerRef, {
+        status: 'suspended',
+        providerStatus: 'suspended',
+        isOnline: false,
+        suspensionReason: reasonText,
+        suspensionReasonLabel: reasonLabel,
+        suspendedAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      // Update local state
+      setAllProviders(prev =>
+        prev.map(p =>
+          p.id === suspendingProvider.id
+            ? {...p, status: 'suspended', suspensionReason: reasonText}
+            : p
+        )
+      );
+
+      // Send email notification to provider
+      if (suspendingProvider.email) {
+        const emailDetails = `
+Reason: ${reasonLabel}
+
+${reasonText}
+
+If you believe this is a mistake or would like to appeal this decision, please contact our support team.
+
+GSS Maasin Support
+        `.trim();
+
+        sendNotificationEmail(
+          suspendingProvider.email,
+          suspendingProvider.name || 'Provider',
+          'Account Suspended',
+          'Your GSS Maasin provider account has been suspended. Please review the details below.',
+          emailDetails
+        ).catch(err => console.log('Failed to send suspension email:', err));
+      }
+
+      // Send push notification
+      notificationService.sendPushToUser(
+        suspendingProvider.id,
+        'Account Suspended',
+        `Your account has been suspended. Reason: ${reasonLabel}`,
+        {type: 'account_suspended', providerId: suspendingProvider.id, reason: reasonLabel}
+      ).catch(err => console.log('Push notification failed:', err));
+
+      setShowSuspendModal(false);
+      setShowDetailModal(false);
+      Alert.alert(
+        'Provider Suspended',
+        `${suspendingProvider.name} has been suspended and notified via email.`
+      );
+    } catch (error) {
+      console.error('Error suspending provider:', error);
+      Alert.alert('Error', 'Failed to suspend provider. Please try again.');
+    } finally {
+      setIsSuspending(false);
+    }
   };
 
   const handleReactivate = (provider) => {
@@ -401,7 +527,7 @@ const AdminProvidersScreen = ({navigation, route}) => {
           </View>
           <View style={adminStyles.providerDetailRow}>
             <Icon name="calendar-outline" size={16} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
-            <Text style={[adminStyles.providerDetailText, isDark && {color: theme.colors.textSecondary}]}>Registered: {item.registeredDate}</Text>
+            <Text style={[adminStyles.providerDetailText, isDark && {color: theme.colors.textSecondary}]}>Registered at: {item.registeredDate}</Text>
           </View>
         </View>
 
@@ -499,6 +625,30 @@ const AdminProvidersScreen = ({navigation, route}) => {
                     {selectedProvider.status.charAt(0).toUpperCase() + selectedProvider.status.slice(1)}
                   </Text>
                 </View>
+                {/* View Full Profile Button - Available for all statuses */}
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#3B82F6',
+                    paddingVertical: 10,
+                    paddingHorizontal: 16,
+                    borderRadius: 20,
+                    marginTop: 12,
+                  }}
+                  onPress={() => {
+                    setShowDetailModal(false);
+                    navigation.navigate('ProviderProfile', {
+                      providerId: selectedProvider.id,
+                    });
+                  }}
+                >
+                  <Icon name="person" size={16} color="#FFFFFF" />
+                  <Text style={{color: '#FFFFFF', marginLeft: 6, fontWeight: '600', fontSize: 13}}>
+                    View Full Profile
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
@@ -514,34 +664,34 @@ const AdminProvidersScreen = ({navigation, route}) => {
               </View>
               
               <View style={adminStyles.modalSection}>
-                <Text style={adminStyles.modalSectionTitle}>Address</Text>
+                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.text}]}>Address</Text>
                 {selectedProvider.houseNumber ? (
                   <View style={adminStyles.modalInfoRow}>
                     <Icon name="home" size={20} color="#00B14F" />
-                    <Text style={adminStyles.modalInfoText}>House/Bldg: {selectedProvider.houseNumber}</Text>
+                    <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>House/Bldg: {selectedProvider.houseNumber}</Text>
                   </View>
                 ) : null}
                 {selectedProvider.streetAddress ? (
                   <View style={adminStyles.modalInfoRow}>
                     <Icon name="navigate" size={20} color="#00B14F" />
-                    <Text style={adminStyles.modalInfoText}>Street: {selectedProvider.streetAddress}</Text>
+                    <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>Street: {selectedProvider.streetAddress}</Text>
                   </View>
                 ) : null}
                 {selectedProvider.barangay ? (
                   <View style={adminStyles.modalInfoRow}>
                     <Icon name="business" size={20} color="#00B14F" />
-                    <Text style={adminStyles.modalInfoText}>Barangay: {selectedProvider.barangay}</Text>
+                    <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>Barangay: {selectedProvider.barangay}</Text>
                   </View>
                 ) : null}
                 {selectedProvider.landmark ? (
                   <View style={adminStyles.modalInfoRow}>
                     <Icon name="flag" size={20} color="#00B14F" />
-                    <Text style={adminStyles.modalInfoText}>Landmark: {selectedProvider.landmark}</Text>
+                    <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>Landmark: {selectedProvider.landmark}</Text>
                   </View>
                 ) : null}
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="location" size={20} color="#00B14F" />
-                  <Text style={adminStyles.modalInfoText}>{selectedProvider.location}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedProvider.location}</Text>
                 </View>
                 {/* Contact Provider Button - Only show for approved providers */}
                 {selectedProvider.status === 'approved' && (
@@ -825,10 +975,51 @@ const AdminProvidersScreen = ({navigation, route}) => {
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="calendar" size={20} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
                   <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>
-                    Registered: {selectedProvider.registeredDate}
+                    Registered at: {selectedProvider.registeredDate}
                   </Text>
                 </View>
               </View>
+
+              {/* Suspension Details - Only show for suspended providers */}
+              {selectedProvider.status === 'suspended' && selectedProvider.suspensionReason && (
+                <View style={{
+                  backgroundColor: isDark ? 'rgba(220, 38, 38, 0.1)' : '#FEE2E2',
+                  borderRadius: 12,
+                  padding: 16,
+                  marginTop: 8,
+                  borderWidth: 1,
+                  borderColor: '#DC2626',
+                }}>
+                  <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
+                    <Icon name="ban" size={20} color="#DC2626" />
+                    <Text style={{fontSize: 16, fontWeight: '600', color: '#DC2626', marginLeft: 8}}>
+                      Suspension Details
+                    </Text>
+                  </View>
+                  {selectedProvider.suspensionReasonLabel && (
+                    <View style={{
+                      backgroundColor: isDark ? 'rgba(220, 38, 38, 0.2)' : '#FECACA',
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 16,
+                      alignSelf: 'flex-start',
+                      marginBottom: 10,
+                    }}>
+                      <Text style={{fontSize: 13, fontWeight: '600', color: '#991B1B'}}>
+                        {selectedProvider.suspensionReasonLabel}
+                      </Text>
+                    </View>
+                  )}
+                  <Text style={{fontSize: 14, color: isDark ? '#FCA5A5' : '#991B1B', lineHeight: 20}}>
+                    {selectedProvider.suspensionReason}
+                  </Text>
+                  {selectedProvider.suspendedAt && (
+                    <Text style={{fontSize: 12, color: isDark ? '#F87171' : '#B91C1C', marginTop: 10}}>
+                      Suspended at: {selectedProvider.suspendedAt}
+                    </Text>
+                  )}
+                </View>
+              )}
             </ScrollView>
 
             <View style={adminStyles.modalFooter}>
@@ -984,6 +1175,180 @@ const AdminProvidersScreen = ({navigation, route}) => {
       )}
 
       {renderDetailModal()}
+
+      {/* Suspension Reason Modal */}
+      <Modal
+        visible={showSuspendModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => !isSuspending && setShowSuspendModal(false)}
+      >
+        <View style={adminStyles.modalOverlay}>
+          <View style={[adminStyles.modalContent, isDark && {backgroundColor: theme.colors.surface}, {maxHeight: '85%'}]}>
+            <View style={adminStyles.modalHandle} />
+            
+            <View style={[adminStyles.modalHeader, isDark && {borderBottomColor: theme.colors.border}]}>
+              <Text style={[adminStyles.modalTitle, isDark && {color: theme.colors.text}]}>Suspend Provider</Text>
+              <TouchableOpacity 
+                style={adminStyles.modalCloseButton}
+                onPress={() => !isSuspending && setShowSuspendModal(false)}
+                disabled={isSuspending}
+              >
+                <Icon name="close" size={24} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={adminStyles.modalBody}>
+              {suspendingProvider && (
+                <View style={{alignItems: 'center', marginBottom: 20}}>
+                  <View style={[adminStyles.providerAvatar, {width: 60, height: 60, borderRadius: 30, backgroundColor: '#FEE2E2'}]}>
+                    <Icon name="warning" size={28} color="#DC2626" />
+                  </View>
+                  <Text style={[adminStyles.providerName, {fontSize: 18, marginTop: 12}, isDark && {color: theme.colors.text}]}>
+                    {suspendingProvider.name}
+                  </Text>
+                  <Text style={{color: isDark ? theme.colors.textSecondary : '#6B7280', fontSize: 14, marginTop: 4}}>
+                    {suspendingProvider.email}
+                  </Text>
+                </View>
+              )}
+
+              <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}, {marginBottom: 12}]}>
+                Select Suspension Reason
+              </Text>
+
+              {SUSPENSION_REASONS.map((reason) => (
+                <TouchableOpacity
+                  key={reason.id}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    padding: 14,
+                    borderRadius: 12,
+                    marginBottom: 10,
+                    backgroundColor: selectedReason?.id === reason.id 
+                      ? (isDark ? 'rgba(220, 38, 38, 0.15)' : '#FEE2E2')
+                      : (isDark ? theme.colors.background : '#F9FAFB'),
+                    borderWidth: 2,
+                    borderColor: selectedReason?.id === reason.id ? '#DC2626' : 'transparent',
+                  }}
+                  onPress={() => setSelectedReason(reason)}
+                  disabled={isSuspending}
+                >
+                  <View style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    borderWidth: 2,
+                    borderColor: selectedReason?.id === reason.id ? '#DC2626' : (isDark ? theme.colors.border : '#D1D5DB'),
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginRight: 12,
+                  }}>
+                    {selectedReason?.id === reason.id && (
+                      <View style={{width: 12, height: 12, borderRadius: 6, backgroundColor: '#DC2626'}} />
+                    )}
+                  </View>
+                  <View style={{flex: 1}}>
+                    <Text style={{fontSize: 15, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937'}}>
+                      {reason.label}
+                    </Text>
+                    {reason.id !== 'other' && (
+                      <Text style={{fontSize: 13, color: isDark ? theme.colors.textSecondary : '#6B7280', marginTop: 2}}>
+                        {reason.description}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+              {selectedReason?.id === 'other' && (
+                <View style={{marginTop: 8}}>
+                  <Text style={{fontSize: 14, fontWeight: '500', color: isDark ? theme.colors.text : '#374151', marginBottom: 8}}>
+                    Custom Reason *
+                  </Text>
+                  <TextInput
+                    style={{
+                      borderWidth: 1,
+                      borderColor: isDark ? theme.colors.border : '#D1D5DB',
+                      borderRadius: 10,
+                      padding: 12,
+                      fontSize: 15,
+                      color: isDark ? theme.colors.text : '#1F2937',
+                      backgroundColor: isDark ? theme.colors.background : '#FFFFFF',
+                      minHeight: 100,
+                      textAlignVertical: 'top',
+                    }}
+                    placeholder="Please describe the reason for suspension..."
+                    placeholderTextColor={isDark ? theme.colors.textTertiary : '#9CA3AF'}
+                    value={customReason}
+                    onChangeText={setCustomReason}
+                    multiline
+                    editable={!isSuspending}
+                  />
+                </View>
+              )}
+
+              <View style={{
+                backgroundColor: isDark ? 'rgba(251, 191, 36, 0.1)' : '#FFFBEB',
+                padding: 14,
+                borderRadius: 10,
+                marginTop: 16,
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+              }}>
+                <Icon name="information-circle" size={20} color="#F59E0B" style={{marginRight: 10, marginTop: 2}} />
+                <Text style={{flex: 1, fontSize: 13, color: isDark ? '#FCD34D' : '#92400E', lineHeight: 18}}>
+                  The provider will be notified via email about this suspension and the reason. They will see this message when they try to log in.
+                </Text>
+              </View>
+            </ScrollView>
+
+            <View style={[adminStyles.modalFooter, {gap: 12}]}>
+              <TouchableOpacity 
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 10,
+                  backgroundColor: isDark ? theme.colors.background : '#F3F4F6',
+                  alignItems: 'center',
+                }}
+                onPress={() => setShowSuspendModal(false)}
+                disabled={isSuspending}
+              >
+                <Text style={{fontSize: 15, fontWeight: '600', color: isDark ? theme.colors.text : '#374151'}}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 10,
+                  backgroundColor: '#DC2626',
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  opacity: isSuspending ? 0.7 : 1,
+                }}
+                onPress={confirmSuspension}
+                disabled={isSuspending}
+              >
+                {isSuspending ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Icon name="pause-circle" size={18} color="#FFFFFF" />
+                    <Text style={{fontSize: 15, fontWeight: '600', color: '#FFFFFF', marginLeft: 6}}>
+                      Suspend
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Image Viewer Modal */}
       <Modal

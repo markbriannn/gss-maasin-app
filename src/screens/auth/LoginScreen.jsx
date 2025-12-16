@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Modal,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -22,6 +23,10 @@ const LoginScreen = ({navigation}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  
+  // Suspended account modal state
+  const [showSuspendedModal, setShowSuspendedModal] = useState(false);
+  const [suspensionDetails, setSuspensionDetails] = useState(null);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -34,7 +39,13 @@ const LoginScreen = ({navigation}) => {
     setIsLoading(false);
 
     if (!result.success) {
-      Alert.alert('Login Failed', result.error || 'Invalid credentials');
+      // Handle suspended account - show modal with details
+      if (result.error === 'ACCOUNT_SUSPENDED' && result.suspensionDetails) {
+        setSuspensionDetails(result.suspensionDetails);
+        setShowSuspendedModal(true);
+      } else {
+        Alert.alert('Login Failed', result.error || 'Invalid credentials');
+      }
     }
   };
 
@@ -177,6 +188,140 @@ const LoginScreen = ({navigation}) => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Suspended Account Modal */}
+      <Modal
+        visible={showSuspendedModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowSuspendedModal(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+        }}>
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 20,
+            padding: 24,
+            width: '100%',
+            maxWidth: 400,
+            alignItems: 'center',
+          }}>
+            {/* Warning Icon */}
+            <View style={{
+              width: 80,
+              height: 80,
+              borderRadius: 40,
+              backgroundColor: '#FEE2E2',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: 20,
+            }}>
+              <Icon name="ban" size={40} color="#DC2626" />
+            </View>
+
+            {/* Title */}
+            <Text style={{
+              fontSize: 22,
+              fontWeight: '700',
+              color: '#1F2937',
+              marginBottom: 8,
+              textAlign: 'center',
+            }}>
+              Account Suspended
+            </Text>
+
+            {/* Suspension Date */}
+            {suspensionDetails?.suspendedAt && (
+              <Text style={{
+                fontSize: 13,
+                color: '#6B7280',
+                marginBottom: 16,
+              }}>
+                Suspended on: {suspensionDetails.suspendedAt}
+              </Text>
+            )}
+
+            {/* Reason Label */}
+            {suspensionDetails?.label && (
+              <View style={{
+                backgroundColor: '#FEF3C7',
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 20,
+                marginBottom: 16,
+              }}>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: '#92400E',
+                }}>
+                  {suspensionDetails.label}
+                </Text>
+              </View>
+            )}
+
+            {/* Reason Details */}
+            <View style={{
+              backgroundColor: '#F9FAFB',
+              borderRadius: 12,
+              padding: 16,
+              width: '100%',
+              marginBottom: 20,
+            }}>
+              <Text style={{
+                fontSize: 14,
+                color: '#374151',
+                lineHeight: 22,
+                textAlign: 'center',
+              }}>
+                {suspensionDetails?.reason || 'Your account has been suspended. Please contact support for more information.'}
+              </Text>
+            </View>
+
+            {/* Contact Support Info */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 20,
+            }}>
+              <Icon name="mail-outline" size={18} color="#6B7280" />
+              <Text style={{
+                fontSize: 13,
+                color: '#6B7280',
+                marginLeft: 8,
+              }}>
+                Contact: support@gssmaasin.com
+              </Text>
+            </View>
+
+            {/* Close Button */}
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#DC2626',
+                paddingVertical: 14,
+                paddingHorizontal: 40,
+                borderRadius: 12,
+                width: '100%',
+                alignItems: 'center',
+              }}
+              onPress={() => setShowSuspendedModal(false)}
+            >
+              <Text style={{
+                fontSize: 16,
+                fontWeight: '600',
+                color: '#FFFFFF',
+              }}>
+                I Understand
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
