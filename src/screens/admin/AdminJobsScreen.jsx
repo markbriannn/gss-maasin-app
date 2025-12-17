@@ -860,9 +860,9 @@ const AdminJobsScreen = ({navigation, route}) => {
                           borderColor: isDark ? theme.colors.border : '#E5E7EB',
                         }}
                       >
-                        {(item.uri || item.thumbnail || (typeof item === 'string' && item)) ? (
+                        {(item.url || item.uri || item.thumbnail || (typeof item === 'string' && item)) ? (
                           <Image
-                            source={{uri: item.uri || item.thumbnail || item}}
+                            source={{uri: item.url || item.uri || item.thumbnail || item}}
                             style={{width: '100%', height: '100%'}}
                             resizeMode="cover"
                           />
@@ -1233,9 +1233,9 @@ const AdminJobsScreen = ({navigation, route}) => {
                 </Text>
               </View>
             ) : (
-              (selectedMedia.uri || (typeof selectedMedia === 'string' && selectedMedia)) ? (
+              (selectedMedia.url || selectedMedia.uri || (typeof selectedMedia === 'string' && selectedMedia)) ? (
                 <Image
-                  source={{uri: selectedMedia.uri || selectedMedia}}
+                  source={{uri: selectedMedia.url || selectedMedia.uri || selectedMedia}}
                   style={{width: width - 40, height: width - 40, borderRadius: 12}}
                   resizeMode="contain"
                 />
