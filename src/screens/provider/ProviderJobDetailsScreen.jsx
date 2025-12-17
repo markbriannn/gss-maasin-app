@@ -30,6 +30,7 @@ import {APP_CONFIG} from '../../config/constants';
 import paymentService from '../../services/paymentService';
 import {getClientBadges, getClientTier} from '../../utils/gamification';
 import {BadgeList, TierBadge} from '../../components/gamification';
+import {onBookingCompleted} from '../../services/gamificationService';
 
 const {width: SCREEN_WIDTH, height: SCREEN_HEIGHT} = Dimensions.get('window');
 
@@ -846,6 +847,18 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                 });
               }
               setJobData(prev => ({...prev, status: 'completed', paid: true}));
+              
+              // Award gamification points to both client and provider
+              if (jobData.clientId && user?.uid) {
+                onBookingCompleted(jobData.clientId, user.uid, totalAmount)
+                  .then(result => {
+                    if (result.success) {
+                      console.log('Gamification points awarded successfully');
+                    }
+                  })
+                  .catch(err => console.log('Gamification error:', err));
+              }
+              
               // Notify client job is fully completed
               notificationService.notifyJobCompleted?.(jobData);
               // Send SMS/Email notification (async)

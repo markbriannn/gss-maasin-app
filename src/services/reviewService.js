@@ -1,5 +1,6 @@
 import { collection, addDoc, query, where, getDocs, updateDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { onReviewSubmitted } from './gamificationService';
 
 /**
  * Submit a review for a completed job
@@ -60,6 +61,12 @@ export const submitReview = async (jobId, providerId, clientId, rating, comment,
 
     // 5. Update provider's average rating
     await updateProviderRating(providerId);
+    
+    // 6. Award gamification points for review
+    if (clientId && providerId) {
+      onReviewSubmitted(clientId, providerId, rating)
+        .catch(err => console.log('Gamification review error:', err));
+    }
 
     return { success: true, reviewId: reviewRef.id };
   } catch (error) {
