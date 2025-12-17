@@ -373,15 +373,29 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
       const providerShare = amountInPesos * 0.95;
       const platformCommission = amountInPesos * 0.05;
 
+      // Check if this is a "pay first" upfront payment
+      const isUpfrontPayment = bookingData?.paymentPreference === 'pay_first' && !bookingData?.isPaidUpfront;
+
       // Update booking status
-      await db.collection('bookings').doc(bookingId).update({
+      const bookingUpdate = {
         paid: true,
-        status: 'payment_received',
         paymentId: payment.id,
         paymentMethod: paymentData.type,
         paidAt: new Date(),
         updatedAt: new Date(),
-      });
+      };
+
+      if (isUpfrontPayment) {
+        // Pay First - mark as paid upfront, don't change status yet
+        bookingUpdate.isPaidUpfront = true;
+        bookingUpdate.upfrontPaidAmount = amountInPesos;
+        bookingUpdate.upfrontPaidAt = new Date();
+      } else {
+        // Pay Later - mark as payment received
+        bookingUpdate.status = 'payment_received';
+      }
+
+      await db.collection('bookings').doc(bookingId).update(bookingUpdate);
 
       // Create transaction record
       await db.collection('transactions').add({
@@ -516,15 +530,29 @@ router.post('/webhook', async (req, res) => {
         const providerShare = amountInPesos * 0.95; // 95% to provider
         const platformCommission = amountInPesos * 0.05; // 5% platform fee
 
-        // Update booking status to payment_received
-        await db.collection('bookings').doc(paymentData.bookingId).update({
+        // Check if this is a "pay first" upfront payment
+        const isUpfrontPayment = bookingData?.paymentPreference === 'pay_first' && !bookingData?.isPaidUpfront;
+
+        // Update booking
+        const bookingUpdate = {
           paid: true,
-          status: 'payment_received',
           paymentId: payment.id,
           paymentMethod: paymentData.type,
           paidAt: new Date(),
           updatedAt: new Date(),
-        });
+        };
+
+        if (isUpfrontPayment) {
+          // Pay First - mark as paid upfront, don't change status yet
+          bookingUpdate.isPaidUpfront = true;
+          bookingUpdate.upfrontPaidAmount = amountInPesos;
+          bookingUpdate.upfrontPaidAt = new Date();
+        } else {
+          // Pay Later - mark as payment received
+          bookingUpdate.status = 'payment_received';
+        }
+
+        await db.collection('bookings').doc(paymentData.bookingId).update(bookingUpdate);
 
         // Create transaction record with provider share and commission
         await db.collection('transactions').add({

@@ -62,6 +62,12 @@ const JobDetailsScreen = ({navigation, route}) => {
       console.log('Payment verification result:', result);
       
       if (result.success && result.status === 'paid') {
+        // Update local state to reflect payment - check if it's upfront payment
+        if (jobData.paymentPreference === 'pay_first' && !jobData.isPaidUpfront) {
+          setJobData(prev => ({...prev, isPaidUpfront: true, upfrontPaidAmount: prev.totalAmount || prev.price}));
+        } else {
+          setJobData(prev => ({...prev, status: 'payment_received'}));
+        }
         Alert.alert('Payment Successful', 'Your payment has been processed successfully!');
       } else if (result.status === 'failed') {
         setPaymentError('Payment failed or expired. Please try again.');
@@ -84,7 +90,8 @@ const JobDetailsScreen = ({navigation, route}) => {
       if (
         appState.current.match(/inactive|background/) &&
         nextAppState === 'active' &&
-        (jobData?.status === 'pending_payment' || jobData?.status === 'pending_completion')
+        (jobData?.status === 'pending_payment' || jobData?.status === 'pending_completion' || 
+         (jobData?.paymentPreference === 'pay_first' && !jobData?.isPaidUpfront))
       ) {
         // App came back to foreground, verify and process payment
         setIsCheckingPayment(true);
@@ -97,6 +104,12 @@ const JobDetailsScreen = ({navigation, route}) => {
           
           if (result.success && result.status === 'paid') {
             setPaymentError(null);
+            // Update local state for upfront payment
+            if (jobData.paymentPreference === 'pay_first' && !jobData.isPaidUpfront) {
+              setJobData(prev => ({...prev, isPaidUpfront: true, upfrontPaidAmount: prev.totalAmount || prev.price}));
+            } else {
+              setJobData(prev => ({...prev, status: 'payment_received'}));
+            }
             Alert.alert('Payment Successful', 'Your payment has been processed successfully!');
           } else if (result.status === 'failed') {
             setPaymentError('Payment failed or expired. Please try again.');
@@ -119,7 +132,7 @@ const JobDetailsScreen = ({navigation, route}) => {
     return () => {
       subscription.remove();
     };
-  }, [jobData?.status, jobData?.id, jobId]);
+  }, [jobData?.status, jobData?.id, jobId, jobData?.paymentPreference, jobData?.isPaidUpfront]);
 
   const CANCEL_REASONS = [
     'Changed my mind',
