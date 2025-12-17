@@ -486,7 +486,7 @@ function AdminTabs() {
 // Main App Navigator
 export default function AppNavigator() {
   const {isAuthenticated, userRole, isLoading} = useAuth();
-  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(null);
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(true); // Default to true to skip onboarding
   const [onboardingChecked, setOnboardingChecked] = useState(false);
 
   useEffect(() => {
@@ -497,7 +497,7 @@ export default function AppNavigator() {
     try {
       // Check if user has EVER seen onboarding (persists across logins/logouts)
       const seen = await AsyncStorage.getItem('hasSeenOnboarding');
-      // Only show onboarding if explicitly never seen (null or not 'true')
+      // Only show onboarding if explicitly never seen (null means first install)
       // Once seen, it should never show again even after logout
       setHasSeenOnboarding(seen === 'true');
     } catch (error) {
@@ -506,6 +506,15 @@ export default function AppNavigator() {
     } finally {
       setOnboardingChecked(true);
     }
+  };
+
+  // Determine initial route for unauthenticated users
+  const getInitialRouteName = () => {
+    if (!isAuthenticated) {
+      // Only show onboarding on first install (hasSeenOnboarding is false)
+      return hasSeenOnboarding ? 'GuestHome' : 'Onboarding';
+    }
+    return undefined; // Let the stack determine based on role
   };
 
   if (isLoading || !onboardingChecked) {
@@ -518,6 +527,7 @@ export default function AppNavigator() {
 
   return (
     <Stack.Navigator
+      initialRouteName={getInitialRouteName()}
       screenOptions={{
         headerShown: false,
         gestureEnabled: true,
@@ -563,17 +573,16 @@ export default function AppNavigator() {
       }}>
       {!isAuthenticated ? (
         <>
-          {/* Only show onboarding on first install - never after logout */}
-          {hasSeenOnboarding === false && (
-            <Stack.Screen 
-              name="Onboarding" 
-              component={OnboardingScreen}
-              options={{animationEnabled: false}}
-            />
-          )}
+          {/* GuestHome is always the initial screen after logout */}
           <Stack.Screen 
             name="GuestHome" 
             component={GuestHomeScreen}
+            options={{animationEnabled: false}}
+          />
+          {/* Onboarding is only accessible on first install, not after logout */}
+          <Stack.Screen 
+            name="Onboarding" 
+            component={OnboardingScreen}
             options={{animationEnabled: false}}
           />
           <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
