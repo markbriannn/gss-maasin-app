@@ -117,9 +117,19 @@ const AdminEarningsScreen = ({navigation}) => {
 
       snapshot.forEach((doc) => {
         const data = doc.data();
-        if (data.status === 'completed') {
+        // Include completed jobs AND Pay First confirmed jobs (client confirmed, payment received)
+        const isCompleted = data.status === 'completed';
+        const isPayFirstConfirmed = data.status === 'payment_received' && data.isPaidUpfront === true;
+        
+        if (isCompleted || isPayFirstConfirmed) {
           completedJobs++;
-          const amount = data.totalAmount || data.fixedPrice || data.price || 0;
+          // Use finalAmount if available, otherwise calculate from providerPrice + additionalCharges
+          let amount = data.finalAmount;
+          if (!amount) {
+            const baseAmount = data.totalAmount || data.fixedPrice || data.price || 0;
+            const approvedAdditionalCharges = data.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || c.amount || 0), 0) || 0;
+            amount = baseAmount + approvedAdditionalCharges;
+          }
           const systemFee = data.systemFee || (amount * 0.05);
           totalSystemFee += systemFee;
         }

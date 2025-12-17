@@ -164,15 +164,21 @@ export const useRealtimeEarnings = (providerId) => {
           const amount = providerPrice + additionalApproved;
           
           const completedAt = data.completedAt?.toDate?.() || data.updatedAt?.toDate?.();
+          
+          // Check if this is a Pay First job where client has confirmed (payment already received)
+          const isPayFirstConfirmed = data.status === 'payment_received' && data.isPaidUpfront === true;
 
-          if (data.status === 'completed') {
+          if (data.status === 'completed' || isPayFirstConfirmed) {
             totalEarnings += amount;
+            
+            // For Pay First, use clientConfirmedAt since that's when payment was confirmed
+            const earningDate = isPayFirstConfirmed 
+              ? (data.clientConfirmedAt?.toDate?.() || data.updatedAt?.toDate?.() || new Date())
+              : (completedAt || new Date());
 
-            if (completedAt) {
-              if (completedAt >= todayStart) todayEarnings += amount;
-              if (completedAt >= weekStart) weekEarnings += amount;
-              if (completedAt >= monthStart) monthEarnings += amount;
-            }
+            if (earningDate >= todayStart) todayEarnings += amount;
+            if (earningDate >= weekStart) weekEarnings += amount;
+            if (earningDate >= monthStart) monthEarnings += amount;
 
             txList.push({
               id: doc.id,
@@ -180,8 +186,8 @@ export const useRealtimeEarnings = (providerId) => {
               service: data.serviceCategory || 'Service',
               clientName: data.clientName || 'Client',
               amount: amount,
-              date: completedAt || new Date(),
-              status: 'completed',
+              date: earningDate,
+              status: isPayFirstConfirmed ? 'payment_received' : 'completed',
             });
           } else if (data.status === 'in_progress' || data.status === 'accepted') {
             pendingEarnings += amount;
@@ -312,9 +318,21 @@ export const useRealtimeAnalytics = () => {
           totalJobs++;
 
           const status = data.status;
-          if (status === 'completed') {
+          // Include completed jobs AND Pay First confirmed jobs
+          const isCompleted = status === 'completed';
+          const isPayFirstConfirmed = status === 'payment_received' && data.isPaidUpfront === true;
+          
+          if (isCompleted || isPayFirstConfirmed) {
             completedJobs++;
-            const amount = data.totalAmount || data.price || 0;
+            // Use finalAmount if available, otherwise calculate
+            let amount = data.finalAmount;
+            if (!amount) {
+              const baseAmount = data.totalAmount || data.price || 0;
+              const approvedAdditionalCharges = (data.additionalCharges || [])
+                .filter(c => c.status === 'approved')
+                .reduce((sum, c) => sum + (c.total || c.amount || 0), 0);
+              amount = baseAmount + approvedAdditionalCharges;
+            }
             const systemFee = data.systemFee || (amount * 0.05);
             const earnings = data.providerPrice || (amount - systemFee);
 
@@ -322,11 +340,14 @@ export const useRealtimeAnalytics = () => {
             totalSystemFee += systemFee;
             providerEarnings += earnings;
 
-            const completedAt = data.completedAt?.toDate?.();
-            if (completedAt) {
-              if (completedAt >= todayStart) todayRevenue += amount;
-              if (completedAt >= weekStart) weekRevenue += amount;
-              if (completedAt >= monthStart) monthRevenue += amount;
+            // Use clientConfirmedAt for Pay First jobs, completedAt for regular completed
+            const earningDate = isPayFirstConfirmed
+              ? (data.clientConfirmedAt?.toDate?.() || data.updatedAt?.toDate?.())
+              : data.completedAt?.toDate?.();
+            if (earningDate) {
+              if (earningDate >= todayStart) todayRevenue += amount;
+              if (earningDate >= weekStart) weekRevenue += amount;
+              if (earningDate >= monthStart) monthRevenue += amount;
             }
           } else if (status === 'pending' || status === 'pending_negotiation') {
             pendingJobs++;

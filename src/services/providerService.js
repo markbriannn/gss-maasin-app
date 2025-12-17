@@ -239,10 +239,10 @@ export const providerService = {
   // Get Provider Earnings
   getProviderEarnings: async (providerId, period = 'today') => {
     try {
+      // Query all provider jobs (we'll filter for completed and Pay First confirmed)
       const jobsQuery = query(
         collection(db, 'bookings'),
-        where('providerId', '==', providerId),
-        where('status', '==', 'completed')
+        where('providerId', '==', providerId)
       );
       
       const querySnapshot = await getDocs(jobsQuery);
@@ -252,24 +252,42 @@ export const providerService = {
       
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        const amount = data.totalAmount || data.price || 0;
+        
+        // Check if this is a completed job OR a Pay First job where client confirmed
+        const isCompleted = data.status === 'completed';
+        const isPayFirstConfirmed = data.status === 'payment_received' && data.isPaidUpfront === true;
+        
+        if (!isCompleted && !isPayFirstConfirmed) return;
+        
+        // Use finalAmount if available, otherwise calculate
+        let amount = data.finalAmount;
+        if (!amount) {
+          const baseAmount = data.providerPrice || data.totalAmount || data.price || 0;
+          const approvedAdditionalCharges = (data.additionalCharges || [])
+            .filter(c => c.status === 'approved')
+            .reduce((sum, c) => sum + (c.amount || 0), 0);
+          amount = baseAmount + approvedAdditionalCharges;
+        }
         total += amount;
         
-        const completedAt = data.completedAt?.toDate?.() || new Date();
+        // For Pay First, use clientConfirmedAt; for completed, use completedAt
+        const earningDate = isPayFirstConfirmed
+          ? (data.clientConfirmedAt?.toDate?.() || data.updatedAt?.toDate?.() || new Date())
+          : (data.completedAt?.toDate?.() || new Date());
         
         if (period === 'today') {
           const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          if (completedAt >= todayStart) {
+          if (earningDate >= todayStart) {
             periodTotal += amount;
           }
         } else if (period === 'week') {
           const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          if (completedAt >= weekStart) {
+          if (earningDate >= weekStart) {
             periodTotal += amount;
           }
         } else if (period === 'month') {
           const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-          if (completedAt >= monthStart) {
+          if (earningDate >= monthStart) {
             periodTotal += amount;
           }
         }
@@ -298,9 +316,23 @@ export const providerService = {
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         totalJobs++;
-        if (data.status === 'completed') {
+        
+        // Include completed jobs AND Pay First jobs where client confirmed
+        const isCompleted = data.status === 'completed';
+        const isPayFirstConfirmed = data.status === 'payment_received' && data.isPaidUpfront === true;
+        
+        if (isCompleted || isPayFirstConfirmed) {
           completedJobs++;
-          totalEarnings += data.totalAmount || data.price || 0;
+          // Use finalAmount if available, otherwise calculate
+          let amount = data.finalAmount;
+          if (!amount) {
+            const baseAmount = data.providerPrice || data.totalAmount || data.price || 0;
+            const approvedAdditionalCharges = (data.additionalCharges || [])
+              .filter(c => c.status === 'approved')
+              .reduce((sum, c) => sum + (c.amount || 0), 0);
+            amount = baseAmount + approvedAdditionalCharges;
+          }
+          totalEarnings += amount;
         }
       });
       

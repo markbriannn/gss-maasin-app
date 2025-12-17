@@ -28,10 +28,22 @@ const DirectionsScreen = ({navigation, route}) => {
 
   // Default to Maasin City center (on land) if no destination
   // Coordinates: Maasin City Hall area
-  const destinationCoords = {
-    latitude: destination?.latitude || 10.1335,
-    longitude: destination?.longitude || 124.8513,
+  const parseCoord = (val) => {
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') return parseFloat(val);
+    return null;
   };
+  
+  const destLat = parseCoord(destination?.latitude);
+  const destLng = parseCoord(destination?.longitude);
+  
+  const destinationCoords = {
+    latitude: (destLat && !isNaN(destLat)) ? destLat : 10.1335,
+    longitude: (destLng && !isNaN(destLng)) ? destLng : 124.8513,
+  };
+  
+  console.log('DirectionsScreen - Received destination:', destination);
+  console.log('DirectionsScreen - Using coords:', destinationCoords);
 
   useEffect(() => {
     getCurrentLocation();

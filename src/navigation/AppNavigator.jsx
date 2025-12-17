@@ -495,7 +495,10 @@ export default function AppNavigator() {
 
   const checkOnboardingStatus = async () => {
     try {
+      // Check if user has EVER seen onboarding (persists across logins/logouts)
       const seen = await AsyncStorage.getItem('hasSeenOnboarding');
+      // Only show onboarding if explicitly never seen (null or not 'true')
+      // Once seen, it should never show again even after logout
       setHasSeenOnboarding(seen === 'true');
     } catch (error) {
       console.error('Error checking onboarding status:', error);
@@ -560,9 +563,14 @@ export default function AppNavigator() {
       }}>
       {!isAuthenticated ? (
         <>
-          {hasSeenOnboarding === false ? (
-            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-          ) : null}
+          {/* Only show onboarding on first install - never after logout */}
+          {hasSeenOnboarding === false && (
+            <Stack.Screen 
+              name="Onboarding" 
+              component={OnboardingScreen}
+              options={{animationEnabled: false}}
+            />
+          )}
           <Stack.Screen 
             name="GuestHome" 
             component={GuestHomeScreen}

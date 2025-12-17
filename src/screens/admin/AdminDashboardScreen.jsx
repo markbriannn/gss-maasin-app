@@ -100,8 +100,9 @@ const AdminDashboardScreen = ({navigation}) => {
       const activeJobs = allJobs.filter(j => j.status === 'in_progress').length;
       const completedJobs = allJobs.filter(j => j.status === 'completed').length;
 
-      // Calculate revenue (from completed jobs)
+      // Calculate revenue (from completed jobs AND Pay First confirmed jobs)
       const completedJobsList = allJobs.filter(j => j.status === 'completed');
+      const payFirstConfirmedJobs = allJobs.filter(j => j.status === 'payment_received' && j.isPaidUpfront === true);
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const weekStart = new Date();
@@ -114,8 +115,16 @@ const AdminDashboardScreen = ({navigation}) => {
       let weekSystemFees = 0;
       let totalSystemFees = 0;
       
+      // Process completed jobs
       completedJobsList.forEach(job => {
-        const amount = job.totalAmount || job.amount || job.price || 0;
+        // Calculate total including additional charges
+        // finalAmount is stored when job completes (includes all adjustments)
+        let amount = job.finalAmount;
+        if (!amount) {
+          const baseAmount = job.totalAmount || job.amount || job.price || 0;
+          const approvedAdditionalCharges = job.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || c.amount || 0), 0) || 0;
+          amount = baseAmount + approvedAdditionalCharges;
+        }
         const systemFee = job.systemFee || (amount * 0.05 / 1.05); // Calculate 5% fee if not stored
         
         totalRevenue += amount;
@@ -136,6 +145,41 @@ const AdminDashboardScreen = ({navigation}) => {
             todaySystemFees += systemFee;
           }
           if (completedDate >= weekStart) {
+            weekRevenue += amount;
+            weekSystemFees += systemFee;
+          }
+        }
+      });
+      
+      // Process Pay First confirmed jobs (client confirmed, payment already received)
+      payFirstConfirmedJobs.forEach(job => {
+        let amount = job.finalAmount;
+        if (!amount) {
+          const baseAmount = job.totalAmount || job.amount || job.price || 0;
+          const approvedAdditionalCharges = job.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || c.amount || 0), 0) || 0;
+          amount = baseAmount + approvedAdditionalCharges;
+        }
+        const systemFee = job.systemFee || (amount * 0.05 / 1.05);
+        
+        totalRevenue += amount;
+        totalSystemFees += systemFee;
+        
+        // Use clientConfirmedAt for Pay First jobs
+        let confirmedDate = null;
+        if (job.clientConfirmedAt?.toDate) {
+          confirmedDate = job.clientConfirmedAt.toDate();
+        } else if (job.clientConfirmedAt) {
+          confirmedDate = new Date(job.clientConfirmedAt);
+        } else if (job.updatedAt?.toDate) {
+          confirmedDate = job.updatedAt.toDate();
+        }
+        
+        if (confirmedDate) {
+          if (confirmedDate >= todayStart) {
+            todayRevenue += amount;
+            todaySystemFees += systemFee;
+          }
+          if (confirmedDate >= weekStart) {
             weekRevenue += amount;
             weekSystemFees += systemFee;
           }

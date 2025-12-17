@@ -171,11 +171,10 @@ const NotificationsScreen = ({navigation}) => {
         const unsubJobs = onSnapshot(jobsQuery, () => generateNotifications(), handleError);
         unsubscribers.push(unsubJobs);
       } else if (normalizedRole === 'PROVIDER') {
-        // Listen to available jobs (admin approved, not yet assigned)
+        // Listen to available jobs (filter adminApproved in memory to avoid composite index)
         try {
           const availableJobsQuery = query(
             collection(db, 'bookings'),
-            where('adminApproved', '==', true),
             where('status', 'in', ['pending', 'pending_negotiation'])
           );
           const unsubAvailable = onSnapshot(availableJobsQuery, () => generateNotifications(), handleError);
@@ -287,17 +286,17 @@ const NotificationsScreen = ({navigation}) => {
           }
         });
       } else if (normalizedRole === 'PROVIDER') {
-        // Provider: available jobs (admin approved, not yet assigned)
+        // Provider: available jobs (filter adminApproved in memory to avoid composite index)
         try {
           const availableJobsQuery = query(
             collection(db, 'bookings'),
-            where('adminApproved', '==', true),
             where('status', 'in', ['pending', 'pending_negotiation'])
           );
           const availableJobsSnapshot = await getDocs(availableJobsQuery);
           availableJobsSnapshot.forEach((docSnap) => {
             const data = docSnap.data();
-            if (!data.providerId) {
+            // Filter: must be admin approved and not assigned to any provider
+            if (data.adminApproved && !data.providerId) {
               const notifId = `available_${docSnap.id}`;
               notificationsList.push({
                 id: notifId,

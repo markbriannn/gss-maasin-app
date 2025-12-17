@@ -239,11 +239,10 @@ export const NotificationProvider = ({children}) => {
           setUnreadCount(total);
         };
         
-        // Query 1: Available jobs (admin approved, pending, not assigned)
+        // Query 1: Available jobs (filter adminApproved in memory to avoid composite index)
         const availableJobsQuery = query(
           collection(db, 'bookings'),
-          where('status', 'in', ['pending', 'pending_negotiation']),
-          where('adminApproved', '==', true)
+          where('status', 'in', ['pending', 'pending_negotiation'])
         );
         
         const unsubAvailable = onSnapshot(
@@ -254,7 +253,8 @@ export const NotificationProvider = ({children}) => {
             const availableJobs = snapshot.docs.filter(doc => {
               const data = doc.data();
               const notifId = `available_${doc.id}`;
-              return !data.providerId && !currentReadIds.has(notifId);
+              // Filter: must be admin approved and not assigned to any provider
+              return data.adminApproved && !data.providerId && !currentReadIds.has(notifId);
             });
             availableJobsCount = availableJobs.length;
             updateProviderCount();

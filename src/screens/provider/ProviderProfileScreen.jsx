@@ -239,7 +239,9 @@ const ProviderProfileScreen = ({navigation, route}) => {
       bookingsSnap.forEach(docSnap => {
         const data = docSnap.data();
         const status = (data.status || '').toLowerCase();
-        if (status === 'completed') {
+        // Include completed jobs AND Pay First confirmed jobs
+        const isPayFirstConfirmed = status === 'payment_received' && data.isPaidUpfront === true;
+        if (status === 'completed' || isPayFirstConfirmed) {
           completed += 1;
         }
 

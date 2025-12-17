@@ -474,6 +474,17 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
       return;
     }
     
+    // Prevent discount if client already paid upfront (Pay First)
+    if (jobData.isPaidUpfront) {
+      Alert.alert(
+        'Cannot Apply Discount',
+        'The client has already paid upfront. Discounts cannot be applied after payment. If needed, contact admin for a partial refund.',
+        [{text: 'OK'}]
+      );
+      setShowDiscountModal(false);
+      return;
+    }
+    
     const currentPrice = jobData.providerPrice || jobData.totalAmount || 0;
     const discount = parseFloat(discountAmount);
     
@@ -820,6 +831,8 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
                 status: 'completed',
                 paid: true,
+                // Store the final amount for earnings calculation
+                finalAmount: totalAmount,
                 paymentConfirmedAt: serverTimestamp(),
                 completedAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
@@ -872,22 +885,41 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
     let destinationName = jobData?.client?.name || 'Client Location';
     let destinationAddress = jobData?.client?.address || jobData?.address || 'Maasin City';
     
-    if (jobData?.client?.latitude && jobData?.client?.longitude) {
+    // Helper to parse coordinate (handles string or number)
+    const parseCoord = (val) => {
+      if (typeof val === 'number') return val;
+      if (typeof val === 'string') return parseFloat(val);
+      return null;
+    };
+    
+    // Try to get coordinates from various sources
+    const clientLat = parseCoord(jobData?.client?.latitude);
+    const clientLng = parseCoord(jobData?.client?.longitude);
+    const bookingLat = parseCoord(jobData?.latitude);
+    const bookingLng = parseCoord(jobData?.longitude);
+    const locationLat = parseCoord(jobData?.location?.latitude);
+    const locationLng = parseCoord(jobData?.location?.longitude);
+    
+    if (clientLat && clientLng && !isNaN(clientLat) && !isNaN(clientLng)) {
       destination = {
-        latitude: jobData.client.latitude,
-        longitude: jobData.client.longitude,
+        latitude: clientLat,
+        longitude: clientLng,
       };
-    } else if (jobData?.latitude && jobData?.longitude) {
+    } else if (bookingLat && bookingLng && !isNaN(bookingLat) && !isNaN(bookingLng)) {
       destination = {
-        latitude: jobData.latitude,
-        longitude: jobData.longitude,
+        latitude: bookingLat,
+        longitude: bookingLng,
       };
-    } else if (jobData?.location?.latitude && jobData?.location?.longitude) {
+    } else if (locationLat && locationLng && !isNaN(locationLat) && !isNaN(locationLng)) {
       destination = {
-        latitude: jobData.location.latitude,
-        longitude: jobData.location.longitude,
+        latitude: locationLat,
+        longitude: locationLng,
       };
     }
+    
+    console.log('Directions - Client coords:', clientLat, clientLng);
+    console.log('Directions - Booking coords:', bookingLat, bookingLng);
+    console.log('Directions - Final destination:', destination);
     
     // Always navigate to in-app directions screen
     // If no coordinates, use Maasin City center as fallback

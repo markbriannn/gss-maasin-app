@@ -229,8 +229,9 @@ export const paymentService = {
         const createdAt = transaction.createdAt?.toDate?.() || new Date(transaction.createdAt);
 
         if ((!startDate || createdAt >= startDate) && (!endDate || createdAt <= endDate)) {
-          const amount = transaction.amount || 0;
-          totalEarnings += amount * 0.95;
+          // Use providerShare if available (already calculated by backend), otherwise calculate
+          const earnings = transaction.providerShare || (transaction.amount || 0) * 0.95;
+          totalEarnings += earnings;
           totalBookings++;
         }
       });
@@ -279,8 +280,9 @@ export const paymentService = {
         const createdAt = transaction.createdAt?.toDate?.() || new Date(transaction.createdAt);
 
         if ((!startDate || createdAt >= startDate) && (!endDate || createdAt <= endDate)) {
-          const amount = transaction.amount || 0;
-          totalEarnings += amount * 0.95; // 5% service fee deducted
+          // Use providerShare if available (already calculated by backend), otherwise calculate
+          const earnings = transaction.providerShare || (transaction.amount || 0) * 0.95;
+          totalEarnings += earnings;
           totalBookings++;
         }
       });

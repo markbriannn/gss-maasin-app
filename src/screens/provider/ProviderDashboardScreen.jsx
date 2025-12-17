@@ -126,23 +126,53 @@ const ProviderDashboardScreen = ({navigation}) => {
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
 
+      // Include completed jobs AND Pay First jobs where client has confirmed (payment_received with isPaidUpfront)
       const completedJobs = myJobs.filter(j => j.status === 'completed');
+      const payFirstConfirmedJobs = myJobs.filter(j => 
+        j.status === 'payment_received' && j.isPaidUpfront === true
+      );
       const activeJobs = myJobs.filter(j => j.status === 'in_progress' || j.status === 'accepted').length;
       
       let todayEarnings = 0;
       let weekEarnings = 0;
       let jobsToday = 0;
 
+      // Process completed jobs
       completedJobs.forEach(job => {
-        const amount = job.amount || job.price || 0;
+        // Calculate the actual provider earnings including discounts and additional charges
+        let finalAmount = job.finalAmount;
+        if (!finalAmount) {
+          const baseAmount = job.providerPrice || job.offeredPrice || job.totalAmount || job.amount || job.price || 0;
+          const approvedAdditionalCharges = job.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
+          finalAmount = baseAmount + approvedAdditionalCharges;
+        }
+        
         const completedDate = job.completedAt?.toDate?.() || new Date(job.completedAt);
         
         if (completedDate >= today) {
-          todayEarnings += amount;
+          todayEarnings += finalAmount;
           jobsToday++;
         }
         if (completedDate >= weekAgo) {
-          weekEarnings += amount;
+          weekEarnings += finalAmount;
+        }
+      });
+      
+      // Process Pay First jobs where client confirmed (payment already received)
+      payFirstConfirmedJobs.forEach(job => {
+        const baseAmount = job.providerPrice || job.offeredPrice || job.totalAmount || job.amount || job.price || 0;
+        const approvedAdditionalCharges = job.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
+        const finalAmount = baseAmount + approvedAdditionalCharges;
+        
+        // Use clientConfirmedAt for Pay First jobs since that's when payment was confirmed
+        const confirmedDate = job.clientConfirmedAt?.toDate?.() || job.updatedAt?.toDate?.() || new Date();
+        
+        if (confirmedDate >= today) {
+          todayEarnings += finalAmount;
+          jobsToday++;
+        }
+        if (confirmedDate >= weekAgo) {
+          weekEarnings += finalAmount;
         }
       });
 

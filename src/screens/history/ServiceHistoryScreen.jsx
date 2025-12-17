@@ -148,7 +148,9 @@ const ServiceHistoryScreen = ({ navigation }) => {
         const additionalCharges = data.additionalCharges?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
         const finalAmount = baseAmount + additionalCharges;
 
-        if (data.status === 'completed') {
+        // Include completed jobs AND Pay First confirmed jobs for earnings
+        const isPayFirstConfirmed = data.status === 'payment_received' && data.isPaidUpfront === true;
+        if (data.status === 'completed' || isPayFirstConfirmed) {
           totalAmount += finalAmount;
           jobCount++;
         }
