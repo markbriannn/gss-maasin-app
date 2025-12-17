@@ -941,8 +941,8 @@ const JobDetailsScreen = ({navigation, route}) => {
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {jobData.mediaFiles.map((file, index) => (
                 <View key={index} style={styles.mediaItem}>
-                {file.uri && (
-                  <Image source={{uri: file.uri}} style={styles.mediaImage} />
+                {(file.url || file.uri) && (
+                  <Image source={{uri: file.url || file.uri}} style={styles.mediaImage} />
                 )}
                   {file.isVideo && (
                     <View style={styles.videoOverlay}>
