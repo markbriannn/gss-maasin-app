@@ -55,12 +55,26 @@ export const getGamificationData = async (userId, role = 'CLIENT') => {
 // Add points to user
 export const addPoints = async (userId, pointType, role = 'CLIENT') => {
   try {
+    if (!userId) return { success: false, error: 'No user ID provided' };
+    
     const roleKey = role.toUpperCase() === 'PROVIDER' ? 'provider' : 'client';
     const points = POINTS_CONFIG[roleKey][pointType] || 0;
     
-    if (points === 0) return { success: false, error: 'Invalid point type' };
+    if (points === 0) {
+      console.warn(`Invalid point type: ${pointType} for role: ${role}`);
+      return { success: false, error: 'Invalid point type' };
+    }
 
     const docRef = doc(db, 'gamification', userId);
+    
+    // First check if document exists
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) {
+      // Create the document first
+      await getGamificationData(userId, role);
+    }
+    
+    // Now update with points
     await updateDoc(docRef, {
       points: increment(points),
       updatedAt: serverTimestamp(),
@@ -71,14 +85,10 @@ export const addPoints = async (userId, pointType, role = 'CLIENT') => {
       },
     });
 
+    console.log(`✅ Gamification: Added ${points} points (${pointType}) to user ${userId}`);
     return { success: true, pointsAdded: points };
   } catch (error) {
     console.error('Error adding points:', error);
-    // If doc doesn't exist, create it first
-    if (error.code === 'not-found') {
-      await getGamificationData(userId, role);
-      return addPoints(userId, pointType, role);
-    }
     return { success: false, error: error.message };
   }
 };
@@ -110,18 +120,26 @@ export const updateStats = async (userId, statsUpdate, role = 'CLIENT') => {
 // Increment a specific stat
 export const incrementStat = async (userId, statKey, amount = 1, role = 'CLIENT') => {
   try {
+    if (!userId) return { success: false, error: 'No user ID provided' };
+    
     const docRef = doc(db, 'gamification', userId);
+    
+    // First check if document exists
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) {
+      // Create the document first
+      await getGamificationData(userId, role);
+    }
+    
     await updateDoc(docRef, {
       [`stats.${statKey}`]: increment(amount),
       updatedAt: serverTimestamp(),
     });
+    
+    console.log(`✅ Gamification: Incremented ${statKey} by ${amount} for user ${userId}`);
     return { success: true };
   } catch (error) {
     console.error('Error incrementing stat:', error);
-    if (error.code === 'not-found') {
-      await getGamificationData(userId, role);
-      return incrementStat(userId, statKey, amount, role);
-    }
     return { success: false, error: error.message };
   }
 };
