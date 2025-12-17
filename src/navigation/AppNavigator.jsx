@@ -560,7 +560,7 @@ export default function AppNavigator() {
       }}>
       {!isAuthenticated ? (
         <>
-          {!hasSeenOnboarding ? (
+          {hasSeenOnboarding === false ? (
             <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           ) : null}
           <Stack.Screen 
