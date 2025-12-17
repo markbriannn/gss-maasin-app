@@ -334,23 +334,51 @@ const JobDetailsScreen = ({navigation, route}) => {
 
   // Client confirms work is complete and proceeds to payment
   const handleConfirmCompletion = () => {
+    // Check if there are approved additional charges that need to be paid
+    const additionalChargesTotal = jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || 0), 0) || 0;
+    const hasAdditionalToPay = additionalChargesTotal > 0;
+    
+    // For Pay First: if already paid upfront and no additional charges, go straight to payment_received
+    const isPayFirstComplete = jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront && !hasAdditionalToPay;
+    
+    const message = isPayFirstComplete 
+      ? 'Are you satisfied with the work? This will complete the job.'
+      : hasAdditionalToPay && jobData.isPaidUpfront
+        ? `Are you satisfied with the work? You have ₱${additionalChargesTotal.toLocaleString()} in additional charges to pay.`
+        : 'Are you satisfied with the work? This will proceed to payment.';
+    
+    const buttonText = isPayFirstComplete ? 'Yes, Complete Job' : 'Yes, Proceed to Pay';
+    
     Alert.alert(
       'Confirm Work Complete',
-      'Are you satisfied with the work? This will proceed to payment.',
+      message,
       [
         {text: 'Not Yet', style: 'cancel'},
         {
-          text: 'Yes, Proceed to Pay',
+          text: buttonText,
           onPress: async () => {
             try {
               setIsUpdating(true);
-              await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
-                status: 'pending_payment',
-                clientConfirmedAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              });
-              setJobData(prev => ({...prev, status: 'pending_payment'}));
-              Alert.alert('Confirmed', 'Please proceed to pay the provider.');
+              
+              if (isPayFirstComplete) {
+                // Pay First with no additional charges - go straight to payment_received
+                await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
+                  status: 'payment_received',
+                  clientConfirmedAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
+                });
+                setJobData(prev => ({...prev, status: 'payment_received'}));
+                Alert.alert('Completed', 'Job marked as complete. Waiting for provider confirmation.');
+              } else {
+                // Pay Later OR Pay First with additional charges - need payment
+                await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
+                  status: 'pending_payment',
+                  clientConfirmedAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
+                });
+                setJobData(prev => ({...prev, status: 'pending_payment'}));
+                Alert.alert('Confirmed', 'Please proceed to pay the provider.');
+              }
             } catch (error) {
               console.error('Error confirming completion:', error);
               Alert.alert('Error', 'Failed to confirm. Please try again.');
@@ -388,7 +416,11 @@ const JobDetailsScreen = ({navigation, route}) => {
     // Calculate total including approved additional charges
     const baseAmount = jobData?.totalAmount || jobData?.amount || 0;
     const additionalChargesTotal = jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || 0), 0) || 0;
-    const amount = baseAmount + additionalChargesTotal;
+    
+    // For Pay First: if already paid upfront, only charge additional charges
+    const isPayFirstWithAdditional = jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront && additionalChargesTotal > 0;
+    const amount = isPayFirstWithAdditional ? additionalChargesTotal : (baseAmount + additionalChargesTotal);
+    
     const bookingId = jobData.id || jobId;
     const userId = user?.uid || user?.id;
     
@@ -402,7 +434,7 @@ const JobDetailsScreen = ({navigation, route}) => {
       return;
     }
     
-    // Check if this is an upfront payment (Pay First flow)
+    // Check if this is an upfront payment (Pay First flow - initial payment before work starts)
     const isUpfrontPayment = jobData.paymentPreference === 'pay_first' && 
                              !jobData.isPaidUpfront && 
                              (jobData.status === 'accepted' || jobData.status === 'traveling' || jobData.status === 'arrived');
@@ -422,8 +454,9 @@ const JobDetailsScreen = ({navigation, route}) => {
         );
 
         if (result.success) {
-          // Different update for upfront vs completion payment
+          // Different update based on payment type
           if (isUpfrontPayment) {
+            // Initial upfront payment for Pay First
             await updateDoc(doc(db, 'bookings', bookingId), {
               isPaidUpfront: true,
               upfrontPaidAmount: amount,
@@ -434,7 +467,23 @@ const JobDetailsScreen = ({navigation, route}) => {
             setJobData(prev => ({...prev, isPaidUpfront: true, upfrontPaidAmount: amount}));
             setShowPaymentModal(false);
             Alert.alert('Payment Complete', 'Thank you! The provider can now start working on your job.');
+          } else if (isPayFirstWithAdditional) {
+            // Pay First - paying additional charges only (already paid upfront)
+            await updateDoc(doc(db, 'bookings', bookingId), {
+              status: 'payment_received',
+              additionalChargesPaid: true,
+              additionalChargesPaidAmount: amount,
+              additionalChargesPaidAt: serverTimestamp(),
+              clientPaidAt: serverTimestamp(),
+              paymentMethod: 'cash',
+              updatedAt: serverTimestamp(),
+            });
+            setJobData(prev => ({...prev, status: 'payment_received', additionalChargesPaid: true}));
+            notificationService.notifyPaymentReceived?.(jobData);
+            setShowPaymentModal(false);
+            Alert.alert('Additional Payment Complete', 'The provider will confirm receipt to complete the job.');
           } else {
+            // Pay Later - full payment after work
             await updateDoc(doc(db, 'bookings', bookingId), {
               status: 'payment_received',
               clientPaidAt: serverTimestamp(),
@@ -1513,16 +1562,30 @@ const JobDetailsScreen = ({navigation, route}) => {
             }}>
               <Icon name="card" size={32} color="#3B82F6" />
               <Text style={{fontSize: 16, fontWeight: '600', color: '#1E40AF', marginTop: 8}}>
-                Payment Required
+                {jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront 
+                  ? 'Additional Payment Required' 
+                  : 'Payment Required'}
               </Text>
               <Text style={{fontSize: 22, fontWeight: '700', color: '#1E40AF', marginTop: 8}}>
-                ₱{(
-                  (jobData?.totalAmount || jobData?.amount || 0) +
-                  (jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || 0), 0) || 0)
-                ).toLocaleString()}
+                ₱{(() => {
+                  const baseAmount = jobData?.totalAmount || jobData?.amount || 0;
+                  const additionalTotal = jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || 0), 0) || 0;
+                  // For Pay First with upfront payment, only show additional charges
+                  if (jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront) {
+                    return additionalTotal;
+                  }
+                  return baseAmount + additionalTotal;
+                })().toLocaleString()}
               </Text>
+              {jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront && (
+                <Text style={{fontSize: 12, color: '#3B82F6', marginTop: 2}}>
+                  (Original ₱{(jobData.upfrontPaidAmount || jobData.totalAmount || 0).toLocaleString()} already paid)
+                </Text>
+              )}
               <Text style={{fontSize: 13, color: '#3B82F6', marginTop: 4, textAlign: 'center'}}>
-                Please pay the provider to complete this job.
+                {jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront 
+                  ? 'Please pay the additional charges to complete this job.'
+                  : 'Please pay the provider to complete this job.'}
               </Text>
             </View>
             <TouchableOpacity 

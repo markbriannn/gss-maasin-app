@@ -27,6 +27,7 @@ import smsEmailService from '../../services/smsEmailService';
 import locationService from '../../services/locationService';
 import {sendJobAcceptedEmail, sendPaymentReceipt} from '../../services/emailJSService';
 import {APP_CONFIG} from '../../config/constants';
+import paymentService from '../../services/paymentService';
 import {getClientBadges, getClientTier} from '../../utils/gamification';
 import {BadgeList, TierBadge} from '../../components/gamification';
 
@@ -790,9 +791,14 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
 
   // Provider confirms payment received - final completion
   const handleConfirmPayment = () => {
+    // Calculate total including approved additional charges
+    const baseAmount = jobData?.totalAmount || jobData?.providerPrice || 0;
+    const additionalChargesTotal = jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
+    const totalAmount = baseAmount + additionalChargesTotal;
+    
     Alert.alert(
       'Confirm Payment Received',
-      'Confirm that you have received the payment from the client?',
+      `Confirm that you have received ₱${totalAmount.toLocaleString()} from the client?`,
       [
         {text: 'Cancel', style: 'cancel'},
         {
@@ -800,8 +806,20 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           onPress: async () => {
             try {
               setIsUpdating(true);
+              
+              // If payment wasn't recorded yet (e.g., direct cash), record it now
+              if (!jobData.paid) {
+                await paymentService.recordCashPayment(
+                  jobData.id || jobId,
+                  jobData.clientId,
+                  totalAmount,
+                  user?.uid
+                );
+              }
+              
               await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
                 status: 'completed',
+                paid: true,
                 paymentConfirmedAt: serverTimestamp(),
                 completedAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
@@ -814,7 +832,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                   updatedAt: serverTimestamp(),
                 });
               }
-              setJobData(prev => ({...prev, status: 'completed'}));
+              setJobData(prev => ({...prev, status: 'completed', paid: true}));
               // Notify client job is fully completed
               notificationService.notifyJobCompleted?.(jobData);
               // Send SMS/Email notification (async)
@@ -830,7 +848,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                     bookingId: jobData.id || jobId,
                     serviceName: jobData.title || jobData.serviceCategory,
                     providerName: user?.firstName || 'Provider',
-                    amount: jobData.totalAmount || jobData.providerPrice || 0,
+                    amount: totalAmount,
                     paymentMethod: jobData.paymentMethod || 'Cash',
                   }).catch(err => console.log('Payment receipt email failed:', err));
                 }

@@ -78,7 +78,7 @@ router.post('/create-gcash-source', async (req, res) => {
 
     const db = getDb();
 
-    // Check for existing pending payment for this booking (single where to avoid composite index)
+    // Check for existing pending payment for this booking with same amount
     try {
       const existingPayments = await db.collection('payments')
         .where('bookingId', '==', bookingId)
@@ -86,7 +86,7 @@ router.post('/create-gcash-source', async (req, res) => {
 
       const pendingPayment = existingPayments.docs
         .map(doc => doc.data())
-        .find(p => p.status === 'pending' && p.checkoutUrl);
+        .find(p => p.status === 'pending' && p.checkoutUrl && p.amount === amount);
 
       if (pendingPayment) {
         return res.json({
@@ -162,7 +162,7 @@ router.post('/create-paymaya-source', async (req, res) => {
 
     const db = getDb();
 
-    // Check for existing pending payment for this booking (single where to avoid composite index)
+    // Check for existing pending payment for this booking with same amount
     try {
       const existingPayments = await db.collection('payments')
         .where('bookingId', '==', bookingId)
@@ -170,7 +170,7 @@ router.post('/create-paymaya-source', async (req, res) => {
 
       const pendingPayment = existingPayments.docs
         .map(doc => doc.data())
-        .find(p => p.status === 'pending' && p.checkoutUrl);
+        .find(p => p.status === 'pending' && p.checkoutUrl && p.amount === amount);
 
       if (pendingPayment) {
         return res.json({
@@ -319,8 +319,24 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
     const paymentDoc = paymentsSnapshot.docs[0];
     const paymentData = paymentDoc.data();
 
-    // If already paid, return success
+    // If already paid, check if booking needs to be fixed
     if (paymentData.status === 'paid') {
+      // Get booking to check if it needs status fix
+      const bookingDoc = await db.collection('bookings').doc(bookingId).get();
+      const bookingData = bookingDoc.data();
+      
+      // Fix stuck "Pay First" jobs that are in pending_payment but already paid
+      if (bookingData?.paymentPreference === 'pay_first' && 
+          bookingData?.isPaidUpfront && 
+          bookingData?.status === 'pending_payment') {
+        await db.collection('bookings').doc(bookingId).update({
+          status: 'accepted',
+          updatedAt: new Date(),
+        });
+        console.log(`Fixed stuck Pay First booking ${bookingId}: pending_payment -> accepted`);
+        return res.json({ status: 'paid', message: 'Payment already processed, booking status fixed' });
+      }
+      
       return res.json({ status: 'paid', message: 'Payment already processed' });
     }
 
@@ -386,10 +402,14 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
       };
 
       if (isUpfrontPayment) {
-        // Pay First - mark as paid upfront, don't change status yet
+        // Pay First - mark as paid upfront
         bookingUpdate.isPaidUpfront = true;
         bookingUpdate.upfrontPaidAmount = amountInPesos;
         bookingUpdate.upfrontPaidAt = new Date();
+        // If status is pending_payment (shouldn't happen for pay_first but fix it), set to accepted
+        if (bookingData?.status === 'pending_payment') {
+          bookingUpdate.status = 'accepted';
+        }
       } else {
         // Pay Later - mark as payment received
         bookingUpdate.status = 'payment_received';
@@ -429,19 +449,81 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
       console.log(`Manual payment processed: ₱${amountInPesos} for booking ${bookingId}`);
       return res.json({ status: 'paid', message: 'Payment processed successfully' });
     } else if (sourceStatus === 'paid') {
-      // Already paid at PayMongo, just update our records
+      // Already paid at PayMongo, sync our records and update provider balance
       await db.collection('payments').doc(paymentDoc.id).update({
         status: 'paid',
         paidAt: new Date(),
       });
 
-      await db.collection('bookings').doc(bookingId).update({
+      // Get booking data
+      const bookingDoc = await db.collection('bookings').doc(bookingId).get();
+      const bookingData = bookingDoc.data();
+      const providerId = bookingData?.providerId;
+      const amountInPesos = source.attributes.amount / 100;
+      const providerShare = amountInPesos * 0.95;
+      const platformCommission = amountInPesos * 0.05;
+
+      // Check if this is a "pay first" upfront payment
+      const isUpfrontPayment = bookingData?.paymentPreference === 'pay_first' && !bookingData?.isPaidUpfront;
+
+      // Update booking status
+      const bookingUpdate = {
         paid: true,
-        status: 'payment_received',
         paymentMethod: paymentData.type,
         paidAt: new Date(),
         updatedAt: new Date(),
-      });
+      };
+
+      if (isUpfrontPayment) {
+        bookingUpdate.isPaidUpfront = true;
+        bookingUpdate.upfrontPaidAmount = amountInPesos;
+        bookingUpdate.upfrontPaidAt = new Date();
+        if (bookingData?.status === 'pending_payment') {
+          bookingUpdate.status = 'accepted';
+        }
+      } else {
+        bookingUpdate.status = 'payment_received';
+      }
+
+      await db.collection('bookings').doc(bookingId).update(bookingUpdate);
+
+      // Check if transaction already exists to avoid duplicates
+      const existingTx = await db.collection('transactions')
+        .where('bookingId', '==', bookingId)
+        .where('type', '==', 'payment')
+        .get();
+
+      if (existingTx.empty) {
+        // Create transaction record
+        await db.collection('transactions').add({
+          bookingId: bookingId,
+          clientId: paymentData.userId,
+          providerId: providerId,
+          type: 'payment',
+          amount: amountInPesos,
+          providerShare: providerShare,
+          platformCommission: platformCommission,
+          paymentMethod: paymentData.type,
+          status: 'completed',
+          createdAt: new Date(),
+        });
+
+        // Update provider's balance
+        if (providerId) {
+          const providerRef = db.collection('users').doc(providerId);
+          const providerDoc = await providerRef.get();
+          const currentBalance = providerDoc.data()?.availableBalance || 0;
+          const currentEarnings = providerDoc.data()?.totalEarnings || 0;
+          
+          await providerRef.update({
+            availableBalance: currentBalance + providerShare,
+            totalEarnings: currentEarnings + providerShare,
+            updatedAt: new Date(),
+          });
+        }
+
+        console.log(`Payment synced: ₱${amountInPesos} - Provider: ₱${providerShare}`);
+      }
 
       return res.json({ status: 'paid', message: 'Payment status synced' });
     } else if (sourceStatus === 'expired' || sourceStatus === 'cancelled') {
@@ -543,10 +625,14 @@ router.post('/webhook', async (req, res) => {
         };
 
         if (isUpfrontPayment) {
-          // Pay First - mark as paid upfront, don't change status yet
+          // Pay First - mark as paid upfront
           bookingUpdate.isPaidUpfront = true;
           bookingUpdate.upfrontPaidAmount = amountInPesos;
           bookingUpdate.upfrontPaidAt = new Date();
+          // If status is pending_payment (shouldn't happen for pay_first but fix it), set to accepted
+          if (bookingData?.status === 'pending_payment') {
+            bookingUpdate.status = 'accepted';
+          }
         } else {
           // Pay Later - mark as payment received
           bookingUpdate.status = 'payment_received';
@@ -832,11 +918,17 @@ router.post('/cash-payment', async (req, res) => {
 
     const db = getDb();
 
+    // Calculate provider share (95%) and platform commission (5%)
+    const providerShare = amount * 0.95;
+    const platformCommission = amount * 0.05;
+
     await db.collection('payments').add({
       bookingId,
       userId,
       providerId,
       amount,
+      providerShare,
+      platformCommission,
       type: 'cash',
       status: 'completed',
       paidAt: new Date(),
@@ -855,11 +947,30 @@ router.post('/cash-payment', async (req, res) => {
       providerId,
       type: 'payment',
       amount,
+      providerShare,
+      platformCommission,
       paymentMethod: 'cash',
       status: 'completed',
       createdAt: new Date(),
     });
 
+    // Update provider's balance
+    if (providerId) {
+      const providerRef = db.collection('users').doc(providerId);
+      const providerDoc = await providerRef.get();
+      if (providerDoc.exists) {
+        const currentBalance = providerDoc.data()?.availableBalance || 0;
+        const currentEarnings = providerDoc.data()?.totalEarnings || 0;
+        
+        await providerRef.update({
+          availableBalance: currentBalance + providerShare,
+          totalEarnings: currentEarnings + providerShare,
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    console.log(`Cash payment recorded: ₱${amount} - Provider: ₱${providerShare}, Platform: ₱${platformCommission}`);
     res.json({ success: true, message: 'Cash payment recorded' });
   } catch (error) {
     console.error('Error recording cash payment:', error.message);
