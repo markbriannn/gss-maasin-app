@@ -24,6 +24,7 @@ import {useTheme} from '../../context/ThemeContext';
 import smsEmailService from '../../services/smsEmailService';
 import {sendBookingConfirmation} from '../../services/emailJSService';
 import {attemptBooking, resetBookingLimit} from '../../utils/rateLimiter';
+import {uploadImage} from '../../services/imageUploadService';
 
 const BookServiceScreen = ({navigation, route}) => {
   const {user} = useAuth();
@@ -195,12 +196,27 @@ const BookServiceScreen = ({navigation, route}) => {
           : user?.streetAddress
             ? `${user.streetAddress}, Maasin City`
             : 'Maasin City',
-        mediaFiles: mediaFiles.map(f => ({
-          uri: f.uri,
-          type: f.type,
-          isVideo: f.isVideo,
-        })),
+        mediaFiles: [],
       };
+
+      // Upload media files to Cloudinary
+      if (mediaFiles.length > 0) {
+        const uploadedMedia = [];
+        for (const file of mediaFiles) {
+          try {
+            const uploadedUrl = await uploadImage(file.uri, `jobs/${user.uid}`, 'document');
+            uploadedMedia.push({
+              url: uploadedUrl,
+              type: file.type,
+              isVideo: file.isVideo,
+            });
+          } catch (uploadError) {
+            console.log('Media upload failed:', uploadError);
+            // Continue with other files
+          }
+        }
+        jobData.mediaFiles = uploadedMedia;
+      }
 
       const createdJob = await jobService.createJobRequest(jobData);
 
