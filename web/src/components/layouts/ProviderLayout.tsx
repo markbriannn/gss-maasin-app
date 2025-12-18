@@ -50,9 +50,41 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
   useEffect(() => {
     if (!user?.uid) return;
     
-    const stored = localStorage.getItem(`read_notifications_${user.uid}`);
-    const readIds = stored ? new Set(JSON.parse(stored)) : new Set();
     const unsubscribers: (() => void)[] = [];
+    let latestAvailableSnapshot: any = null;
+    let latestMyJobsSnapshot: any = null;
+    
+    const calculateUnreadCount = () => {
+      // Always get fresh read IDs from localStorage
+      const stored = localStorage.getItem(`read_notifications_${user.uid}`);
+      const readIds = stored ? new Set(JSON.parse(stored)) : new Set();
+      
+      let availableCount = 0;
+      let myJobsCount = 0;
+      
+      if (latestAvailableSnapshot) {
+        latestAvailableSnapshot.forEach((docSnap: any) => {
+          const data = docSnap.data();
+          if (data.adminApproved && !data.providerId) {
+            const notifId = `available_${docSnap.id}`;
+            if (!readIds.has(notifId)) availableCount++;
+          }
+        });
+      }
+      
+      if (latestMyJobsSnapshot) {
+        latestMyJobsSnapshot.forEach((docSnap: any) => {
+          const data = docSnap.data();
+          const status = data.status;
+          const notifId = `myjob_${status}_${docSnap.id}`;
+          const hasNotification = ['accepted', 'traveling', 'arrived', 'in_progress', 
+            'pending_completion', 'pending_payment', 'payment_received', 'completed'].includes(status);
+          if (hasNotification && !readIds.has(notifId)) myJobsCount++;
+        });
+      }
+      
+      setUnreadCount(availableCount + myJobsCount);
+    };
     
     // Listen to available jobs
     const availableJobsQuery = query(
@@ -60,45 +92,32 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
       where('status', 'in', ['pending', 'pending_negotiation'])
     );
     
+    unsubscribers.push(onSnapshot(availableJobsQuery, (snapshot) => {
+      latestAvailableSnapshot = snapshot;
+      calculateUnreadCount();
+    }));
+    
     // Listen to provider's own jobs
     const myJobsQuery = query(
       collection(db, 'bookings'),
       where('providerId', '==', user.uid)
     );
     
-    const calculateCount = () => {
-      // This will be called when either query updates
-    };
-    
-    let availableCount = 0;
-    let myJobsCount = 0;
-    
-    unsubscribers.push(onSnapshot(availableJobsQuery, (snapshot) => {
-      availableCount = 0;
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        if (data.adminApproved && !data.providerId) {
-          const notifId = `available_${docSnap.id}`;
-          if (!readIds.has(notifId)) availableCount++;
-        }
-      });
-      setUnreadCount(availableCount + myJobsCount);
-    }));
-    
     unsubscribers.push(onSnapshot(myJobsQuery, (snapshot) => {
-      myJobsCount = 0;
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        const status = data.status;
-        const notifId = `myjob_${status}_${docSnap.id}`;
-        const hasNotification = ['accepted', 'traveling', 'arrived', 'in_progress', 
-          'pending_completion', 'pending_payment', 'payment_received', 'completed'].includes(status);
-        if (hasNotification && !readIds.has(notifId)) myJobsCount++;
-      });
-      setUnreadCount(availableCount + myJobsCount);
+      latestMyJobsSnapshot = snapshot;
+      calculateUnreadCount();
     }));
     
-    return () => unsubscribers.forEach(unsub => unsub());
+    // Listen for localStorage changes (when dropdown marks as read)
+    const handleStorageChange = () => calculateUnreadCount();
+    window.addEventListener('notificationsRead', handleStorageChange);
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+      window.removeEventListener('notificationsRead', handleStorageChange);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, [user?.uid]);
 
   return (

@@ -50,12 +50,37 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   useEffect(() => {
     if (!user?.uid) return;
     
-    const stored = localStorage.getItem(`read_notifications_${user.uid}`);
-    const readIds = stored ? new Set(JSON.parse(stored)) : new Set();
     const unsubscribers: (() => void)[] = [];
+    let latestProvidersSnapshot: any = null;
+    let latestJobsSnapshot: any = null;
     
-    let pendingProvidersCount = 0;
-    let pendingJobsCount = 0;
+    const calculateUnreadCount = () => {
+      // Always get fresh read IDs from localStorage
+      const stored = localStorage.getItem(`read_notifications_${user.uid}`);
+      const readIds = stored ? new Set(JSON.parse(stored)) : new Set();
+      
+      let pendingProvidersCount = 0;
+      let pendingJobsCount = 0;
+      
+      if (latestProvidersSnapshot) {
+        latestProvidersSnapshot.forEach((docSnap: any) => {
+          const notifId = `provider_${docSnap.id}`;
+          if (!readIds.has(notifId)) pendingProvidersCount++;
+        });
+      }
+      
+      if (latestJobsSnapshot) {
+        latestJobsSnapshot.forEach((docSnap: any) => {
+          const data = docSnap.data();
+          if (!data.adminApproved) {
+            const notifId = `job_${docSnap.id}`;
+            if (!readIds.has(notifId)) pendingJobsCount++;
+          }
+        });
+      }
+      
+      setUnreadCount(pendingProvidersCount + pendingJobsCount);
+    };
     
     // Listen to pending providers
     const providersQuery = query(
@@ -65,12 +90,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     );
     
     unsubscribers.push(onSnapshot(providersQuery, (snapshot) => {
-      pendingProvidersCount = 0;
-      snapshot.forEach((docSnap) => {
-        const notifId = `provider_${docSnap.id}`;
-        if (!readIds.has(notifId)) pendingProvidersCount++;
-      });
-      setUnreadCount(pendingProvidersCount + pendingJobsCount);
+      latestProvidersSnapshot = snapshot;
+      calculateUnreadCount();
     }));
     
     // Listen to pending jobs
@@ -80,18 +101,20 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     );
     
     unsubscribers.push(onSnapshot(jobsQuery, (snapshot) => {
-      pendingJobsCount = 0;
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        if (!data.adminApproved) {
-          const notifId = `job_${docSnap.id}`;
-          if (!readIds.has(notifId)) pendingJobsCount++;
-        }
-      });
-      setUnreadCount(pendingProvidersCount + pendingJobsCount);
+      latestJobsSnapshot = snapshot;
+      calculateUnreadCount();
     }));
     
-    return () => unsubscribers.forEach(unsub => unsub());
+    // Listen for localStorage changes (when dropdown marks as read)
+    const handleStorageChange = () => calculateUnreadCount();
+    window.addEventListener('notificationsRead', handleStorageChange);
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+      window.removeEventListener('notificationsRead', handleStorageChange);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, [user?.uid]);
 
   return (

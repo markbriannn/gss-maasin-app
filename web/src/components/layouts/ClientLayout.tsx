@@ -46,19 +46,14 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
   useEffect(() => {
     if (!user?.uid) return;
     
-    // Get read notification IDs from localStorage
-    const stored = localStorage.getItem(`read_notifications_${user.uid}`);
-    const readIds = stored ? new Set(JSON.parse(stored)) : new Set();
-    
-    // Listen to client's bookings
-    const bookingsQuery = query(
-      collection(db, 'bookings'),
-      where('clientId', '==', user.uid)
-    );
-    
-    const unsubscribe = onSnapshot(bookingsQuery, (snapshot) => {
+    // Function to calculate unread count
+    const calculateUnreadCount = (snapshot: any) => {
+      // Always get fresh read IDs from localStorage
+      const stored = localStorage.getItem(`read_notifications_${user.uid}`);
+      const readIds = stored ? new Set(JSON.parse(stored)) : new Set();
+      
       let count = 0;
-      snapshot.forEach((docSnap) => {
+      snapshot.forEach((docSnap: any) => {
         const data = docSnap.data();
         const status = data.status;
         const notifId = `${status}_${docSnap.id}`;
@@ -72,11 +67,40 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
         }
       });
       setUnreadCount(count);
+    };
+    
+    // Listen to client's bookings
+    const bookingsQuery = query(
+      collection(db, 'bookings'),
+      where('clientId', '==', user.uid)
+    );
+    
+    let latestSnapshot: any = null;
+    
+    const unsubscribe = onSnapshot(bookingsQuery, (snapshot) => {
+      latestSnapshot = snapshot;
+      calculateUnreadCount(snapshot);
     }, (error) => {
       console.log('Unread count error:', error);
     });
     
-    return () => unsubscribe();
+    // Listen for localStorage changes (when dropdown marks as read)
+    const handleStorageChange = () => {
+      if (latestSnapshot) {
+        calculateUnreadCount(latestSnapshot);
+      }
+    };
+    
+    // Custom event for same-tab localStorage updates
+    window.addEventListener('notificationsRead', handleStorageChange);
+    // Standard storage event for cross-tab updates
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      unsubscribe();
+      window.removeEventListener('notificationsRead', handleStorageChange);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, [user?.uid]);
 
   return (

@@ -138,10 +138,12 @@ export default function NotificationDropdown({
     }
   }, [user?.uid]);
 
-  // Save read IDs to localStorage
+  // Save read IDs to localStorage and notify other components
   const saveReadIds = (ids: Set<string>) => {
     if (user?.uid) {
       localStorage.setItem(`read_notifications_${user.uid}`, JSON.stringify([...ids]));
+      // Dispatch custom event to notify layout components to update badge count
+      window.dispatchEvent(new CustomEvent('notificationsRead'));
     }
   };
 
