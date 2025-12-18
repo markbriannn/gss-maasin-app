@@ -25,11 +25,11 @@ export default function ServiceReceiptPage() {
     try {
       const bookingDoc = await getDoc(doc(db, 'bookings', bookingId));
       if (bookingDoc.exists()) {
-        const data = { id: bookingDoc.id, ...bookingDoc.data() };
+        const data = { id: bookingDoc.id, ...bookingDoc.data() } as any;
         setBooking(data);
 
         // Fetch provider info
-        if (data.providerId) {
+        if ((data as any).providerId) {
           const providerDoc = await getDoc(doc(db, 'users', data.providerId));
           if (providerDoc.exists()) {
             const p = providerDoc.data();
