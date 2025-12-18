@@ -39,16 +39,20 @@ const AdminAnalyticsScreen = ({navigation}) => {
   });
 
   useEffect(() => {
+    let isMounted = true;
+    
     // Real-time listener for users
     const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      if (!isMounted) return;
+      
       let totalProviders = 0;
       let activeProviders = 0;
       let pendingProviders = 0;
       let suspendedProviders = 0;
       let totalClients = 0;
       
-      snapshot.forEach((doc) => {
-        const data = doc.data();
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
         if (data.role === 'PROVIDER') {
           totalProviders++;
           if (data.providerStatus === 'approved') activeProviders++;
@@ -67,10 +71,14 @@ const AdminAnalyticsScreen = ({navigation}) => {
         suspendedProviders,
         totalClients,
       }));
+    }, (error) => {
+      console.error('Error in users listener:', error);
     });
 
     // Real-time listener for jobs/bookings
     const unsubscribeJobs = onSnapshot(collection(db, 'bookings'), (snapshot) => {
+      if (!isMounted) return;
+      
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const weekStart = new Date(todayStart);
@@ -96,8 +104,8 @@ const AdminAnalyticsScreen = ({navigation}) => {
       let totalRating = 0;
       let totalReviews = 0;
       
-      snapshot.forEach((doc) => {
-        const data = doc.data();
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
         totalJobs++;
         
         // Count awaiting admin approval
@@ -192,9 +200,12 @@ const AdminAnalyticsScreen = ({navigation}) => {
       
       setIsLoading(false);
       setRefreshing(false);
+    }, (error) => {
+      console.error('Error in jobs listener:', error);
     });
 
     return () => {
+      isMounted = false;
       unsubscribeUsers();
       unsubscribeJobs();
     };

@@ -1,9 +1,11 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { 
   Home, 
   Calendar, 
@@ -13,9 +15,11 @@ import {
   Bell,
   LogOut,
   Menu,
-  X
+  X,
+  Heart,
+  Trophy
 } from 'lucide-react';
-import { useState } from 'react';
+import NotificationDropdown from '@/components/NotificationDropdown';
 
 interface ClientLayoutProps {
   children: ReactNode;
@@ -24,7 +28,9 @@ interface ClientLayoutProps {
 const navItems = [
   { href: '/client', icon: Home, label: 'Home' },
   { href: '/client/bookings', icon: Calendar, label: 'Bookings' },
+  { href: '/client/favorites', icon: Heart, label: 'Favorites' },
   { href: '/client/messages', icon: MessageSquare, label: 'Messages' },
+  { href: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
   { href: '/client/profile', icon: User, label: 'Profile' },
 ];
 
@@ -32,6 +38,46 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const notificationBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Listen for unread notifications count (from bookings like mobile app)
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    // Get read notification IDs from localStorage
+    const stored = localStorage.getItem(`read_notifications_${user.uid}`);
+    const readIds = stored ? new Set(JSON.parse(stored)) : new Set();
+    
+    // Listen to client's bookings
+    const bookingsQuery = query(
+      collection(db, 'bookings'),
+      where('clientId', '==', user.uid)
+    );
+    
+    const unsubscribe = onSnapshot(bookingsQuery, (snapshot) => {
+      let count = 0;
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const status = data.status;
+        const notifId = `${status}_${docSnap.id}`;
+        
+        // Count as unread if status has a notification and not in readIds
+        const hasNotification = ['accepted', 'traveling', 'arrived', 'in_progress', 
+          'pending_completion', 'pending_payment', 'payment_received', 'counter_offer', 'completed'].includes(status);
+        
+        if (hasNotification && !readIds.has(notifId)) {
+          count++;
+        }
+      });
+      setUnreadCount(count);
+    }, (error) => {
+      console.log('Unread count error:', error);
+    });
+    
+    return () => unsubscribe();
+  }, [user?.uid]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -67,10 +113,25 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
             </nav>
 
             <div className="flex items-center gap-4">
-              <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
-                <Bell className="w-6 h-6" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              <div className="relative">
+                <button 
+                  ref={notificationBtnRef}
+                  onClick={() => setNotificationOpen(!notificationOpen)}
+                  className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+                >
+                  <Bell className="w-6 h-6" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-0 right-0 min-w-[18px] h-[18px] bg-red-500 rounded-full text-white text-xs font-bold flex items-center justify-center px-1">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                <NotificationDropdown 
+                  isOpen={notificationOpen}
+                  onClose={() => setNotificationOpen(false)}
+                  anchorRef={notificationBtnRef}
+                />
+              </div>
               
               <div className="hidden md:flex items-center gap-3">
                 <div className="w-9 h-9 bg-gray-200 rounded-full overflow-hidden">

@@ -3,275 +3,374 @@
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { 
-  Shield, 
-  MapPin, 
-  Star, 
-  Clock, 
-  Users, 
-  Wrench,
-  Zap,
-  Droplets,
-  Hammer,
-  Paintbrush,
-  Car,
-  Home
+import { useEffect, useState } from 'react';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import Image from 'next/image';
+import {
+  Shield, MapPin, Clock, Wrench, Zap, Droplets, Hammer, Search, Star, Grid, Sparkles,
+  ArrowRight, CheckCircle, DollarSign, Users, Award, ChevronRight, TrendingUp
 } from 'lucide-react';
 
-const services = [
-  { icon: Zap, name: 'Electrician', color: '#F59E0B' },
-  { icon: Droplets, name: 'Plumber', color: '#3B82F6' },
-  { icon: Hammer, name: 'Carpenter', color: '#8B5CF6' },
-  { icon: Paintbrush, name: 'Painter', color: '#EF4444' },
-  { icon: Car, name: 'Mechanic', color: '#10B981' },
-  { icon: Home, name: 'Cleaner', color: '#EC4899' },
+const SERVICE_CATEGORIES = [
+  { id: 'electrician', name: 'Electrician', icon: Zap, color: '#F59E0B', emoji: '⚡' },
+  { id: 'plumber', name: 'Plumber', icon: Droplets, color: '#3B82F6', emoji: '🔧' },
+  { id: 'carpenter', name: 'Carpenter', icon: Hammer, color: '#92400E', emoji: '🪚' },
+  { id: 'cleaner', name: 'Cleaner', icon: Sparkles, color: '#10B981', emoji: '🧹' },
 ];
 
-const features = [
-  {
-    icon: Shield,
-    title: 'Verified Providers',
-    description: 'All service providers are verified and background-checked for your safety.',
-  },
-  {
-    icon: MapPin,
-    title: 'Real-time Tracking',
-    description: 'Track your service provider in real-time as they come to you.',
-  },
-  {
-    icon: Star,
-    title: 'Ratings & Reviews',
-    description: 'Read reviews from other customers to find the best providers.',
-  },
-  {
-    icon: Clock,
-    title: 'Quick Response',
-    description: 'Get connected with available providers within minutes.',
-  },
+const FEATURES = [
+  { icon: Shield, title: 'Verified Providers', desc: 'All providers are vetted and approved', color: 'emerald' },
+  { icon: MapPin, title: 'Local Services', desc: 'Find skilled workers nearby', color: 'blue' },
+  { icon: Clock, title: 'Fast Booking', desc: 'Book services in minutes', color: 'purple' },
+  { icon: DollarSign, title: 'Fair Pricing', desc: 'Transparent rates, no hidden fees', color: 'amber' },
 ];
 
-export default function LandingPage() {
-  const { isAuthenticated, user, isLoading } = useAuth();
+interface Provider {
+  id: string;
+  name: string;
+  serviceCategory: string;
+  rating?: number;
+  reviewCount?: number;
+  isOnline?: boolean;
+  fixedPrice?: number;
+  priceType?: string;
+  barangay?: string;
+  providerStatus?: string;
+  profilePhoto?: string;
+}
+
+export default function GuestHomePage() {
+  const { isAuthenticated, user, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated && user) {
-      // Redirect based on role
+    if (!authLoading && isAuthenticated && user) {
       const role = user.role?.toUpperCase();
-      if (role === 'ADMIN') {
-        router.push('/admin');
-      } else if (role === 'PROVIDER') {
-        router.push('/provider');
-      } else {
-        router.push('/client');
-      }
+      if (role === 'ADMIN') router.push('/admin');
+      else if (role === 'PROVIDER') router.push('/provider');
+      else router.push('/client');
     }
-  }, [isAuthenticated, user, isLoading, router]);
+  }, [isAuthenticated, user, authLoading, router]);
 
-  if (isLoading) {
+  useEffect(() => { loadProviders(); }, [selectedCategory]);
+
+  const loadProviders = async () => {
+    setIsLoading(true);
+    try {
+      const providersQuery = query(collection(db, 'users'), where('role', '==', 'PROVIDER'));
+      const querySnapshot = await getDocs(providersQuery);
+      const providersList: Provider[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        const isApproved = data.providerStatus === 'approved' || data.status === 'approved';
+        if (!isApproved) return;
+        if (selectedCategory && data.serviceCategory?.toLowerCase() !== selectedCategory.toLowerCase()) return;
+        providersList.push({
+          id: doc.id,
+          name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'Provider',
+          serviceCategory: data.serviceCategory,
+          rating: data.rating || data.averageRating || 0,
+          reviewCount: data.reviewCount || 0,
+          isOnline: data.isOnline || false,
+          fixedPrice: data.fixedPrice || data.hourlyRate || 0,
+          priceType: data.priceType || 'per_job',
+          barangay: data.barangay,
+          providerStatus: data.providerStatus,
+          profilePhoto: data.profilePhoto,
+        });
+      });
+      setProviders(providersList);
+    } catch (error) {
+      console.error('Error loading providers:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getCategoryConfig = (categoryId: string) => SERVICE_CATEGORIES.find(c => c.id === categoryId?.toLowerCase()) || SERVICE_CATEGORIES[0];
+
+  const filteredProviders = providers.filter(provider => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return provider.name.toLowerCase().includes(q) || provider.serviceCategory?.toLowerCase().includes(q);
+  });
+
+  if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#00B14F]">
-        <div className="spinner border-white border-t-transparent"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-500 to-green-600">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-white border-t-transparent"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-[#00B14F] rounded-lg flex items-center justify-center">
-                <Wrench className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold text-gray-900">GSS Maasin</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <Link 
-                href="/login" 
-                className="text-gray-600 hover:text-gray-900 font-medium"
-              >
-                Login
-              </Link>
-              <Link 
-                href="/register" 
-                className="bg-[#00B14F] text-white px-4 py-2 rounded-lg font-medium hover:bg-[#009940] transition-colors"
-              >
-                Get Started
-              </Link>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
+      {/* Hero Header */}
+      <div className="relative bg-gradient-to-br from-emerald-500 via-green-500 to-teal-500 overflow-hidden">
+        {/* Decorative Elements */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+        <div className="absolute top-20 right-20 opacity-20">
+          <Wrench className="w-16 h-16 text-white animate-bounce" style={{ animationDuration: '3s' }} />
         </div>
-      </header>
+        <div className="absolute bottom-10 right-32 opacity-20">
+          <Zap className="w-12 h-12 text-white animate-pulse" />
+        </div>
 
-      {/* Hero Section */}
-      <section className="bg-gradient-to-br from-[#00B14F] to-[#009940] text-white py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto">
-            <h1 className="text-4xl md:text-5xl font-bold mb-6">
+        <div className="relative max-w-7xl mx-auto px-4 py-8">
+          {/* Top Bar */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                <Wrench className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white">GSS Maasin</h1>
+                <p className="text-emerald-100 text-xs">General Service System</p>
+              </div>
+            </div>
+            <Link href="/login" className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-xl text-white font-medium hover:bg-white/30 transition-colors">
+              Sign In
+            </Link>
+          </div>
+
+          {/* Hero Content */}
+          <div className="max-w-2xl mb-8">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">
               Find Trusted Service Providers in Maasin City
-            </h1>
-            <p className="text-xl text-green-100 mb-8">
-              Connect with verified electricians, plumbers, carpenters, and more. 
-              Book services, track in real-time, and pay securely.
+            </h2>
+            <p className="text-emerald-100 text-lg mb-6">
+              Connect with verified electricians, plumbers, carpenters, and cleaners near you.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link 
-                href="/register?role=client" 
-                className="bg-white text-[#00B14F] px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
-              >
-                Book a Service
-              </Link>
-              <Link 
-                href="/register?role=provider" 
-                className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white/10 transition-colors"
-              >
-                Become a Provider
-              </Link>
+            <Link href="/register"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-white text-emerald-600 rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all hover:scale-105">
+              <span>Get Started Free</span>
+              <ArrowRight className="w-5 h-5" />
+            </Link>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-3 max-w-lg">
+            <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-3 text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Users className="w-4 h-4 text-white/80" />
+                <span className="text-xl font-bold text-white">{providers.length}+</span>
+              </div>
+              <p className="text-xs text-white/70">Providers</p>
+            </div>
+            <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-3 text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Award className="w-4 h-4 text-white/80" />
+                <span className="text-xl font-bold text-white">100%</span>
+              </div>
+              <p className="text-xs text-white/70">Verified</p>
+            </div>
+            <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-3 text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <TrendingUp className="w-4 h-4 text-white/80" />
+                <span className="text-xl font-bold text-white">4.8</span>
+              </div>
+              <p className="text-xs text-white/70">Avg Rating</p>
             </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Services Section */}
-      <section className="py-16 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
-            Our Services
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-            {services.map((service) => (
-              <div 
-                key={service.name}
-                className="bg-white rounded-xl p-6 text-center shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-              >
-                <div 
-                  className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center"
-                  style={{ backgroundColor: `${service.color}20` }}
-                >
-                  <service.icon className="w-7 h-7" style={{ color: service.color }} />
+      <div className="max-w-7xl mx-auto px-4 -mt-6 relative z-10">
+        {/* Search Bar */}
+        <div className="bg-white rounded-2xl shadow-xl p-2 mb-6">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input type="text" placeholder="Search for services or providers..."
+              value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-900" />
+          </div>
+        </div>
+
+        {/* Service Categories */}
+        <div className="mb-8">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Browse by Category</h3>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {SERVICE_CATEGORIES.map((category) => {
+              const Icon = category.icon;
+              const isSelected = selectedCategory === category.id;
+              return (
+                <button key={category.id} onClick={() => setSelectedCategory(isSelected ? null : category.id)}
+                  className={`flex flex-col items-center min-w-[90px] p-4 rounded-2xl transition-all ${
+                    isSelected ? 'bg-gradient-to-br from-emerald-500 to-green-500 shadow-lg scale-105' : 'bg-white shadow-md hover:shadow-lg'
+                  }`}>
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-2 ${
+                    isSelected ? 'bg-white/20' : ''
+                  }`} style={{ backgroundColor: isSelected ? undefined : `${category.color}15` }}>
+                    <Icon className="w-7 h-7" style={{ color: isSelected ? 'white' : category.color }} />
+                  </div>
+                  <span className={`text-sm font-semibold ${isSelected ? 'text-white' : 'text-gray-700'}`}>{category.name}</span>
+                </button>
+              );
+            })}
+            <button onClick={() => setSelectedCategory(null)}
+              className={`flex flex-col items-center min-w-[90px] p-4 rounded-2xl transition-all ${
+                !selectedCategory ? 'bg-gradient-to-br from-emerald-500 to-green-500 shadow-lg scale-105' : 'bg-white shadow-md hover:shadow-lg'
+              }`}>
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-2 ${!selectedCategory ? 'bg-white/20' : 'bg-emerald-50'}`}>
+                <Grid className="w-7 h-7" style={{ color: !selectedCategory ? 'white' : '#10B981' }} />
+              </div>
+              <span className={`text-sm font-semibold ${!selectedCategory ? 'text-white' : 'text-gray-700'}`}>All</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Providers Section */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-gray-900">Service Providers</h3>
+            <span className="text-sm text-gray-500">{filteredProviders.length} available</span>
+          </div>
+
+          {isLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="bg-white rounded-2xl p-4 animate-pulse">
+                  <div className="w-12 h-12 bg-gray-200 rounded-xl mb-3" />
+                  <div className="h-4 bg-gray-200 rounded w-2/3 mb-2" />
+                  <div className="h-3 bg-gray-100 rounded w-1/2" />
                 </div>
-                <h3 className="font-semibold text-gray-900">{service.name}</h3>
+              ))}
+            </div>
+          ) : filteredProviders.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {filteredProviders.map((provider) => {
+                const categoryConfig = getCategoryConfig(provider.serviceCategory);
+                const CategoryIcon = categoryConfig.icon;
+                return (
+                  <div key={provider.id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all overflow-hidden border border-gray-100 group">
+                    <div className="p-4">
+                      {/* Header */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${categoryConfig.color}15` }}>
+                          {provider.profilePhoto ? (
+                            <Image src={provider.profilePhoto} alt="" width={48} height={48} className="w-full h-full rounded-xl object-cover" />
+                          ) : (
+                            <CategoryIcon className="w-6 h-6" style={{ color: categoryConfig.color }} />
+                          )}
+                        </div>
+                        {provider.isOnline && (
+                          <span className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-full">
+                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                            Online
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex items-center gap-1 mb-1">
+                        <h4 className="font-semibold text-gray-900 text-sm truncate">{provider.name}</h4>
+                        {provider.providerStatus === 'approved' && (
+                          <CheckCircle className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                        )}
+                      </div>
+
+                      {/* Category Badge */}
+                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold mb-2"
+                        style={{ backgroundColor: `${categoryConfig.color}15`, color: categoryConfig.color }}>
+                        <span>{categoryConfig.emoji}</span>
+                        {categoryConfig.name}
+                      </div>
+
+                      {/* Rating & Price */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1">
+                          <Star className={`w-4 h-4 ${provider.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`} />
+                          <span className="text-sm font-medium text-gray-700">{provider.rating ? provider.rating.toFixed(1) : 'New'}</span>
+                        </div>
+                        <span className="text-sm font-bold text-emerald-600">
+                          {provider.fixedPrice ? `₱${provider.fixedPrice}` : 'Contact'}
+                        </span>
+                      </div>
+
+                      {/* Location */}
+                      <div className="flex items-center gap-1 text-xs text-gray-500 mb-3">
+                        <MapPin className="w-3 h-3" />
+                        <span className="truncate">{provider.barangay ? `Brgy. ${provider.barangay}` : 'Maasin City'}</span>
+                      </div>
+
+                      {/* CTA */}
+                      <Link href="/login"
+                        className="block w-full py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-center rounded-xl text-sm font-semibold hover:shadow-lg transition-all">
+                        Contact Us
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="bg-white rounded-3xl shadow-xl p-12 text-center">
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search className="w-10 h-10 text-gray-300" />
+              </div>
+              <h4 className="text-lg font-bold text-gray-900 mb-2">No providers found</h4>
+              <p className="text-gray-500">Try a different category or search term</p>
+            </div>
+          )}
+        </div>
+
+        {/* Features Section */}
+        <div className="mb-8">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Why Choose GSS Maasin?</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {FEATURES.map((feature, index) => (
+              <div key={index} className="bg-white rounded-2xl shadow-lg p-5 text-center hover:shadow-xl transition-all">
+                <div className={`w-14 h-14 bg-${feature.color}-100 rounded-2xl flex items-center justify-center mx-auto mb-3`}>
+                  <feature.icon className={`w-7 h-7 text-${feature.color}-500`} />
+                </div>
+                <h4 className="font-bold text-gray-900 mb-1">{feature.title}</h4>
+                <p className="text-sm text-gray-500">{feature.desc}</p>
               </div>
             ))}
           </div>
         </div>
-      </section>
 
-      {/* Features Section */}
-      <section className="py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
-            Why Choose GSS Maasin?
-          </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature) => (
-              <div key={feature.title} className="text-center">
-                <div className="w-16 h-16 bg-[#00B14F]/10 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <feature.icon className="w-8 h-8 text-[#00B14F]" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h3>
-                <p className="text-gray-600">{feature.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="py-16 bg-[#00B14F] text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            <div>
-              <div className="text-4xl font-bold mb-2">500+</div>
-              <div className="text-green-100">Service Providers</div>
-            </div>
-            <div>
-              <div className="text-4xl font-bold mb-2">10,000+</div>
-              <div className="text-green-100">Jobs Completed</div>
-            </div>
-            <div>
-              <div className="text-4xl font-bold mb-2">4.8</div>
-              <div className="text-green-100">Average Rating</div>
-            </div>
-            <div>
-              <div className="text-4xl font-bold mb-2">24/7</div>
-              <div className="text-green-100">Support Available</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">
-            Ready to Get Started?
-          </h2>
-          <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
-            Join thousands of satisfied customers in Maasin City. 
-            Download our mobile app or use the web platform.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link 
-              href="/register" 
-              className="bg-[#00B14F] text-white px-8 py-3 rounded-lg font-semibold hover:bg-[#009940] transition-colors inline-flex items-center justify-center gap-2"
-            >
-              <Users className="w-5 h-5" />
+        {/* CTA Section */}
+        <div className="bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 rounded-3xl p-8 text-center mb-8">
+          <h3 className="text-2xl font-bold text-white mb-2">Ready to get started?</h3>
+          <p className="text-emerald-100 mb-6">Join thousands of satisfied customers in Maasin City</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link href="/register"
+              className="px-8 py-3 bg-white text-emerald-600 rounded-xl font-bold hover:shadow-lg transition-all">
               Create Account
+            </Link>
+            <Link href="/login"
+              className="px-8 py-3 bg-white/20 text-white rounded-xl font-bold hover:bg-white/30 transition-all">
+              Sign In
             </Link>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-10 h-10 bg-[#00B14F] rounded-lg flex items-center justify-center">
-                  <Wrench className="w-6 h-6 text-white" />
-                </div>
-                <span className="text-xl font-bold">GSS Maasin</span>
-              </div>
-              <p className="text-gray-400">
-                Connecting Maasin City with trusted service providers.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-4">Services</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li>Electrician</li>
-                <li>Plumber</li>
-                <li>Carpenter</li>
-                <li>Painter</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-4">Company</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li><Link href="/about">About Us</Link></li>
-                <li><Link href="/terms">Terms of Service</Link></li>
-                <li><Link href="/privacy">Privacy Policy</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-4">Contact</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li>Maasin City, Southern Leyte</li>
-                <li>support@gssmaasin.com</li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 GSS Maasin. All rights reserved.</p>
-          </div>
+      {/* Fixed Bottom Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 p-4 z-50">
+        <div className="max-w-7xl mx-auto flex gap-3">
+          <Link href="/register"
+            className="flex-1 py-3.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-center rounded-xl font-bold shadow-lg hover:shadow-xl transition-all">
+            Sign Up Free
+          </Link>
+          <Link href="/login"
+            className="flex-1 py-3.5 bg-gray-100 text-gray-700 text-center rounded-xl font-bold hover:bg-gray-200 transition-all">
+            Log In
+          </Link>
         </div>
-      </footer>
+        <p className="text-center text-sm text-gray-500 mt-2">
+          Need help? <Link href="/help" className="text-emerald-600 font-semibold">Visit Help Centre</Link>
+        </p>
+      </div>
+
+      <div className="h-36"></div>
     </div>
   );
 }

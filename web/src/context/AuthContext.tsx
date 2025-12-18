@@ -17,20 +17,57 @@ interface User {
   lastName?: string;
   role?: string;
   profilePhoto?: string;
+  photo?: string;
   phoneNumber?: string;
+  phone?: string;
   serviceCategory?: string;
   status?: string;
   providerStatus?: string;
   rating?: number;
   reviewCount?: number;
   completedJobs?: number;
+  barangay?: string;
+  streetAddress?: string;
+  houseNumber?: string;
+  latitude?: number;
+  longitude?: number;
+  // Location object (nested)
+  location?: {
+    barangay?: string;
+    streetAddress?: string;
+    houseNumber?: string;
+    landmark?: string;
+    latitude?: number;
+    longitude?: number;
+  };
+  // Provider pricing fields
+  fixedPrice?: number;
+  hourlyRate?: number;
+  priceType?: string;
+  // Profile fields
+  bio?: string;
+  about?: string;
+  experience?: string;
+  landmark?: string;
+}
+
+interface LoginResult {
+  success: boolean;
+  error?: string;
+  errorType?: 'PENDING_APPROVAL' | 'ACCOUNT_SUSPENDED' | 'ROLE_MISMATCH';
+  suspensionDetails?: {
+    reason: string;
+    label: string;
+    suspendedAt: string;
+  };
+  actualRole?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string, expectedRole?: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
 }
 
@@ -55,13 +92,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               lastName: userData.lastName,
               role: userData.role,
               profilePhoto: userData.profilePhoto,
+              photo: userData.photo,
               phoneNumber: userData.phoneNumber,
+              phone: userData.phone,
               serviceCategory: userData.serviceCategory,
               status: userData.status,
               providerStatus: userData.providerStatus,
               rating: userData.rating || userData.averageRating || 0,
               reviewCount: userData.reviewCount || 0,
               completedJobs: userData.completedJobs || 0,
+              barangay: userData.barangay || userData.location?.barangay,
+              streetAddress: userData.streetAddress || userData.location?.streetAddress,
+              houseNumber: userData.houseNumber || userData.location?.houseNumber,
+              latitude: userData.latitude || userData.location?.latitude,
+              longitude: userData.longitude || userData.location?.longitude,
+              location: userData.location,
+              fixedPrice: userData.fixedPrice || 0,
+              hourlyRate: userData.hourlyRate || 0,
+              priceType: userData.priceType || 'per_job',
+              bio: userData.bio,
+              about: userData.about,
+              experience: userData.experience,
+              landmark: userData.landmark || userData.location?.landmark,
             });
           } else {
             setUser({
@@ -85,9 +137,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, expectedRole?: string): Promise<LoginResult> => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // Get user profile from Firestore to check status
+      const userDoc = await getDoc(doc(db, 'users', credential.user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        
+        // Validate role if expectedRole is provided
+        if (expectedRole) {
+          const userRole = (userData.role || 'CLIENT').toUpperCase();
+          const expected = expectedRole.toUpperCase();
+          
+          if (userRole !== expected) {
+            // Sign out the user since they selected wrong role
+            await signOut(auth);
+            const roleLabels: Record<string, string> = {
+              CLIENT: 'Client',
+              PROVIDER: 'Provider',
+              ADMIN: 'Admin',
+            };
+            return {
+              success: false,
+              error: `This account is registered as a ${roleLabels[userRole] || userRole}. Please select the correct login option.`,
+              errorType: 'ROLE_MISMATCH' as const,
+              actualRole: userRole,
+            };
+          }
+        }
+        
+        // Block providers whose account is still pending approval
+        if (userData.role === 'PROVIDER' && (userData.status === 'pending' || userData.providerStatus === 'pending')) {
+          // Sign out the user since they shouldn't be logged in
+          await signOut(auth);
+          return { 
+            success: false, 
+            error: 'Your provider account is pending admin approval. Please wait for approval before logging in.',
+            errorType: 'PENDING_APPROVAL' as const
+          };
+        }
+        
+        // Block suspended accounts
+        if (userData.status === 'suspended' || userData.isSuspended) {
+          // Sign out the user since they shouldn't be logged in
+          await signOut(auth);
+          const suspensionReason = userData.suspensionReason || 'Your account has been suspended. Please contact support for more information.';
+          return { 
+            success: false, 
+            error: suspensionReason,
+            errorType: 'ACCOUNT_SUSPENDED' as const,
+            suspensionDetails: {
+              reason: suspensionReason,
+              label: userData.suspensionReasonLabel || 'Account Suspended',
+              suspendedAt: userData.suspendedAt?.toDate?.()?.toLocaleDateString() || 'Unknown date',
+            }
+          };
+        }
+      }
+      
       return { success: true };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';

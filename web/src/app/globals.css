@@ -47,3 +47,31 @@ body {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* Fix Leaflet map z-index issues */
+.leaflet-container {
+  z-index: 1 !important;
+}
+
+.leaflet-pane {
+  z-index: 1 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 10 !important;
+}
+
+/* Hide default Leaflet controls we don't want */
+.leaflet-control-geocoder,
+.leaflet-control-search,
+.leaflet-geosearch-bar,
+.geosearch {
+  display: none !important;
+}
+
+/* Style our custom locate button */
+.locate-button {
+  z-index: 1000 !important;
+  pointer-events: auto !important;
+}

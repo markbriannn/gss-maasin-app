@@ -1,9 +1,11 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { 
   LayoutDashboard, 
   Briefcase, 
@@ -15,8 +17,11 @@ import {
   LogOut,
   Menu,
   X,
-  History
+  History,
+  Settings,
+  Trophy
 } from 'lucide-react';
+import NotificationDropdown from '@/components/NotificationDropdown';
 
 interface ProviderLayoutProps {
   children: ReactNode;
@@ -27,14 +32,74 @@ const navItems = [
   { href: '/provider/jobs', icon: Briefcase, label: 'Jobs' },
   { href: '/provider/messages', icon: MessageSquare, label: 'Messages' },
   { href: '/provider/earnings', icon: Wallet, label: 'Earnings' },
-  { href: '/provider/history', icon: History, label: 'History' },
+  { href: '/provider/wallet', icon: Wallet, label: 'Wallet' },
+  { href: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
   { href: '/provider/profile', icon: User, label: 'Profile' },
+  { href: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export default function ProviderLayout({ children }: ProviderLayoutProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const notificationBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Listen for unread notifications count (from bookings like mobile app)
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    const stored = localStorage.getItem(`read_notifications_${user.uid}`);
+    const readIds = stored ? new Set(JSON.parse(stored)) : new Set();
+    const unsubscribers: (() => void)[] = [];
+    
+    // Listen to available jobs
+    const availableJobsQuery = query(
+      collection(db, 'bookings'),
+      where('status', 'in', ['pending', 'pending_negotiation'])
+    );
+    
+    // Listen to provider's own jobs
+    const myJobsQuery = query(
+      collection(db, 'bookings'),
+      where('providerId', '==', user.uid)
+    );
+    
+    const calculateCount = () => {
+      // This will be called when either query updates
+    };
+    
+    let availableCount = 0;
+    let myJobsCount = 0;
+    
+    unsubscribers.push(onSnapshot(availableJobsQuery, (snapshot) => {
+      availableCount = 0;
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.adminApproved && !data.providerId) {
+          const notifId = `available_${docSnap.id}`;
+          if (!readIds.has(notifId)) availableCount++;
+        }
+      });
+      setUnreadCount(availableCount + myJobsCount);
+    }));
+    
+    unsubscribers.push(onSnapshot(myJobsQuery, (snapshot) => {
+      myJobsCount = 0;
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const status = data.status;
+        const notifId = `myjob_${status}_${docSnap.id}`;
+        const hasNotification = ['accepted', 'traveling', 'arrived', 'in_progress', 
+          'pending_completion', 'pending_payment', 'payment_received', 'completed'].includes(status);
+        if (hasNotification && !readIds.has(notifId)) myJobsCount++;
+      });
+      setUnreadCount(availableCount + myJobsCount);
+    }));
+    
+    return () => unsubscribers.forEach(unsub => unsub());
+  }, [user?.uid]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -70,10 +135,25 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
             </nav>
 
             <div className="flex items-center gap-4">
-              <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
-                <Bell className="w-6 h-6" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              <div className="relative">
+                <button 
+                  ref={notificationBtnRef}
+                  onClick={() => setNotificationOpen(!notificationOpen)}
+                  className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+                >
+                  <Bell className="w-6 h-6" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-0 right-0 min-w-[18px] h-[18px] bg-red-500 rounded-full text-white text-xs font-bold flex items-center justify-center px-1">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                <NotificationDropdown 
+                  isOpen={notificationOpen}
+                  onClose={() => setNotificationOpen(false)}
+                  anchorRef={notificationBtnRef}
+                />
+              </div>
               
               <div className="hidden md:flex items-center gap-3">
                 <div className="w-9 h-9 bg-gray-200 rounded-full overflow-hidden">

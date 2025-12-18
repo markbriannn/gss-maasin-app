@@ -1,9 +1,11 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { 
   LayoutDashboard, 
   Users, 
@@ -19,6 +21,7 @@ import {
   X,
   Map
 } from 'lucide-react';
+import NotificationDropdown from '@/components/NotificationDropdown';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -39,6 +42,57 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const notificationBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Listen for unread notifications count (from bookings and providers like mobile app)
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    const stored = localStorage.getItem(`read_notifications_${user.uid}`);
+    const readIds = stored ? new Set(JSON.parse(stored)) : new Set();
+    const unsubscribers: (() => void)[] = [];
+    
+    let pendingProvidersCount = 0;
+    let pendingJobsCount = 0;
+    
+    // Listen to pending providers
+    const providersQuery = query(
+      collection(db, 'users'),
+      where('role', '==', 'PROVIDER'),
+      where('providerStatus', '==', 'pending')
+    );
+    
+    unsubscribers.push(onSnapshot(providersQuery, (snapshot) => {
+      pendingProvidersCount = 0;
+      snapshot.forEach((docSnap) => {
+        const notifId = `provider_${docSnap.id}`;
+        if (!readIds.has(notifId)) pendingProvidersCount++;
+      });
+      setUnreadCount(pendingProvidersCount + pendingJobsCount);
+    }));
+    
+    // Listen to pending jobs
+    const jobsQuery = query(
+      collection(db, 'bookings'),
+      where('status', 'in', ['pending', 'pending_negotiation'])
+    );
+    
+    unsubscribers.push(onSnapshot(jobsQuery, (snapshot) => {
+      pendingJobsCount = 0;
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (!data.adminApproved) {
+          const notifId = `job_${docSnap.id}`;
+          if (!readIds.has(notifId)) pendingJobsCount++;
+        }
+      });
+      setUnreadCount(pendingProvidersCount + pendingJobsCount);
+    }));
+    
+    return () => unsubscribers.forEach(unsub => unsub());
+  }, [user?.uid]);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -146,10 +200,25 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             </button>
             <div className="flex-1" />
             <div className="flex items-center gap-4">
-              <button className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
-                <Bell className="w-6 h-6" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              <div className="relative">
+                <button 
+                  ref={notificationBtnRef}
+                  onClick={() => setNotificationOpen(!notificationOpen)}
+                  className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  <Bell className="w-6 h-6" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-0 right-0 min-w-[18px] h-[18px] bg-red-500 rounded-full text-white text-xs font-bold flex items-center justify-center px-1">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                <NotificationDropdown 
+                  isOpen={notificationOpen}
+                  onClose={() => setNotificationOpen(false)}
+                  anchorRef={notificationBtnRef}
+                />
+              </div>
             </div>
           </div>
         </header>

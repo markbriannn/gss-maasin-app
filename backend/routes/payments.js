@@ -1048,23 +1048,42 @@ router.get('/admin/payouts', async (req, res) => {
     const { status } = req.query;
     const db = getDb();
 
-    // Use simple query without orderBy to avoid composite index requirement
-    let payoutsSnapshot;
+    // Query both 'payouts' (mobile) and 'payoutRequests' (web) collections
+    let payoutsSnapshot, payoutRequestsSnapshot;
     if (status) {
       payoutsSnapshot = await db.collection('payouts')
         .where('status', '==', status)
         .get();
+      payoutRequestsSnapshot = await db.collection('payoutRequests')
+        .where('status', '==', status)
+        .get();
     } else {
       payoutsSnapshot = await db.collection('payouts').get();
+      payoutRequestsSnapshot = await db.collection('payoutRequests').get();
     }
 
+    // Combine docs from both collections, track seen IDs to avoid duplicates
+    const seenIds = new Set();
+    const allDocs = [];
+    
+    payoutsSnapshot.docs.forEach(doc => {
+      seenIds.add(doc.id);
+      allDocs.push({ doc, source: 'payouts' });
+    });
+    
+    payoutRequestsSnapshot.docs.forEach(doc => {
+      if (!seenIds.has(doc.id)) {
+        allDocs.push({ doc, source: 'payoutRequests' });
+      }
+    });
+
     // Get provider details for each payout
-    const payouts = await Promise.all(payoutsSnapshot.docs.map(async (doc) => {
+    const payouts = await Promise.all(allDocs.map(async ({ doc, source }) => {
       const payout = doc.data();
-      let providerName = 'Unknown';
+      let providerName = payout.providerName || 'Unknown';
       
       try {
-        if (payout.providerId) {
+        if (payout.providerId && !payout.providerName) {
           const providerDoc = await db.collection('users').doc(payout.providerId).get();
           if (providerDoc.exists) {
             const p = providerDoc.data();
@@ -1079,6 +1098,7 @@ router.get('/admin/payouts', async (req, res) => {
         id: doc.id,
         ...payout,
         providerName,
+        source, // Track which collection it came from
         requestedAt: payout.requestedAt?.toDate?.() || payout.requestedAt,
         approvedAt: payout.approvedAt?.toDate?.() || payout.approvedAt,
         completedAt: payout.completedAt?.toDate?.() || payout.completedAt,
@@ -1104,11 +1124,20 @@ router.get('/admin/payouts', async (req, res) => {
 router.post('/admin/approve-payout/:payoutId', async (req, res) => {
   try {
     const { payoutId } = req.params;
-    const { adminId } = req.body;
+    const { adminId, source } = req.body; // source can be 'payouts' or 'payoutRequests'
     const db = getDb();
 
-    const payoutRef = db.collection('payouts').doc(payoutId);
-    const payoutDoc = await payoutRef.get();
+    // Try payouts collection first, then payoutRequests
+    let payoutRef = db.collection('payouts').doc(payoutId);
+    let payoutDoc = await payoutRef.get();
+    let collectionUsed = 'payouts';
+
+    if (!payoutDoc.exists) {
+      // Try payoutRequests collection
+      payoutRef = db.collection('payoutRequests').doc(payoutId);
+      payoutDoc = await payoutRef.get();
+      collectionUsed = 'payoutRequests';
+    }
 
     if (!payoutDoc.exists) {
       return res.status(404).json({ error: 'Payout not found' });
@@ -1155,8 +1184,14 @@ router.post('/admin/complete-payout/:payoutId', async (req, res) => {
     const { referenceNumber } = req.body;
     const db = getDb();
 
-    const payoutRef = db.collection('payouts').doc(payoutId);
-    const payoutDoc = await payoutRef.get();
+    // Try payouts collection first, then payoutRequests
+    let payoutRef = db.collection('payouts').doc(payoutId);
+    let payoutDoc = await payoutRef.get();
+
+    if (!payoutDoc.exists) {
+      payoutRef = db.collection('payoutRequests').doc(payoutId);
+      payoutDoc = await payoutRef.get();
+    }
 
     if (!payoutDoc.exists) {
       return res.status(404).json({ error: 'Payout not found' });
@@ -1191,8 +1226,14 @@ router.post('/admin/fail-payout/:payoutId', async (req, res) => {
     const { reason } = req.body;
     const db = getDb();
 
-    const payoutRef = db.collection('payouts').doc(payoutId);
-    const payoutDoc = await payoutRef.get();
+    // Try payouts collection first, then payoutRequests
+    let payoutRef = db.collection('payouts').doc(payoutId);
+    let payoutDoc = await payoutRef.get();
+
+    if (!payoutDoc.exists) {
+      payoutRef = db.collection('payoutRequests').doc(payoutId);
+      payoutDoc = await payoutRef.get();
+    }
 
     if (!payoutDoc.exists) {
       return res.status(404).json({ error: 'Payout not found' });

@@ -43,28 +43,39 @@ const MessagesTabIcon = ({focused, color, size, userId}) => {
   useEffect(() => {
     if (!userId) return;
 
-    const conversationsRef = collection(db, 'conversations');
-    const q = query(
-      conversationsRef,
-      where('participants', 'array-contains', userId)
-    );
+    let isMounted = true;
+    let unsubscribe = () => {};
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      let count = 0;
-      snapshot.docs.forEach((doc) => {
-        const data = doc.data();
-        // Don't count archived or deleted conversations
-        if (!data.archived?.[userId] && !data.deleted?.[userId]) {
-          const unreadByUser = data.unreadCount?.[userId] || 0;
-          count += unreadByUser;
-        }
+    try {
+      const conversationsRef = collection(db, 'conversations');
+      const q = query(
+        conversationsRef,
+        where('participants', 'array-contains', userId)
+      );
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!isMounted) return;
+        let count = 0;
+        snapshot.docs.forEach((doc) => {
+          const data = doc.data();
+          // Don't count archived or deleted conversations
+          if (!data.archived?.[userId] && !data.deleted?.[userId]) {
+            const unreadByUser = data.unreadCount?.[userId] || 0;
+            count += unreadByUser;
+          }
+        });
+        setUnreadCount(count);
+      }, (error) => {
+        console.log('Error listening to messages:', error);
       });
-      setUnreadCount(count);
-    }, (error) => {
-      console.log('Error listening to messages:', error);
-    });
+    } catch (error) {
+      console.log('Error setting up messages listener:', error);
+    }
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, [userId]);
 
   return (
@@ -85,44 +96,54 @@ const ProviderJobsTabIcon = ({focused, color, size, userId}) => {
   useEffect(() => {
     if (!userId) return;
 
-    const bookingsRef = collection(db, 'bookings');
-    
-    // Query 1: Available jobs (admin approved, pending, no provider assigned)
-    const availableQuery = query(
-      bookingsRef,
-      where('status', 'in', ['pending', 'pending_negotiation'])
-    );
-
-    // Query 2: Provider's active jobs
-    const activeQuery = query(
-      bookingsRef,
-      where('providerId', '==', userId),
-      where('status', 'in', ['accepted', 'traveling', 'arrived', 'in_progress'])
-    );
-
+    let isMounted = true;
+    let unsubAvailable = () => {};
+    let unsubActive = () => {};
     let availableCount = 0;
     let activeCount = 0;
 
-    const unsubAvailable = onSnapshot(availableQuery, (snapshot) => {
-      // Filter jobs that are admin approved and don't have a provider
-      const availableJobs = snapshot.docs.filter(doc => {
-        const data = doc.data();
-        return data.adminApproved === true && !data.providerId;
-      });
-      availableCount = availableJobs.length;
-      setBadgeCount(availableCount + activeCount);
-    }, (error) => {
-      console.log('Error listening to available jobs:', error);
-    });
+    try {
+      const bookingsRef = collection(db, 'bookings');
+      
+      // Query 1: Available jobs (admin approved, pending, no provider assigned)
+      const availableQuery = query(
+        bookingsRef,
+        where('status', 'in', ['pending', 'pending_negotiation'])
+      );
 
-    const unsubActive = onSnapshot(activeQuery, (snapshot) => {
-      activeCount = snapshot.docs.length;
-      setBadgeCount(availableCount + activeCount);
-    }, (error) => {
-      console.log('Error listening to active jobs:', error);
-    });
+      // Query 2: Provider's active jobs
+      const activeQuery = query(
+        bookingsRef,
+        where('providerId', '==', userId),
+        where('status', 'in', ['accepted', 'traveling', 'arrived', 'in_progress'])
+      );
+
+      unsubAvailable = onSnapshot(availableQuery, (snapshot) => {
+        if (!isMounted) return;
+        // Filter jobs that are admin approved and don't have a provider
+        const availableJobs = snapshot.docs.filter(doc => {
+          const data = doc.data();
+          return data.adminApproved === true && !data.providerId;
+        });
+        availableCount = availableJobs.length;
+        setBadgeCount(availableCount + activeCount);
+      }, (error) => {
+        console.log('Error listening to available jobs:', error);
+      });
+
+      unsubActive = onSnapshot(activeQuery, (snapshot) => {
+        if (!isMounted) return;
+        activeCount = snapshot.docs.length;
+        setBadgeCount(availableCount + activeCount);
+      }, (error) => {
+        console.log('Error listening to active jobs:', error);
+      });
+    } catch (error) {
+      console.log('Error setting up provider jobs listener:', error);
+    }
 
     return () => {
+      isMounted = false;
       unsubAvailable();
       unsubActive();
     };
@@ -146,21 +167,32 @@ const ClientBookingsTabIcon = ({focused, color, size, userId}) => {
   useEffect(() => {
     if (!userId) return;
 
-    const bookingsRef = collection(db, 'bookings');
-    // Include all active statuses that client should be notified about
-    const q = query(
-      bookingsRef,
-      where('clientId', '==', userId),
-      where('status', 'in', ['accepted', 'in_progress', 'traveling', 'arrived', 'pending_completion', 'counter_offer'])
-    );
+    let isMounted = true;
+    let unsubscribe = () => {};
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setActiveCount(snapshot.docs.length);
-    }, (error) => {
-      console.log('Error listening to client bookings:', error);
-    });
+    try {
+      const bookingsRef = collection(db, 'bookings');
+      // Include all active statuses that client should be notified about
+      const q = query(
+        bookingsRef,
+        where('clientId', '==', userId),
+        where('status', 'in', ['accepted', 'in_progress', 'traveling', 'arrived', 'pending_completion', 'counter_offer'])
+      );
 
-    return () => unsubscribe();
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!isMounted) return;
+        setActiveCount(snapshot.docs.length);
+      }, (error) => {
+        console.log('Error listening to client bookings:', error);
+      });
+    } catch (error) {
+      console.log('Error setting up client bookings listener:', error);
+    }
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, [userId]);
 
   return (
@@ -179,26 +211,37 @@ const AdminProvidersTabIcon = ({focused, color, size}) => {
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
-    const usersRef = collection(db, 'users');
-    // Query all providers and filter locally for pending status
-    const q = query(
-      usersRef,
-      where('role', '==', 'PROVIDER')
-    );
+    let isMounted = true;
+    let unsubscribe = () => {};
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      // Filter providers that are pending (check both status and providerStatus fields)
-      const pendingProviders = snapshot.docs.filter(doc => {
-        const data = doc.data();
-        return data.status === 'pending' || data.providerStatus === 'pending' || 
-               (!data.status && !data.providerStatus); // Also count if no status set
+    try {
+      const usersRef = collection(db, 'users');
+      // Query all providers and filter locally for pending status
+      const q = query(
+        usersRef,
+        where('role', '==', 'PROVIDER')
+      );
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!isMounted) return;
+        // Filter providers that are pending (check both status and providerStatus fields)
+        const pendingProviders = snapshot.docs.filter(doc => {
+          const data = doc.data();
+          return data.status === 'pending' || data.providerStatus === 'pending' || 
+                 (!data.status && !data.providerStatus); // Also count if no status set
+        });
+        setPendingCount(pendingProviders.length);
+      }, (error) => {
+        console.log('Error listening to pending providers:', error);
       });
-      setPendingCount(pendingProviders.length);
-    }, (error) => {
-      console.log('Error listening to pending providers:', error);
-    });
+    } catch (error) {
+      console.log('Error setting up providers listener:', error);
+    }
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   return (
@@ -217,25 +260,36 @@ const AdminJobsTabIcon = ({focused, color, size}) => {
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
-    const bookingsRef = collection(db, 'bookings');
-    // Query for pending jobs - filter adminApproved locally since it might be undefined
-    const q = query(
-      bookingsRef,
-      where('status', 'in', ['pending', 'pending_negotiation'])
-    );
+    let isMounted = true;
+    let unsubscribe = () => {};
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      // Filter jobs that haven't been admin approved yet (false or undefined)
-      const pendingJobs = snapshot.docs.filter(doc => {
-        const data = doc.data();
-        return data.adminApproved !== true;
+    try {
+      const bookingsRef = collection(db, 'bookings');
+      // Query for pending jobs - filter adminApproved locally since it might be undefined
+      const q = query(
+        bookingsRef,
+        where('status', 'in', ['pending', 'pending_negotiation'])
+      );
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!isMounted) return;
+        // Filter jobs that haven't been admin approved yet (false or undefined)
+        const pendingJobs = snapshot.docs.filter(doc => {
+          const data = doc.data();
+          return data.adminApproved !== true;
+        });
+        setPendingCount(pendingJobs.length);
+      }, (error) => {
+        console.log('Error listening to pending jobs:', error);
       });
-      setPendingCount(pendingJobs.length);
-    }, (error) => {
-      console.log('Error listening to pending jobs:', error);
-    });
+    } catch (error) {
+      console.log('Error setting up jobs listener:', error);
+    }
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   return (

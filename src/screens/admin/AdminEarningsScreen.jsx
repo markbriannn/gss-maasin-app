@@ -46,10 +46,14 @@ const AdminEarningsScreen = ({navigation}) => {
   const [activeTab, setActiveTab] = useState('earnings'); // 'earnings' or 'payouts'
 
   useEffect(() => {
+    let isMounted = true;
     fetchAdminPayoutAccount();
     fetchPendingPayouts();
-    const unsubscribe = setupEarningsListener();
-    return () => unsubscribe && unsubscribe();
+    const unsubscribe = setupEarningsListener(isMounted);
+    return () => {
+      isMounted = false;
+      unsubscribe && unsubscribe();
+    };
   }, []);
 
   const fetchPendingPayouts = async () => {
@@ -109,14 +113,14 @@ const AdminEarningsScreen = ({navigation}) => {
     }
   };
 
-  const setupEarningsListener = () => {
+  const setupEarningsListener = (isMountedRef) => {
     // Listen to bookings to calculate system fees in real-time
     const unsubscribe = onSnapshot(collection(db, 'bookings'), async (snapshot) => {
       let totalSystemFee = 0;
       let completedJobs = 0;
 
-      snapshot.forEach((doc) => {
-        const data = doc.data();
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
         // Include completed jobs AND Pay First confirmed jobs (client confirmed, payment received)
         const isCompleted = data.status === 'completed';
         const isPayFirstConfirmed = data.status === 'payment_received' && data.isPaidUpfront === true;
@@ -135,6 +139,9 @@ const AdminEarningsScreen = ({navigation}) => {
         }
       });
 
+      // Check if still mounted before async operations
+      if (!isMountedRef) return;
+
       // Get admin withdrawal data
       const adminId = user?.id || user?.uid;
       let totalWithdrawn = 0;
@@ -149,6 +156,9 @@ const AdminEarningsScreen = ({navigation}) => {
         }
       }
 
+      // Check again after async operation
+      if (!isMountedRef) return;
+
       setEarnings({
         totalSystemFee,
         availableBalance: Math.max(totalSystemFee - totalWithdrawn - pendingWithdrawal, 0),
@@ -159,6 +169,8 @@ const AdminEarningsScreen = ({navigation}) => {
 
       setLoading(false);
       setRefreshing(false);
+    }, (error) => {
+      console.error('Error in earnings listener:', error);
     });
 
     return unsubscribe;

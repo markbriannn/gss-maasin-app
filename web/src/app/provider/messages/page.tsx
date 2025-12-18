@@ -3,105 +3,154 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ProviderLayout from '@/components/layouts/ProviderLayout';
-import { MessageSquare, Search } from 'lucide-react';
+import Image from 'next/image';
+import { MessageSquare, Search, Archive, Trash2, RotateCcw, Briefcase, Clock, CheckCheck, Users, Bell, Sparkles, MoreVertical } from 'lucide-react';
 
 interface Conversation {
   id: string;
-  participantId: string;
-  participantName: string;
-  participantPhoto?: string;
+  otherUser: { id: string; name: string; profilePhoto?: string; role?: string };
   lastMessage: string;
   lastMessageTime: Date;
+  lastSenderId: string;
   unreadCount: number;
+  jobId?: string;
+  archived?: boolean;
 }
 
 export default function ProviderMessagesPage() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [archivedConversations, setArchivedConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingData, setLoadingData] = useState(true);
+  const [showArchived, setShowArchived] = useState(false);
+  const [menuOpen, setMenuOpen] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading) {
-      if (!isAuthenticated) {
-        router.push('/login');
-      } else if (user?.role?.toUpperCase() !== 'PROVIDER') {
-        router.push('/');
-      }
+      if (!isAuthenticated) router.push('/login');
+      else if (user?.role?.toUpperCase() !== 'PROVIDER') router.push('/');
     }
   }, [isLoading, isAuthenticated, user, router]);
 
   useEffect(() => {
-    if (user?.uid) {
-      fetchConversations();
-    }
-  }, [user]);
+    if (!user?.uid) return;
 
-  const fetchConversations = async () => {
+    const q = query(collection(db, 'conversations'), where('participants', 'array-contains', user.uid));
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const conversationPromises = snapshot.docs.map(async (docSnap) => {
+        const data = docSnap.data();
+        if (data.deleted?.[user.uid]) return null;
+
+        const otherUserId = data.participants?.find((p: string) => p !== user.uid);
+        if (!otherUserId) return null;
+
+        let otherUser = { id: otherUserId, name: 'User', profilePhoto: undefined as string | undefined, role: 'CLIENT' };
+        try {
+          const userDoc = await getDoc(doc(db, 'users', otherUserId));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            let userName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+            if (!userName && userData.role === 'ADMIN') userName = 'GSS Support';
+            if (!userName) userName = userData.email?.split('@')[0] || 'User';
+            otherUser = { id: otherUserId, name: userName, profilePhoto: userData.profilePhoto || userData.photoURL, role: userData.role || 'CLIENT' };
+          }
+        } catch {}
+
+        return {
+          id: docSnap.id,
+          otherUser,
+          lastMessage: data.lastMessage || '',
+          lastMessageTime: data.lastMessageTime?.toDate() || data.updatedAt?.toDate() || data.createdAt?.toDate() || new Date(),
+          lastSenderId: data.lastSenderId || '',
+          unreadCount: data.unreadCount?.[user.uid] || 0,
+          jobId: data.jobId,
+          archived: data.archived?.[user.uid] || false,
+        } as Conversation;
+      });
+
+      const results = await Promise.all(conversationPromises);
+      const allConversations = results.filter((c): c is Conversation => c !== null);
+
+      const active = allConversations.filter(c => !c.archived);
+      const archived = allConversations.filter(c => c.archived);
+
+      active.sort((a, b) => b.lastMessageTime.getTime() - a.lastMessageTime.getTime());
+      archived.sort((a, b) => b.lastMessageTime.getTime() - a.lastMessageTime.getTime());
+
+      setConversations(active);
+      setArchivedConversations(archived);
+      setLoadingData(false);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  const handleArchive = async (conversationId: string) => {
     if (!user?.uid) return;
     try {
-      const chatsQuery = query(
-        collection(db, 'chats'),
-        where('participants', 'array-contains', user.uid)
-      );
-      const snapshot = await getDocs(chatsQuery);
-      const list: Conversation[] = [];
-      
-      for (const doc of snapshot.docs) {
-        const data = doc.data();
-        const otherParticipantId = data.participants?.find((p: string) => p !== user.uid);
-        
-        if (otherParticipantId) {
-          list.push({
-            id: doc.id,
-            participantId: otherParticipantId,
-            participantName: data.participantNames?.[otherParticipantId] || 'Client',
-            participantPhoto: data.participantPhotos?.[otherParticipantId],
-            lastMessage: data.lastMessage || '',
-            lastMessageTime: data.lastMessageTime?.toDate() || new Date(),
-            unreadCount: data.unreadCount?.[user.uid] || 0,
-          });
-        }
-      }
-      
-      list.sort((a, b) => b.lastMessageTime.getTime() - a.lastMessageTime.getTime());
-      setConversations(list);
-    } catch (error) {
-      console.error('Error fetching conversations:', error);
-    } finally {
-      setLoadingData(false);
-    }
+      await updateDoc(doc(db, 'conversations', conversationId), { [`archived.${user.uid}`]: true });
+      setMenuOpen(null);
+    } catch {}
   };
 
-  const filteredConversations = conversations.filter(c =>
-    c.participantName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleUnarchive = async (conversationId: string) => {
+    if (!user?.uid) return;
+    try {
+      await updateDoc(doc(db, 'conversations', conversationId), { [`archived.${user.uid}`]: false });
+      setMenuOpen(null);
+    } catch {}
+  };
+
+  const handleDelete = async (conversationId: string) => {
+    if (!user?.uid) return;
+    if (!confirm('Delete this conversation?')) return;
+    try {
+      await updateDoc(doc(db, 'conversations', conversationId), { [`deleted.${user.uid}`]: true });
+      setMenuOpen(null);
+    } catch {}
+  };
 
   const formatTime = (date: Date) => {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
-    if (days === 0) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else if (days === 1) {
-      return 'Yesterday';
-    } else if (days < 7) {
-      return date.toLocaleDateString([], { weekday: 'short' });
-    } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m`;
+    if (hours < 24) return `${hours}h`;
+    if (days < 7) return `${days}d`;
+    return date.toLocaleDateString();
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return 'U';
+    return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const getRoleBadge = (role?: string) => {
+    switch (role?.toUpperCase()) {
+      case 'ADMIN': return { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Support', gradient: 'from-purple-400 to-purple-600' };
+      case 'CLIENT': return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Client', gradient: 'from-emerald-400 to-green-600' };
+      default: return { bg: 'bg-gray-100', text: 'text-gray-700', label: 'User', gradient: 'from-gray-400 to-gray-600' };
     }
   };
+
+  const displayedConversations = showArchived ? archivedConversations : conversations;
+  const filteredConversations = displayedConversations.filter((c) => c.otherUser.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
 
   if (isLoading || loadingData) {
     return (
       <ProviderLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="spinner"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
         </div>
       </ProviderLayout>
     );
@@ -109,74 +158,165 @@ export default function ProviderMessagesPage() {
 
   return (
     <ProviderLayout>
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Messages</h1>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
+        {/* Premium Header */}
+        <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500">
+          <div className="max-w-4xl mx-auto px-4 py-8">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                <MessageSquare className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white">Messages</h1>
+                <p className="text-blue-100">Connect with your clients</p>
+              </div>
+            </div>
 
-        {/* Search */}
-        <div className="relative mb-6">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Search conversations..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00B14F]"
-          />
+            {/* Stats Cards */}
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-4 text-center">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Users className="w-4 h-4 text-white/80" />
+                  <span className="text-2xl font-bold text-white">{conversations.length}</span>
+                </div>
+                <p className="text-xs text-white/70">Active Chats</p>
+              </div>
+              <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-4 text-center">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Bell className="w-4 h-4 text-white/80" />
+                  <span className="text-2xl font-bold text-white">{totalUnread}</span>
+                </div>
+                <p className="text-xs text-white/70">Unread</p>
+              </div>
+              <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-4 text-center">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Archive className="w-4 h-4 text-white/80" />
+                  <span className="text-2xl font-bold text-white">{archivedConversations.length}</span>
+                </div>
+                <p className="text-xs text-white/70">Archived</p>
+              </div>
+            </div>
+
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search conversations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl shadow-lg focus:ring-4 focus:ring-white/30 focus:outline-none text-gray-900"
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Conversations List */}
-        {filteredConversations.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-xl">
-            <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">No messages yet</p>
-            <p className="text-sm text-gray-400 mt-1">
-              Messages from clients will appear here
-            </p>
+        <div className="max-w-4xl mx-auto px-4 -mt-2">
+          {/* Tabs */}
+          <div className="bg-white rounded-2xl shadow-lg p-1.5 flex mb-4">
+            <button
+              onClick={() => setShowArchived(false)}
+              className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all ${
+                !showArchived ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Active ({conversations.length})
+            </button>
+            <button
+              onClick={() => setShowArchived(true)}
+              className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                showArchived ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Archive className="w-4 h-4" />
+              Archived ({archivedConversations.length})
+            </button>
           </div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            {filteredConversations.map((conversation, index) => (
-              <div
-                key={conversation.id}
-                onClick={() => router.push(`/provider/chat/${conversation.id}`)}
-                className={`p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50 ${
-                  index !== filteredConversations.length - 1 ? 'border-b' : ''
-                }`}
-              >
-                <div className="relative">
-                  <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden">
-                    {conversation.participantPhoto ? (
-                      <img src={conversation.participantPhoto} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-500 font-semibold">
-                        {conversation.participantName[0]}
+
+          {/* Conversations List */}
+          {filteredConversations.length === 0 ? (
+            <div className="bg-white rounded-3xl shadow-xl p-12 text-center">
+              <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                {showArchived ? <Archive className="w-12 h-12 text-amber-400" /> : <MessageSquare className="w-12 h-12 text-blue-400" />}
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
+                {searchQuery ? 'No matches found' : showArchived ? 'No archived messages' : 'No messages yet'}
+              </h3>
+              <p className="text-gray-500 mb-6">
+                {searchQuery ? 'Try a different search term' : showArchived ? 'Archived conversations will appear here' : 'When clients message you, conversations will appear here'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3 pb-6">
+              {filteredConversations.map((conversation) => {
+                const roleBadge = getRoleBadge(conversation.otherUser.role);
+                return (
+                  <div key={conversation.id} className={`relative group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all overflow-hidden border ${conversation.unreadCount > 0 ? 'border-blue-200 bg-gradient-to-r from-blue-50/50 to-white' : 'border-gray-100'}`}>
+                    <div className="p-4 flex items-center gap-4">
+                      <div className="relative cursor-pointer" onClick={() => router.push(`/chat/${conversation.id}`)}>
+                        {conversation.otherUser.profilePhoto ? (
+                          <Image src={conversation.otherUser.profilePhoto} alt="" width={56} height={56} className="w-14 h-14 rounded-full object-cover ring-2 ring-white shadow-md" />
+                        ) : (
+                          <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${roleBadge.gradient} flex items-center justify-center ring-2 ring-white shadow-md`}>
+                            <span className="text-white text-lg font-bold">{getInitials(conversation.otherUser.name)}</span>
+                          </div>
+                        )}
+                        {conversation.unreadCount > 0 && (
+                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center border-2 border-white">
+                            <span className="text-white text-[10px] font-bold">{conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => router.push(`/chat/${conversation.id}`)}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`font-semibold truncate ${conversation.unreadCount > 0 ? 'text-gray-900' : 'text-gray-700'}`}>{conversation.otherUser.name}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${roleBadge.bg} ${roleBadge.text}`}>{roleBadge.label}</span>
+                        </div>
+                        {conversation.jobId && (
+                          <div className="flex items-center gap-1 mb-1">
+                            <Briefcase className="w-3 h-3 text-gray-400" />
+                            <span className="text-xs text-gray-500">Job #{conversation.jobId.slice(-6)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          {conversation.lastSenderId === user?.uid && <CheckCheck className={`w-4 h-4 flex-shrink-0 ${conversation.unreadCount > 0 ? 'text-gray-400' : 'text-blue-500'}`} />}
+                          <p className={`text-sm truncate ${conversation.unreadCount > 0 ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>{conversation.lastMessage || 'No messages yet'}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="flex items-center gap-1 text-xs text-gray-400">
+                          <Clock className="w-3 h-3" />
+                          <span className={conversation.unreadCount > 0 ? 'text-blue-600 font-medium' : ''}>{formatTime(conversation.lastMessageTime)}</span>
+                        </div>
+                        <button onClick={(e) => { e.stopPropagation(); setMenuOpen(menuOpen === conversation.id ? null : conversation.id); }} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+                          <MoreVertical className="w-5 h-5 text-gray-400" />
+                        </button>
+                      </div>
+                    </div>
+                    {menuOpen === conversation.id && (
+                      <div className="absolute right-4 top-16 bg-white rounded-xl shadow-2xl border z-20 py-2 min-w-[160px]">
+                        {showArchived ? (
+                          <button onClick={() => handleUnarchive(conversation.id)} className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-blue-600">
+                            <RotateCcw className="w-4 h-4" />Restore
+                          </button>
+                        ) : (
+                          <button onClick={() => handleArchive(conversation.id)} className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-amber-600">
+                            <Archive className="w-4 h-4" />Archive
+                          </button>
+                        )}
+                        <button onClick={() => handleDelete(conversation.id)} className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-red-600">
+                          <Trash2 className="w-4 h-4" />Delete
+                        </button>
                       </div>
                     )}
                   </div>
-                  {conversation.unreadCount > 0 && (
-                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-[#00B14F] rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs font-medium">{conversation.unreadCount}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-start">
-                    <h3 className={`font-medium truncate ${conversation.unreadCount > 0 ? 'text-gray-900' : 'text-gray-700'}`}>
-                      {conversation.participantName}
-                    </h3>
-                    <span className="text-xs text-gray-400 ml-2 whitespace-nowrap">
-                      {formatTime(conversation.lastMessageTime)}
-                    </span>
-                  </div>
-                  <p className={`text-sm truncate ${conversation.unreadCount > 0 ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
-                    {conversation.lastMessage}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
+      {menuOpen && <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(null)} />}
     </ProviderLayout>
   );
 }

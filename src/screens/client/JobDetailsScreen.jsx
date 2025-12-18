@@ -894,23 +894,6 @@ const JobDetailsScreen = ({navigation, route}) => {
           )}
         </View>
 
-        {/* Date & Time */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Schedule</Text>
-          <View style={styles.infoRow}>
-            <Icon name="calendar-outline" size={20} color="#6B7280" />
-            <Text style={styles.infoText}>
-              {jobData.scheduledDate || jobData.date || 'Not specified'}
-            </Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Icon name="time-outline" size={20} color="#6B7280" />
-            <Text style={styles.infoText}>
-              {jobData.scheduledTime || jobData.time || 'Not specified'}
-            </Text>
-          </View>
-        </View>
-
         {/* Provider Info (show if provider assigned or providerName exists) */}
         {(jobData.provider || jobData.providerName || jobData.providerId) && (
           <View style={styles.section}>

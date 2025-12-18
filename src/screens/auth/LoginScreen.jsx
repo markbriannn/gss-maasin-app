@@ -16,6 +16,7 @@ import {authStyles} from '../../css/authStyles';
 
 const LoginScreen = ({navigation}) => {
   const {login} = useAuth();
+  const [selectedRole, setSelectedRole] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -35,7 +36,7 @@ const LoginScreen = ({navigation}) => {
     }
 
     setIsLoading(true);
-    const result = await login(email, password);
+    const result = await login(email, password, selectedRole);
     setIsLoading(false);
 
     if (!result.success) {
@@ -43,6 +44,15 @@ const LoginScreen = ({navigation}) => {
       if (result.error === 'ACCOUNT_SUSPENDED' && result.suspensionDetails) {
         setSuspensionDetails(result.suspensionDetails);
         setShowSuspendedModal(true);
+      } else if (result.errorType === 'ROLE_MISMATCH') {
+        // Show role mismatch error with suggestion
+        Alert.alert(
+          'Wrong Account Type',
+          result.error,
+          [
+            {text: 'OK', onPress: () => setSelectedRole(null)},
+          ]
+        );
       } else {
         Alert.alert('Login Failed', result.error || 'Invalid credentials');
       }
@@ -61,23 +71,241 @@ const LoginScreen = ({navigation}) => {
     navigation.navigate('PhoneOTP');
   };
 
+  const handleBackToRoleSelection = () => {
+    setSelectedRole(null);
+    setEmail('');
+    setPassword('');
+  };
+
+  const roleConfig = {
+    CLIENT: {
+      icon: 'person',
+      color: '#00B14F',
+      bgColor: '#DCFCE7',
+      label: 'Client',
+      description: 'Book services from trusted providers',
+    },
+    PROVIDER: {
+      icon: 'briefcase',
+      color: '#3B82F6',
+      bgColor: '#DBEAFE',
+      label: 'Provider',
+      description: 'Manage jobs and grow your business',
+    },
+    ADMIN: {
+      icon: 'shield-checkmark',
+      color: '#8B5CF6',
+      bgColor: '#EDE9FE',
+      label: 'Admin',
+      description: 'Manage platform and users',
+    },
+  };
+
+  // Role Selection Screen
+  if (!selectedRole) {
+    return (
+      <SafeAreaView style={authStyles.container}>
+        <ScrollView
+          contentContainerStyle={authStyles.scrollContent}
+          keyboardShouldPersistTaps="handled">
+          
+          {/* Back Button */}
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 20,
+            }}
+            onPress={() => navigation.goBack()}>
+            <Icon name="arrow-back" size={24} color="#374151" />
+            <Text style={{marginLeft: 8, fontSize: 16, color: '#374151'}}>Back</Text>
+          </TouchableOpacity>
+
+          <View style={authStyles.logoContainer}>
+            <View style={authStyles.logo}>
+              <Text style={authStyles.logoText}>GSS</Text>
+            </View>
+            <Text style={authStyles.logoSubtext}>Maasin City</Text>
+          </View>
+
+          <View style={authStyles.welcomeContainer}>
+            <Text style={authStyles.welcomeText}>Welcome Back</Text>
+            <Text style={authStyles.welcomeSubtext}>
+              Choose how you want to sign in
+            </Text>
+          </View>
+
+          <View style={{marginTop: 24}}>
+            {/* Client Option */}
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 16,
+                padding: 20,
+                marginBottom: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                shadowColor: '#000',
+                shadowOffset: {width: 0, height: 2},
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+                elevation: 2,
+                borderWidth: 2,
+                borderColor: 'transparent',
+              }}
+              onPress={() => setSelectedRole('CLIENT')}>
+              <View
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 14,
+                  backgroundColor: roleConfig.CLIENT.bgColor,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                <Icon name={roleConfig.CLIENT.icon} size={28} color={roleConfig.CLIENT.color} />
+              </View>
+              <View style={{flex: 1, marginLeft: 16}}>
+                <Text style={{fontSize: 18, fontWeight: '600', color: '#1F2937'}}>
+                  Login as Client
+                </Text>
+                <Text style={{fontSize: 14, color: '#6B7280', marginTop: 2}}>
+                  {roleConfig.CLIENT.description}
+                </Text>
+              </View>
+              <Icon name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+
+            {/* Provider Option */}
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 16,
+                padding: 20,
+                marginBottom: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                shadowColor: '#000',
+                shadowOffset: {width: 0, height: 2},
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+                elevation: 2,
+                borderWidth: 2,
+                borderColor: 'transparent',
+              }}
+              onPress={() => setSelectedRole('PROVIDER')}>
+              <View
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 14,
+                  backgroundColor: roleConfig.PROVIDER.bgColor,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                <Icon name={roleConfig.PROVIDER.icon} size={28} color={roleConfig.PROVIDER.color} />
+              </View>
+              <View style={{flex: 1, marginLeft: 16}}>
+                <Text style={{fontSize: 18, fontWeight: '600', color: '#1F2937'}}>
+                  Login as Provider
+                </Text>
+                <Text style={{fontSize: 14, color: '#6B7280', marginTop: 2}}>
+                  {roleConfig.PROVIDER.description}
+                </Text>
+              </View>
+              <Icon name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+
+            {/* Admin Option */}
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 16,
+                padding: 20,
+                marginBottom: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                shadowColor: '#000',
+                shadowOffset: {width: 0, height: 2},
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+                elevation: 2,
+                borderWidth: 2,
+                borderColor: 'transparent',
+              }}
+              onPress={() => setSelectedRole('ADMIN')}>
+              <View
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 14,
+                  backgroundColor: roleConfig.ADMIN.bgColor,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                <Icon name={roleConfig.ADMIN.icon} size={28} color={roleConfig.ADMIN.color} />
+              </View>
+              <View style={{flex: 1, marginLeft: 16}}>
+                <Text style={{fontSize: 18, fontWeight: '600', color: '#1F2937'}}>
+                  Login as Admin
+                </Text>
+                <Text style={{fontSize: 14, color: '#6B7280', marginTop: 2}}>
+                  {roleConfig.ADMIN.description}
+                </Text>
+              </View>
+              <Icon name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Sign Up Link */}
+          <View style={[authStyles.signUpContainer, {marginTop: 32}]}>
+            <Text style={authStyles.signUpText}>Don't have an account? </Text>
+            <TouchableOpacity onPress={handleSignUp}>
+              <Text style={authStyles.linkText}>Sign Up</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // Login Form Screen
+  const currentRole = roleConfig[selectedRole];
+
   return (
     <SafeAreaView style={authStyles.container}>
       <ScrollView
         contentContainerStyle={authStyles.scrollContent}
         keyboardShouldPersistTaps="handled">
         
-        <View style={authStyles.logoContainer}>
-          <View style={authStyles.logo}>
-            <Text style={authStyles.logoText}>GSS</Text>
-          </View>
-          <Text style={authStyles.logoSubtext}>Maasin City</Text>
-        </View>
+        {/* Back to Role Selection */}
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 20,
+          }}
+          onPress={handleBackToRoleSelection}>
+          <Icon name="arrow-back" size={24} color="#374151" />
+          <Text style={{marginLeft: 8, fontSize: 16, color: '#374151'}}>Back</Text>
+        </TouchableOpacity>
 
-        <View style={authStyles.welcomeContainer}>
-          <Text style={authStyles.welcomeText}>Welcome Back</Text>
+        <View style={{alignItems: 'center', marginBottom: 24}}>
+          <View
+            style={{
+              width: 80,
+              height: 80,
+              borderRadius: 20,
+              backgroundColor: currentRole.bgColor,
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: 16,
+            }}>
+            <Icon name={currentRole.icon} size={40} color={currentRole.color} />
+          </View>
+          <Text style={authStyles.welcomeText}>{currentRole.label} Login</Text>
           <Text style={authStyles.welcomeSubtext}>
-            Sign in to continue to your account
+            Sign in to your {currentRole.label.toLowerCase()} account
           </Text>
         </View>
 
@@ -167,6 +395,7 @@ const LoginScreen = ({navigation}) => {
           <TouchableOpacity
             style={[
               authStyles.buttonPrimary,
+              {backgroundColor: currentRole.color},
               isLoading && authStyles.buttonDisabled,
             ]}
             onPress={handleLogin}
@@ -174,18 +403,22 @@ const LoginScreen = ({navigation}) => {
             {isLoading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={authStyles.buttonPrimaryText}>Login</Text>
+              <Text style={authStyles.buttonPrimaryText}>Sign In</Text>
             )}
           </TouchableOpacity>
 
           {/* Social/phone login removed per request */}
 
-          <View style={authStyles.signUpContainer}>
-            <Text style={authStyles.signUpText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={handleSignUp}>
-              <Text style={authStyles.linkText}>Sign Up</Text>
-            </TouchableOpacity>
-          </View>
+          {selectedRole !== 'ADMIN' && (
+            <View style={authStyles.signUpContainer}>
+              <Text style={authStyles.signUpText}>New to GSS Maasin? </Text>
+              <TouchableOpacity onPress={handleSignUp}>
+                <Text style={[authStyles.linkText, {color: currentRole.color}]}>
+                  Create {currentRole.label} Account
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </ScrollView>
 

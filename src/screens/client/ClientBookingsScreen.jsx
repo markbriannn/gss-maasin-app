@@ -34,6 +34,7 @@ const ClientBookingsScreen = ({navigation}) => {
       return;
     }
 
+    let isMounted = true;
     setIsLoading(true);
 
     // Query all bookings for this client
@@ -46,6 +47,7 @@ const ClientBookingsScreen = ({navigation}) => {
     const unsubscribe = onSnapshot(
       bookingsQuery,
       async (snapshot) => {
+        if (!isMounted) return;
         // Map tabs to statuses
         const statusMap = {
           'PENDING': ['pending', 'pending_negotiation', 'counter_offer', 'approved'],
@@ -129,18 +131,25 @@ const ClientBookingsScreen = ({navigation}) => {
             bookingsList.sort((a, b) => b.createdAtRaw - a.createdAtRaw);
         }
 
+        if (!isMounted) return;
+        
         setBookings(bookingsList);
         setIsLoading(false);
         setRefreshing(false);
       },
       (error) => {
         console.log('Error listening to bookings:', error);
-        setIsLoading(false);
-        setRefreshing(false);
+        if (isMounted) {
+          setIsLoading(false);
+          setRefreshing(false);
+        }
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, [user, activeTab, sortBy]);
 
   const onRefresh = () => {

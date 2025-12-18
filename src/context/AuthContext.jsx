@@ -68,9 +68,29 @@ export const AuthProvider = ({children}) => {
     }
   };
 
-  const login = async (email, password) => {
+  const login = async (email, password, expectedRole = null) => {
     try {
       const response = await authService.login(email, password);
+
+      // Validate role if expectedRole is provided
+      if (expectedRole) {
+        const userRole = (response.user?.role || 'CLIENT').toUpperCase();
+        const expected = expectedRole.toUpperCase();
+        
+        if (userRole !== expected) {
+          const roleLabels = {
+            CLIENT: 'Client',
+            PROVIDER: 'Provider',
+            ADMIN: 'Admin',
+          };
+          return {
+            success: false,
+            error: `This account is registered as a ${roleLabels[userRole] || userRole}. Please select the correct login option.`,
+            errorType: 'ROLE_MISMATCH',
+            actualRole: userRole,
+          };
+        }
+      }
 
       await setSession(response.token, response.user);
 

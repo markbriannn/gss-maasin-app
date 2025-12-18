@@ -31,6 +31,7 @@ const AdminMapScreen = ({navigation}) => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     setIsLoading(true);
     
     // Real-time listener for providers
@@ -42,6 +43,8 @@ const AdminMapScreen = ({navigation}) => {
     const unsubscribe = onSnapshot(
       providersQuery,
       (querySnapshot) => {
+        if (!isMounted) return;
+        
         const providersList = [];
         
         querySnapshot.forEach((docSnap) => {
@@ -92,11 +95,16 @@ const AdminMapScreen = ({navigation}) => {
       },
       (error) => {
         console.error('Error loading providers:', error);
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     );
     
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const handleProviderPress = (provider) => {

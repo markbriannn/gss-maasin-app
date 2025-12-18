@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import {useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,6 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
-  Image,
-  Dimensions,
   Animated,
   Easing,
 } from 'react-native';
@@ -18,8 +16,6 @@ import locationService from '../../services/locationService';
 import {db} from '../../config/firebase';
 import {collection, query, where, getDocs} from 'firebase/firestore';
 import {guestHomeStyles as styles} from '../../css/profileStyles';
-
-const {width} = Dimensions.get('window');
 
 // Animated Header Banner with floating icons
 const AnimatedHeaderBanner = ({onSignUp}) => {
@@ -153,10 +149,11 @@ const AnimatedHeaderBanner = ({onSignUp}) => {
 
 // Animated Category Item
 const AnimatedCategoryItem = ({category, isSelected, onPress, index}) => {
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-  const bounceAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    // Entrance animation
+    scaleAnim.setValue(0);
     Animated.spring(scaleAnim, {
       toValue: 1,
       tension: 50,
@@ -166,34 +163,17 @@ const AnimatedCategoryItem = ({category, isSelected, onPress, index}) => {
     }).start();
   }, []);
 
-  const handlePressIn = () => {
-    Animated.spring(bounceAnim, {
-      toValue: 0.9,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(bounceAnim, {
-      toValue: 1,
-      tension: 50,
-      friction: 7,
-      useNativeDriver: true,
-    }).start();
-  };
-
   return (
     <TouchableOpacity
       onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      activeOpacity={1}>
+      activeOpacity={0.7}
+      style={{marginRight: 12}}>
       <Animated.View
         style={[
           styles.categoryItem,
           isSelected && styles.categoryItemActive,
           {
-            transform: [{scale: Animated.multiply(scaleAnim, bounceAnim)}],
+            transform: [{scale: scaleAnim}],
           },
         ]}>
         <View
@@ -205,6 +185,31 @@ const AnimatedCategoryItem = ({category, isSelected, onPress, index}) => {
         </View>
         <Text style={styles.categoryName}>{category.name}</Text>
       </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
+// Simple Category Item (non-animated fallback)
+const SimpleCategoryItem = ({category, isSelected, onPress}) => {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.7}
+      style={{marginRight: 12}}>
+      <View
+        style={[
+          styles.categoryItem,
+          isSelected && styles.categoryItemActive,
+        ]}>
+        <View
+          style={[
+            styles.categoryIconContainer,
+            {backgroundColor: category.color + '20'},
+          ]}>
+          <Icon name={category.icon} size={28} color={category.color} />
+        </View>
+        <Text style={styles.categoryName}>{category.name}</Text>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -315,15 +320,12 @@ const AnimatedProviderCard = ({
           <Text style={styles.ratingText}>
             {provider.rating ? provider.rating.toFixed(1) : 'New'}
           </Text>
-          {provider.rating && (
-            <Text style={styles.reviewCount}>({provider.reviewCount})</Text>
-          )}
+          {provider.rating ? (
+            <Text style={styles.reviewCount}>({provider.reviewCount || 0})</Text>
+          ) : null}
         </View>
         <Text style={styles.providerRate}>
-          ₱{provider.fixedPrice || provider.hourlyRate}
-          <Text style={{fontSize: 11, color: '#6B7280'}}>
-            {provider.priceType === 'per_hire' ? '/hire' : '/job'}
-          </Text>
+          <Text>₱{provider.fixedPrice || provider.hourlyRate || 0}</Text><Text style={{fontSize: 11, color: '#6B7280'}}>{provider.priceType === 'per_hire' ? '/hire' : '/job'}</Text>
         </Text>
         <View style={{flexDirection: 'row', alignItems: 'center'}}>
           <Icon name="location-outline" size={12} color="#9CA3AF" />
@@ -331,8 +333,8 @@ const AnimatedProviderCard = ({
             {provider.barangay
               ? `Brgy. ${provider.barangay}`
               : provider.distance && parseFloat(provider.distance) > 0
-              ? `${provider.distance} km away`
-              : 'Nearby'}
+                ? `${provider.distance} km away`
+                : 'Nearby'}
           </Text>
         </View>
         <AnimatedHireButton onPress={onHire} />
@@ -602,44 +604,48 @@ const GuestHomeScreen = ({navigation}) => {
       const querySnapshot = await getDocs(providersQuery);
       const providersList = [];
 
-      querySnapshot.forEach(doc => {
-        const data = doc.data();
+      querySnapshot.forEach(docSnapshot => {
+        try {
+          const data = docSnapshot.data();
 
-        const isApproved =
-          data.providerStatus === 'approved' || data.status === 'approved';
-        if (!isApproved) {
-          return;
+          const isApproved =
+            data.providerStatus === 'approved' || data.status === 'approved';
+          if (!isApproved) {
+            return;
+          }
+
+          if (selectedCategory && data.serviceCategory !== selectedCategory) {
+            return;
+          }
+
+          let distance = 0;
+          if (userLocation && data.latitude && data.longitude) {
+            distance = calculateDistance(
+              userLocation.latitude,
+              userLocation.longitude,
+              data.latitude,
+              data.longitude,
+            );
+          }
+
+          providersList.push({
+            id: docSnapshot.id,
+            name:
+              `${data.firstName || ''} ${data.lastName || ''}`.trim() ||
+              'Provider',
+            serviceCategory: data.serviceCategory || '',
+            rating: data.rating || null,
+            reviewCount: data.reviewCount || 0,
+            distance: distance.toFixed(1),
+            priceType: data.priceType || 'per_job',
+            fixedPrice: data.fixedPrice || 0,
+            hourlyRate: data.hourlyRate || data.fixedPrice || 200,
+            isOnline: data.isOnline || false,
+            ...data,
+          });
+        } catch (docError) {
+          console.error('Error processing provider doc:', docError);
         }
-
-        if (selectedCategory && data.serviceCategory !== selectedCategory) {
-          return;
-        }
-
-        let distance = 0;
-        if (userLocation && data.latitude && data.longitude) {
-          distance = calculateDistance(
-            userLocation.latitude,
-            userLocation.longitude,
-            data.latitude,
-            data.longitude,
-          );
-        }
-
-        providersList.push({
-          id: doc.id,
-          name:
-            `${data.firstName || ''} ${data.lastName || ''}`.trim() ||
-            'Provider',
-          serviceCategory: data.serviceCategory,
-          rating: data.rating || null,
-          reviewCount: data.reviewCount || 0,
-          distance: distance.toFixed(1),
-          priceType: data.priceType || 'per_job',
-          fixedPrice: data.fixedPrice || 0,
-          hourlyRate: data.hourlyRate || data.fixedPrice || 200,
-          isOnline: data.isOnline || false,
-          ...data,
-        });
       });
 
       providersList.sort(
@@ -648,6 +654,7 @@ const GuestHomeScreen = ({navigation}) => {
       setProviders(providersList);
     } catch (error) {
       console.error('Error loading providers:', error);
+      setProviders([]);
     } finally {
       setIsLoading(false);
     }
@@ -686,16 +693,19 @@ const GuestHomeScreen = ({navigation}) => {
   };
 
   const getCategoryIcon = categoryId => {
+    if (!categoryId) return 'construct';
     const category = SERVICE_CATEGORIES.find(c => c.id === categoryId);
     return category ? category.icon : 'construct';
   };
 
   const getCategoryColor = categoryId => {
+    if (!categoryId) return '#6B7280';
     const category = SERVICE_CATEGORIES.find(c => c.id === categoryId);
     return category ? category.color : '#6B7280';
   };
 
   const getCategoryName = categoryId => {
+    if (!categoryId) return 'Service Provider';
     const category = SERVICE_CATEGORIES.find(c => c.id === categoryId);
     return category ? category.name : categoryId;
   };
@@ -766,18 +776,16 @@ const GuestHomeScreen = ({navigation}) => {
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesScroll}>
-            {SERVICE_CATEGORIES.map((category, index) => (
-              <AnimatedCategoryItem
+            {SERVICE_CATEGORIES.map((category) => (
+              <SimpleCategoryItem
                 key={category.id}
                 category={category}
-                index={index}
                 isSelected={selectedCategory === category.id}
                 onPress={() => handleCategorySelect(category.id)}
               />
             ))}
-            <AnimatedCategoryItem
+            <SimpleCategoryItem
               category={{id: 'all', name: 'All', icon: 'grid', color: '#00B14F'}}
-              index={SERVICE_CATEGORIES.length}
               isSelected={!selectedCategory}
               onPress={() => setSelectedCategory(null)}
             />
@@ -786,10 +794,14 @@ const GuestHomeScreen = ({navigation}) => {
 
         {/* Providers Section */}
         <View style={styles.providersSection}>
-          <View style={styles.sectionHeader}>
+          <TouchableOpacity 
+            style={styles.sectionHeader}
+            onPress={() => navigation.navigate('Login')}
+            activeOpacity={0.7}
+          >
             <Text style={styles.sectionTitle}>Service Providers</Text>
             <Icon name="arrow-forward" size={20} color="#00B14F" />
-          </View>
+          </TouchableOpacity>
 
           {isLoading ? (
             <View style={styles.loadingContainer}>
@@ -850,7 +862,7 @@ const GuestHomeScreen = ({navigation}) => {
       {/* Help Link */}
       <View style={styles.helpContainer}>
         <Text style={styles.helpText}>Need help? </Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('Help')}>
           <Text style={styles.helpLink}>Visit our Help Centre.</Text>
         </TouchableOpacity>
       </View>

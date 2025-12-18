@@ -73,6 +73,7 @@ const AdminProvidersScreen = ({navigation, route}) => {
 
   // Real-time listener for providers
   useEffect(() => {
+    let isMounted = true;
     setIsLoading(true);
     
     // Query users with role = 'PROVIDER'
@@ -83,104 +84,121 @@ const AdminProvidersScreen = ({navigation, route}) => {
     
     // Set up real-time listener
     const unsubscribe = onSnapshot(providersQuery, async (snapshot) => {
-      const providersList = await Promise.all(snapshot.docs.map(async (docSnap) => {
-        const data = docSnap.data();
-        
-        // Build full address from new fields
-        let fullAddress = '';
-        if (data.houseNumber) fullAddress += data.houseNumber + ', ';
-        if (data.streetAddress) fullAddress += data.streetAddress + ', ';
-        if (data.barangay) fullAddress += 'Brgy. ' + data.barangay + ', ';
-        fullAddress += 'Maasin City';
-        
-        // Fallback to old address format
-        if (!data.streetAddress && !data.barangay) {
-          fullAddress = data.address || data.location || 'Maasin City';
-        }
-        
-        // Fetch actual completed jobs count from bookings
-        let completedJobsCount = data.completedJobs || 0;
-        try {
-          const bookingsQuery = query(
-            collection(db, 'bookings'),
-            where('providerId', '==', docSnap.id),
-            where('status', '==', 'completed')
-          );
-          const bookingsSnap = await getDocs(bookingsQuery);
-          completedJobsCount = bookingsSnap.size;
-        } catch (e) {
-          console.log('Error fetching completed jobs:', e);
-        }
-        
-        return {
-          id: docSnap.id,
-          name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email?.split('@')[0] || 'Unknown',
-          email: data.email || '',
-          phone: data.phone || data.phoneNumber || 'Not provided',
-          service: data.serviceCategory || data.service || 'General Services',
-          status: data.status || 'pending',
-          rating: data.rating || data.averageRating || 0,
-          completedJobs: completedJobsCount,
-          registeredDate: data.createdAt?.toDate?.() 
-            ? `${data.createdAt.toDate().toLocaleDateString()} at ${data.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`
-            : 'Unknown',
-          registeredDateRaw: data.createdAt?.toDate?.() || new Date(0),
-          location: fullAddress,
-          streetAddress: data.streetAddress || '',
-          houseNumber: data.houseNumber || '',
-          barangay: data.barangay || '',
-          landmark: data.landmark || '',
-          latitude: data.latitude || null,
-          longitude: data.longitude || null,
-          documents: {
-            governmentId: {
-              submitted: !!data.documents?.governmentId || !!data.documents?.governmentIdUrl,
-              url: data.documents?.governmentIdUrl || null,
+      // Check if component is still mounted before processing
+      if (!isMounted) return;
+      
+      try {
+        const providersList = await Promise.all(snapshot.docs.map(async (docSnap) => {
+          const data = docSnap.data();
+          
+          // Build full address from new fields
+          let fullAddress = '';
+          if (data.houseNumber) fullAddress += data.houseNumber + ', ';
+          if (data.streetAddress) fullAddress += data.streetAddress + ', ';
+          if (data.barangay) fullAddress += 'Brgy. ' + data.barangay + ', ';
+          fullAddress += 'Maasin City';
+          
+          // Fallback to old address format
+          if (!data.streetAddress && !data.barangay) {
+            fullAddress = data.address || data.location || 'Maasin City';
+          }
+          
+          // Fetch actual completed jobs count from bookings
+          let completedJobsCount = data.completedJobs || 0;
+          try {
+            const bookingsQuery = query(
+              collection(db, 'bookings'),
+              where('providerId', '==', docSnap.id),
+              where('status', '==', 'completed')
+            );
+            const bookingsSnap = await getDocs(bookingsQuery);
+            completedJobsCount = bookingsSnap.size;
+          } catch (e) {
+            console.log('Error fetching completed jobs:', e);
+          }
+          
+          return {
+            id: docSnap.id,
+            name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email?.split('@')[0] || 'Unknown',
+            email: data.email || '',
+            phone: data.phone || data.phoneNumber || 'Not provided',
+            service: data.serviceCategory || data.service || 'General Services',
+            status: data.status || 'pending',
+            rating: data.rating || data.averageRating || 0,
+            completedJobs: completedJobsCount,
+            registeredDate: data.createdAt?.toDate?.() 
+              ? `${data.createdAt.toDate().toLocaleDateString()} at ${data.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`
+              : 'Unknown',
+            registeredDateRaw: data.createdAt?.toDate?.() || new Date(0),
+            location: fullAddress,
+            streetAddress: data.streetAddress || '',
+            houseNumber: data.houseNumber || '',
+            barangay: data.barangay || '',
+            landmark: data.landmark || '',
+            latitude: data.latitude || null,
+            longitude: data.longitude || null,
+            documents: {
+              governmentId: {
+                submitted: !!data.documents?.governmentId || !!data.documents?.governmentIdUrl,
+                url: data.documents?.governmentIdUrl || null,
+              },
+              selfie: {
+                submitted: !!data.documents?.selfie || !!data.documents?.selfieUrl,
+                url: data.documents?.selfieUrl || null,
+              },
+              barangayClearance: {
+                submitted: !!data.documents?.barangayClearance || !!data.documents?.barangayClearanceUrl,
+                url: data.documents?.barangayClearanceUrl || null,
+              },
+              policeClearance: {
+                submitted: !!data.documents?.policeClearance || !!data.documents?.policeClearanceUrl,
+                url: data.documents?.policeClearanceUrl || null,
+              },
+              clearance: {
+                submitted: !!data.documents?.clearance || !!data.documents?.clearanceUrl,
+                url: data.documents?.clearanceUrl || null,
+              },
+              certificate: {
+                submitted: !!data.documents?.certificates?.length || !!data.documents?.certificateUrls?.length,
+                urls: data.documents?.certificateUrls || [],
+              },
             },
-            selfie: {
-              submitted: !!data.documents?.selfie || !!data.documents?.selfieUrl,
-              url: data.documents?.selfieUrl || null,
-            },
-            barangayClearance: {
-              submitted: !!data.documents?.barangayClearance || !!data.documents?.barangayClearanceUrl,
-              url: data.documents?.barangayClearanceUrl || null,
-            },
-            policeClearance: {
-              submitted: !!data.documents?.policeClearance || !!data.documents?.policeClearanceUrl,
-              url: data.documents?.policeClearanceUrl || null,
-            },
-            clearance: {
-              submitted: !!data.documents?.clearance || !!data.documents?.clearanceUrl,
-              url: data.documents?.clearanceUrl || null,
-            },
-            certificate: {
-              submitted: !!data.documents?.certificates?.length || !!data.documents?.certificateUrls?.length,
-              urls: data.documents?.certificateUrls || [],
-            },
-          },
-          suspensionReason: data.suspensionReason || null,
-          suspensionReasonLabel: data.suspensionReasonLabel || null,
-          suspendedAt: data.suspendedAt?.toDate?.() 
-            ? `${data.suspendedAt.toDate().toLocaleDateString()} at ${data.suspendedAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`
-            : null,
-          rawData: data,
-        };
-      }));
+            suspensionReason: data.suspensionReason || null,
+            suspensionReasonLabel: data.suspensionReasonLabel || null,
+            suspendedAt: data.suspendedAt?.toDate?.() 
+              ? `${data.suspendedAt.toDate().toLocaleDateString()} at ${data.suspendedAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`
+              : null,
+            rawData: data,
+          };
+        }));
 
-      // Sort by newest first
-      providersList.sort((a, b) => b.registeredDateRaw - a.registeredDateRaw);
+        // Check again after async operation
+        if (!isMounted) return;
 
-      setAllProviders(providersList);
-      setProviders(providersList);
-      setIsLoading(false);
+        // Sort by newest first
+        providersList.sort((a, b) => b.registeredDateRaw - a.registeredDateRaw);
+
+        setAllProviders(providersList);
+        setProviders(providersList);
+        setIsLoading(false);
+      } catch (error) {
+        console.log('Error processing providers:', error);
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
     }, (error) => {
       console.error('Error listening to providers:', error);
-      Alert.alert('Error', 'Failed to load providers. Please try again.');
-      setIsLoading(false);
+      if (isMounted) {
+        setIsLoading(false);
+      }
     });
 
     // Cleanup listener on unmount
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   // Filter providers when filter or search changes
@@ -1296,6 +1314,7 @@ GSS Maasin Support
                 marginTop: 16,
                 flexDirection: 'row',
                 alignItems: 'flex-start',
+                marginBottom: 20,
               }}>
                 <Icon name="information-circle" size={20} color="#F59E0B" style={{marginRight: 10, marginTop: 2}} />
                 <Text style={{flex: 1, fontSize: 13, color: isDark ? '#FCD34D' : '#92400E', lineHeight: 18}}>
@@ -1304,7 +1323,7 @@ GSS Maasin Support
               </View>
             </ScrollView>
 
-            <View style={[adminStyles.modalFooter, {gap: 12}]}>
+            <View style={[adminStyles.modalFooter, {gap: 12, paddingTop: 16, paddingBottom: 20, borderTopWidth: 1, borderTopColor: isDark ? theme.colors.border : '#E5E7EB'}]}>
               <TouchableOpacity 
                 style={{
                   flex: 1,

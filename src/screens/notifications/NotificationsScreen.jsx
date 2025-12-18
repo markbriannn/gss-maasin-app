@@ -132,6 +132,8 @@ const NotificationsScreen = ({navigation}) => {
 
   useEffect(() => {
     if (!user?.uid) return;
+    
+    let isMounted = true;
 
     // Cleanup previous listener
     if (unsubscribeRef.current) {
@@ -149,7 +151,15 @@ const NotificationsScreen = ({navigation}) => {
 
     const handleError = (error) => {
       console.log('[NotificationsScreen] Listener error:', error?.message || error);
-      setIsLoading(false);
+      if (isMounted) {
+        setIsLoading(false);
+      }
+    };
+    
+    const safeGenerateNotifications = () => {
+      if (isMounted) {
+        generateNotifications();
+      }
     };
 
     try {
@@ -160,7 +170,7 @@ const NotificationsScreen = ({navigation}) => {
           where('role', '==', 'PROVIDER'),
           where('providerStatus', '==', 'pending')
         );
-        const unsubProviders = onSnapshot(providersQuery, () => generateNotifications(), handleError);
+        const unsubProviders = onSnapshot(providersQuery, safeGenerateNotifications, handleError);
         unsubscribers.push(unsubProviders);
 
         // Listen to pending jobs
@@ -168,7 +178,7 @@ const NotificationsScreen = ({navigation}) => {
           collection(db, 'bookings'),
           where('status', 'in', ['pending', 'pending_negotiation'])
         );
-        const unsubJobs = onSnapshot(jobsQuery, () => generateNotifications(), handleError);
+        const unsubJobs = onSnapshot(jobsQuery, safeGenerateNotifications, handleError);
         unsubscribers.push(unsubJobs);
       } else if (normalizedRole === 'PROVIDER') {
         // Listen to available jobs (filter adminApproved in memory to avoid composite index)
@@ -177,7 +187,7 @@ const NotificationsScreen = ({navigation}) => {
             collection(db, 'bookings'),
             where('status', 'in', ['pending', 'pending_negotiation'])
           );
-          const unsubAvailable = onSnapshot(availableJobsQuery, () => generateNotifications(), handleError);
+          const unsubAvailable = onSnapshot(availableJobsQuery, safeGenerateNotifications, handleError);
           unsubscribers.push(unsubAvailable);
         } catch (e) {
           console.log('[NotificationsScreen] Available jobs query error:', e.message);
@@ -189,7 +199,7 @@ const NotificationsScreen = ({navigation}) => {
             collection(db, 'bookings'),
             where('providerId', '==', user.uid)
           );
-          const unsubMyJobs = onSnapshot(myJobsQuery, () => generateNotifications(), handleError);
+          const unsubMyJobs = onSnapshot(myJobsQuery, safeGenerateNotifications, handleError);
           unsubscribers.push(unsubMyJobs);
         } catch (e) {
           console.log('[NotificationsScreen] My jobs query error:', e.message);
@@ -200,7 +210,7 @@ const NotificationsScreen = ({navigation}) => {
           collection(db, 'bookings'),
           where('clientId', '==', user.uid)
         );
-        const unsubBookings = onSnapshot(bookingsQuery, () => generateNotifications(), handleError);
+        const unsubBookings = onSnapshot(bookingsQuery, safeGenerateNotifications, handleError);
         unsubscribers.push(unsubBookings);
       }
 
@@ -215,6 +225,7 @@ const NotificationsScreen = ({navigation}) => {
     }
 
     return () => {
+      isMounted = false;
       if (unsubscribeRef.current) {
         try {
           unsubscribeRef.current();
