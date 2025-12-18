@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -39,7 +39,30 @@ interface MediaFile {
   isVideo: boolean;
 }
 
+// Loading fallback component
+function BookingLoading() {
+  return (
+    <ClientLayout>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#00B14F] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-500">Loading booking details...</p>
+        </div>
+      </div>
+    </ClientLayout>
+  );
+}
+
+// Main page wrapper with Suspense
 export default function BookServicePage() {
+  return (
+    <Suspense fallback={<BookingLoading />}>
+      <BookServiceContent />
+    </Suspense>
+  );
+}
+
+function BookServiceContent() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
