@@ -142,7 +142,12 @@ export default function ChatPage() {
 
   // Subscribe to messages
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId || !user?.uid) return;
+
+    // Immediately reset unread count when opening the chat
+    updateDoc(doc(db, 'conversations', conversationId), {
+      [`unreadCount.${user.uid}`]: 0,
+    }).catch(() => {});
 
     const messagesQuery = query(
       collection(db, 'conversations', conversationId, 'messages'),
@@ -151,10 +156,10 @@ export default function ChatPage() {
 
     const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
       const msgs: Message[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
         msgs.push({
-          id: doc.id,
+          id: docSnap.id,
           text: data.text || '',
           senderId: data.senderId,
           senderName: data.senderName || 'User',
@@ -166,16 +171,12 @@ export default function ChatPage() {
       setMessages(msgs);
       setTimeout(scrollToBottom, 100);
 
-      // Mark messages as read
-      msgs.forEach(async (msg) => {
+      // Mark individual messages as read
+      msgs.forEach((msg) => {
         if (msg.senderId !== user?.uid && !msg.read) {
-          try {
-            await updateDoc(doc(db, 'conversations', conversationId, 'messages', msg.id), {
-              read: true,
-            });
-          } catch (e) {
-            // Ignore read status errors
-          }
+          updateDoc(doc(db, 'conversations', conversationId, 'messages', msg.id), {
+            read: true,
+          }).catch(() => {});
         }
       });
     });
