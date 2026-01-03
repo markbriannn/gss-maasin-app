@@ -320,6 +320,7 @@ import ClientMessagesScreen from '../screens/client/ClientMessagesScreen';
 import ClientProfileScreen from '../screens/client/ClientProfileScreen';
 import ClientProviderDetailsScreen from '../screens/client/ProviderDetailsScreen';
 import BookServiceScreen from '../screens/booking/BookServiceScreen';
+import SelectProviderScreen from '../screens/client/SelectProviderScreen';
 import JobDetailsScreen from '../screens/client/JobDetailsScreen';
 import JobTrackingScreen from '../screens/client/JobTrackingScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
@@ -694,6 +695,7 @@ export default function AppNavigator() {
         <>
           <Stack.Screen name="ClientMain" component={ClientTabs} />
           <Stack.Screen name="ProviderProfile" component={ProviderProfileScreen} />
+          <Stack.Screen name="SelectProvider" component={SelectProviderScreen} />
           <Stack.Screen name="HireProvider" component={BookServiceScreen} />
           <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
           <Stack.Screen name="Tracking" component={JobTrackingScreen} />
