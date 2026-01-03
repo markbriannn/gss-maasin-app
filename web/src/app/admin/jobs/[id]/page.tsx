@@ -137,8 +137,8 @@ export default function AdminJobDetailsPage() {
           providerName: providerInfo.name,
           providerPhone: providerInfo.phone,
           providerEmail: providerInfo.email,
-          amount: data.totalAmount || data.amount || 0,
-          providerPrice: data.providerPrice || data.offeredPrice || 0,
+          amount: data.totalAmount || data.amount || data.providerPrice || data.providerFixedPrice || data.price || 0,
+          providerPrice: data.providerPrice || data.providerFixedPrice || data.offeredPrice || data.price || 0,
           systemFee: data.systemFee || 0,
           finalAmount: data.finalAmount,
           scheduledDate: data.scheduledDate || "TBD",
@@ -292,6 +292,11 @@ export default function AdminJobDetailsPage() {
               <div>
                 <p className="text-emerald-100 text-sm font-medium mb-1">Total Amount</p>
                 <p className="text-5xl font-bold text-white">₱{(job.finalAmount || calculateTotal()).toLocaleString()}</p>
+                {(job.finalAmount || calculateTotal()) === 0 && (
+                  <p className="text-amber-200 text-sm mt-2 bg-amber-500/20 px-3 py-1 rounded-lg inline-block">
+                    ⚠️ Price not set - booking may need to be updated
+                  </p>
+                )}
                 {job.systemFee > 0 && (
                   <p className="text-emerald-100 text-sm mt-2">
                     Provider: ₱{job.providerPrice.toLocaleString()} + Fee: ₱{job.systemFee.toLocaleString()}
