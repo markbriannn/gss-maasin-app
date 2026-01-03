@@ -46,6 +46,7 @@ backend/.env
 **/serviceAccountKey.json
 **/google-services.json
 **/GoogleService-Info.plist
+.firebase/
 
 # Testing
 coverage/
