@@ -148,7 +148,19 @@ export default function AdminProviderDetailsPage() {
           isOnline: data.isOnline,
           createdAt: data.createdAt?.toDate(),
           approvedAt: data.approvedAt?.toDate(),
-          documents: data.documents || {},
+          documents: {
+            governmentId: data.documents?.governmentId || data.governmentId,
+            governmentIdUrl: data.documents?.governmentIdUrl || data.governmentIdUrl || data.validIdUrl,
+            idType: data.documents?.idType || data.idType,
+            selfie: data.documents?.selfie || data.selfie,
+            selfieUrl: data.documents?.selfieUrl || data.selfieUrl,
+            barangayClearance: data.documents?.barangayClearance || data.barangayClearance,
+            barangayClearanceUrl: data.documents?.barangayClearanceUrl || data.barangayClearanceUrl,
+            policeClearance: data.documents?.policeClearance || data.policeClearance,
+            policeClearanceUrl: data.documents?.policeClearanceUrl || data.policeClearanceUrl,
+            certificates: data.documents?.certificates || data.certificates || [],
+            certificateUrls: data.documents?.certificateUrls || data.certificateUrls || data.certificationUrls || [],
+          },
         });
       }
     } catch (error) {
