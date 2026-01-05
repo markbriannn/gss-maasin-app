@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -37,7 +37,6 @@ const userIcon = new L.Icon({
 // Create provider marker with photo or initial
 const createProviderIcon = (initial: string, profilePhoto?: string) => {
   if (profilePhoto) {
-    // Create marker with profile photo using HTML
     return L.divIcon({
       className: 'custom-marker',
       html: `
@@ -63,7 +62,6 @@ const createProviderIcon = (initial: string, profilePhoto?: string) => {
     });
   }
   
-  // Fallback to initial letter
   return new L.Icon({
     iconUrl: 'data:image/svg+xml;base64,' + btoa(`
       <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
@@ -103,7 +101,33 @@ function MapController({ center }: { center: { lat: number; lng: number } }) {
   return null;
 }
 
+// Fetch route from OSRM (Open Source Routing Machine)
+async function fetchRoute(
+  start: { lat: number; lng: number },
+  end: { lat: number; lng: number }
+): Promise<[number, number][] | null> {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates) {
+      // OSRM returns [lng, lat], we need [lat, lng] for Leaflet
+      return data.routes[0].geometry.coordinates.map(
+        (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
+      );
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching route:', error);
+    return null;
+  }
+}
+
 export default function ClientMapView({ providers, userLocation, center, onProviderClick, selectedProviderId }: ClientMapViewProps) {
+  const [routeCoordinates, setRouteCoordinates] = useState<[number, number][] | null>(null);
+  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+  
   // Memoize provider icons
   const providerIcons = useMemo(() => {
     const icons: Record<string, L.Icon | L.DivIcon> = {};
@@ -121,13 +145,29 @@ export default function ClientMapView({ providers, userLocation, center, onProvi
     return providers.find(p => p.id === selectedProviderId);
   }, [selectedProviderId, providers]);
 
-  // Route line positions
-  const routePositions = useMemo(() => {
-    if (!userLocation || !selectedProvider?.latitude || !selectedProvider?.longitude) return null;
-    return [
-      [userLocation.lat, userLocation.lng] as [number, number],
-      [selectedProvider.latitude, selectedProvider.longitude] as [number, number]
-    ];
+  // Fetch actual road route when provider is selected
+  useEffect(() => {
+    if (!userLocation || !selectedProvider?.latitude || !selectedProvider?.longitude) {
+      setRouteCoordinates(null);
+      return;
+    }
+
+    setIsLoadingRoute(true);
+    fetchRoute(
+      userLocation,
+      { lat: selectedProvider.latitude, lng: selectedProvider.longitude }
+    ).then(route => {
+      if (route) {
+        setRouteCoordinates(route);
+      } else {
+        // Fallback to straight line if routing fails
+        setRouteCoordinates([
+          [userLocation.lat, userLocation.lng],
+          [selectedProvider.latitude!, selectedProvider.longitude!]
+        ]);
+      }
+      setIsLoadingRoute(false);
+    });
   }, [userLocation, selectedProvider]);
 
   return (
@@ -144,15 +184,14 @@ export default function ClientMapView({ providers, userLocation, center, onProvi
       />
       <MapController center={center} />
       
-      {/* Blue route line when provider is selected */}
-      {routePositions && (
+      {/* Route line following actual roads */}
+      {routeCoordinates && routeCoordinates.length > 0 && (
         <Polyline
-          positions={routePositions}
+          positions={routeCoordinates}
           pathOptions={{
             color: '#3B82F6',
             weight: 5,
             opacity: 0.8,
-            dashArray: '10, 10',
           }}
         />
       )}
