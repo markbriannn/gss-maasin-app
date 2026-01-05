@@ -27,10 +27,17 @@ interface AdminLayoutProps {
   children: ReactNode;
 }
 
-const navItems = [
+interface NavItem {
+  href: string;
+  icon: any;
+  label: string;
+  badgeKey?: 'providers' | 'jobs';
+}
+
+const navItems: NavItem[] = [
   { href: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/admin/providers', icon: Users, label: 'Providers' },
-  { href: '/admin/jobs', icon: Briefcase, label: 'Jobs' },
+  { href: '/admin/providers', icon: Users, label: 'Providers', badgeKey: 'providers' },
+  { href: '/admin/jobs', icon: Briefcase, label: 'Jobs', badgeKey: 'jobs' },
   { href: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
   { href: '/admin/earnings', icon: DollarSign, label: 'Earnings' },
   { href: '/admin/messages', icon: MessageSquare, label: 'Messages' },
@@ -44,7 +51,50 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [badgeCounts, setBadgeCounts] = useState<{ providers: number; jobs: number }>({ providers: 0, jobs: 0 });
   const notificationBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Listen for pending providers and jobs counts for sidebar badges
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    const unsubscribers: (() => void)[] = [];
+    
+    // Listen to pending providers
+    const providersQuery = query(
+      collection(db, 'users'),
+      where('role', '==', 'PROVIDER'),
+      where('providerStatus', '==', 'pending')
+    );
+    
+    unsubscribers.push(onSnapshot(providersQuery, (snapshot) => {
+      setBadgeCounts(prev => ({ ...prev, providers: snapshot.size }));
+    }));
+    
+    // Listen to pending jobs (not yet admin approved)
+    const jobsQuery = query(
+      collection(db, 'bookings'),
+      where('status', 'in', ['pending', 'accepted']),
+      where('adminApproved', '==', false)
+    );
+    
+    unsubscribers.push(onSnapshot(jobsQuery, (snapshot) => {
+      setBadgeCounts(prev => ({ ...prev, jobs: snapshot.size }));
+    }, (error) => {
+      // Fallback query without adminApproved filter if index doesn't exist
+      console.log('Jobs badge query error, using fallback:', error.code);
+      const fallbackQuery = query(
+        collection(db, 'bookings'),
+        where('status', 'in', ['pending', 'accepted'])
+      );
+      onSnapshot(fallbackQuery, (snap) => {
+        const pendingCount = snap.docs.filter(d => !d.data().adminApproved).length;
+        setBadgeCounts(prev => ({ ...prev, jobs: pendingCount }));
+      });
+    }));
+    
+    return () => unsubscribers.forEach(unsub => unsub());
+  }, [user?.uid]);
 
   // Listen for unread notifications count (from bookings and providers like mobile app)
   useEffect(() => {
@@ -133,20 +183,34 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </div>
           
           <nav className="flex-1 px-4 py-4 space-y-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  pathname === item.href
-                    ? 'bg-[#00B14F] text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <item.icon className="w-5 h-5" />
-                <span className="font-medium">{item.label}</span>
-              </Link>
-            ))}
+            {navItems.map((item) => {
+              const badgeCount = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-colors ${
+                    pathname === item.href
+                      ? 'bg-[#00B14F] text-white'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <item.icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                  </div>
+                  {badgeCount > 0 && (
+                    <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center ${
+                      pathname === item.href 
+                        ? 'bg-white text-[#00B14F]' 
+                        : 'bg-red-500 text-white'
+                    }`}>
+                      {badgeCount > 99 ? '99+' : badgeCount}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </nav>
 
           <div className="p-4 border-t">
@@ -190,21 +254,35 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               </button>
             </div>
             <nav className="px-4 py-4 space-y-1">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg ${
-                    pathname === item.href
-                      ? 'bg-[#00B14F] text-white'
-                      : 'text-gray-600'
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
-                </Link>
-              ))}
+              {navItems.map((item) => {
+                const badgeCount = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center justify-between gap-3 px-4 py-3 rounded-lg ${
+                      pathname === item.href
+                        ? 'bg-[#00B14F] text-white'
+                        : 'text-gray-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className="w-5 h-5" />
+                      <span className="font-medium">{item.label}</span>
+                    </div>
+                    {badgeCount > 0 && (
+                      <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center ${
+                        pathname === item.href 
+                          ? 'bg-white text-[#00B14F]' 
+                          : 'bg-red-500 text-white'
+                      }`}>
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
             </nav>
           </div>
         </div>
