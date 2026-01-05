@@ -27,10 +27,17 @@ interface ProviderLayoutProps {
   children: ReactNode;
 }
 
-const navItems = [
+interface NavItem {
+  href: string;
+  icon: any;
+  label: string;
+  badgeKey?: 'jobs' | 'messages';
+}
+
+const navItems: NavItem[] = [
   { href: '/provider', icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/provider/jobs', icon: Briefcase, label: 'Jobs' },
-  { href: '/provider/messages', icon: MessageSquare, label: 'Messages' },
+  { href: '/provider/jobs', icon: Briefcase, label: 'Jobs', badgeKey: 'jobs' },
+  { href: '/provider/messages', icon: MessageSquare, label: 'Messages', badgeKey: 'messages' },
   { href: '/provider/earnings', icon: Wallet, label: 'Earnings' },
   { href: '/provider/wallet', icon: Wallet, label: 'Wallet' },
   { href: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
@@ -44,7 +51,51 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [badgeCounts, setBadgeCounts] = useState<{ jobs: number; messages: number }>({ jobs: 0, messages: 0 });
   const notificationBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Listen for badge counts (jobs and messages)
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    const unsubscribers: (() => void)[] = [];
+    
+    // Listen to pending/new jobs for this provider
+    const jobsQuery = query(
+      collection(db, 'bookings'),
+      where('providerId', '==', user.uid),
+      where('status', 'in', ['pending', 'accepted'])
+    );
+    
+    unsubscribers.push(onSnapshot(jobsQuery, (snapshot) => {
+      // Count jobs that need attention (pending or recently accepted)
+      const count = snapshot.docs.filter(doc => {
+        const data = doc.data();
+        return data.status === 'pending' || (data.status === 'accepted' && data.adminApproved);
+      }).length;
+      setBadgeCounts(prev => ({ ...prev, jobs: count }));
+    }, (error) => {
+      console.log('Jobs badge error:', error.code);
+    }));
+    
+    // Listen to unread messages
+    const messagesQuery = query(
+      collection(db, 'conversations'),
+      where('participants', 'array-contains', user.uid)
+    );
+    
+    unsubscribers.push(onSnapshot(messagesQuery, (snapshot) => {
+      let unreadMessages = 0;
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const unread = data.unreadCount?.[user.uid] || 0;
+        unreadMessages += unread;
+      });
+      setBadgeCounts(prev => ({ ...prev, messages: unreadMessages }));
+    }));
+    
+    return () => unsubscribers.forEach(unsub => unsub());
+  }, [user?.uid]);
 
   // Listen for unread notifications count (from bookings like mobile app)
   useEffect(() => {
@@ -137,20 +188,28 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-4">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                    pathname === item.href
-                      ? 'text-[#00B14F] bg-[#00B14F]/10'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span className="font-medium text-sm">{item.label}</span>
-                </Link>
-              ))}
+              {navItems.map((item) => {
+                const badgeCount = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`relative flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                      pathname === item.href
+                        ? 'text-[#00B14F] bg-[#00B14F]/10'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span className="font-medium text-sm">{item.label}</span>
+                    {badgeCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full text-white text-xs font-bold flex items-center justify-center px-1">
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
             </nav>
 
             <div className="flex items-center gap-4">
@@ -207,21 +266,31 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
         {mobileMenuOpen && (
           <div className="md:hidden border-t bg-white">
             <nav className="px-4 py-2 space-y-1">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-3 rounded-lg ${
-                    pathname === item.href
-                      ? 'text-[#00B14F] bg-[#00B14F]/10'
-                      : 'text-gray-600'
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
-                </Link>
-              ))}
+              {navItems.map((item) => {
+                const badgeCount = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center justify-between gap-3 px-3 py-3 rounded-lg ${
+                      pathname === item.href
+                        ? 'text-[#00B14F] bg-[#00B14F]/10'
+                        : 'text-gray-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className="w-5 h-5" />
+                      <span className="font-medium">{item.label}</span>
+                    </div>
+                    {badgeCount > 0 && (
+                      <span className="min-w-[20px] h-5 px-1.5 bg-red-500 rounded-full text-white text-xs font-bold flex items-center justify-center">
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
               <button 
                 onClick={logout}
                 className="flex items-center gap-3 px-3 py-3 rounded-lg text-red-600 w-full"

@@ -25,11 +25,18 @@ interface ClientLayoutProps {
   children: ReactNode;
 }
 
-const navItems = [
+interface NavItem {
+  href: string;
+  icon: any;
+  label: string;
+  badgeKey?: 'bookings' | 'messages';
+}
+
+const navItems: NavItem[] = [
   { href: '/client', icon: Home, label: 'Home' },
-  { href: '/client/bookings', icon: Calendar, label: 'Bookings' },
+  { href: '/client/bookings', icon: Calendar, label: 'Bookings', badgeKey: 'bookings' },
   { href: '/client/favorites', icon: Heart, label: 'Favorites' },
-  { href: '/client/messages', icon: MessageSquare, label: 'Messages' },
+  { href: '/client/messages', icon: MessageSquare, label: 'Messages', badgeKey: 'messages' },
   { href: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
   { href: '/client/profile', icon: User, label: 'Profile' },
 ];
@@ -40,7 +47,56 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [badgeCounts, setBadgeCounts] = useState<{ bookings: number; messages: number }>({ bookings: 0, messages: 0 });
   const notificationBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Listen for badge counts (bookings and messages)
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    const unsubscribers: (() => void)[] = [];
+    
+    // Listen to active bookings for this client
+    const bookingsQuery = query(
+      collection(db, 'bookings'),
+      where('clientId', '==', user.uid),
+      where('status', 'in', ['pending', 'accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion'])
+    );
+    
+    unsubscribers.push(onSnapshot(bookingsQuery, (snapshot) => {
+      setBadgeCounts(prev => ({ ...prev, bookings: snapshot.size }));
+    }, (error) => {
+      // Fallback without compound index
+      console.log('Bookings badge error, using fallback:', error.code);
+      const fallbackQuery = query(
+        collection(db, 'bookings'),
+        where('clientId', '==', user.uid)
+      );
+      onSnapshot(fallbackQuery, (snap) => {
+        const activeStatuses = ['pending', 'accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion'];
+        const count = snap.docs.filter(d => activeStatuses.includes(d.data().status)).length;
+        setBadgeCounts(prev => ({ ...prev, bookings: count }));
+      });
+    }));
+    
+    // Listen to unread messages
+    const messagesQuery = query(
+      collection(db, 'conversations'),
+      where('participants', 'array-contains', user.uid)
+    );
+    
+    unsubscribers.push(onSnapshot(messagesQuery, (snapshot) => {
+      let unreadMessages = 0;
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const unread = data.unreadCount?.[user.uid] || 0;
+        unreadMessages += unread;
+      });
+      setBadgeCounts(prev => ({ ...prev, messages: unreadMessages }));
+    }));
+    
+    return () => unsubscribers.forEach(unsub => unsub());
+  }, [user?.uid]);
 
   // Listen for unread notifications count (from bookings like mobile app)
   useEffect(() => {
@@ -120,20 +176,28 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-6">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                    pathname === item.href
-                      ? 'text-[#00B14F] bg-[#00B14F]/10'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
-                </Link>
-              ))}
+              {navItems.map((item) => {
+                const badgeCount = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`relative flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                      pathname === item.href
+                        ? 'text-[#00B14F] bg-[#00B14F]/10'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                    {badgeCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full text-white text-xs font-bold flex items-center justify-center px-1">
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
             </nav>
 
             <div className="flex items-center gap-4">
@@ -190,21 +254,31 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
         {mobileMenuOpen && (
           <div className="md:hidden border-t bg-white">
             <nav className="px-4 py-2 space-y-1">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-3 rounded-lg ${
-                    pathname === item.href
-                      ? 'text-[#00B14F] bg-[#00B14F]/10'
-                      : 'text-gray-600'
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
-                </Link>
-              ))}
+              {navItems.map((item) => {
+                const badgeCount = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center justify-between gap-3 px-3 py-3 rounded-lg ${
+                      pathname === item.href
+                        ? 'text-[#00B14F] bg-[#00B14F]/10'
+                        : 'text-gray-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className="w-5 h-5" />
+                      <span className="font-medium">{item.label}</span>
+                    </div>
+                    {badgeCount > 0 && (
+                      <span className="min-w-[20px] h-5 px-1.5 bg-red-500 rounded-full text-white text-xs font-bold flex items-center justify-center">
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
               <button 
                 onClick={logout}
                 className="flex items-center gap-3 px-3 py-3 rounded-lg text-red-600 w-full"
