@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { 
@@ -9,8 +9,14 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
-import { ArrowLeft, Send, User, Loader2, Image as ImageIcon, X } from 'lucide-react';
+import { ArrowLeft, Send, User, Loader2, Image as ImageIcon, X, Check, CheckCheck, Smile } from 'lucide-react';
 import { uploadImage } from '@/lib/cloudinary';
+
+interface Reaction {
+  emoji: string;
+  userId: string;
+  userName: string;
+}
 
 interface Message {
   id: string;
@@ -20,6 +26,7 @@ interface Message {
   imageUrl?: string;
   createdAt: Date;
   read: boolean;
+  reactions?: Reaction[];
 }
 
 interface Recipient {
@@ -52,9 +59,135 @@ export default function ChatPage() {
   );
   const [recipient, setRecipient] = useState<Recipient | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Typing indicator states
+  const [isTyping, setIsTyping] = useState(false);
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Reaction picker state
+  const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
+  const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Handle typing indicator
+  const handleTextChange = useCallback((text: string) => {
+    setNewMessage(text);
+    
+    if (!conversationId || !user?.uid) return;
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Set typing status
+    if (text.trim() && !isTyping) {
+      setIsTyping(true);
+      updateDoc(doc(db, 'conversations', conversationId), {
+        [`typing.${user.uid}`]: true,
+        [`typingTimestamp.${user.uid}`]: serverTimestamp(),
+      }).catch(() => {});
+    }
+    
+    // Clear typing after 2 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      if (conversationId && user?.uid) {
+        updateDoc(doc(db, 'conversations', conversationId), {
+          [`typing.${user.uid}`]: false,
+        }).catch(() => {});
+      }
+    }, 2000);
+  }, [conversationId, user?.uid, isTyping]);
+
+  // Cleanup typing status on unmount
+  useEffect(() => {
+    return () => {
+      if (conversationId && user?.uid) {
+        updateDoc(doc(db, 'conversations', conversationId), {
+          [`typing.${user.uid}`]: false,
+        }).catch(() => {});
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [conversationId, user?.uid]);
+
+  // Subscribe to typing status
+  useEffect(() => {
+    if (!conversationId || !user?.uid) return;
+    
+    const unsubscribe = onSnapshot(doc(db, 'conversations', conversationId), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        const typing = data.typing || {};
+        
+        // Check if any other user is typing
+        let otherTyping = false;
+        for (const [userId, isUserTyping] of Object.entries(typing)) {
+          if (userId !== user.uid && isUserTyping) {
+            const typingTimestamp = data.typingTimestamp?.[userId];
+            if (typingTimestamp) {
+              const timestampDate = typingTimestamp.toDate?.() || new Date(typingTimestamp);
+              const now = new Date();
+              const diffSeconds = (now.getTime() - timestampDate.getTime()) / 1000;
+              if (diffSeconds < 5) {
+                otherTyping = true;
+              }
+            } else {
+              otherTyping = true;
+            }
+          }
+        }
+        setOtherUserTyping(otherTyping);
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [conversationId, user?.uid]);
+
+  // Add reaction to message
+  const addReaction = async (messageId: string, emoji: string) => {
+    if (!conversationId || !user?.uid) return;
+    
+    try {
+      const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+      const messageSnap = await getDoc(messageRef);
+      
+      if (messageSnap.exists()) {
+        const data = messageSnap.data();
+        let reactions: Reaction[] = data.reactions || [];
+        
+        // Check if user already reacted with this emoji
+        const existingIndex = reactions.findIndex(
+          r => r.userId === user.uid && r.emoji === emoji
+        );
+        
+        if (existingIndex >= 0) {
+          // Remove reaction if same emoji clicked
+          reactions = reactions.filter((_, i) => i !== existingIndex);
+        } else {
+          // Remove any existing reaction from this user and add new one
+          reactions = reactions.filter(r => r.userId !== user.uid);
+          reactions.push({
+            emoji,
+            userId: user.uid,
+            userName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User',
+          });
+        }
+        
+        await updateDoc(messageRef, { reactions });
+      }
+    } catch (error) {
+      console.error('Error adding reaction:', error);
+    }
+    
+    setShowReactionPicker(null);
   };
 
   useEffect(() => {
@@ -166,6 +299,7 @@ export default function ChatPage() {
           imageUrl: data.imageUrl,
           createdAt: data.timestamp?.toDate() || data.createdAt?.toDate() || new Date(),
           read: data.read || false,
+          reactions: data.reactions || [],
         });
       });
       setMessages(msgs);
@@ -190,6 +324,14 @@ export default function ChatPage() {
     setSending(true);
     const messageText = newMessage.trim();
     setNewMessage('');
+    
+    // Clear typing status immediately
+    setIsTyping(false);
+    if (conversationId && user?.uid) {
+      updateDoc(doc(db, 'conversations', conversationId), {
+        [`typing.${user.uid}`]: false,
+      }).catch(() => {});
+    }
 
     try {
       let convId = conversationId;
@@ -377,41 +519,116 @@ export default function ChatPage() {
                   {date}
                 </span>
               </div>
-              {msgs.map((message) => {
+              {msgs.map((message, index) => {
                 const isOwn = message.senderId === user?.uid;
+                const isLastOwnMessage = isOwn && index === msgs.length - 1;
+                const showReadReceipt = isOwn;
                 return (
                   <div
                     key={message.id}
-                    className={`flex mb-3 ${isOwn ? 'justify-end' : 'justify-start'}`}
+                    className={`flex mb-3 ${isOwn ? 'justify-end' : 'justify-start'} group`}
                   >
-                    <div
-                      className={`max-w-[75%] rounded-2xl px-4 py-2 ${
-                        isOwn
-                          ? 'bg-[#00B14F] text-white rounded-br-md'
-                          : 'bg-white text-gray-900 rounded-bl-md shadow-sm'
-                      }`}
-                    >
-                      {message.imageUrl && (
-                        <img
-                          src={message.imageUrl}
-                          alt=""
-                          className="max-w-full rounded-lg mb-2"
-                        />
+                    <div className="relative">
+                      {/* Reaction picker */}
+                      {showReactionPicker === message.id && (
+                        <div className={`absolute bottom-full mb-2 ${isOwn ? 'right-0' : 'left-0'} bg-white rounded-full shadow-lg border border-gray-100 px-2 py-1 flex gap-1 z-10`}>
+                          {REACTION_EMOJIS.map((emoji) => (
+                            <button
+                              key={emoji}
+                              onClick={() => addReaction(message.id, emoji)}
+                              className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors text-lg"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
                       )}
-                      {message.text && <p className="whitespace-pre-wrap">{message.text}</p>}
-                      <p
-                        className={`text-xs mt-1 ${
-                          isOwn ? 'text-green-100' : 'text-gray-400'
+                      
+                      <div
+                        className={`max-w-[75%] min-w-[80px] rounded-2xl px-4 py-2 ${
+                          isOwn
+                            ? 'bg-[#00B14F] text-white rounded-br-md'
+                            : 'bg-white text-gray-900 rounded-bl-md shadow-sm'
                         }`}
                       >
-                        {formatTime(message.createdAt)}
-                      </p>
+                        {message.imageUrl && (
+                          <img
+                            src={message.imageUrl}
+                            alt=""
+                            className="max-w-full rounded-lg mb-2 cursor-pointer hover:opacity-90"
+                            onClick={() => window.open(message.imageUrl, '_blank')}
+                          />
+                        )}
+                        {message.text && <p className="whitespace-pre-wrap">{message.text}</p>}
+                        <div className={`flex items-center justify-end gap-1 mt-1 ${isOwn ? 'text-green-100' : 'text-gray-400'}`}>
+                          <span className="text-xs">{formatTime(message.createdAt)}</span>
+                          {/* Read receipts for own messages */}
+                          {showReadReceipt && (
+                            message.read ? (
+                              <CheckCheck className="w-4 h-4 text-blue-300" />
+                            ) : (
+                              <Check className="w-4 h-4" />
+                            )
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Reactions display */}
+                      {message.reactions && message.reactions.length > 0 && (
+                        <div className={`flex gap-0.5 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                          {Object.entries(
+                            message.reactions.reduce((acc, r) => {
+                              acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                              return acc;
+                            }, {} as Record<string, number>)
+                          ).map(([emoji, count]) => (
+                            <span
+                              key={emoji}
+                              className="bg-white border border-gray-200 rounded-full px-1.5 py-0.5 text-xs shadow-sm flex items-center gap-0.5"
+                              title={message.reactions?.filter(r => r.emoji === emoji).map(r => r.userName).join(', ')}
+                            >
+                              {emoji}
+                              {count > 1 && <span className="text-gray-500">{count}</span>}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Reaction button (shows on hover) */}
+                      <button
+                        onClick={() => setShowReactionPicker(showReactionPicker === message.id ? null : message.id)}
+                        className={`absolute top-1/2 -translate-y-1/2 ${isOwn ? '-left-8' : '-right-8'} opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-100 rounded-full`}
+                      >
+                        <Smile className="w-4 h-4 text-gray-400" />
+                      </button>
+                      
+                      {/* Read text for last own message */}
+                      {isLastOwnMessage && message.read && (
+                        <p className={`text-xs text-emerald-500 mt-0.5 ${isOwn ? 'text-right' : 'text-left'}`}>
+                          Read
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
               })}
             </div>
           ))}
+          
+          {/* Typing Indicator */}
+          {otherUserTyping && (
+            <div className="flex justify-start mb-3">
+              <div className="bg-white rounded-2xl rounded-bl-md shadow-sm px-4 py-3 flex items-center gap-2">
+                <span className="text-sm text-gray-500">{recipient?.name?.split(' ')[0] || 'User'} is typing</span>
+                <div className="flex gap-1">
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div ref={messagesEndRef} />
         </div>
       </div>
@@ -458,7 +675,7 @@ export default function ChatPage() {
           <input
             type="text"
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={(e) => handleTextChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             className="flex-1 px-4 py-2.5 bg-gray-100 rounded-full outline-none focus:ring-2 focus:ring-[#00B14F]/20"

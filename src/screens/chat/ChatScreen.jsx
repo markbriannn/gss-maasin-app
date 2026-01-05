@@ -29,6 +29,7 @@ import {
   markConversationAsRead,
   setTypingStatus,
   subscribeToTypingStatus,
+  toggleReaction,
 } from '../../services/messageService';
 import {attemptMessage} from '../../utils/rateLimiter';
 
@@ -47,8 +48,11 @@ const ChatScreen = ({route, navigation}) => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null); // Image to send (preview before sending)
+  const [showReactionPicker, setShowReactionPicker] = useState(null); // Message ID for reaction picker
   const flatListRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  
+  const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
   // Handle image attachment
   const handleAttachment = () => {
@@ -296,10 +300,31 @@ const ChatScreen = ({route, navigation}) => {
     return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
   };
 
+  const handleReaction = async (messageId, emoji) => {
+    if (!conversationId || !user?.uid) return;
+    try {
+      const userName = user?.firstName
+        ? `${user.firstName} ${user.lastName || ''}`.trim()
+        : 'User';
+      await toggleReaction(conversationId, messageId, user.uid, userName, emoji);
+    } catch (error) {
+      console.error('Error adding reaction:', error);
+    }
+    setShowReactionPicker(null);
+  };
+
   const renderMessage = ({item, index}) => {
     const isMe = item.senderId === user?.uid;
     const showReadReceipt = isMe && index === messages.length - 1;
     const hasImage = item.imageUrl;
+    const reactions = item.reactions || [];
+
+    // Group reactions by emoji
+    const groupedReactions = reactions.reduce((acc, r) => {
+      acc[r.emoji] = acc[r.emoji] || [];
+      acc[r.emoji].push(r.userName);
+      return acc;
+    }, {});
 
     return (
       <AnimatedMessage
@@ -322,7 +347,43 @@ const ChatScreen = ({route, navigation}) => {
           </Text>
         )}
 
-        <View
+        {/* Reaction Picker Modal */}
+        {showReactionPicker === item.id && (
+          <View
+            style={{
+              position: 'absolute',
+              top: -50,
+              [isMe ? 'right' : 'left']: 0,
+              backgroundColor: isDark ? theme.colors.card : '#FFFFFF',
+              borderRadius: 24,
+              paddingHorizontal: 8,
+              paddingVertical: 6,
+              flexDirection: 'row',
+              shadowColor: '#000',
+              shadowOffset: {width: 0, height: 2},
+              shadowOpacity: 0.15,
+              shadowRadius: 8,
+              elevation: 5,
+              zIndex: 100,
+            }}>
+            {REACTION_EMOJIS.map((emoji) => (
+              <TouchableOpacity
+                key={emoji}
+                onPress={() => handleReaction(item.id, emoji)}
+                style={{
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                }}>
+                <Text style={{fontSize: 22}}>{emoji}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onLongPress={() => setShowReactionPicker(showReactionPicker === item.id ? null : item.id)}
+          onPress={() => showReactionPicker && setShowReactionPicker(null)}
           style={{
             maxWidth: '80%',
             backgroundColor: isMe ? '#00B14F' : isDark ? theme.colors.card : '#FFFFFF',
@@ -337,7 +398,7 @@ const ChatScreen = ({route, navigation}) => {
             shadowOpacity: 0.05,
             shadowRadius: 2,
             elevation: 1,
-            overflow: 'hidden',
+            overflow: 'visible',
           }}>
           {/* Image */}
           {hasImage && (
@@ -392,7 +453,54 @@ const ChatScreen = ({route, navigation}) => {
               />
             )}
           </View>
-        </View>
+        </TouchableOpacity>
+
+        {/* Reactions Display */}
+        {Object.keys(groupedReactions).length > 0 && (
+          <View
+            style={{
+              flexDirection: 'row',
+              marginTop: 4,
+              marginHorizontal: 4,
+              flexWrap: 'wrap',
+              justifyContent: isMe ? 'flex-end' : 'flex-start',
+            }}>
+            {Object.entries(groupedReactions).map(([emoji, users]) => (
+              <TouchableOpacity
+                key={emoji}
+                onPress={() => handleReaction(item.id, emoji)}
+                style={{
+                  backgroundColor: isDark ? theme.colors.card : '#FFFFFF',
+                  borderRadius: 12,
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  marginRight: 4,
+                  marginBottom: 2,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: isDark ? theme.colors.border : '#E5E7EB',
+                  shadowColor: '#000',
+                  shadowOffset: {width: 0, height: 1},
+                  shadowOpacity: 0.05,
+                  shadowRadius: 2,
+                  elevation: 1,
+                }}>
+                <Text style={{fontSize: 14}}>{emoji}</Text>
+                {users.length > 1 && (
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: isDark ? theme.colors.textSecondary : '#6B7280',
+                      marginLeft: 2,
+                    }}>
+                    {users.length}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* Read receipt text for last message */}
         {showReadReceipt && item.read && (

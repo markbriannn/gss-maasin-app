@@ -579,3 +579,48 @@ export const unarchiveConversation = async (conversationId, userId) => {
     throw error;
   }
 };
+
+/**
+ * Add or remove a reaction to a message
+ * @param {string} conversationId - The conversation ID
+ * @param {string} messageId - The message ID
+ * @param {string} userId - The user ID adding the reaction
+ * @param {string} userName - The user's name
+ * @param {string} emoji - The emoji reaction
+ */
+export const toggleReaction = async (conversationId, messageId, userId, userName, emoji) => {
+  try {
+    const messageRef = doc(db, CONVERSATIONS_COLLECTION, conversationId, MESSAGES_COLLECTION, messageId);
+    const messageSnap = await getDoc(messageRef);
+
+    if (messageSnap.exists()) {
+      const data = messageSnap.data();
+      let reactions = data.reactions || [];
+
+      // Check if user already reacted with this emoji
+      const existingIndex = reactions.findIndex(
+        r => r.userId === userId && r.emoji === emoji
+      );
+
+      if (existingIndex >= 0) {
+        // Remove reaction if same emoji clicked
+        reactions = reactions.filter((_, i) => i !== existingIndex);
+      } else {
+        // Remove any existing reaction from this user and add new one
+        reactions = reactions.filter(r => r.userId !== userId);
+        reactions.push({
+          emoji,
+          userId,
+          userName,
+        });
+      }
+
+      await updateDoc(messageRef, {reactions});
+      return reactions;
+    }
+    return [];
+  } catch (error) {
+    console.error('Error toggling reaction:', error);
+    throw error;
+  }
+};
