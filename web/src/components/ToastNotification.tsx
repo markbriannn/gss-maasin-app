@@ -47,10 +47,11 @@ export default function ToastNotification() {
     removeToast(toast.id);
   };
 
-  // Listen for new notifications - simplified query without compound index
+  // Listen for new notifications - try both userId and targetUserId fields
   useEffect(() => {
     if (!user?.uid) return;
 
+    // Try with userId first (common field name)
     const notificationsQuery = query(
       collection(db, 'notifications'),
       where('userId', '==', user.uid),
@@ -77,8 +78,35 @@ export default function ToastNotification() {
         }
       });
     }, (error) => {
-      // Silently handle index errors
-      console.log('Notifications listener error (index may be needed):', error.code);
+      // If userId field doesn't exist, try targetUserId
+      console.log('Trying targetUserId field instead:', error.code);
+      const fallbackQuery = query(
+        collection(db, 'notifications'),
+        where('targetUserId', '==', user.uid),
+        limit(10)
+      );
+      
+      let fallbackFirstLoad = true;
+      onSnapshot(fallbackQuery, (snapshot) => {
+        if (fallbackFirstLoad) {
+          fallbackFirstLoad = false;
+          return;
+        }
+
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            const data = change.doc.data();
+            const createdAt = data.createdAt?.toDate() || new Date();
+            
+            if (new Date().getTime() - createdAt.getTime() < 10000) {
+              const toast = getToastFromNotification(data);
+              if (toast) addToast(toast);
+            }
+          }
+        });
+      }, (err) => {
+        console.log('Notifications listener error:', err.code);
+      });
     });
 
     return () => unsubscribe();

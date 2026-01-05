@@ -11,20 +11,19 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
-    function getRole() {
-      return get(/databases/{database}/documents/users/{request.auth.uid}).data.role;
-    }
-    
     function isAdmin() {
-      return isAuthenticated() && getRole() == 'ADMIN';
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
     }
     
     function isProvider() {
-      return isAuthenticated() && getRole() == 'PROVIDER';
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'PROVIDER';
     }
     
     function isClient() {
-      return isAuthenticated() && getRole() == 'CLIENT';
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CLIENT';
     }
 
     // ===== USERS COLLECTION =====
