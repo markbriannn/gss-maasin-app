@@ -8,9 +8,9 @@ import { db } from '@/lib/firebase';
 import ClientLayout from '@/components/layouts/ClientLayout';
 import dynamic from 'next/dynamic';
 import { 
-  Search, Star, Heart, Zap, Droplets, Hammer, Sparkles, Wrench, X,
-  CheckCircle, Navigation, User, Loader2, Clock, MapPin, DollarSign,
-  Filter, ChevronRight, Award, Shield
+  Search, Star, Heart, Zap, Droplets, Hammer, Sparkles, X,
+  Navigation, User, Loader2, MapPin, DollarSign,
+  ChevronRight
 } from 'lucide-react';
 
 const ClientMapView = dynamic(
@@ -363,6 +363,7 @@ export default function ClientDashboard() {
             providers={filteredProviders}
             userLocation={userLocation}
             center={mapCenter}
+            selectedProviderId={selectedProvider?.id}
             onProviderClick={(providerId) => {
               const provider = filteredProviders.find(p => p.id === providerId);
               if (provider) handleProviderSelect(provider);
@@ -461,13 +462,13 @@ export default function ClientDashboard() {
             </div>
 
             {loadingData ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="bg-gray-100 rounded-2xl h-24 animate-pulse" />
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} className="bg-gray-100 rounded-xl h-32 animate-pulse" />
                 ))}
               </div>
             ) : filteredProviders.length > 0 ? (
-              <div className="space-y-3 overflow-y-auto pr-1" style={{ maxHeight: panelHeight - 160 }}>
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 overflow-y-auto pr-1" style={{ maxHeight: panelHeight - 160 }}>
                 {filteredProviders.map((provider, index) => {
                   const isSelected = selectedProvider?.id === provider.id;
                   const isTopPick = index === 0 && activeFilter === 'recommended';
@@ -478,97 +479,62 @@ export default function ClientDashboard() {
                     <div
                       key={provider.id}
                       onClick={() => handleProviderSelect(provider)}
-                      className={`rounded-2xl border-2 transition-all cursor-pointer overflow-hidden ${
+                      className={`rounded-xl border transition-all cursor-pointer overflow-hidden ${
                         isSelected
-                          ? 'border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-500/20'
-                          : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-md'
+                          ? 'border-emerald-500 bg-emerald-50 shadow-md shadow-emerald-500/20'
+                          : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm'
                       }`}
                     >
                       {isTopPick && (
-                        <div className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-bold px-4 py-1.5 flex items-center gap-1">
-                          <Sparkles className="w-3 h-3" /> TOP PICK FOR YOU
+                        <div className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-[8px] font-bold px-2 py-0.5 flex items-center justify-center gap-0.5">
+                          <Sparkles className="w-2.5 h-2.5" /> TOP
                         </div>
                       )}
                       
-                      <div className="p-4">
-                        <div className="flex items-center gap-4">
-                          {/* Photo */}
+                      <div className="p-2">
+                        {/* Photo Row */}
+                        <div className="flex items-center gap-2 mb-1.5">
                           <div className="relative flex-shrink-0">
-                            <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-100">
+                            <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100">
                               {provider.profilePhoto ? (
                                 <img src={provider.profilePhoto} alt="" className="w-full h-full object-cover" />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-2xl">
+                                <div className="w-full h-full flex items-center justify-center text-lg bg-gradient-to-br from-emerald-50 to-teal-50">
                                   {categoryData?.emoji || '🛠️'}
                                 </div>
                               )}
                             </div>
                             {provider.isOnline && (
-                              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center">
-                                <div className="w-2 h-2 bg-white rounded-full"></div>
-                              </div>
+                              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white" />
                             )}
                           </div>
-
-                          {/* Info */}
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-bold text-gray-900 truncate">{provider.firstName} {provider.lastName}</h3>
-                              {tierStyle && (
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white bg-gradient-to-r ${tierStyle.bg}`}>
-                                  {tierStyle.label}
-                                </span>
-                              )}
-                            </div>
-                            
-                            <div className="flex items-center gap-3 text-sm text-gray-500 mb-1.5">
-                              <div className="flex items-center gap-1">
-                                <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                                <span className="font-semibold text-gray-700">{provider.rating > 0 ? provider.rating.toFixed(1) : 'New'}</span>
-                                {provider.reviewCount > 0 && <span>({provider.reviewCount})</span>}
-                              </div>
-                              <span className="text-gray-300">•</span>
-                              <div className="flex items-center gap-1">
-                                <CheckCircle className="w-4 h-4 text-emerald-500" />
-                                <span>{provider.completedJobs || 0} jobs</span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-3 text-sm text-gray-500">
-                              <div className="flex items-center gap-1">
-                                <Clock className="w-4 h-4" />
-                                <span>{provider.estimatedArrival}</span>
-                              </div>
-                              {provider.distance && (
-                                <>
-                                  <span className="text-gray-300">•</span>
-                                  <div className="flex items-center gap-1">
-                                    <MapPin className="w-4 h-4" />
-                                    <span>{provider.distance} km</span>
-                                  </div>
-                                </>
-                              )}
+                            <h3 className="font-semibold text-gray-900 text-xs truncate">{provider.firstName}</h3>
+                            <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                              <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
+                              <span>{provider.rating > 0 ? provider.rating.toFixed(1) : 'New'}</span>
                             </div>
                           </div>
-
-                          {/* Price & Favorite */}
-                          <div className="text-right flex flex-col items-end gap-2">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); toggleFavorite(provider.id); }}
-                              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                              <Heart className={`w-5 h-5 ${favoriteIds.includes(provider.id) ? 'fill-red-500 text-red-500' : 'text-gray-300'}`} />
-                            </button>
-                            {provider.fixedPrice && provider.fixedPrice > 0 ? (
-                              <div>
-                                <p className="text-xl font-bold text-gray-900">₱{provider.fixedPrice.toLocaleString()}</p>
-                                <p className="text-xs text-gray-500">fixed price</p>
-                              </div>
-                            ) : (
-                              <p className="text-sm text-gray-400">Price varies</p>
-                            )}
-                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleFavorite(provider.id); }}
+                            className="p-1 hover:bg-gray-100 rounded-md transition-colors"
+                          >
+                            <Heart className={`w-3.5 h-3.5 ${favoriteIds.includes(provider.id) ? 'fill-red-500 text-red-500' : 'text-gray-300'}`} />
+                          </button>
                         </div>
+
+                        {/* Info */}
+                        <div className="flex items-center justify-between text-[10px] text-gray-500 mb-1">
+                          <span>{provider.estimatedArrival}</span>
+                          {provider.distance && <span>{provider.distance} km</span>}
+                        </div>
+
+                        {/* Price */}
+                        {provider.fixedPrice && provider.fixedPrice > 0 ? (
+                          <div className="text-sm font-bold text-emerald-600">₱{provider.fixedPrice.toLocaleString()}</div>
+                        ) : (
+                          <div className="text-[10px] text-gray-400">Price varies</div>
+                        )}
                       </div>
                     </div>
                   );
@@ -592,7 +558,7 @@ export default function ClientDashboard() {
             )}
           </div>
 
-          {/* Book Button */}
+          {/* Contact Button */}
           {selectedProvider && (
             <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 shadow-2xl">
               <div className="flex items-center gap-4 mb-3">
@@ -617,10 +583,10 @@ export default function ClientDashboard() {
               </div>
               
               <button
-                onClick={handleBookProvider}
-                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-emerald-500/30 hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                onClick={() => router.push(`/client/messages?providerId=${selectedProvider.id}`)}
+                className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-500/30 hover:shadow-xl transition-all flex items-center justify-center gap-2"
               >
-                Book {selectedProvider.firstName}
+                Contact Us
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>

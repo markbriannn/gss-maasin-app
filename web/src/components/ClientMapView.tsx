@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -20,6 +20,7 @@ interface ClientMapViewProps {
   userLocation: { lat: number; lng: number } | null;
   center: { lat: number; lng: number };
   onProviderClick: (providerId: string) => void;
+  selectedProviderId?: string | null;
 }
 
 // Blue marker for user location
@@ -102,7 +103,7 @@ function MapController({ center }: { center: { lat: number; lng: number } }) {
   return null;
 }
 
-export default function ClientMapView({ providers, userLocation, center, onProviderClick }: ClientMapViewProps) {
+export default function ClientMapView({ providers, userLocation, center, onProviderClick, selectedProviderId }: ClientMapViewProps) {
   // Memoize provider icons
   const providerIcons = useMemo(() => {
     const icons: Record<string, L.Icon | L.DivIcon> = {};
@@ -113,6 +114,21 @@ export default function ClientMapView({ providers, userLocation, center, onProvi
     });
     return icons;
   }, [providers]);
+
+  // Get selected provider for route
+  const selectedProvider = useMemo(() => {
+    if (!selectedProviderId) return null;
+    return providers.find(p => p.id === selectedProviderId);
+  }, [selectedProviderId, providers]);
+
+  // Route line positions
+  const routePositions = useMemo(() => {
+    if (!userLocation || !selectedProvider?.latitude || !selectedProvider?.longitude) return null;
+    return [
+      [userLocation.lat, userLocation.lng] as [number, number],
+      [selectedProvider.latitude, selectedProvider.longitude] as [number, number]
+    ];
+  }, [userLocation, selectedProvider]);
 
   return (
     <MapContainer
@@ -127,6 +143,19 @@ export default function ClientMapView({ providers, userLocation, center, onProvi
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <MapController center={center} />
+      
+      {/* Blue route line when provider is selected */}
+      {routePositions && (
+        <Polyline
+          positions={routePositions}
+          pathOptions={{
+            color: '#3B82F6',
+            weight: 5,
+            opacity: 0.8,
+            dashArray: '10, 10',
+          }}
+        />
+      )}
       
       {/* User location marker */}
       {userLocation && (
