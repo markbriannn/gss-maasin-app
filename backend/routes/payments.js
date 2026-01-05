@@ -15,6 +15,104 @@ const paymongoAuth = {
   },
 };
 
+// Generic create-source endpoint (routes to gcash or paymaya based on type)
+router.post('/create-source', async (req, res) => {
+  try {
+    const { amount, bookingId, userId, description, type } = req.body;
+
+    if (!amount || !bookingId) {
+      return res.status(400).json({ error: 'amount and bookingId are required' });
+    }
+
+    const paymentType = type?.toLowerCase() || 'gcash';
+    
+    if (!['gcash', 'paymaya', 'maya'].includes(paymentType)) {
+      return res.status(400).json({ error: 'Invalid payment type. Use gcash or paymaya' });
+    }
+
+    const db = getDb();
+
+    // Check for existing pending payment for this booking with same amount
+    try {
+      const existingPayments = await db.collection('payments')
+        .where('bookingId', '==', bookingId)
+        .get();
+
+      const pendingPayment = existingPayments.docs
+        .map(doc => doc.data())
+        .find(p => p.status === 'pending' && p.checkoutUrl && p.amount === amount);
+
+      if (pendingPayment) {
+        return res.json({
+          success: true,
+          sourceId: pendingPayment.sourceId,
+          checkoutUrl: pendingPayment.checkoutUrl,
+          status: 'pending',
+          existing: true,
+        });
+      }
+    } catch (queryError) {
+      console.log('Error checking existing payments:', queryError.message);
+    }
+
+    // Use a proper redirect URL
+    const baseUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
+      ? process.env.FRONTEND_URL 
+      : 'https://gss-maasin.vercel.app';
+
+    const sourceType = paymentType === 'maya' ? 'paymaya' : paymentType;
+
+    const response = await axios.post(
+      `${PAYMONGO_API}/sources`,
+      {
+        data: {
+          attributes: {
+            amount: Math.round(amount * 100),
+            currency: 'PHP',
+            type: sourceType,
+            redirect: {
+              success: `${baseUrl}/client/bookings/${bookingId}?payment=success`,
+              failed: `${baseUrl}/client/bookings/${bookingId}?payment=failed`,
+            },
+            metadata: {
+              bookingId,
+              userId,
+              description: description || 'Service Payment',
+            },
+          },
+        },
+      },
+      paymongoAuth
+    );
+
+    const source = response.data.data;
+
+    await db.collection('payments').doc(source.id).set({
+      sourceId: source.id,
+      bookingId,
+      userId,
+      amount,
+      type: sourceType,
+      status: 'pending',
+      checkoutUrl: source.attributes.redirect.checkout_url,
+      createdAt: new Date(),
+    });
+
+    res.json({
+      success: true,
+      sourceId: source.id,
+      checkoutUrl: source.attributes.redirect.checkout_url,
+      status: source.attributes.status,
+    });
+  } catch (error) {
+    console.error('Error creating payment source:', error.response?.data || error.message);
+    res.status(500).json({ 
+      success: false,
+      error: error.response?.data?.errors?.[0]?.detail || error.message 
+    });
+  }
+});
+
 // Verify PayMongo webhook signature
 const verifyWebhookSignature = (payload, signature, secret) => {
   if (!secret) {

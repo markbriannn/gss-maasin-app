@@ -284,14 +284,25 @@ export default function JobDetailsPage() {
             bookingId: job.id,
             userId: user.uid,
             amount,
-            type: method,
+            type: method, // gcash or paymaya
             description: `Payment for ${job.title || job.serviceCategory}`,
           }),
         });
         
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Payment API error:', errorText);
+          throw new Error('Payment service unavailable');
+        }
+        
         const result = await response.json();
         
         if (result.success && result.checkoutUrl) {
+          setShowPaymentModal(false);
+          window.open(result.checkoutUrl, '_blank');
+          alert('Please complete the payment in the new tab. Once done, refresh this page.');
+        } else if (result.checkoutUrl) {
+          // Handle legacy response format
           setShowPaymentModal(false);
           window.open(result.checkoutUrl, '_blank');
           alert('Please complete the payment in the new tab. Once done, refresh this page.');
