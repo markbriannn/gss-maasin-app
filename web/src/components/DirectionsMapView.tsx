@@ -1,9 +1,32 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+
+// Fetch route from OSRM (Open Source Routing Machine)
+async function fetchRoute(
+  start: { lat: number; lng: number },
+  end: { lat: number; lng: number }
+): Promise<[number, number][] | null> {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates) {
+      // OSRM returns [lng, lat], we need [lat, lng] for Leaflet
+      return data.routes[0].geometry.coordinates.map(
+        (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
+      );
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching route:', error);
+    return null;
+  }
+}
 
 interface DirectionsMapViewProps {
   destination: { lat: number; lng: number };
@@ -60,10 +83,34 @@ function MapController({ destination, currentLocation }: { destination: { lat: n
 }
 
 export default function DirectionsMapView({ destination, currentLocation, destinationLabel }: DirectionsMapViewProps) {
-  // Create a simple line between points if both exist
-  const linePositions = currentLocation 
-    ? [[currentLocation.lat, currentLocation.lng], [destination.lat, destination.lng]] as [number, number][]
-    : [];
+  const [routeCoordinates, setRouteCoordinates] = useState<[number, number][] | null>(null);
+  const lastRouteKey = useRef<string>('');
+
+  // Fetch actual road route when both locations are available
+  useEffect(() => {
+    if (!currentLocation) {
+      setRouteCoordinates(null);
+      return;
+    }
+
+    // Create a key to avoid refetching for small movements
+    const routeKey = `${currentLocation.lat.toFixed(4)},${currentLocation.lng.toFixed(4)}-${destination.lat.toFixed(4)},${destination.lng.toFixed(4)}`;
+    
+    if (routeKey === lastRouteKey.current) return;
+    lastRouteKey.current = routeKey;
+
+    fetchRoute(currentLocation, destination).then(route => {
+      if (route) {
+        setRouteCoordinates(route);
+      } else {
+        // Fallback to straight line if routing fails
+        setRouteCoordinates([
+          [currentLocation.lat, currentLocation.lng],
+          [destination.lat, destination.lng]
+        ]);
+      }
+    });
+  }, [currentLocation, destination]);
 
   return (
     <MapContainer
@@ -91,11 +138,11 @@ export default function DirectionsMapView({ destination, currentLocation, destin
         <Popup>{destinationLabel || 'Destination'}</Popup>
       </Marker>
       
-      {/* Line between points */}
-      {linePositions.length === 2 && (
+      {/* Route line following actual roads */}
+      {routeCoordinates && routeCoordinates.length > 0 && (
         <Polyline
-          positions={linePositions}
-          pathOptions={{ color: '#3B82F6', weight: 3, dashArray: '10, 10' }}
+          positions={routeCoordinates}
+          pathOptions={{ color: '#3B82F6', weight: 5, opacity: 0.8 }}
         />
       )}
     </MapContainer>

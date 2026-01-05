@@ -127,8 +127,53 @@ const DirectionsScreen = ({navigation, route}) => {
     return points;
   };
 
+  // Fetch directions using OSRM (free, no API key needed)
+  const fetchDirectionsOSRM = async (origin, dest) => {
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson&steps=true`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.code === 'Ok' && data.routes?.[0]) {
+        const route = data.routes[0];
+        // OSRM returns [lng, lat], we need {latitude, longitude}
+        const points = route.geometry.coordinates.map(coord => ({
+          latitude: coord[1],
+          longitude: coord[0],
+        }));
+        setRouteCoordinates(points);
+        // Distance in meters, convert to km
+        setDistance(route.distance / 1000);
+        // Duration in seconds, convert to minutes
+        setDuration(Math.round(route.duration / 60));
+
+        // Extract turn-by-turn steps from OSRM
+        if (route.legs?.[0]?.steps) {
+          const directionSteps = route.legs[0].steps.map((step, index) => ({
+            id: index,
+            instruction: step.name || step.maneuver?.type || 'Continue',
+            distance: `${(step.distance / 1000).toFixed(1)} km`,
+            duration: `${Math.round(step.duration / 60)} min`,
+            maneuver: step.maneuver?.type || 'straight',
+          }));
+          setSteps(directionSteps);
+        }
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.log('OSRM routing failed:', error);
+      return false;
+    }
+  };
+
   // Fetch directions from Google Directions API
   const fetchDirections = async (origin, dest) => {
+    // Try OSRM first (free, no API key)
+    const osrmSuccess = await fetchDirectionsOSRM(origin, dest);
+    if (osrmSuccess) return;
+
+    // Fallback to Google Directions API
     try {
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${dest.latitude},${dest.longitude}&mode=driving&key=${GOOGLE_MAPS_API_KEY}`;
 

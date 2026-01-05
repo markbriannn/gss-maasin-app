@@ -1,9 +1,32 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+
+// Fetch route from OSRM (Open Source Routing Machine)
+async function fetchRoute(
+  start: { lat: number; lng: number },
+  end: { lat: number; lng: number }
+): Promise<[number, number][] | null> {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates) {
+      // OSRM returns [lng, lat], we need [lat, lng] for Leaflet
+      return data.routes[0].geometry.coordinates.map(
+        (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
+      );
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching route:', error);
+    return null;
+  }
+}
 
 interface TrackingMapViewProps {
   providerLocation?: { lat: number; lng: number } | null;
@@ -76,13 +99,37 @@ function MapController({ providerLocation, clientLocation }: { providerLocation?
 }
 
 export default function TrackingMapView({ providerLocation, clientLocation, providerName }: TrackingMapViewProps) {
+  const [routeCoordinates, setRouteCoordinates] = useState<[number, number][] | null>(null);
+  const lastRouteKey = useRef<string>('');
+  
   // Default center
   const defaultCenter = clientLocation || providerLocation || { lat: 10.1311, lng: 124.8334 };
-  
-  // Create a line between points if both exist
-  const linePositions = providerLocation && clientLocation
-    ? [[providerLocation.lat, providerLocation.lng], [clientLocation.lat, clientLocation.lng]] as [number, number][]
-    : [];
+
+  // Fetch actual road route when both locations are available
+  useEffect(() => {
+    if (!providerLocation || !clientLocation) {
+      setRouteCoordinates(null);
+      return;
+    }
+
+    // Create a key to avoid refetching for small movements
+    const routeKey = `${providerLocation.lat.toFixed(4)},${providerLocation.lng.toFixed(4)}-${clientLocation.lat.toFixed(4)},${clientLocation.lng.toFixed(4)}`;
+    
+    if (routeKey === lastRouteKey.current) return;
+    lastRouteKey.current = routeKey;
+
+    fetchRoute(providerLocation, clientLocation).then(route => {
+      if (route) {
+        setRouteCoordinates(route);
+      } else {
+        // Fallback to straight line if routing fails
+        setRouteCoordinates([
+          [providerLocation.lat, providerLocation.lng],
+          [clientLocation.lat, clientLocation.lng]
+        ]);
+      }
+    });
+  }, [providerLocation, clientLocation]);
 
   return (
     <MapContainer
@@ -119,11 +166,11 @@ export default function TrackingMapView({ providerLocation, clientLocation, prov
         </Marker>
       )}
       
-      {/* Line between points */}
-      {linePositions.length === 2 && (
+      {/* Route line following actual roads */}
+      {routeCoordinates && routeCoordinates.length > 0 && (
         <Polyline
-          positions={linePositions}
-          pathOptions={{ color: '#3B82F6', weight: 4, dashArray: '10, 10' }}
+          positions={routeCoordinates}
+          pathOptions={{ color: '#3B82F6', weight: 5, opacity: 0.8 }}
         />
       )}
     </MapContainer>

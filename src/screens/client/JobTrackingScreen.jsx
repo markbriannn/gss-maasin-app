@@ -159,7 +159,40 @@ const JobTrackingScreen = ({navigation, route}) => {
     }
   }, [providerLocation, clientLocation]);
 
+  // Fetch route using OSRM (free, no API key needed)
+  const fetchRouteOSRM = async (origin, dest) => {
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.code === 'Ok' && data.routes?.[0]) {
+        const route = data.routes[0];
+        // OSRM returns [lng, lat], we need {latitude, longitude}
+        const points = route.geometry.coordinates.map(coord => ({
+          latitude: coord[1],
+          longitude: coord[0],
+        }));
+        setRouteCoordinates(points);
+        // Distance in meters, convert to km
+        setDistance((route.distance / 1000).toFixed(1));
+        // Duration in seconds, convert to minutes
+        setDuration(Math.round(route.duration / 60));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.log('OSRM routing failed:', error);
+      return false;
+    }
+  };
+
   const fetchRoute = async (origin, dest) => {
+    // Try OSRM first (free, no API key)
+    const osrmSuccess = await fetchRouteOSRM(origin, dest);
+    if (osrmSuccess) return;
+
+    // Fallback to Google Directions API
     try {
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${dest.latitude},${dest.longitude}&mode=driving&key=${MAPS_CONFIG.API_KEY}`;
       const response = await fetch(url);
@@ -173,7 +206,7 @@ const JobTrackingScreen = ({navigation, route}) => {
         setDistance((leg.distance.value / 1000).toFixed(1));
         setDuration(Math.round(leg.duration.value / 60));
       } else {
-        // Fallback to straight line
+        // Final fallback to straight line
         setRouteCoordinates([origin, dest]);
         const dist = locationService.calculateDistance(
           origin.latitude, origin.longitude,
