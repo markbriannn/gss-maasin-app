@@ -224,15 +224,16 @@ function SelectProviderContent() {
         {/* Map Section */}
         <div className="h-[35vh] relative">
           <LeafletMap
-            center={[clientLat || 10.1332, clientLng || 124.8358]}
+            center={{ lat: clientLat || 10.1332, lng: clientLng || 124.8358 }}
             zoom={14}
             markers={[
-              { lat: clientLat, lng: clientLng, label: 'You', color: 'emerald' },
+              { id: 'user', lat: clientLat || 10.1332, lng: clientLng || 124.8358, color: '#10B981', popup: 'You' },
               ...(selectedProvider?.latitude && selectedProvider?.longitude ? [{
+                id: selectedProvider.id,
                 lat: selectedProvider.latitude,
                 lng: selectedProvider.longitude,
-                label: selectedProvider.name,
-                color: 'blue' as const
+                color: '#3B82F6',
+                popup: selectedProvider.name
               }] : [])
             ]}
           />
