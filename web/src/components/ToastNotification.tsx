@@ -112,41 +112,86 @@ export default function ToastNotification() {
     return () => unsubscribe();
   }, [user?.uid, addToast]);
 
-  // Listen for new bookings (for providers) - simplified query to avoid index
+  // Listen for new bookings (for providers) - show toast when admin approves
   useEffect(() => {
     if (!user?.uid || user?.role?.toUpperCase() !== 'PROVIDER') return;
 
-    // Simple query without compound index requirement
+    // Listen to all bookings assigned to this provider
     const bookingsQuery = query(
       collection(db, 'bookings'),
       where('providerId', '==', user.uid),
-      limit(10)
+      limit(20)
     );
 
+    // Track which bookings we've already shown toasts for
+    const shownToasts = new Set<string>();
     let isFirstLoad = true;
+
     const unsubscribe = onSnapshot(bookingsQuery, (snapshot) => {
       if (isFirstLoad) {
+        // On first load, just record existing bookings
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (data.adminApproved) {
+            shownToasts.add(`approved_${doc.id}`);
+          }
+          if (data.status === 'pending') {
+            shownToasts.add(`pending_${doc.id}`);
+          }
+        });
         isFirstLoad = false;
         return;
       }
 
       snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added') {
-          const data = change.doc.data();
-          // Only show toast for pending bookings
-          if (data.status === 'pending') {
-            const createdAt = data.createdAt?.toDate?.() || new Date();
-            // Only show if created within last 30 seconds
-            if (new Date().getTime() - createdAt.getTime() < 30000) {
-              addToast({
-                type: 'booking',
-                title: 'New Booking Request! 🎉',
-                message: `${data.clientName || 'A client'} requested ${data.serviceCategory || 'a service'}`,
-                timestamp: new Date(),
-                link: `/provider/jobs/${change.doc.id}`,
-                color: 'emerald',
-              });
-            }
+        const data = change.doc.data();
+        const docId = change.doc.id;
+
+        // New booking assigned to provider
+        if (change.type === 'added' && data.status === 'pending' && !shownToasts.has(`pending_${docId}`)) {
+          shownToasts.add(`pending_${docId}`);
+          addToast({
+            type: 'booking',
+            title: 'New Booking Request! 🎉',
+            message: `${data.clientName || 'A client'} requested ${data.serviceCategory || 'a service'}`,
+            timestamp: new Date(),
+            link: `/provider/jobs/${docId}`,
+            color: 'emerald',
+          });
+        }
+
+        // Admin approved the booking - show toast to provider
+        if (change.type === 'modified' && data.adminApproved && !shownToasts.has(`approved_${docId}`)) {
+          shownToasts.add(`approved_${docId}`);
+          addToast({
+            type: 'job',
+            title: 'Job Approved! ✅',
+            message: `Admin approved your job for ${data.clientName || 'client'}. You can now contact them.`,
+            timestamp: new Date(),
+            link: `/provider/jobs/${docId}`,
+            color: 'emerald',
+          });
+        }
+
+        // Client contacted - new message or status change
+        if (change.type === 'modified') {
+          const status = data.status;
+          
+          if (status === 'traveling' && !shownToasts.has(`traveling_${docId}`)) {
+            shownToasts.add(`traveling_${docId}`);
+            // Provider started traveling - no toast needed for provider
+          }
+          
+          if (status === 'completed' && !shownToasts.has(`completed_${docId}`)) {
+            shownToasts.add(`completed_${docId}`);
+            addToast({
+              type: 'payment',
+              title: 'Job Completed! 💰',
+              message: `${data.serviceCategory || 'Service'} completed. Payment: ₱${data.totalAmount?.toLocaleString() || data.providerPrice?.toLocaleString() || '0'}`,
+              timestamp: new Date(),
+              link: `/provider/jobs/${docId}`,
+              color: 'emerald',
+            });
           }
         }
       });
@@ -196,20 +241,31 @@ export default function ToastNotification() {
     return () => unsubscribe();
   }, [user?.uid, addToast]);
 
-  // Listen for job status changes (for clients) - simplified query to avoid index
+  // Listen for job status changes (for clients) - show toast on status changes
   useEffect(() => {
     if (!user?.uid || user?.role?.toUpperCase() !== 'CLIENT') return;
 
-    // Simple query without compound index requirement
+    // Listen to all bookings for this client
     const bookingsQuery = query(
       collection(db, 'bookings'),
       where('clientId', '==', user.uid),
-      limit(10)
+      limit(20)
     );
 
+    // Track which toasts we've already shown
+    const shownToasts = new Set<string>();
     let isFirstLoad = true;
+
     const unsubscribe = onSnapshot(bookingsQuery, (snapshot) => {
       if (isFirstLoad) {
+        // On first load, record existing states
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          shownToasts.add(`${data.status}_${doc.id}`);
+          if (data.adminApproved) {
+            shownToasts.add(`approved_${doc.id}`);
+          }
+        });
         isFirstLoad = false;
         return;
       }
@@ -217,44 +273,84 @@ export default function ToastNotification() {
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'modified') {
           const data = change.doc.data();
+          const docId = change.doc.id;
           const status = data.status;
+          const toastKey = `${status}_${docId}`;
+          
+          // Skip if we've already shown this toast
+          if (shownToasts.has(toastKey)) return;
           
           let toast: Omit<Toast, 'id'> | null = null;
           
-          if (status === 'accepted') {
+          // Admin approved the booking
+          if (data.adminApproved && !shownToasts.has(`approved_${docId}`)) {
+            shownToasts.add(`approved_${docId}`);
+            toast = {
+              type: 'job',
+              title: 'Booking Approved! ✅',
+              message: `Your booking for ${data.serviceCategory || 'service'} has been approved by admin`,
+              timestamp: new Date(),
+              link: `/client/bookings/${docId}`,
+              color: 'emerald',
+            };
+          } else if (status === 'accepted') {
+            shownToasts.add(toastKey);
             toast = {
               type: 'job',
               title: 'Booking Accepted! ✅',
               message: `${data.providerName || 'Provider'} accepted your booking`,
               timestamp: new Date(),
-              link: `/client/bookings/${change.doc.id}`,
+              link: `/client/bookings/${docId}`,
+              color: 'emerald',
+            };
+          } else if (status === 'traveling') {
+            shownToasts.add(toastKey);
+            toast = {
+              type: 'job',
+              title: 'Provider On The Way! 🚗',
+              message: `${data.providerName || 'Provider'} is traveling to your location`,
+              timestamp: new Date(),
+              link: `/client/bookings/${docId}/tracking`,
+              color: 'blue',
+            };
+          } else if (status === 'arrived') {
+            shownToasts.add(toastKey);
+            toast = {
+              type: 'job',
+              title: 'Provider Arrived! 📍',
+              message: `${data.providerName || 'Provider'} has arrived at your location`,
+              timestamp: new Date(),
+              link: `/client/bookings/${docId}`,
               color: 'emerald',
             };
           } else if (status === 'in_progress') {
+            shownToasts.add(toastKey);
             toast = {
               type: 'job',
               title: 'Service Started 🚀',
               message: `${data.providerName || 'Provider'} has started working on your job`,
               timestamp: new Date(),
-              link: `/client/bookings/${change.doc.id}/tracking`,
+              link: `/client/bookings/${docId}/tracking`,
               color: 'blue',
             };
-          } else if (status === 'completed') {
+          } else if (status === 'completed' || status === 'pending_completion') {
+            shownToasts.add(toastKey);
             toast = {
               type: 'job',
               title: 'Service Completed! 🎉',
               message: `Your ${data.serviceCategory || 'service'} has been completed`,
               timestamp: new Date(),
-              link: `/client/bookings/${change.doc.id}/review`,
+              link: `/client/bookings/${docId}/review`,
               color: 'emerald',
             };
           } else if (status === 'rejected' || status === 'cancelled') {
+            shownToasts.add(toastKey);
             toast = {
               type: 'job',
               title: 'Booking Update',
               message: `Your booking was ${status}`,
               timestamp: new Date(),
-              link: `/client/bookings/${change.doc.id}`,
+              link: `/client/bookings/${docId}`,
               color: 'red',
             };
           }
