@@ -92,6 +92,7 @@ export default function ClientRegistration() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   // Handle profile photo upload
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -819,10 +820,32 @@ export default function ClientRegistration() {
           )}
 
           {step === TOTAL_STEPS - 1 && (
-            <div className="mt-8">
+            <div className="mt-8 space-y-4">
+              {/* Terms and Conditions Checkbox */}
+              <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <input
+                  type="checkbox"
+                  id="terms"
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="w-5 h-5 mt-0.5 text-[#00B14F] border-gray-300 rounded focus:ring-[#00B14F] cursor-pointer"
+                />
+                <label htmlFor="terms" className="text-sm text-gray-600 cursor-pointer">
+                  I agree to the{' '}
+                  <Link href="/terms" target="_blank" className="text-[#00B14F] font-medium hover:underline">
+                    Terms and Conditions
+                  </Link>{' '}
+                  and{' '}
+                  <Link href="/privacy" target="_blank" className="text-[#00B14F] font-medium hover:underline">
+                    Privacy Policy
+                  </Link>
+                  . I understand that my data will be processed in accordance with these policies.
+                </label>
+              </div>
+              
               <button
                 onClick={handleSubmit}
-                disabled={loading}
+                disabled={loading || !agreedToTerms}
                 className="w-full bg-[#00B14F] text-white py-3 rounded-xl font-semibold hover:bg-[#009940] disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 {loading ? 'Creating Account...' : 'Create Account'}

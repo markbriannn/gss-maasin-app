@@ -137,6 +137,7 @@ export default function ProviderRegistration() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   // Handle profile photo upload
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1246,10 +1247,32 @@ export default function ProviderRegistration() {
           )}
 
           {step === TOTAL_STEPS - 1 && (
-            <div className="mt-8">
+            <div className="mt-8 space-y-4">
+              {/* Terms and Conditions Checkbox */}
+              <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <input
+                  type="checkbox"
+                  id="terms"
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="w-5 h-5 mt-0.5 text-blue-500 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                />
+                <label htmlFor="terms" className="text-sm text-gray-600 cursor-pointer">
+                  I agree to the{' '}
+                  <Link href="/terms" target="_blank" className="text-blue-500 font-medium hover:underline">
+                    Terms and Conditions
+                  </Link>{' '}
+                  and{' '}
+                  <Link href="/privacy" target="_blank" className="text-blue-500 font-medium hover:underline">
+                    Privacy Policy
+                  </Link>
+                  . I understand that my data will be processed in accordance with these policies and I consent to background verification.
+                </label>
+              </div>
+              
               <button
                 onClick={handleSubmit}
-                disabled={loading || !canProceed()}
+                disabled={loading || !canProceed() || !agreedToTerms}
                 className="w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 {loading ? 'Submitting Application...' : 'Submit Application'}
