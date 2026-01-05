@@ -583,7 +583,7 @@ export default function ClientDashboard() {
               </div>
               
               <button
-                onClick={() => router.push(`/client/messages?providerId=${selectedProvider.id}`)}
+                onClick={() => router.push(`/client/book?providerId=${selectedProvider.id}`)}
                 className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-500/30 hover:shadow-xl transition-all flex items-center justify-center gap-2"
               >
                 Contact Us
