@@ -147,18 +147,42 @@ function JobDetailsContent() {
 
   // Handle payment callback
   useEffect(() => {
-    if (paymentStatus === 'success') {
-      setPaymentMessage({ type: 'success', text: 'Payment successful! Your booking has been updated.' });
-      // Clear the URL params after showing message
-      setTimeout(() => {
-        router.replace(`/client/bookings/${jobId}`);
-      }, 3000);
-    } else if (paymentStatus === 'failed') {
-      setPaymentMessage({ type: 'error', text: 'Payment failed. Please try again.' });
-      setTimeout(() => {
-        router.replace(`/client/bookings/${jobId}`);
-      }, 3000);
-    }
+    const verifyPayment = async () => {
+      if (paymentStatus === 'success' && jobId) {
+        setPaymentMessage({ type: 'success', text: 'Payment successful! Verifying...' });
+        
+        // Call backend to verify and process the payment
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
+          const response = await fetch(`${apiUrl}/payments/verify-and-process/${jobId}`, {
+            method: 'POST',
+          });
+          const result = await response.json();
+          
+          if (result.status === 'paid') {
+            setPaymentMessage({ type: 'success', text: 'Payment verified! Your booking has been updated.' });
+          } else if (result.status === 'pending') {
+            setPaymentMessage({ type: 'success', text: 'Payment processing. Please wait a moment and refresh.' });
+          }
+        } catch (error) {
+          console.error('Error verifying payment:', error);
+          // Still show success since PayMongo redirected with success
+          setPaymentMessage({ type: 'success', text: 'Payment successful! Your booking will be updated shortly.' });
+        }
+        
+        // Clear the URL params after showing message
+        setTimeout(() => {
+          router.replace(`/client/bookings/${jobId}`);
+        }, 3000);
+      } else if (paymentStatus === 'failed') {
+        setPaymentMessage({ type: 'error', text: 'Payment failed. Please try again.' });
+        setTimeout(() => {
+          router.replace(`/client/bookings/${jobId}`);
+        }, 3000);
+      }
+    };
+    
+    verifyPayment();
   }, [paymentStatus, jobId, router]);
 
   useEffect(() => {
