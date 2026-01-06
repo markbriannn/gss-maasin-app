@@ -22,6 +22,7 @@ import {
   Trophy
 } from 'lucide-react';
 import NotificationDropdown from '@/components/NotificationDropdown';
+import ToastNotification from '@/components/ToastNotification';
 
 interface ProviderLayoutProps {
   children: ReactNode;
@@ -305,6 +306,9 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
 
       {/* Main Content */}
       <main>{children}</main>
+      
+      {/* Toast Notifications */}
+      <ToastNotification />
     </div>
   );
 }

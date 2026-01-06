@@ -22,6 +22,7 @@ import {
   Map
 } from 'lucide-react';
 import NotificationDropdown from '@/components/NotificationDropdown';
+import ToastNotification from '@/components/ToastNotification';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -325,6 +326,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </header>
 
         <main>{children}</main>
+        
+        {/* Toast Notifications */}
+        <ToastNotification />
       </div>
     </div>
   );
