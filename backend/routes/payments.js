@@ -8,9 +8,14 @@ const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY;
 const PAYMONGO_WEBHOOK_SECRET = process.env.PAYMONGO_WEBHOOK_SECRET;
 const PAYMONGO_API = 'https://api.paymongo.com/v1';
 
+// Validate PayMongo secret key
+if (!PAYMONGO_SECRET_KEY) {
+  console.warn('WARNING: PAYMONGO_SECRET_KEY is not set. Payment features will not work.');
+}
+
 const paymongoAuth = {
   headers: {
-    Authorization: `Basic ${Buffer.from(PAYMONGO_SECRET_KEY + ':').toString('base64')}`,
+    Authorization: PAYMONGO_SECRET_KEY ? `Basic ${Buffer.from(PAYMONGO_SECRET_KEY + ':').toString('base64')}` : '',
     'Content-Type': 'application/json',
   },
 };
