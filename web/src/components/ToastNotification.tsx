@@ -241,6 +241,55 @@ export default function ToastNotification() {
     return () => unsubscribe();
   }, [user?.uid, addToast]);
 
+  // Listen for new bookings (for ADMIN) - show toast when client submits a new booking
+  useEffect(() => {
+    if (!user?.uid || user?.role?.toUpperCase() !== 'ADMIN') return;
+
+    // Listen to all pending bookings that need admin approval
+    const bookingsQuery = query(
+      collection(db, 'bookings'),
+      where('status', 'in', ['pending', 'pending_negotiation']),
+      limit(50)
+    );
+
+    // Track which bookings we've already shown toasts for
+    const shownToasts = new Set<string>();
+    let isFirstLoad = true;
+
+    const unsubscribe = onSnapshot(bookingsQuery, (snapshot) => {
+      if (isFirstLoad) {
+        // On first load, just record existing bookings
+        snapshot.docs.forEach(doc => {
+          shownToasts.add(`new_${doc.id}`);
+        });
+        isFirstLoad = false;
+        return;
+      }
+
+      snapshot.docChanges().forEach((change) => {
+        const data = change.doc.data();
+        const docId = change.doc.id;
+
+        // New booking submitted by client - needs admin approval
+        if (change.type === 'added' && !data.adminApproved && !shownToasts.has(`new_${docId}`)) {
+          shownToasts.add(`new_${docId}`);
+          addToast({
+            type: 'booking',
+            title: 'New Booking Request! 📋',
+            message: `${data.clientName || 'A client'} submitted a ${data.serviceCategory || 'service'} request`,
+            timestamp: new Date(),
+            link: `/admin/jobs/${docId}`,
+            color: 'amber',
+          });
+        }
+      });
+    }, (error) => {
+      console.log('Admin bookings listener error:', error.code);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid, user?.role, addToast]);
+
   // Listen for job status changes (for clients) - show toast on status changes
   useEffect(() => {
     if (!user?.uid || user?.role?.toUpperCase() !== 'CLIENT') return;
