@@ -81,6 +81,11 @@ export default function AdminJobsPage() {
   const [showModal, setShowModal] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    show: boolean;
+    type: 'approve' | 'reject';
+    job: Job | null;
+  }>({ show: false, type: 'approve', job: null });
 
   const filters = [
     { id: 'all', label: 'All', color: 'violet' },
@@ -222,32 +227,40 @@ export default function AdminJobsPage() {
   };
 
   const handleApproveJob = async (job: Job) => {
-    if (!confirm(`Approve this job request?\n\nThis will send the job to ${job.provider?.name || 'the provider'} for review.`)) return;
+    setConfirmModal({ show: true, type: 'approve', job });
+  };
+
+  const handleRejectJob = async (job: Job) => {
+    setConfirmModal({ show: true, type: 'reject', job });
+  };
+
+  const executeApprove = async () => {
+    if (!confirmModal.job) return;
+    const job = confirmModal.job;
     setUpdating(true);
+    setConfirmModal({ show: false, type: 'approve', job: null });
     try {
       await updateDoc(doc(db, 'bookings', job.id), { adminApproved: true, approvedAt: new Date(), approvedBy: 'admin', updatedAt: new Date() });
       setAllJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, adminApproved: true } : j)));
       setShowModal(false);
-      alert('Job approved and sent to provider!');
     } catch (error) {
       console.error('Error approving job:', error);
-      alert('Failed to approve job');
     } finally {
       setUpdating(false);
     }
   };
 
-  const handleRejectJob = async (job: Job) => {
-    if (!confirm('Are you sure you want to reject this job request?')) return;
+  const executeReject = async () => {
+    if (!confirmModal.job) return;
+    const job = confirmModal.job;
     setUpdating(true);
+    setConfirmModal({ show: false, type: 'reject', job: null });
     try {
       await updateDoc(doc(db, 'bookings', job.id), { status: 'rejected', rejectedAt: new Date(), rejectedBy: 'admin', adminRejected: true, updatedAt: new Date() });
       setAllJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: 'rejected' } : j)));
       setShowModal(false);
-      alert('Job request rejected.');
     } catch (error) {
       console.error('Error rejecting job:', error);
-      alert('Failed to reject job');
     } finally {
       setUpdating(false);
     }
@@ -672,6 +685,107 @@ export default function AdminJobsPage() {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Custom Confirmation Modal */}
+        {confirmModal.show && confirmModal.job && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in">
+              {/* Header */}
+              <div className={`p-6 ${confirmModal.type === 'approve' ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : 'bg-gradient-to-r from-red-500 to-rose-500'}`}>
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                    {confirmModal.type === 'approve' ? (
+                      <CheckCircle className="w-8 h-8 text-white" />
+                    ) : (
+                      <XCircle className="w-8 h-8 text-white" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">
+                      {confirmModal.type === 'approve' ? 'Approve Job?' : 'Reject Job?'}
+                    </h3>
+                    <p className="text-white/80 text-sm">
+                      {confirmModal.job.title || confirmModal.job.category}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                <div className="bg-gray-50 rounded-2xl p-4 mb-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center">
+                      <User className="w-5 h-5 text-violet-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Client</p>
+                      <p className="font-semibold text-gray-900">{confirmModal.job.client?.name || 'Unknown'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                      <Wrench className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Provider</p>
+                      <p className="font-semibold text-gray-900">{confirmModal.job.provider?.name || 'Not assigned'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-gray-600 text-center mb-6">
+                  {confirmModal.type === 'approve' 
+                    ? `This will send the job to ${confirmModal.job.provider?.name || 'the provider'} for review.`
+                    : 'This action cannot be undone. The client will be notified.'}
+                </p>
+
+                {/* Buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setConfirmModal({ show: false, type: 'approve', job: null })}
+                    className="flex-1 py-3.5 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmModal.type === 'approve' ? executeApprove : executeReject}
+                    disabled={updating}
+                    className={`flex-1 py-3.5 text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${
+                      confirmModal.type === 'approve'
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-lg hover:shadow-emerald-500/30'
+                        : 'bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/30'
+                    }`}
+                  >
+                    {updating ? (
+                      <RefreshCw className="w-5 h-5 animate-spin" />
+                    ) : confirmModal.type === 'approve' ? (
+                      <>
+                        <CheckCircle className="w-5 h-5" />
+                        Approve
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="w-5 h-5" />
+                        Reject
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <style jsx>{`
+              @keyframes scale-in {
+                from { transform: scale(0.9); opacity: 0; }
+                to { transform: scale(1); opacity: 1; }
+              }
+              .animate-scale-in {
+                animation: scale-in 0.2s ease-out forwards;
+              }
+            `}</style>
           </div>
         )}
       </div>
