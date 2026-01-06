@@ -58,7 +58,7 @@ router.post('/create-source', async (req, res) => {
     // Use a proper redirect URL
     const baseUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
       ? process.env.FRONTEND_URL 
-      : 'https://gss-maasin.vercel.app';
+      : 'https://gss-maasin-app.vercel.app';
 
     const sourceType = paymentType === 'maya' ? 'paymaya' : paymentType;
 
@@ -201,7 +201,7 @@ router.post('/create-gcash-source', async (req, res) => {
     // Use a proper redirect URL (PayMongo requires valid URLs)
     const baseUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
       ? process.env.FRONTEND_URL 
-      : 'https://gss-maasin-app.onrender.com';
+      : 'https://gss-maasin-app.vercel.app';
 
     const response = await axios.post(
       `${PAYMONGO_API}/sources`,
@@ -212,8 +212,8 @@ router.post('/create-gcash-source', async (req, res) => {
             currency: 'PHP',
             type: 'gcash',
             redirect: {
-              success: `${baseUrl}/payment/success?bookingId=${bookingId}`,
-              failed: `${baseUrl}/payment/failed?bookingId=${bookingId}`,
+              success: `${baseUrl}/client/bookings/${bookingId}?payment=success`,
+              failed: `${baseUrl}/client/bookings/${bookingId}?payment=failed`,
             },
             metadata: {
               bookingId,
@@ -285,7 +285,7 @@ router.post('/create-paymaya-source', async (req, res) => {
     // Use a proper redirect URL (PayMongo requires valid URLs)
     const baseUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
       ? process.env.FRONTEND_URL 
-      : 'https://gss-maasin-app.onrender.com';
+      : 'https://gss-maasin-app.vercel.app';
 
     const response = await axios.post(
       `${PAYMONGO_API}/sources`,
@@ -296,8 +296,8 @@ router.post('/create-paymaya-source', async (req, res) => {
             currency: 'PHP',
             type: 'paymaya',
             redirect: {
-              success: `${baseUrl}/payment/success?bookingId=${bookingId}`,
-              failed: `${baseUrl}/payment/failed?bookingId=${bookingId}`,
+              success: `${baseUrl}/client/bookings/${bookingId}?payment=success`,
+              failed: `${baseUrl}/client/bookings/${bookingId}?payment=failed`,
             },
             metadata: {
               bookingId,
