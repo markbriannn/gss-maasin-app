@@ -350,6 +350,11 @@ function SelectProviderContent() {
                                 </span>
                               )}
                             </div>
+
+                            {/* Service Category */}
+                            <p className="text-sm text-emerald-600 font-medium mb-1">
+                              {getCategoryIcon(provider.serviceCategory)} {provider.serviceCategory}
+                            </p>
                             
                             <div className="flex items-center gap-3 text-sm text-gray-500 mb-2">
                               <div className="flex items-center gap-1">

@@ -510,6 +510,9 @@ export default function ClientDashboard() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <h3 className="font-semibold text-gray-900 text-xs truncate">{provider.firstName}</h3>
+                            <p className="text-[10px] text-emerald-600 font-medium truncate">
+                              {categoryData?.emoji} {provider.serviceCategory || 'Service'}
+                            </p>
                             <div className="flex items-center gap-1 text-[10px] text-gray-500">
                               <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
                               <span>{provider.rating > 0 ? provider.rating.toFixed(1) : 'New'}</span>
