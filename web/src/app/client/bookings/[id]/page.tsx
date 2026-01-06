@@ -151,6 +151,12 @@ function JobDetailsContent() {
     message: string;
     onClose?: () => void;
   }>({ show: false, type: 'info', title: '', message: '' });
+  const [confirmDialog, setConfirmDialog] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ show: false, title: '', message: '', onConfirm: () => {} });
 
   const showAlert = (type: 'success' | 'error' | 'info' | 'payment', title: string, message: string, onClose?: () => void) => {
     setAlertModal({ show: true, type, title, message, onClose });
@@ -271,33 +277,39 @@ function JobDetailsContent() {
     const hasAdditionalToPay = additionalChargesTotal > 0;
     const isPayFirstComplete = job.paymentPreference === 'pay_first' && job.isPaidUpfront && !hasAdditionalToPay;
 
-    if (!confirm(isPayFirstComplete 
-      ? 'Are you satisfied with the work? This will complete the job.'
-      : 'Are you satisfied with the work? This will proceed to payment.')) return;
-
-    setUpdating(true);
-    try {
-      if (isPayFirstComplete) {
-        await updateDoc(doc(db, 'bookings', job.id), {
-          status: 'payment_received',
-          clientConfirmedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        alert('Job marked as complete. Waiting for provider confirmation.');
-      } else {
-        await updateDoc(doc(db, 'bookings', job.id), {
-          status: 'pending_payment',
-          clientConfirmedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        alert('Confirmed! Please proceed to pay the provider.');
+    setConfirmDialog({
+      show: true,
+      title: isPayFirstComplete ? 'Confirm Job Complete? ✅' : 'Confirm & Proceed to Pay?',
+      message: isPayFirstComplete 
+        ? 'Are you satisfied with the work? This will mark the job as complete.'
+        : 'Are you satisfied with the work? This will proceed to payment.',
+      onConfirm: async () => {
+        setConfirmDialog({ show: false, title: '', message: '', onConfirm: () => {} });
+        setUpdating(true);
+        try {
+          if (isPayFirstComplete) {
+            await updateDoc(doc(db, 'bookings', job.id), {
+              status: 'payment_received',
+              clientConfirmedAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+            showAlert('success', 'Job Complete! 🎉', 'Waiting for provider to confirm completion.');
+          } else {
+            await updateDoc(doc(db, 'bookings', job.id), {
+              status: 'pending_payment',
+              clientConfirmedAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+            showAlert('info', 'Confirmed! 👍', 'Please proceed to pay the provider.');
+          }
+        } catch (error) {
+          console.error('Error confirming:', error);
+          showAlert('error', 'Error', 'Failed to confirm completion. Please try again.');
+        } finally {
+          setUpdating(false);
+        }
       }
-    } catch (error) {
-      console.error('Error confirming:', error);
-      alert('Failed to confirm completion');
-    } finally {
-      setUpdating(false);
-    }
+    });
   };
 
   const handlePayment = async (method: 'gcash' | 'maya' | 'cash') => {
@@ -1003,13 +1015,24 @@ function JobDetailsContent() {
           {/* Pending Completion - Confirm Button */}
           {showConfirmButton && (
             <div className="space-y-4">
-              <div className="bg-amber-50 rounded-xl p-4 text-center">
-                <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
-                <p className="font-semibold text-amber-800">Provider Marked Work Complete</p>
-                <p className="text-sm text-amber-700 mt-1">
-                  Please confirm if you're satisfied with the work to proceed to payment.
-                </p>
-              </div>
+              {/* Show different message based on payment status */}
+              {job.paymentPreference === 'pay_first' && job.isPaidUpfront ? (
+                <div className="bg-green-50 rounded-xl p-4 text-center">
+                  <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                  <p className="font-semibold text-green-800">Provider Marked Work Complete</p>
+                  <p className="text-sm text-green-700 mt-1">
+                    Payment already done! Please confirm if you're satisfied with the work.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-amber-50 rounded-xl p-4 text-center">
+                  <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+                  <p className="font-semibold text-amber-800">Provider Marked Work Complete</p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Please confirm if you're satisfied with the work to proceed to payment.
+                  </p>
+                </div>
+              )}
 
               {/* Pending additional charges warning */}
               {pendingCharges.length > 0 && (
@@ -1054,7 +1077,11 @@ function JobDetailsContent() {
                 }`}
               >
                 {updating ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
-                {job.hasAdditionalPending ? 'Review Additional Charges First' : 'Confirm & Proceed to Pay'}
+                {job.hasAdditionalPending 
+                  ? 'Review Additional Charges First' 
+                  : (job.paymentPreference === 'pay_first' && job.isPaidUpfront 
+                      ? 'Confirm Job Complete' 
+                      : 'Confirm & Proceed to Pay')}
               </button>
             </div>
           )}
@@ -1394,6 +1421,52 @@ function JobDetailsContent() {
               >
                 {alertModal.type === 'payment' ? 'Refresh Page' : 'Got it'}
               </button>
+            </div>
+          </div>
+
+          <style jsx>{`
+            @keyframes bounce-in {
+              0% { transform: scale(0.8); opacity: 0; }
+              50% { transform: scale(1.05); }
+              100% { transform: scale(1); opacity: 1; }
+            }
+            .animate-bounce-in {
+              animation: bounce-in 0.3s ease-out forwards;
+            }
+          `}</style>
+        </div>
+      )}
+
+      {/* Confirm Dialog Modal */}
+      {confirmDialog.show && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-bounce-in">
+            {/* Header */}
+            <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-8 flex flex-col items-center">
+              <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-4">
+                <CheckCircle className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-white text-center">{confirmDialog.title}</h3>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-gray-600 text-center mb-6 leading-relaxed">{confirmDialog.message}</p>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmDialog({ show: false, title: '', message: '', onConfirm: () => {} })}
+                  className="flex-1 py-4 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDialog.onConfirm}
+                  className="flex-1 py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-emerald-500/30 transition-all"
+                >
+                  Confirm
+                </button>
+              </div>
             </div>
           </div>
 
