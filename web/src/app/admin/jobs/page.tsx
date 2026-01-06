@@ -648,8 +648,7 @@ export default function AdminJobsPage() {
                             className="w-28 h-28 rounded-xl object-cover border-2 border-gray-200 hover:border-violet-500 transition-colors cursor-pointer shadow-lg"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              target.parentElement!.innerHTML = `<div class="w-28 h-28 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 text-xs">Failed</div>`;
+                              target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="112" height="112"><rect fill="%23f3f4f6" width="112" height="112" rx="12"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-size="24">📷</text><text x="50%" y="65%" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-size="10">No Image</text></svg>';
                             }}
                           />
                         </a>
