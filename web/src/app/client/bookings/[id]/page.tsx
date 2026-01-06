@@ -144,6 +144,17 @@ function JobDetailsContent() {
   const [newOfferNote, setNewOfferNote] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [paymentMessage, setPaymentMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [alertModal, setAlertModal] = useState<{
+    show: boolean;
+    type: 'success' | 'error' | 'info' | 'payment';
+    title: string;
+    message: string;
+    onClose?: () => void;
+  }>({ show: false, type: 'info', title: '', message: '' });
+
+  const showAlert = (type: 'success' | 'error' | 'info' | 'payment', title: string, message: string, onClose?: () => void) => {
+    setAlertModal({ show: true, type, title, message, onClose });
+  };
 
   // Handle payment callback
   useEffect(() => {
@@ -312,7 +323,7 @@ function JobDetailsContent() {
             paymentMethod: 'cash',
             updatedAt: serverTimestamp(),
           });
-          alert('Payment recorded! The provider can now start working.');
+          showAlert('success', 'Payment Recorded! 💵', 'The provider can now start working on your job.');
         } else if (isPayFirstWithAdditional) {
           await updateDoc(doc(db, 'bookings', job.id), {
             status: 'payment_received',
@@ -322,7 +333,7 @@ function JobDetailsContent() {
             paymentMethod: 'cash',
             updatedAt: serverTimestamp(),
           });
-          alert('Additional payment complete! Provider will confirm to complete the job.');
+          showAlert('success', 'Additional Payment Complete! ✅', 'Provider will confirm to complete the job.');
         } else {
           await updateDoc(doc(db, 'bookings', job.id), {
             status: 'payment_received',
@@ -331,7 +342,7 @@ function JobDetailsContent() {
             finalAmount: amount,
             updatedAt: serverTimestamp(),
           });
-          alert('Payment recorded! Waiting for provider confirmation.');
+          showAlert('success', 'Payment Recorded! 💵', 'Waiting for provider confirmation.');
         }
         setShowPaymentModal(false);
       } else {
@@ -359,19 +370,19 @@ function JobDetailsContent() {
         if (result.success && result.checkoutUrl) {
           setShowPaymentModal(false);
           window.open(result.checkoutUrl, '_blank');
-          alert('Please complete the payment in the new tab. Once done, refresh this page.');
+          showAlert('payment', 'Complete Your Payment 💳', `A new tab has opened for ${method === 'gcash' ? 'GCash' : 'Maya'} payment. Complete the payment there, then return here.`);
         } else if (result.checkoutUrl) {
           // Handle legacy response format
           setShowPaymentModal(false);
           window.open(result.checkoutUrl, '_blank');
-          alert('Please complete the payment in the new tab. Once done, refresh this page.');
+          showAlert('payment', 'Complete Your Payment 💳', `A new tab has opened for ${method === 'gcash' ? 'GCash' : 'Maya'} payment. Complete the payment there, then return here.`);
         } else {
-          alert(result.error || 'Failed to create payment. Please try again.');
+          showAlert('error', 'Payment Failed', result.error || 'Failed to create payment. Please try again.');
         }
       }
     } catch (error) {
       console.error('Payment error:', error);
-      alert('Payment failed. Please try again.');
+      showAlert('error', 'Payment Error', 'Something went wrong. Please try again.');
     } finally {
       setUpdating(false);
     }
@@ -1328,6 +1339,74 @@ function JobDetailsContent() {
             className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
             onClick={(e) => e.stopPropagation()}
           />
+        </div>
+      )}
+
+      {/* Custom Alert Modal */}
+      {alertModal.show && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-bounce-in">
+            {/* Icon Header */}
+            <div className={`p-8 flex flex-col items-center ${
+              alertModal.type === 'success' ? 'bg-gradient-to-br from-emerald-500 to-green-600' :
+              alertModal.type === 'error' ? 'bg-gradient-to-br from-red-500 to-rose-600' :
+              alertModal.type === 'payment' ? 'bg-gradient-to-br from-blue-500 to-indigo-600' :
+              'bg-gradient-to-br from-amber-500 to-orange-600'
+            }`}>
+              <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-4">
+                {alertModal.type === 'success' && <CheckCircle className="w-10 h-10 text-white" />}
+                {alertModal.type === 'error' && <AlertCircle className="w-10 h-10 text-white" />}
+                {alertModal.type === 'payment' && <CreditCard className="w-10 h-10 text-white" />}
+                {alertModal.type === 'info' && <AlertCircle className="w-10 h-10 text-white" />}
+              </div>
+              <h3 className="text-xl font-bold text-white text-center">{alertModal.title}</h3>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-gray-600 text-center mb-6 leading-relaxed">{alertModal.message}</p>
+              
+              {alertModal.type === 'payment' && (
+                <div className="bg-blue-50 rounded-xl p-4 mb-4 flex items-start gap-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Clock className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <p className="text-sm text-blue-700">
+                    After completing payment, this page will automatically update. If not, tap the button below.
+                  </p>
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setAlertModal({ show: false, type: 'info', title: '', message: '' });
+                  if (alertModal.type === 'payment') {
+                    window.location.reload();
+                  }
+                  alertModal.onClose?.();
+                }}
+                className={`w-full py-4 rounded-xl font-bold text-white transition-all ${
+                  alertModal.type === 'success' ? 'bg-gradient-to-r from-emerald-500 to-green-600 hover:shadow-lg hover:shadow-emerald-500/30' :
+                  alertModal.type === 'error' ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:shadow-lg hover:shadow-red-500/30' :
+                  alertModal.type === 'payment' ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:shadow-lg hover:shadow-blue-500/30' :
+                  'bg-gradient-to-r from-amber-500 to-orange-600 hover:shadow-lg hover:shadow-amber-500/30'
+                }`}
+              >
+                {alertModal.type === 'payment' ? 'Refresh Page' : 'Got it'}
+              </button>
+            </div>
+          </div>
+
+          <style jsx>{`
+            @keyframes bounce-in {
+              0% { transform: scale(0.8); opacity: 0; }
+              50% { transform: scale(1.05); }
+              100% { transform: scale(1); opacity: 1; }
+            }
+            .animate-bounce-in {
+              animation: bounce-in 0.3s ease-out forwards;
+            }
+          `}</style>
         </div>
       )}
     </ClientLayout>
