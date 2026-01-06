@@ -7,17 +7,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onren
 const PAYMONGO_PUBLIC_KEY = process.env.NEXT_PUBLIC_PAYMONGO_PUBLIC_KEY || 'pk_test_QMSTsXHBLpmimdTNTjL8Kh2W';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gss-maasin-app.vercel.app';
 
-// Get the base URL for redirects - prefer production URL in production
+// Get the base URL for redirects - always use production URL
 const getBaseUrl = () => {
-  // In production, always use the configured APP_URL
-  if (typeof window !== 'undefined') {
-    // If we're on the production domain, use it
-    if (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('gss-maasin')) {
-      return APP_URL;
-    }
-    // For localhost development, use current origin
-    return window.location.origin;
-  }
   return APP_URL;
 };
 
