@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -109,10 +109,28 @@ const getTierInfo = (points: number) => {
 };
 
 export default function JobDetailsPage() {
+  return (
+    <Suspense fallback={
+      <ClientLayout>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="w-16 h-16 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin"></div>
+        </div>
+      </ClientLayout>
+    }>
+      <JobDetailsContent />
+    </Suspense>
+  );
+}
+
+function JobDetailsContent() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const jobId = params.id as string;
+  
+  // Handle payment callback from PayMongo
+  const paymentStatus = searchParams.get('payment');
 
   const [job, setJob] = useState<JobData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,6 +143,23 @@ export default function JobDetailsPage() {
   const [newOfferPrice, setNewOfferPrice] = useState('');
   const [newOfferNote, setNewOfferNote] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [paymentMessage, setPaymentMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Handle payment callback
+  useEffect(() => {
+    if (paymentStatus === 'success') {
+      setPaymentMessage({ type: 'success', text: 'Payment successful! Your booking has been updated.' });
+      // Clear the URL params after showing message
+      setTimeout(() => {
+        router.replace(`/client/bookings/${jobId}`);
+      }, 3000);
+    } else if (paymentStatus === 'failed') {
+      setPaymentMessage({ type: 'error', text: 'Payment failed. Please try again.' });
+      setTimeout(() => {
+        router.replace(`/client/bookings/${jobId}`);
+      }, 3000);
+    }
+  }, [paymentStatus, jobId, router]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -478,6 +513,24 @@ export default function JobDetailsPage() {
   return (
     <ClientLayout>
       <div className="max-w-2xl mx-auto px-4 py-6">
+        {/* Payment Callback Message */}
+        {paymentMessage && (
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-xl mb-4 ${
+            paymentMessage.type === 'success' ? 'bg-green-100' : 'bg-red-100'
+          }`}>
+            {paymentMessage.type === 'success' ? (
+              <CheckCircle className="w-5 h-5 text-green-600" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-red-600" />
+            )}
+            <span className={`font-medium ${
+              paymentMessage.type === 'success' ? 'text-green-700' : 'text-red-700'
+            }`}>
+              {paymentMessage.text}
+            </span>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
           <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-full">
