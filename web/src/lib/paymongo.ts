@@ -5,7 +5,7 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
 const PAYMONGO_PUBLIC_KEY = process.env.NEXT_PUBLIC_PAYMONGO_PUBLIC_KEY || 'pk_test_QMSTsXHBLpmimdTNTjL8Kh2W';
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gss-maasin.vercel.app';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gss-maasin-app.vercel.app';
 
 // Get the base URL for redirects - always use production URL
 const getBaseUrl = () => {
