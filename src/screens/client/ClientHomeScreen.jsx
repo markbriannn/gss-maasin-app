@@ -641,16 +641,6 @@ const ClientHomeScreen = ({navigation}) => {
       {/* Bottom Action - Outside sheet so it's always visible */}
       {selectedProvider && !showProviderModal && (
         <View style={styles.fixedBottomBar}>
-          <View style={styles.payRow}>
-            <View style={styles.payMethod}>
-              <Icon name="cash-outline" size={20} color="#00B14F" />
-              <Text style={styles.payText}>Cash</Text>
-            </View>
-            <TouchableOpacity style={styles.offersBtn}>
-              <Icon name="pricetag" size={16} color="#6B7280" />
-              <Text style={styles.offersText}>Offers</Text>
-            </TouchableOpacity>
-          </View>
           <TouchableOpacity style={styles.bookBtn} onPress={handleBook}>
             <Text style={styles.bookText}>Contact Us</Text>
           </TouchableOpacity>
