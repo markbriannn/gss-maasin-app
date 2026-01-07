@@ -17,7 +17,10 @@ const sendViaBackend = async (endpoint: string, data: Record<string, unknown>): 
   try {
     console.log('[Email] Sending via backend:', endpoint);
     
-    const response = await fetch(`${API_URL}/api/email${endpoint}`, {
+    // Remove /api from API_URL if it exists to avoid double /api/api
+    const baseUrl = API_URL.replace(/\/api\/?$/, '');
+    
+    const response = await fetch(`${baseUrl}/api/email${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
