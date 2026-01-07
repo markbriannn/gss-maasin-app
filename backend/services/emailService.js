@@ -1,39 +1,39 @@
-const { Resend } = require('resend');
+const SibApiV3Sdk = require('sib-api-v3-sdk');
 
-// Initialize Resend
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Brevo (Sendinblue)
+const defaultClient = SibApiV3Sdk.ApiClient.instance;
+const apiKey = defaultClient.authentications['api-key'];
+apiKey.apiKey = process.env.BREVO_API_KEY;
 
-// Default from email
-const FROM_EMAIL = process.env.FROM_EMAIL || 'GSS Maasin <onboarding@resend.dev>';
+const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+
+// Default from email - use your verified sender email
+const FROM_EMAIL = process.env.FROM_EMAIL || 'gssmaasin@gmail.com';
+const FROM_NAME = 'GSS Maasin';
 
 /**
- * Send a generic email
+ * Send a generic email via Brevo
  */
 const sendEmail = async (to, subject, html, text = null) => {
-  if (!process.env.RESEND_API_KEY) {
-    console.log('Resend API key not configured, skipping email');
+  if (!process.env.BREVO_API_KEY) {
+    console.log('Brevo API key not configured, skipping email');
     return { success: true, message: 'Email skipped - API key not configured' };
   }
   
   try {
-    const { data, error } = await resend.emails.send({
-      from: FROM_EMAIL,
-      to: to,
-      subject: subject,
-      html: html,
-      text: text || subject,
-    });
+    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+    sendSmtpEmail.sender = { name: FROM_NAME, email: FROM_EMAIL };
+    sendSmtpEmail.to = [{ email: to }];
+    sendSmtpEmail.subject = subject;
+    sendSmtpEmail.htmlContent = html;
+    if (text) sendSmtpEmail.textContent = text;
 
-    if (error) {
-      console.error('Email send error:', error);
-      return { success: false, error: error.message };
-    }
-
-    console.log('Email sent successfully:', data?.id);
-    return { success: true, id: data?.id };
+    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    console.log('Email sent successfully:', result.messageId);
+    return { success: true, id: result.messageId };
   } catch (error) {
-    console.error('Email service error:', error);
-    return { success: false, error: error.message };
+    console.error('Email service error:', error.message || error);
+    return { success: false, error: error.message || 'Failed to send email' };
   }
 };
 
