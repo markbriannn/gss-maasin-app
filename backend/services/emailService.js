@@ -1,31 +1,22 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-// Create Gmail SMTP transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT) || 587,
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+// Initialize Resend
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Default from email
-const FROM_EMAIL = process.env.FROM_EMAIL || 'GSS Maasin <gssmaasin@gmail.com>';
+const FROM_EMAIL = process.env.FROM_EMAIL || 'GSS Maasin <onboarding@resend.dev>';
 
 /**
  * Send a generic email
  */
 const sendEmail = async (to, subject, html, text = null) => {
-  // Check if SMTP is configured
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.log('SMTP not configured, skipping email');
-    return { success: true, message: 'Email skipped - SMTP not configured' };
+  if (!process.env.RESEND_API_KEY) {
+    console.log('Resend API key not configured, skipping email');
+    return { success: true, message: 'Email skipped - API key not configured' };
   }
   
   try {
-    const info = await transporter.sendMail({
+    const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: to,
       subject: subject,
@@ -33,8 +24,13 @@ const sendEmail = async (to, subject, html, text = null) => {
       text: text || subject,
     });
 
-    console.log('Email sent successfully:', info.messageId);
-    return { success: true, id: info.messageId };
+    if (error) {
+      console.error('Email send error:', error);
+      return { success: false, error: error.message };
+    }
+
+    console.log('Email sent successfully:', data?.id);
+    return { success: true, id: data?.id };
   } catch (error) {
     console.error('Email service error:', error);
     return { success: false, error: error.message };
@@ -252,20 +248,6 @@ const sendJobRejectionNotification = async (clientEmail, booking, reason = null)
   return sendEmail(clientEmail, subject, html);
 };
 
-/**
- * Verify SMTP connection
- */
-const verifyConnection = async () => {
-  try {
-    await transporter.verify();
-    console.log('✓ Gmail SMTP connection verified');
-    return true;
-  } catch (error) {
-    console.error('Gmail SMTP connection failed:', error.message);
-    return false;
-  }
-};
-
 module.exports = {
   sendEmail,
   sendBookingConfirmation,
@@ -274,5 +256,4 @@ module.exports = {
   sendPaymentReceipt,
   sendPasswordResetEmail,
   sendJobRejectionNotification,
-  verifyConnection,
 };
