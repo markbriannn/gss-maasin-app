@@ -81,11 +81,19 @@ export default function ForgotPasswordPage() {
     setStep('newPassword');
   };
 
+  // Password validation
+  const passwordRequirements = {
+    minLength: newPassword.length >= 8,
+    hasUppercase: /[A-Z]/.test(newPassword),
+    hasNumber: /[0-9]/.test(newPassword),
+  };
+  const isPasswordValid = passwordRequirements.minLength && passwordRequirements.hasUppercase && passwordRequirements.hasNumber;
+
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newPassword || newPassword.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (!isPasswordValid) {
+      setError('Please meet all password requirements');
       return;
     }
 
@@ -215,6 +223,25 @@ export default function ForgotPasswordPage() {
                 </div>
               </div>
 
+              {/* Password Requirements */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Password Requirements</p>
+                <div className="space-y-1">
+                  <div className={`flex items-center gap-2 text-sm ${passwordRequirements.minLength ? 'text-green-600' : 'text-gray-400'}`}>
+                    <CheckCircle className={`w-4 h-4 ${passwordRequirements.minLength ? 'text-green-600' : 'text-gray-300'}`} />
+                    <span>At least 8 characters</span>
+                  </div>
+                  <div className={`flex items-center gap-2 text-sm ${passwordRequirements.hasUppercase ? 'text-green-600' : 'text-gray-400'}`}>
+                    <CheckCircle className={`w-4 h-4 ${passwordRequirements.hasUppercase ? 'text-green-600' : 'text-gray-300'}`} />
+                    <span>One uppercase letter</span>
+                  </div>
+                  <div className={`flex items-center gap-2 text-sm ${passwordRequirements.hasNumber ? 'text-green-600' : 'text-gray-400'}`}>
+                    <CheckCircle className={`w-4 h-4 ${passwordRequirements.hasNumber ? 'text-green-600' : 'text-gray-300'}`} />
+                    <span>One number</span>
+                  </div>
+                </div>
+              </div>
+
               {error && (
                 <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
                   {error}
@@ -223,8 +250,8 @@ export default function ForgotPasswordPage() {
 
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full py-3 bg-[#00B14F] text-white rounded-xl font-semibold hover:bg-[#009940] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                disabled={loading || !isPasswordValid || newPassword !== confirmPassword}
+                className="w-full py-3 bg-[#00B14F] text-white rounded-xl font-semibold hover:bg-[#009940] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
