@@ -2,7 +2,8 @@ import axios from 'axios';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { API_BASE_URL } from '@env';
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
+import InAppBrowser from 'react-native-inappbrowser-reborn';
 
 const PAYMENT_API_URL = API_BASE_URL || 'http://localhost:3001/api';
 
@@ -95,13 +96,58 @@ export const paymentService = {
   openPaymentCheckout: async (checkoutUrl) => {
     console.log('Opening checkout URL:', checkoutUrl);
     try {
-      // Try to open directly without checking canOpenURL (more reliable on Android)
-      await Linking.openURL(checkoutUrl);
-      return { success: true, checkoutUrl };
+      // Check if InAppBrowser is available
+      if (await InAppBrowser.isAvailable()) {
+        // Open in-app browser for better UX - stays inside the app
+        const result = await InAppBrowser.open(checkoutUrl, {
+          // iOS options
+          dismissButtonStyle: 'close',
+          preferredBarTintColor: '#00B14F',
+          preferredControlTintColor: 'white',
+          readerMode: false,
+          animated: true,
+          modalPresentationStyle: 'fullScreen',
+          modalTransitionStyle: 'coverVertical',
+          modalEnabled: true,
+          enableBarCollapsing: false,
+          // Android options
+          showTitle: true,
+          toolbarColor: '#00B14F',
+          secondaryToolbarColor: 'black',
+          navigationBarColor: 'black',
+          navigationBarDividerColor: 'white',
+          enableUrlBarHiding: true,
+          enableDefaultShare: false,
+          forceCloseOnRedirection: false,
+          // Animation
+          animations: {
+            startEnter: 'slide_in_right',
+            startExit: 'slide_out_left',
+            endEnter: 'slide_in_left',
+            endExit: 'slide_out_right',
+          },
+          headers: {},
+          hasBackButton: true,
+          browserPackage: undefined,
+          showInRecents: true,
+        });
+        
+        console.log('InAppBrowser result:', result);
+        return { success: true, checkoutUrl, result };
+      } else {
+        // Fallback to external browser if InAppBrowser not available
+        await Linking.openURL(checkoutUrl);
+        return { success: true, checkoutUrl };
+      }
     } catch (error) {
       console.error('Error opening checkout:', error);
-      // Return the URL so user can copy it manually if needed
-      return { success: false, error: error.message, checkoutUrl };
+      // Fallback to external browser
+      try {
+        await Linking.openURL(checkoutUrl);
+        return { success: true, checkoutUrl, fallback: true };
+      } catch (linkError) {
+        return { success: false, error: error.message, checkoutUrl };
+      }
     }
   },
 

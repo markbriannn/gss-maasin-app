@@ -10,7 +10,6 @@ import {
   Image,
   PermissionsAndroid,
   Platform,
-  Linking,
   Modal,
   Dimensions,
 } from 'react-native';
@@ -30,6 +29,7 @@ import {sendBookingConfirmation} from '../../services/emailService';
 import {attemptBooking, resetBookingLimit} from '../../utils/rateLimiter';
 import {uploadImage} from '../../services/imageUploadService';
 import locationService from '../../services/locationService';
+import paymentService from '../../services/paymentService';
 
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
 
@@ -395,15 +395,21 @@ const BookServiceScreen = ({navigation, route}) => {
         const paymentResult = await response.json();
 
         if (paymentResult.success && paymentResult.checkoutUrl) {
-          // Open PayMongo checkout in browser
+          // Open PayMongo checkout in in-app browser
           try {
-            await Linking.openURL(paymentResult.checkoutUrl);
-            // Navigate to booking status to wait for payment confirmation
-            navigation.replace('BookingStatus', {
-              bookingId: bookingId,
-              booking: {...jobData, id: bookingId},
-              awaitingPayment: true,
-            });
+            const openResult = await paymentService.openPaymentCheckout(paymentResult.checkoutUrl);
+            
+            if (openResult.success) {
+              // Navigate to booking status to wait for payment confirmation
+              navigation.replace('BookingStatus', {
+                bookingId: bookingId,
+                booking: {...jobData, id: bookingId},
+                awaitingPayment: true,
+              });
+            } else {
+              Alert.alert('Error', 'Cannot open payment page. Please try again.');
+              setProcessingPayment(false);
+            }
           } catch (linkError) {
             console.error('Failed to open URL:', linkError);
             Alert.alert('Error', 'Cannot open payment page. Please try again.');
