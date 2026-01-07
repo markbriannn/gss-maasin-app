@@ -3,7 +3,7 @@ import {View, Text, TextInput, TouchableOpacity, ScrollView, Alert} from 'react-
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {authStyles} from '../../css/authStyles';
-import {sendPasswordResetCode} from '../../services/emailJSService';
+import {sendPasswordResetCode} from '../../services/emailService';
 import {attemptPasswordReset} from '../../utils/rateLimiter';
 import {API_CONFIG} from '../../config/config';
 

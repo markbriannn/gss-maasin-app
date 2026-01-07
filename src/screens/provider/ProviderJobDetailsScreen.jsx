@@ -25,7 +25,7 @@ import Video from 'react-native-video';
 import notificationService from '../../services/notificationService';
 import smsEmailService from '../../services/smsEmailService';
 import locationService from '../../services/locationService';
-import {sendJobAcceptedEmail, sendPaymentReceipt} from '../../services/emailJSService';
+import {sendJobAcceptedEmail, sendPaymentReceipt} from '../../services/emailService';
 import {APP_CONFIG} from '../../config/constants';
 import paymentService from '../../services/paymentService';
 import {getClientBadges, getClientTier} from '../../utils/gamification';

@@ -26,7 +26,7 @@ import {
 } from 'firebase/firestore';
 import {db} from '../../config/firebase';
 import smsEmailService from '../../services/smsEmailService';
-import {sendBookingConfirmation, sendJobRejectionEmail} from '../../services/emailJSService';
+import {sendBookingConfirmation, sendJobRejectionEmail} from '../../services/emailService';
 
 const {width} = Dimensions.get('window');
 const MEDIA_SIZE = (width - 60) / 3;

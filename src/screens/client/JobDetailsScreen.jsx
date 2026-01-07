@@ -22,7 +22,7 @@ import notificationService from '../../services/notificationService';
 import paymentService from '../../services/paymentService';
 import {useAuth} from '../../context/AuthContext';
 import {useTheme} from '../../context/ThemeContext';
-import {sendPaymentReceipt} from '../../services/emailJSService';
+import {sendPaymentReceipt} from '../../services/emailService';
 import {APP_CONFIG} from '../../config/constants';
 import {getProviderBadges, getProviderTier} from '../../utils/gamification';
 import {BadgeList, TierBadge} from '../../components/gamification';

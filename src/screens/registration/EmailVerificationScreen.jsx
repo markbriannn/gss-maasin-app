@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {sendVerificationCode as sendEmailJSCode} from '../../services/emailJSService';
+import {sendVerificationCode as sendEmailJSCode} from '../../services/emailService';
 
 const EmailVerificationScreen = ({navigation, route}) => {
   const {contactInfo, ...otherParams} = route.params || {};

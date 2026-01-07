@@ -27,7 +27,7 @@ import {
 } from 'firebase/firestore';
 import {db} from '../../config/firebase';
 import smsEmailService from '../../services/smsEmailService';
-import {sendProviderApprovalEmail, sendNotificationEmail} from '../../services/emailJSService';
+import {sendProviderApprovalEmail, sendNotificationEmail} from '../../services/emailService';
 import notificationService from '../../services/notificationService';
 
 const {width: screenWidth} = Dimensions.get('window');

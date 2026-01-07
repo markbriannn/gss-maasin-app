@@ -1,201 +1,140 @@
-import {API_BASE_URL} from '@env';
+/**
+ * Email Service for GSS Maasin Mobile
+ * Uses backend Brevo API for reliable email delivery
+ */
 
-const BASE_URL = API_BASE_URL || 'https://gss-maasin-app.onrender.com/api';
+import {API_CONFIG} from '../config/config';
 
 /**
- * Send booking confirmation email to client
+ * Send email via backend API (Brevo)
  */
-export const sendBookingConfirmationEmail = async (clientEmail, booking) => {
+const sendViaBackend = async (endpoint, data) => {
   try {
-    const response = await fetch(`${BASE_URL}/email/booking-confirmation`, {
+    console.log('[Email] Sending via backend:', endpoint);
+    
+    const baseUrl = API_CONFIG.BASE_URL.replace(/\/api\/?$/, '');
+    
+    const response = await fetch(`${baseUrl}/api/email${endpoint}`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({clientEmail, booking}),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
     });
-    const data = await response.json();
-    console.log('[Email] Booking confirmation sent:', data);
-    return data;
+
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      console.log('[Email] Sent successfully');
+      return {success: true};
+    } else {
+      console.log('[Email] Failed:', result.error);
+      return {success: false, error: result.error || 'Failed to send email'};
+    }
   } catch (error) {
-    console.log('[Email] Failed to send booking confirmation:', error.message);
+    console.log('[Email] Error:', error.message);
     return {success: false, error: error.message};
   }
 };
 
 /**
- * Send job accepted notification to client
+ * Send verification code email
  */
-export const sendJobAcceptedEmail = async (clientEmail, booking, provider) => {
-  try {
-    const response = await fetch(`${BASE_URL}/email/job-accepted`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({clientEmail, booking, provider}),
-    });
-    const data = await response.json();
-    console.log('[Email] Job accepted notification sent:', data);
-    return data;
-  } catch (error) {
-    console.log('[Email] Failed to send job accepted email:', error.message);
-    return {success: false, error: error.message};
-  }
+export const sendVerificationCode = async (email, code) => {
+  return sendViaBackend('/verification-code', {email, code});
 };
 
 /**
- * Send payment receipt to client
+ * Send password reset code
  */
-export const sendPaymentReceiptEmail = async (clientEmail, payment) => {
-  try {
-    const response = await fetch(`${BASE_URL}/email/payment-receipt`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({clientEmail, payment}),
-    });
-    const data = await response.json();
-    console.log('[Email] Payment receipt sent:', data);
-    return data;
-  } catch (error) {
-    console.log('[Email] Failed to send payment receipt:', error.message);
-    return {success: false, error: error.message};
-  }
+export const sendPasswordResetCode = async (email, code) => {
+  return sendViaBackend('/password-reset', {email, code});
 };
 
 /**
- * Send provider approval notification
+ * Send booking confirmation email
  */
-export const sendProviderApprovalEmail = async (providerEmail, providerName, approved) => {
-  try {
-    const response = await fetch(`${BASE_URL}/email/provider-approval`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({providerEmail, providerName, approved}),
-    });
-    const data = await response.json();
-    console.log('[Email] Provider approval sent:', data);
-    return data;
-  } catch (error) {
-    console.log('[Email] Failed to send provider approval:', error.message);
-    return {success: false, error: error.message};
-  }
+export const sendBookingConfirmation = async (email, clientName, booking) => {
+  return sendViaBackend('/booking-confirmation', {
+    clientEmail: email,
+    booking: {
+      ...booking,
+      clientName,
+    },
+  });
 };
 
 /**
- * Send password reset email
+ * Send job accepted email to client
  */
-export const sendPasswordResetEmail = async (email, resetCode) => {
-  try {
-    const response = await fetch(`${BASE_URL}/email/send`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        to: email,
-        subject: 'GSS Maasin - Password Reset Code',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: #00B14F; padding: 20px; text-align: center;">
-              <h1 style="color: white; margin: 0;">GSS Maasin</h1>
-            </div>
-            <div style="padding: 30px; background: #f9f9f9;">
-              <h2 style="color: #1F2937;">Password Reset Request</h2>
-              <p style="color: #4B5563;">You requested to reset your password. Use the code below:</p>
-              
-              <div style="background: #00B14F; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-                <p style="color: white; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 0;">
-                  ${resetCode}
-                </p>
-              </div>
-              
-              <p style="color: #6B7280; font-size: 14px;">
-                This code expires in 10 minutes. If you didn't request this, please ignore this email.
-              </p>
-            </div>
-            <div style="padding: 20px; text-align: center; color: #9CA3AF; font-size: 12px;">
-              <p>GSS Maasin - General Service System</p>
-            </div>
-          </div>
-        `,
-      }),
-    });
-    const data = await response.json();
-    console.log('[Email] Password reset sent:', data);
-    return data;
-  } catch (error) {
-    console.log('[Email] Failed to send password reset:', error.message);
-    return {success: false, error: error.message};
-  }
+export const sendJobAcceptedEmail = async (email, clientName, booking, provider) => {
+  return sendViaBackend('/job-accepted', {
+    clientEmail: email,
+    booking,
+    provider,
+  });
 };
 
 /**
- * Send email verification code
+ * Send payment receipt email
  */
-export const sendEmailVerificationCode = async (email, code) => {
-  try {
-    const response = await fetch(`${BASE_URL}/email/send`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        to: email,
-        subject: 'GSS Maasin - Verify Your Email',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: #00B14F; padding: 20px; text-align: center;">
-              <h1 style="color: white; margin: 0;">GSS Maasin</h1>
-            </div>
-            <div style="padding: 30px; background: #f9f9f9;">
-              <h2 style="color: #1F2937;">Verify Your Email</h2>
-              <p style="color: #4B5563;">Welcome to GSS Maasin! Please use the code below to verify your email address:</p>
-              
-              <div style="background: #00B14F; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-                <p style="color: white; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 0;">
-                  ${code}
-                </p>
-              </div>
-              
-              <p style="color: #6B7280; font-size: 14px;">
-                This code expires in 10 minutes. If you didn't create an account, please ignore this email.
-              </p>
-            </div>
-            <div style="padding: 20px; text-align: center; color: #9CA3AF; font-size: 12px;">
-              <p>GSS Maasin - General Service System</p>
-              <p>Maasin City, Southern Leyte</p>
-            </div>
-          </div>
-        `,
-      }),
-    });
-    const data = await response.json();
-    console.log('[Email] Verification code sent:', data);
-    return data;
-  } catch (error) {
-    console.log('[Email] Failed to send verification code:', error.message);
-    return {success: false, error: error.message};
-  }
+export const sendPaymentReceipt = async (email, clientName, payment) => {
+  return sendViaBackend('/payment-receipt', {
+    clientEmail: email,
+    payment,
+  });
 };
 
 /**
- * Send job rejection notification to client
+ * Send provider approval email
  */
-export const sendJobRejectionEmail = async (clientEmail, booking, reason = null) => {
-  try {
-    const response = await fetch(`${BASE_URL}/email/job-rejection`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({clientEmail, booking, reason}),
-    });
-    const data = await response.json();
-    console.log('[Email] Job rejection sent:', data);
-    return data;
-  } catch (error) {
-    console.log('[Email] Failed to send job rejection:', error.message);
-    return {success: false, error: error.message};
-  }
+export const sendProviderApprovalEmail = async (email, providerName, approved) => {
+  return sendViaBackend('/provider-approval', {
+    providerEmail: email,
+    providerName,
+    approved,
+  });
+};
+
+/**
+ * Send job rejection email
+ */
+export const sendJobRejectionEmail = async (email, clientName, booking, reason) => {
+  return sendViaBackend('/job-rejection', {
+    clientEmail: email,
+    booking,
+    reason,
+  });
+};
+
+/**
+ * Send general notification email
+ */
+export const sendNotificationEmail = async (email, name, subject, message, details = '') => {
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #00B14F; padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+      </div>
+      <div style="padding: 30px; background: #f9f9f9;">
+        <h2 style="color: #1F2937;">${subject}</h2>
+        <p style="color: #4B5563;">Hi ${name},</p>
+        <p style="color: #4B5563;">${message}</p>
+        ${details ? `<div style="background: white; padding: 15px; border-radius: 8px; margin: 20px 0; white-space: pre-line;">${details}</div>` : ''}
+      </div>
+    </div>
+  `;
+  
+  return sendViaBackend('/send', {to: email, subject, html});
 };
 
 export default {
-  sendBookingConfirmationEmail,
+  sendVerificationCode,
+  sendPasswordResetCode,
+  sendBookingConfirmation,
   sendJobAcceptedEmail,
-  sendPaymentReceiptEmail,
+  sendPaymentReceipt,
   sendProviderApprovalEmail,
-  sendPasswordResetEmail,
   sendJobRejectionEmail,
-  sendEmailVerificationCode,
+  sendNotificationEmail,
 };

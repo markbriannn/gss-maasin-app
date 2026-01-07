@@ -22,7 +22,7 @@ import {jobService} from '../../services/jobService';
 import {useAuth} from '../../context/AuthContext';
 import {useTheme} from '../../context/ThemeContext';
 import smsEmailService from '../../services/smsEmailService';
-import {sendBookingConfirmation} from '../../services/emailJSService';
+import {sendBookingConfirmation} from '../../services/emailService';
 import {attemptBooking, resetBookingLimit} from '../../utils/rateLimiter';
 import {uploadImage} from '../../services/imageUploadService';
 
