@@ -88,6 +88,12 @@ const JobTrackingScreen = ({navigation, route}) => {
           const data = docSnap.data();
           setJobData({...data, id: docSnap.id});
 
+          // Navigate to JobDetails when provider marks work as done (client needs to confirm)
+          if (data.status === 'pending_completion' || data.status === 'pending_payment' || data.status === 'payment_received' || data.status === 'completed') {
+            navigation.replace('JobDetails', {jobId: docId, job: {...data, id: docSnap.id}});
+            return;
+          }
+
           // Get provider location from booking - animate smoothly
           if (data.providerLocation) {
             const newLoc = {

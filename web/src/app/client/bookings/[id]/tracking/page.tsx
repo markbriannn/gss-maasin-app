@@ -48,6 +48,12 @@ export default function JobTrackingPage() {
           const data = { id: docSnap.id, ...docSnap.data() } as any;
           setJob(data);
 
+          // Navigate to booking details when provider marks work as done (client needs to confirm)
+          if (data.status === 'pending_completion' || data.status === 'pending_payment' || data.status === 'payment_received' || data.status === 'completed') {
+            router.replace(`/client/bookings/${jobId}`);
+            return;
+          }
+
           // Fetch provider info
           if (data.providerId) {
             const providerDoc = await getDoc(doc(db, 'users', data.providerId));

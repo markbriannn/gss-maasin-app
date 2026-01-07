@@ -60,9 +60,21 @@ const BookingStatusScreen = ({navigation, route}) => {
           const data = {...docSnap.data(), id: docSnap.id};
           setBooking(data);
 
-          // Only navigate to tracking when provider starts traveling
+          // Navigate to tracking when provider starts traveling
           if (data.status === 'traveling') {
             navigation.replace('Tracking', {jobId: bookingId, job: data});
+            return;
+          }
+
+          // Navigate to JobDetails when provider marks work as done (client needs to confirm)
+          if (data.status === 'pending_completion' || data.status === 'pending_payment' || data.status === 'payment_received') {
+            navigation.replace('JobDetails', {jobId: bookingId, job: data});
+            return;
+          }
+
+          // Navigate to JobDetails when job is completed
+          if (data.status === 'completed') {
+            navigation.replace('JobDetails', {jobId: bookingId, job: data});
             return;
           }
 
