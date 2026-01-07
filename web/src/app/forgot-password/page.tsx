@@ -2,20 +2,22 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { sendPasswordResetCode } from '@/lib/emailjs';
 import Link from 'next/link';
-import { ArrowLeft, Mail, CheckCircle, Loader2, KeyRound } from 'lucide-react';
+import { ArrowLeft, Mail, CheckCircle, Loader2, KeyRound, Lock, Eye, EyeOff } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<'email' | 'code' | 'sent'>('email');
+  const [step, setStep] = useState<'email' | 'code' | 'newPassword' | 'success'>('email');
   const [error, setError] = useState('');
-  const [generatedCode, setGeneratedCode] = useState('');
 
   const generateCode = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
@@ -45,7 +47,6 @@ export default function ForgotPasswordPage() {
 
       // Generate and store reset code
       const resetCode = generateCode();
-      setGeneratedCode(resetCode);
 
       // Store code in Firestore with expiry
       await setDoc(doc(db, 'passwordResets', email.toLowerCase()), {
@@ -60,7 +61,7 @@ export default function ForgotPasswordPage() {
       const result = await sendPasswordResetCode(email, resetCode);
       
       if (result.success) {
-        setStep('sent');
+        setStep('code');
       } else {
         setError('Failed to send reset code. Please try again.');
       }
@@ -72,7 +73,113 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  if (step === 'sent') {
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code || code.length !== 6) {
+      setError('Please enter the 6-digit code');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      // Get the stored reset code
+      const resetDoc = await getDoc(doc(db, 'passwordResets', email.toLowerCase()));
+      
+      if (!resetDoc.exists()) {
+        setError('Reset code not found. Please request a new one.');
+        setLoading(false);
+        return;
+      }
+
+      const resetData = resetDoc.data();
+      
+      // Check if code matches
+      if (resetData.code !== code) {
+        setError('Invalid code. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      // Check if code is expired
+      const expiresAt = resetData.expiresAt.toDate();
+      if (new Date() > expiresAt) {
+        setError('Code has expired. Please request a new one.');
+        setLoading(false);
+        return;
+      }
+
+      // Check if code was already used
+      if (resetData.used) {
+        setError('This code has already been used. Please request a new one.');
+        setLoading(false);
+        return;
+      }
+
+      // Code is valid, proceed to password reset
+      setStep('newPassword');
+    } catch (err) {
+      console.error('Code verification error:', err);
+      setError('Failed to verify code. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newPassword || newPassword.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      // Find the user
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('email', '==', email.toLowerCase()));
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        setError('User not found');
+        setLoading(false);
+        return;
+      }
+
+      const userDoc = snapshot.docs[0];
+      
+      // Update password in Firestore
+      await updateDoc(doc(db, 'users', userDoc.id), {
+        password: newPassword, // In production, this should be hashed
+        updatedAt: new Date(),
+      });
+
+      // Mark reset code as used
+      await updateDoc(doc(db, 'passwordResets', email.toLowerCase()), {
+        used: true,
+        usedAt: new Date(),
+      });
+
+      setStep('success');
+    } catch (err) {
+      console.error('Password reset error:', err);
+      setError('Failed to reset password. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Success screen
+  if (step === 'success') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="max-w-md w-full">
@@ -80,47 +187,196 @@ export default function ForgotPasswordPage() {
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Check Your Email</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Password Reset!</h1>
             <p className="text-gray-600 mb-6">
-              We&apos;ve sent a password reset code to <span className="font-medium">{email}</span>
+              Your password has been successfully reset. You can now login with your new password.
             </p>
-            <div className="bg-gray-50 rounded-xl p-4 mb-6">
-              <div className="flex items-center justify-center gap-2 text-gray-600">
-                <KeyRound className="w-5 h-5" />
-                <span>Your reset code is valid for 10 minutes</span>
-              </div>
-            </div>
-            <p className="text-sm text-gray-500 mb-6">
-              Didn&apos;t receive the email? Check your spam folder or try again.
-            </p>
-            <div className="space-y-3">
-              <button
-                onClick={() => {
-                  setStep('email');
-                  setError('');
-                }}
-                className="w-full py-3 border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
-              >
-                Try Another Email
-              </button>
-              <Link
-                href="/login"
-                className="block w-full py-3 bg-[#00B14F] text-white rounded-xl font-medium hover:bg-[#009940] transition-colors text-center"
-              >
-                Back to Login
-              </Link>
-            </div>
+            <Link
+              href="/login"
+              className="block w-full py-3 bg-[#00B14F] text-white rounded-xl font-medium hover:bg-[#009940] transition-colors text-center"
+            >
+              Go to Login
+            </Link>
           </div>
         </div>
       </div>
     );
   }
 
+  // New password screen
+  if (step === 'newPassword') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full">
+          <div className="bg-white rounded-2xl shadow-sm p-8">
+            <div className="flex items-center gap-4 mb-6">
+              <button onClick={() => setStep('code')} className="p-2 hover:bg-gray-100 rounded-full">
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <h1 className="text-2xl font-bold text-gray-900">New Password</h1>
+            </div>
+
+            <p className="text-gray-600 mb-6">
+              Enter your new password below.
+            </p>
+
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  New Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl focus:border-[#00B14F] focus:ring-1 focus:ring-[#00B14F] outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:border-[#00B14F] focus:ring-1 focus:ring-[#00B14F] outline-none"
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 bg-[#00B14F] text-white rounded-xl font-semibold hover:bg-[#009940] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Resetting...
+                  </>
+                ) : (
+                  'Reset Password'
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Code verification screen
+  if (step === 'code') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full">
+          <div className="bg-white rounded-2xl shadow-sm p-8">
+            <div className="flex items-center gap-4 mb-6">
+              <button onClick={() => setStep('email')} className="p-2 hover:bg-gray-100 rounded-full">
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <h1 className="text-2xl font-bold text-gray-900">Enter Code</h1>
+            </div>
+
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Mail className="w-8 h-8 text-green-600" />
+              </div>
+              <p className="text-gray-600">
+                We sent a 6-digit code to <span className="font-medium">{email}</span>
+              </p>
+            </div>
+
+            <form onSubmit={handleVerifyCode} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Verification Code
+                </label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Enter 6-digit code"
+                    maxLength={6}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:border-[#00B14F] focus:ring-1 focus:ring-[#00B14F] outline-none text-center text-2xl tracking-widest font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-sm text-gray-500 text-center">
+                  Code expires in 10 minutes. Check your spam folder if you don&apos;t see it.
+                </p>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading || code.length !== 6}
+                className="w-full py-3 bg-[#00B14F] text-white rounded-xl font-semibold hover:bg-[#009940] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  'Verify Code'
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStep('email');
+                  setCode('');
+                  setError('');
+                }}
+                className="w-full py-3 border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+              >
+                Resend Code
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Email input screen (default)
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="max-w-md w-full">
         <div className="bg-white rounded-2xl shadow-sm p-8">
-          {/* Header */}
           <div className="flex items-center gap-4 mb-6">
             <Link href="/login" className="p-2 hover:bg-gray-100 rounded-full">
               <ArrowLeft className="w-5 h-5" />
@@ -133,7 +389,6 @@ export default function ForgotPasswordPage() {
           </p>
 
           <form onSubmit={handleSendCode} className="space-y-4">
-            {/* Email Input */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Email Address
@@ -150,14 +405,12 @@ export default function ForgotPasswordPage() {
               </div>
             </div>
 
-            {/* Error Message */}
             {error && (
               <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
 
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
@@ -174,7 +427,6 @@ export default function ForgotPasswordPage() {
             </button>
           </form>
 
-          {/* Back to Login */}
           <p className="text-center text-gray-600 mt-6">
             Remember your password?{' '}
             <Link href="/login" className="text-[#00B14F] font-medium hover:underline">
