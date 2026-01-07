@@ -1,51 +1,42 @@
 /**
- * EmailJS Service for GSS Maasin Web
- * Sends emails directly from the app without backend
+ * Email Service for GSS Maasin Web
+ * Uses backend Gmail SMTP for reliable email delivery
  */
 
-const EMAILJS_SERVICE_ID = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || 'service_lkj52eb';
-const EMAILJS_OTP_TEMPLATE_ID = process.env.NEXT_PUBLIC_EMAILJS_OTP_TEMPLATE_ID || 'template_zae2z8b';
-const EMAILJS_NOTIFICATION_TEMPLATE_ID = process.env.NEXT_PUBLIC_EMAILJS_NOTIFICATION_TEMPLATE_ID || 'template_738r616';
-const EMAILJS_PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || 'iC39I71dBYX0IRiXg';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com';
 
-interface EmailJSResponse {
+interface EmailResponse {
   success: boolean;
   error?: string;
 }
 
 /**
- * Send email using EmailJS REST API
+ * Send email via backend API
  */
-const sendEmailJS = async (templateId: string, templateParams: Record<string, string>): Promise<EmailJSResponse> => {
+const sendViaBackend = async (endpoint: string, data: Record<string, unknown>): Promise<EmailResponse> => {
   try {
-    console.log('[EmailJS] Sending email...');
+    console.log('[Email] Sending via backend:', endpoint);
     
-    const payload = {
-      service_id: EMAILJS_SERVICE_ID,
-      template_id: templateId,
-      user_id: EMAILJS_PUBLIC_KEY,
-      template_params: templateParams,
-    };
-    
-    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+    const response = await fetch(`${API_URL}/api/email${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(data),
     });
 
-    if (response.ok) {
-      console.log('[EmailJS] Email sent successfully');
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      console.log('[Email] Sent successfully');
       return { success: true };
     } else {
-      const responseText = await response.text();
-      console.log('[EmailJS] Failed to send email:', responseText);
-      return { success: false, error: responseText };
+      console.log('[Email] Failed:', result.error);
+      return { success: false, error: result.error || 'Failed to send email' };
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.log('[EmailJS] Error sending email:', errorMessage);
+    console.log('[Email] Error:', errorMessage);
     return { success: false, error: errorMessage };
   }
 };
@@ -53,25 +44,15 @@ const sendEmailJS = async (templateId: string, templateParams: Record<string, st
 /**
  * Send verification code email
  */
-export const sendVerificationCode = async (email: string, code: string): Promise<EmailJSResponse> => {
-  return sendEmailJS(EMAILJS_OTP_TEMPLATE_ID, {
-    email: email,
-    code: code,
-    passcode: code,
-    time: '10 minutes',
-  });
+export const sendVerificationCode = async (email: string, code: string): Promise<EmailResponse> => {
+  return sendViaBackend('/verification-code', { email, code });
 };
 
 /**
  * Send password reset code
  */
-export const sendPasswordResetCode = async (email: string, code: string): Promise<EmailJSResponse> => {
-  return sendEmailJS(EMAILJS_OTP_TEMPLATE_ID, {
-    email: email,
-    code: code,
-    passcode: code,
-    time: '10 minutes',
-  });
+export const sendPasswordResetCode = async (email: string, code: string): Promise<EmailResponse> => {
+  return sendViaBackend('/password-reset', { email, code });
 };
 
 /**
@@ -83,14 +64,22 @@ export const sendNotificationEmail = async (
   subject: string, 
   message: string, 
   details: string = ''
-): Promise<EmailJSResponse> => {
-  return sendEmailJS(EMAILJS_NOTIFICATION_TEMPLATE_ID, {
-    email: email,
-    name: name || 'User',
-    subject: subject,
-    message: message,
-    details: details,
-  });
+): Promise<EmailResponse> => {
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #00B14F; padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+      </div>
+      <div style="padding: 30px; background: #f9f9f9;">
+        <h2 style="color: #1F2937;">${subject}</h2>
+        <p style="color: #4B5563;">Hi ${name},</p>
+        <p style="color: #4B5563;">${message}</p>
+        ${details ? `<div style="background: white; padding: 15px; border-radius: 8px; margin: 20px 0; white-space: pre-line;">${details}</div>` : ''}
+      </div>
+    </div>
+  `;
+  
+  return sendViaBackend('/send', { to: email, subject, html });
 };
 
 interface Booking {
@@ -121,22 +110,14 @@ export const sendBookingConfirmation = async (
   email: string, 
   clientName: string, 
   booking: Booking
-): Promise<EmailJSResponse> => {
-  const details = `
-Service: ${booking.serviceCategory || booking.title || 'Service'}
-Date: ${booking.scheduledDate || 'TBD'}
-Time: ${booking.scheduledTime || 'TBD'}
-Provider: ${booking.providerName || 'To be assigned'}
-Amount: ₱${(booking.totalAmount || 0).toLocaleString()}
-  `.trim();
-
-  return sendNotificationEmail(
-    email,
-    clientName,
-    'Booking Confirmed',
-    'Your service request has been submitted successfully. We will notify you once a provider accepts your request.',
-    details
-  );
+): Promise<EmailResponse> => {
+  return sendViaBackend('/booking-confirmation', { 
+    clientEmail: email, 
+    booking: {
+      ...booking,
+      clientName,
+    }
+  });
 };
 
 /**
@@ -147,22 +128,12 @@ export const sendJobAcceptedEmail = async (
   clientName: string, 
   booking: Booking, 
   provider: Provider
-): Promise<EmailJSResponse> => {
-  const details = `
-Service: ${booking.serviceCategory || booking.title || 'Service'}
-Provider: ${provider?.name || 'Provider'}
-Contact: ${provider?.phone || 'Available in app'}
-Date: ${booking.scheduledDate || 'TBD'}
-Amount: ₱${(booking.totalAmount || 0).toLocaleString()}
-  `.trim();
-
-  return sendNotificationEmail(
-    email,
-    clientName,
-    'Provider Assigned',
-    'Great news! A provider has accepted your service request. You can now contact them through the app.',
-    details
-  );
+): Promise<EmailResponse> => {
+  return sendViaBackend('/job-accepted', { 
+    clientEmail: email, 
+    booking,
+    provider 
+  });
 };
 
 /**
@@ -172,22 +143,11 @@ export const sendPaymentReceipt = async (
   email: string, 
   clientName: string, 
   payment: Payment
-): Promise<EmailJSResponse> => {
-  const details = `
-Service: ${payment.serviceName || 'Service'}
-Amount: ₱${(payment.amount || 0).toLocaleString()}
-Method: ${payment.paymentMethod || 'Cash'}
-Date: ${new Date().toLocaleDateString()}
-Reference: ${payment.bookingId || 'N/A'}
-  `.trim();
-
-  return sendNotificationEmail(
-    email,
-    clientName,
-    'Payment Successful',
-    'Your payment has been processed successfully. Thank you for using GSS Maasin!',
-    details
-  );
+): Promise<EmailResponse> => {
+  return sendViaBackend('/payment-receipt', { 
+    clientEmail: email, 
+    payment 
+  });
 };
 
 /**
@@ -197,24 +157,12 @@ export const sendProviderApprovalEmail = async (
   email: string, 
   providerName: string, 
   approved: boolean
-): Promise<EmailJSResponse> => {
-  if (approved) {
-    return sendNotificationEmail(
-      email,
-      providerName,
-      'Account Approved',
-      'Congratulations! Your provider account has been approved. You can now start receiving job requests and earning!',
-      'Open the GSS Maasin app to view available jobs.'
-    );
-  } else {
-    return sendNotificationEmail(
-      email,
-      providerName,
-      'Application Update',
-      'Thank you for your interest in becoming a GSS Maasin provider. Unfortunately, we could not approve your application at this time.',
-      'Please contact support for more information.'
-    );
-  }
+): Promise<EmailResponse> => {
+  return sendViaBackend('/provider-approval', { 
+    providerEmail: email, 
+    providerName, 
+    approved 
+  });
 };
 
 export default {

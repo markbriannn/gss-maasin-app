@@ -2,19 +2,26 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { sendPasswordResetCode } from '@/lib/emailjs';
 import Link from 'next/link';
-import { ArrowLeft, Mail, CheckCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Mail, CheckCircle, Loader2, KeyRound } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [step, setStep] = useState<'email' | 'code' | 'sent'>('email');
   const [error, setError] = useState('');
+  const [generatedCode, setGeneratedCode] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const generateCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
+  const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
       setError('Please enter your email address');
@@ -25,24 +32,47 @@ export default function ForgotPasswordPage() {
     setError('');
 
     try {
-      await sendPasswordResetEmail(auth, email);
-      setSent(true);
+      // Check if user exists
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('email', '==', email.toLowerCase()));
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        setError('No account found with this email address');
+        setLoading(false);
+        return;
+      }
+
+      // Generate and store reset code
+      const resetCode = generateCode();
+      setGeneratedCode(resetCode);
+
+      // Store code in Firestore with expiry
+      await setDoc(doc(db, 'passwordResets', email.toLowerCase()), {
+        code: resetCode,
+        email: email.toLowerCase(),
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+        used: false,
+      });
+
+      // Send email via backend
+      const result = await sendPasswordResetCode(email, resetCode);
+      
+      if (result.success) {
+        setStep('sent');
+      } else {
+        setError('Failed to send reset code. Please try again.');
+      }
     } catch (err: unknown) {
       console.error('Password reset error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to send reset email';
-      if (errorMessage.includes('user-not-found')) {
-        setError('No account found with this email address');
-      } else if (errorMessage.includes('invalid-email')) {
-        setError('Please enter a valid email address');
-      } else {
-        setError('Failed to send reset email. Please try again.');
-      }
+      setError('Failed to send reset code. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  if (sent) {
+  if (step === 'sent') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="max-w-md w-full">
@@ -52,14 +82,23 @@ export default function ForgotPasswordPage() {
             </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Check Your Email</h1>
             <p className="text-gray-600 mb-6">
-              We&apos;ve sent a password reset link to <span className="font-medium">{email}</span>
+              We&apos;ve sent a password reset code to <span className="font-medium">{email}</span>
             </p>
+            <div className="bg-gray-50 rounded-xl p-4 mb-6">
+              <div className="flex items-center justify-center gap-2 text-gray-600">
+                <KeyRound className="w-5 h-5" />
+                <span>Your reset code is valid for 10 minutes</span>
+              </div>
+            </div>
             <p className="text-sm text-gray-500 mb-6">
               Didn&apos;t receive the email? Check your spam folder or try again.
             </p>
             <div className="space-y-3">
               <button
-                onClick={() => setSent(false)}
+                onClick={() => {
+                  setStep('email');
+                  setError('');
+                }}
                 className="w-full py-3 border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
               >
                 Try Another Email
@@ -90,10 +129,10 @@ export default function ForgotPasswordPage() {
           </div>
 
           <p className="text-gray-600 mb-6">
-            Enter your email address and we&apos;ll send you a link to reset your password.
+            Enter your email address and we&apos;ll send you a code to reset your password.
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSendCode} className="space-y-4">
             {/* Email Input */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -130,7 +169,7 @@ export default function ForgotPasswordPage() {
                   Sending...
                 </>
               ) : (
-                'Send Reset Link'
+                'Send Reset Code'
               )}
             </button>
           </form>

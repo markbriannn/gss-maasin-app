@@ -127,4 +127,44 @@ router.post('/job-rejection', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/email/password-reset
+ * Send password reset code
+ */
+router.post('/password-reset', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Missing email or code' });
+    }
+    
+    const result = await emailService.sendPasswordResetEmail(email, code);
+    res.json(result);
+  } catch (error) {
+    console.error('Password reset email error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/email/verification-code
+ * Send verification code
+ */
+router.post('/verification-code', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Missing email or code' });
+    }
+    
+    const result = await emailService.sendPasswordResetEmail(email, code);
+    res.json(result);
+  } catch (error) {
+    console.error('Verification code email error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
