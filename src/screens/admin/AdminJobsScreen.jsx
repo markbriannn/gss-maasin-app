@@ -362,7 +362,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                   await smsEmailService.notifyProviderNewApprovedJob(bookingData, providerData, {name: job.client?.name});
                 }
                 
-                // Send email notification to client via EmailJS
+                // Send email notification to client via Brevo
                 if (job.client?.email) {
                   sendBookingConfirmation(job.client.email, job.client?.name || 'Client', {
                     serviceCategory: job.category,

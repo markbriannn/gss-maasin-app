@@ -527,7 +527,7 @@ const JobDetailsScreen = ({navigation, route}) => {
             Alert.alert('Payment Recorded', 'The provider will confirm receipt of payment to complete the job.');
           }
           
-          // Send payment receipt email to client via EmailJS
+          // Send payment receipt email to client via Brevo
           if (user?.email) {
             const clientName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Client';
             sendPaymentReceipt(user.email, clientName, {

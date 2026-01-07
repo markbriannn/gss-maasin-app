@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { sendPasswordResetCode } from '@/lib/emailjs';
+import { sendPasswordResetCode } from '@/lib/email';
 import Link from 'next/link';
 import { ArrowLeft, Mail, CheckCircle, Loader2, KeyRound, Lock, Eye, EyeOff } from 'lucide-react';
 

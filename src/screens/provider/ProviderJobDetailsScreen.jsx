@@ -389,7 +389,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                 smsEmailService.notifyJobAccepted(jobData, jobData.client, {name: user?.firstName || 'Provider'})
                   .catch(err => console.log('SMS notification failed:', err));
                 
-                // Send email notification via EmailJS (async)
+                // Send email notification via Brevo (async)
                 const clientEmail = jobData.client?.email;
                 const clientName = jobData.client?.name || 'Client';
                 if (clientEmail) {
@@ -866,7 +866,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                 smsEmailService.notifyJobCompleted(jobData, jobData.client, {name: user?.firstName || 'Provider'})
                   .catch(err => console.log('SMS/Email notification failed:', err));
                 
-                // Send payment receipt email via EmailJS (async)
+                // Send payment receipt email via Brevo (async)
                 const clientEmail = jobData.client?.email;
                 const clientName = jobData.client?.name || 'Client';
                 if (clientEmail) {

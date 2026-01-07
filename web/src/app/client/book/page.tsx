@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { sendBookingConfirmation } from '@/lib/emailjs';
+import { sendBookingConfirmation } from '@/lib/email';
 import { createPaymentSource, PaymentMethod } from '@/lib/paymongo';
 import ClientLayout from '@/components/layouts/ClientLayout';
 import Link from 'next/link';

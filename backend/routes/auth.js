@@ -33,7 +33,7 @@ router.post('/generate-reset-code', async (req, res) => {
       attempts: 0,
     });
 
-    // Return code (frontend will send via EmailJS)
+    // Return code (frontend will send via Brevo)
     res.json({ success: true, code });
   } catch (error) {
     console.error('Generate reset code error:', error);

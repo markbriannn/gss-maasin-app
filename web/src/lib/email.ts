@@ -1,6 +1,6 @@
 /**
  * Email Service for GSS Maasin Web
- * Uses backend Gmail SMTP for reliable email delivery
+ * Uses backend Brevo API for reliable email delivery
  */
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com';
@@ -11,11 +11,11 @@ interface EmailResponse {
 }
 
 /**
- * Send email via backend API
+ * Send email via backend API (Brevo)
  */
 const sendViaBackend = async (endpoint: string, data: Record<string, unknown>): Promise<EmailResponse> => {
   try {
-    console.log('[Email] Sending via backend:', endpoint);
+    console.log('[Email] Sending via Brevo backend:', endpoint);
     
     // Remove /api from API_URL if it exists to avoid double /api/api
     const baseUrl = API_URL.replace(/\/api\/?$/, '');
@@ -31,7 +31,7 @@ const sendViaBackend = async (endpoint: string, data: Record<string, unknown>): 
     const result = await response.json();
     
     if (response.ok && result.success) {
-      console.log('[Email] Sent successfully');
+      console.log('[Email] Sent successfully via Brevo');
       return { success: true };
     } else {
       console.log('[Email] Failed:', result.error);
@@ -111,15 +111,12 @@ interface Payment {
  */
 export const sendBookingConfirmation = async (
   email: string, 
-  clientName: string, 
+  _clientName: string, 
   booking: Booking
 ): Promise<EmailResponse> => {
   return sendViaBackend('/booking-confirmation', { 
     clientEmail: email, 
-    booking: {
-      ...booking,
-      clientName,
-    }
+    booking
   });
 };
 
@@ -128,7 +125,7 @@ export const sendBookingConfirmation = async (
  */
 export const sendJobAcceptedEmail = async (
   email: string, 
-  clientName: string, 
+  _clientName: string, 
   booking: Booking, 
   provider: Provider
 ): Promise<EmailResponse> => {
@@ -144,7 +141,7 @@ export const sendJobAcceptedEmail = async (
  */
 export const sendPaymentReceipt = async (
   email: string, 
-  clientName: string, 
+  _clientName: string, 
   payment: Payment
 ): Promise<EmailResponse> => {
   return sendViaBackend('/payment-receipt', { 

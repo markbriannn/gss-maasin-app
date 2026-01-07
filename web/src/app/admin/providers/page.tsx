@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { collection, query, where, getDocs, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { sendProviderApprovalEmail, sendNotificationEmail } from '@/lib/emailjs';
+import { sendProviderApprovalEmail, sendNotificationEmail } from '@/lib/email';
 import AdminLayout from '@/components/layouts/AdminLayout';
 import {
   Users, Search, CheckCircle, XCircle, Star, Mail, Phone, Calendar, MapPin, Eye,

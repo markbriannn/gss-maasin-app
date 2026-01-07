@@ -88,7 +88,7 @@ const ForgotPasswordScreen = ({navigation}) => {
       const data = await response.json();
 
       if (data.code) {
-        // Send reset code via EmailJS
+        // Send reset code via Brevo
         const emailResult = await sendPasswordResetCode(email, data.code);
 
         if (emailResult.success) {
