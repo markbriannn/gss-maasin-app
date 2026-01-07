@@ -45,7 +45,7 @@ interface CreatePaymentParams {
  */
 export const createPaymentSource = async (params: CreatePaymentParams): Promise<PaymentSourceResponse> => {
   try {
-    const { amount, description, bookingId, paymentMethod, successUrl, failedUrl } = params;
+    const { amount, description, bookingId, clientId, paymentMethod, successUrl, failedUrl } = params;
     
     // Use backend API to create source (keeps secret key secure)
     const baseUrl = getBaseUrl();
@@ -59,6 +59,7 @@ export const createPaymentSource = async (params: CreatePaymentParams): Promise<
         type: paymentMethod, // 'gcash' or 'maya'
         description,
         bookingId,
+        userId: clientId, // Pass userId to backend
         redirect: {
           success: successUrl || `${baseUrl}/client/bookings/${bookingId}?payment=success`,
           failed: failedUrl || `${baseUrl}/client/bookings/${bookingId}?payment=failed`,
