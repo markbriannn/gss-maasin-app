@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { XCircle, Smartphone, ExternalLink, RefreshCw } from 'lucide-react';
+import { XCircle, Smartphone, ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
 
-export default function PaymentFailedPage() {
+function PaymentFailedContent() {
   const searchParams = useSearchParams();
   const bookingId = searchParams.get('bookingId');
   const [countdown, setCountdown] = useState(3);
@@ -77,9 +77,21 @@ export default function PaymentFailedPage() {
         </button>
 
         <p className="text-xs text-gray-400 mt-4">
-          If the app doesn't open automatically, tap the button above.
+          If the app doesn&apos;t open automatically, tap the button above.
         </p>
       </div>
     </div>
+  );
+}
+
+export default function PaymentFailedPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-red-500 animate-spin" />
+      </div>
+    }>
+      <PaymentFailedContent />
+    </Suspense>
   );
 }

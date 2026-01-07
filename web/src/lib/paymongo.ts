@@ -55,7 +55,7 @@ export const createPaymentSource = async (params: CreatePaymentParams): Promise<
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        amount: amount * 100, // Convert to centavos
+        amount, // Amount in pesos - backend will convert to centavos
         type: paymentMethod, // 'gcash' or 'maya'
         description,
         bookingId,
@@ -104,7 +104,7 @@ export const createPaymentIntent = async (params: CreatePaymentParams): Promise<
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        amount: amount * 100, // Convert to centavos
+        amount, // Amount in pesos - backend will convert to centavos
         description,
         bookingId,
         paymentMethodAllowed: ['card'],

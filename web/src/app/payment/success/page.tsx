@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { CheckCircle, Smartphone, ExternalLink } from 'lucide-react';
+import { CheckCircle, Smartphone, ExternalLink, Loader2 } from 'lucide-react';
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const bookingId = searchParams.get('bookingId');
   const [countdown, setCountdown] = useState(3);
@@ -69,9 +69,21 @@ export default function PaymentSuccessPage() {
         </button>
 
         <p className="text-xs text-gray-400 mt-4">
-          If the app doesn't open automatically, tap the button above.
+          If the app doesn&apos;t open automatically, tap the button above.
         </p>
       </div>
     </div>
+  );
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+      </div>
+    }>
+      <PaymentSuccessContent />
+    </Suspense>
   );
 }
