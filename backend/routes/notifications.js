@@ -2,6 +2,27 @@
 const express = require('express');
 const router = express.Router();
 const pushService = require('../services/pushNotificationService');
+const emailService = require('../services/emailService');
+
+// Send email notification
+router.post('/email', async (req, res) => {
+  try {
+    const { to, subject, html, text } = req.body;
+
+    if (!to || !subject || !html) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'to, subject, and html are required' 
+      });
+    }
+
+    const result = await emailService.sendEmail(to, subject, html, text);
+    res.json(result);
+  } catch (error) {
+    console.error('Error sending email:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // Send notification to a specific user
 router.post('/send', async (req, res) => {

@@ -228,11 +228,12 @@ function BookServiceContent() {
         totalAmount: totalAmount,
         // Escrow payment - always pay first
         paymentMethod: paymentMethod,
+        paymentPreference: 'pay_first', // ALWAYS pay first
         paymentStatus: 'pending', // pending -> paid -> held -> released
         isPaidUpfront: false,
         upfrontPaidAmount: 0,
         escrowAmount: totalAmount, // Amount held in escrow
-        status: 'awaiting_payment', // New status - waiting for payment
+        status: 'pending', // Start as pending - admin will review and approve
         adminApproved: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

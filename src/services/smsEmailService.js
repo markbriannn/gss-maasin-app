@@ -1,7 +1,7 @@
 import axios from 'axios';
 import {API_BASE_URL} from '@env';
 
-const API_URL = API_BASE_URL || null;
+const API_URL = API_BASE_URL || 'https://gss-maasin-app.onrender.com/api';
 
 // Semaphore SMS API Configuration
 const SEMAPHORE_API_KEY = '2edfd7cdc71dd465db606963a70a88f4';
@@ -18,7 +18,7 @@ const SEMAPHORE_API_URL = 'https://api.semaphore.co/api/v4/messages';
 class SMSEmailService {
   constructor() {
     this.apiUrl = API_URL;
-    this.isConfigured = !!API_URL;
+    this.isConfigured = true; // Always configured with fallback
     this.semaphoreApiKey = SEMAPHORE_API_KEY;
   }
 
@@ -127,7 +127,21 @@ class SMSEmailService {
    * Send booking confirmation to client
    */
   async sendBookingConfirmation(booking, client, provider) {
-    const smsMessage = `GSS Maasin: Your booking for ${booking.serviceCategory} with ${provider.name} is confirmed! Date: ${booking.scheduledDate} at ${booking.scheduledTime}. Total: ₱${booking.totalAmount?.toLocaleString()}. Job ID: ${booking.id?.slice(-6)}`;
+    // Format date/time - use scheduledDate if available, otherwise use createdAt or "ASAP"
+    const formatDate = (date) => {
+      if (!date) return 'ASAP';
+      try {
+        const d = date.toDate ? date.toDate() : new Date(date);
+        return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+      } catch {
+        return 'ASAP';
+      }
+    };
+    
+    const dateStr = booking.scheduledDate || formatDate(booking.createdAt) || 'ASAP';
+    const timeStr = booking.scheduledTime || 'As soon as possible';
+    
+    const smsMessage = `GSS Maasin: Your booking for ${booking.serviceCategory} with ${provider.name} is confirmed! ${dateStr !== 'ASAP' ? `Date: ${dateStr} at ${timeStr}.` : ''} Total: ₱${booking.totalAmount?.toLocaleString()}. Job ID: ${booking.id?.slice(-6)}`;
     
     const emailSubject = `Booking Confirmed - ${booking.serviceCategory}`;
     const emailBody = `
@@ -143,8 +157,7 @@ class SMSEmailService {
           <div style="background: white; padding: 20px; border-radius: 10px; margin: 20px 0;">
             <p><strong>Service:</strong> ${booking.serviceCategory}</p>
             <p><strong>Provider:</strong> ${provider.name}</p>
-            <p><strong>Date:</strong> ${booking.scheduledDate}</p>
-            <p><strong>Time:</strong> ${booking.scheduledTime}</p>
+            <p><strong>Schedule:</strong> ${dateStr} ${timeStr !== 'As soon as possible' ? `at ${timeStr}` : '(ASAP)'}</p>
             <p><strong>Location:</strong> ${booking.address || 'As specified'}</p>
             <hr style="border: none; border-top: 1px solid #eee; margin: 15px 0;">
             <p><strong>Total Amount:</strong> <span style="color: #00B14F; font-size: 18px;">₱${booking.totalAmount?.toLocaleString()}</span></p>

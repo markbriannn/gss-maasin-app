@@ -195,9 +195,10 @@ const BookServiceScreen = ({navigation, route}) => {
         clientPhone: user?.phoneNumber,
         providerId: actualProviderId || null,
         providerName: displayProviderName || null,
-        // Escrow payment - always pay first
-        status: 'awaiting_payment', // New status - waiting for payment
-        paymentMethod: paymentMethod,
+        // Pay First ONLY - no cash, no pay later
+        status: 'pending', // Start as pending, will be updated after payment
+        paymentPreference: 'pay_first', // ALWAYS pay first
+        paymentMethod: paymentMethod, // gcash or maya
         paymentStatus: 'pending', // pending -> paid -> held -> released
         isPaidUpfront: false,
         upfrontPaidAmount: 0,
@@ -248,8 +249,7 @@ const BookServiceScreen = ({navigation, route}) => {
 
         if (paymentResult.success && paymentResult.checkoutUrl) {
           // Open PayMongo checkout in browser
-          const supported = await Linking.canOpenURL(paymentResult.checkoutUrl);
-          if (supported) {
+          try {
             await Linking.openURL(paymentResult.checkoutUrl);
             // Navigate to booking status to wait for payment confirmation
             navigation.replace('BookingStatus', {
@@ -257,8 +257,9 @@ const BookServiceScreen = ({navigation, route}) => {
               booking: {...jobData, id: bookingId},
               awaitingPayment: true,
             });
-          } else {
-            Alert.alert('Error', 'Cannot open payment page');
+          } catch (linkError) {
+            console.error('Failed to open URL:', linkError);
+            Alert.alert('Error', 'Cannot open payment page. Please try again.');
             setProcessingPayment(false);
           }
         } else {

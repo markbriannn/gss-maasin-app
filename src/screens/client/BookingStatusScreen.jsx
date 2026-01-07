@@ -16,10 +16,10 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import MapView, {Marker, Polyline, PROVIDER_GOOGLE} from 'react-native-maps';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {db} from '../../config/firebase';
-import {doc, onSnapshot, updateDoc} from 'firebase/firestore';
+import {doc, onSnapshot, updateDoc, getDoc} from 'firebase/firestore';
 import {SERVICE_CATEGORIES} from '../../config/constants';
 
-const {height: SCREEN_HEIGHT, width: SCREEN_WIDTH} = Dimensions.get('window');
+const {height: SCREEN_HEIGHT} = Dimensions.get('window');
 
 const BookingStatusScreen = ({navigation, route}) => {
   const {bookingId, booking: initialBooking} = route.params || {};
@@ -28,6 +28,7 @@ const BookingStatusScreen = ({navigation, route}) => {
   
   const [booking, setBooking] = useState(initialBooking || null);
   const [providerLocation, setProviderLocation] = useState(null);
+  const [providerInfo, setProviderInfo] = useState(null);
   const [routeCoordinates, setRouteCoordinates] = useState([]);
 
   // Animate progress bar
@@ -54,17 +55,55 @@ const BookingStatusScreen = ({navigation, route}) => {
 
     const unsubscribe = onSnapshot(
       doc(db, 'bookings', bookingId),
-      (docSnap) => {
+      async (docSnap) => {
         if (docSnap.exists()) {
           const data = {...docSnap.data(), id: docSnap.id};
           setBooking(data);
 
-          // If provider accepted, navigate to tracking
-          if (data.status === 'accepted' || data.status === 'traveling') {
+          // Only navigate to tracking when provider starts traveling
+          if (data.status === 'traveling') {
             navigation.replace('Tracking', {jobId: bookingId, job: data});
+            return;
           }
 
-          // Get provider location if available
+          // Fetch provider info and location from their user document
+          if (data.providerId && !providerInfo) {
+            try {
+              const providerDoc = await getDoc(doc(db, 'users', data.providerId));
+              if (providerDoc.exists()) {
+                const pData = providerDoc.data();
+                setProviderInfo({
+                  id: providerDoc.id,
+                  name: `${pData.firstName || ''} ${pData.lastName || ''}`.trim() || 'Provider',
+                  photo: pData.profilePhoto,
+                  serviceCategory: pData.serviceCategory,
+                });
+                
+                // Get provider's current location
+                if (pData.latitude && pData.longitude) {
+                  const provLoc = {
+                    latitude: pData.latitude,
+                    longitude: pData.longitude,
+                  };
+                  setProviderLocation(provLoc);
+                  
+                  // Fit map to show both client and provider
+                  if (data.latitude && data.longitude && mapRef.current) {
+                    setTimeout(() => {
+                      mapRef.current?.fitToCoordinates(
+                        [provLoc, {latitude: data.latitude, longitude: data.longitude}],
+                        {edgePadding: {top: 80, right: 50, bottom: 350, left: 50}, animated: true}
+                      );
+                    }, 500);
+                  }
+                }
+              }
+            } catch (e) {
+              console.log('Error fetching provider:', e);
+            }
+          }
+
+          // Update provider location from booking if available
           if (data.providerLocation) {
             setProviderLocation({
               latitude: data.providerLocation.latitude,
@@ -76,7 +115,37 @@ const BookingStatusScreen = ({navigation, route}) => {
     );
 
     return () => unsubscribe();
-  }, [bookingId]);
+  }, [bookingId, navigation]);
+
+  // Listen to provider's real-time location updates
+  useEffect(() => {
+    const providerId = booking?.providerId;
+    if (!providerId) return;
+
+    const unsubscribe = onSnapshot(
+      doc(db, 'users', providerId),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.latitude && data.longitude) {
+            setProviderLocation({
+              latitude: data.latitude,
+              longitude: data.longitude,
+            });
+            
+            // Update provider info
+            setProviderInfo(prev => ({
+              ...prev,
+              name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || prev?.name || 'Provider',
+              photo: data.profilePhoto || prev?.photo,
+            }));
+          }
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [booking?.providerId]);
 
   // Fetch route
   useEffect(() => {
@@ -152,7 +221,7 @@ const BookingStatusScreen = ({navigation, route}) => {
       case 'pending':
         return {title: 'Finding you a Provider', subtitle: 'Connecting you with providers nearby'};
       case 'accepted':
-        return {title: 'Provider Found!', subtitle: 'Your provider is on the way'};
+        return {title: 'Provider Found!', subtitle: 'Waiting for provider to start traveling'};
       case 'traveling':
         return {title: 'Provider En Route', subtitle: 'Your provider is coming to you'};
       default:
@@ -179,36 +248,49 @@ const BookingStatusScreen = ({navigation, route}) => {
         initialRegion={{
           latitude: booking?.latitude || 10.1301,
           longitude: booking?.longitude || 124.8447,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
         }}
         showsUserLocation>
-        {/* Destination Marker */}
+        {/* Client Location Marker (Destination) - Same style as ClientHomeScreen */}
         {booking?.latitude && (
           <Marker
             coordinate={{latitude: booking.latitude, longitude: booking.longitude}}
-            title="Destination">
-            <View style={styles.destMarker}>
-              <Icon name="location" size={24} color="#EF4444" />
+            title="Your Location"
+            tracksViewChanges={false}>
+            <View style={styles.clientMarker}>
+              <Icon name="home" size={20} color="#EF4444" />
             </View>
           </Marker>
         )}
 
-        {/* Provider Marker */}
+        {/* Provider Marker - Same style as ClientHomeScreen */}
         {providerLocation && (
-          <Marker coordinate={providerLocation} title="Provider">
+          <Marker 
+            coordinate={providerLocation} 
+            title={providerInfo?.name || 'Provider'}
+            tracksViewChanges={true}>
             <View style={styles.providerMarker}>
-              <Icon name="car" size={20} color="#FFF" />
+              {providerInfo?.photo ? (
+                <Image 
+                  source={{uri: providerInfo.photo}} 
+                  style={styles.providerMarkerImg}
+                />
+              ) : (
+                <Text style={styles.providerMarkerInitial}>
+                  {providerInfo?.name?.charAt(0)?.toUpperCase() || 'P'}
+                </Text>
+              )}
             </View>
           </Marker>
         )}
 
-        {/* Route */}
+        {/* Route Line - Same blue color as ClientHomeScreen */}
         {routeCoordinates.length > 1 && (
           <Polyline
             coordinates={routeCoordinates}
-            strokeColor="#00B14F"
-            strokeWidth={4}
+            strokeColor="#1A73E8"
+            strokeWidth={5}
           />
         )}
       </MapView>
@@ -241,17 +323,42 @@ const BookingStatusScreen = ({navigation, route}) => {
               <Text style={styles.statusTitle}>{status.title}</Text>
               <Text style={styles.statusSubtitle}>{status.subtitle}</Text>
             </View>
-            <Image
-              source={{uri: 'https://cdn-icons-png.flaticon.com/512/3097/3097180.png'}}
-              style={styles.statusIcon}
-            />
+            {/* Show provider photo if available, otherwise show car icon */}
+            {providerInfo?.photo ? (
+              <Image
+                source={{uri: providerInfo.photo}}
+                style={styles.providerPhoto}
+              />
+            ) : (
+              <Image
+                source={{uri: 'https://cdn-icons-png.flaticon.com/512/3097/3097180.png'}}
+                style={styles.statusIcon}
+              />
+            )}
           </View>
+          
+          {/* Show provider name if accepted */}
+          {booking?.status === 'accepted' && providerInfo?.name && (
+            <View style={styles.providerInfoRow}>
+              <Icon name="person" size={16} color="#00B14F" />
+              <Text style={styles.providerInfoText}>{providerInfo.name}</Text>
+              {providerInfo?.serviceCategory && (
+                <>
+                  <Text style={styles.providerInfoSep}>•</Text>
+                  <Text style={styles.providerInfoText}>{providerInfo.serviceCategory}</Text>
+                </>
+              )}
+            </View>
+          )}
+          
           {/* Progress Bar */}
           <View style={styles.progressBg}>
             <Animated.View style={[styles.progressBar, {width: progressWidth}]} />
           </View>
           <Text style={styles.tipText}>
-            Did you know... You can book multiple services at once!
+            {booking?.status === 'accepted' 
+              ? 'Provider is preparing to come to you...'
+              : 'Did you know... You can book multiple services at once!'}
           </Text>
         </View>
 
@@ -300,17 +407,19 @@ const BookingStatusScreen = ({navigation, route}) => {
           </View>
         </View>
 
-        {/* Payment Method */}
+        {/* Payment Method - Pay First with GCash/Maya */}
         <View style={styles.paymentCard}>
           <View style={styles.paymentRow}>
-            <Icon name="cash-outline" size={24} color="#00B14F" />
-            <Text style={styles.paymentText}>Cash</Text>
-            <View style={styles.freeTag}>
-              <Text style={styles.freeText}>Free</Text>
+            <Icon name="wallet-outline" size={24} color="#00B14F" />
+            <Text style={styles.paymentText}>
+              {booking?.paymentMethod === 'maya' ? 'Maya' : 'GCash'}
+            </Text>
+            <View style={styles.paidTag}>
+              <Text style={styles.paidText}>Pay First</Text>
             </View>
           </View>
           <Text style={styles.paymentAmount}>
-            ₱{booking?.estimatedPrice?.toLocaleString() || booking?.price?.toLocaleString() || '0'}
+            ₱{booking?.totalAmount?.toLocaleString() || booking?.price?.toLocaleString() || '0'}
           </Text>
         </View>
 
@@ -377,20 +486,46 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
   },
-  destMarker: {
+  // Client marker - red border like destination
+  clientMarker: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#FFF',
-    padding: 6,
-    borderRadius: 20,
-    elevation: 4,
-  },
-  providerMarker: {
-    width: 36,
-    height: 36,
-    backgroundColor: '#00B14F',
-    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#EF4444',
     elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  // Provider marker - same style as ClientHomeScreen (green border, profile photo)
+  providerMarker: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#00B14F',
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  providerMarkerImg: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+  },
+  providerMarkerInitial: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#00B14F',
   },
   sheet: {
     flex: 1,
@@ -425,6 +560,29 @@ const styles = StyleSheet.create({
   statusIcon: {
     width: 60,
     height: 60,
+  },
+  providerPhoto: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: '#00B14F',
+  },
+  providerInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  providerInfoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginLeft: 6,
+  },
+  providerInfoSep: {
+    marginHorizontal: 6,
+    color: '#9CA3AF',
   },
   progressBg: {
     height: 6,
@@ -549,6 +707,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#059669',
+  },
+  paidTag: {
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  paidText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#2563EB',
   },
   paymentAmount: {
     fontSize: 18,

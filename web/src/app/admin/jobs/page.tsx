@@ -90,9 +90,13 @@ export default function AdminJobsPage() {
   const filters = [
     { id: 'all', label: 'All', color: 'violet' },
     { id: 'pending', label: 'Pending', color: 'amber' },
+    { id: 'awaiting_payment', label: 'Awaiting Pay', color: 'yellow' },
     { id: 'pending_negotiation', label: 'Nego', color: 'yellow' },
     { id: 'accepted', label: 'Accepted', color: 'blue' },
+    { id: 'traveling', label: 'Traveling', color: 'blue' },
+    { id: 'arrived', label: 'Arrived', color: 'indigo' },
     { id: 'in_progress', label: 'Active', color: 'indigo' },
+    { id: 'pending_completion', label: 'Pending Done', color: 'amber' },
     { id: 'completed', label: 'Done', color: 'emerald' },
     { id: 'cancelled', label: 'Cancel', color: 'gray' },
   ];
@@ -202,10 +206,14 @@ export default function AdminJobsPage() {
   const getStatusStyle = (status: string, adminApproved: boolean) => {
     switch (status) {
       case 'pending': return adminApproved ? { bg: 'bg-gradient-to-r from-emerald-500 to-teal-500', text: 'text-white' } : { bg: 'bg-gradient-to-r from-amber-500 to-yellow-500', text: 'text-white' };
+      case 'awaiting_payment': return { bg: 'bg-gradient-to-r from-amber-500 to-yellow-500', text: 'text-white' };
       case 'pending_negotiation': return { bg: 'bg-gradient-to-r from-yellow-500 to-amber-500', text: 'text-white' };
       case 'counter_offer': return { bg: 'bg-gradient-to-r from-purple-500 to-violet-500', text: 'text-white' };
-      case 'accepted': case 'traveling': return { bg: 'bg-gradient-to-r from-blue-500 to-indigo-500', text: 'text-white' };
+      case 'accepted': return { bg: 'bg-gradient-to-r from-blue-500 to-indigo-500', text: 'text-white' };
+      case 'traveling': return { bg: 'bg-gradient-to-r from-blue-500 to-indigo-500', text: 'text-white' };
+      case 'arrived': return { bg: 'bg-gradient-to-r from-indigo-500 to-purple-500', text: 'text-white' };
       case 'in_progress': return { bg: 'bg-gradient-to-r from-indigo-500 to-purple-500', text: 'text-white' };
+      case 'pending_completion': return { bg: 'bg-gradient-to-r from-amber-500 to-yellow-500', text: 'text-white' };
       case 'completed': return { bg: 'bg-gradient-to-r from-emerald-500 to-green-500', text: 'text-white' };
       case 'cancelled': case 'rejected': return { bg: 'bg-gradient-to-r from-gray-500 to-slate-500', text: 'text-white' };
       default: return { bg: 'bg-gray-100', text: 'text-gray-700' };
@@ -215,10 +223,14 @@ export default function AdminJobsPage() {
   const getStatusLabel = (status: string, adminApproved: boolean) => {
     switch (status) {
       case 'pending': return adminApproved ? 'Awaiting Provider' : 'Pending Approval';
+      case 'awaiting_payment': return 'Awaiting Payment';
       case 'pending_negotiation': return 'Negotiating';
       case 'counter_offer': return 'Counter Offer';
       case 'accepted': return 'Accepted';
+      case 'traveling': return 'Traveling';
+      case 'arrived': return 'Arrived';
       case 'in_progress': return 'In Progress';
+      case 'pending_completion': return 'Pending Completion';
       case 'completed': return 'Completed';
       case 'cancelled': return 'Cancelled';
       case 'rejected': return 'Rejected';
@@ -475,10 +487,8 @@ export default function AdminJobsPage() {
                               <DollarSign className="w-5 h-5 text-emerald-500" />
                               <span className="text-xl font-bold text-emerald-600">₱{job.amount.toLocaleString()}</span>
                             </div>
-                            <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                              job.paymentPreference === 'pay_first' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
-                            }`}>
-                              {job.paymentPreference === 'pay_first' ? 'PAY FIRST' : 'PAY LATER'}
+                            <span className={`px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-700`}>
+                              {(job as any).paymentMethod === 'maya' ? 'MAYA' : 'GCASH'}
                             </span>
                             {job.isPaidUpfront && (
                               <span className="bg-emerald-500 text-white px-2 py-1 rounded-lg text-xs font-bold">✓ PAID</span>

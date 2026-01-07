@@ -59,19 +59,20 @@ const ProviderJobsScreen = ({navigation}) => {
       let jobsList = [];
 
       if (activeTab === 'available') {
-        // Fetch all pending jobs - provider can see them but must wait for admin approval
+        // Fetch jobs that are admin approved and assigned to this provider
+        // Provider should ONLY see jobs that admin has approved and sent to them
         const jobsQuery = query(
           collection(db, 'bookings'),
-          where('status', 'in', ['pending', 'pending_negotiation', 'approved'])
+          where('providerId', '==', userId),
+          where('status', 'in', ['pending', 'pending_negotiation']),
+          where('adminApproved', '==', true)
         );
         const snapshot = await getDocs(jobsQuery);
         
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data();
-          // Show jobs that are:
-          // 1. Not assigned to anyone, OR assigned to this provider
-          // 2. Not rejected or cancelled
-          if (!data.providerId || data.providerId === userId) {
+          // Only show jobs that are admin approved and not rejected
+          if (data.adminApproved && !data.adminRejected) {
             // Get client info with gamification data
             let clientInfo = {name: 'Unknown Client', phone: 'N/A', tier: null, badges: []};
             if (data.clientId) {
@@ -130,8 +131,9 @@ const ProviderJobsScreen = ({navigation}) => {
               // Admin approval status - IMPORTANT
               adminApproved: data.adminApproved || false,
               adminRejected: data.adminRejected || false,
-              // Payment preference
-              paymentPreference: data.paymentPreference || 'pay_later',
+              // Payment - Always Pay First
+              paymentPreference: 'pay_first',
+              paymentMethod: data.paymentMethod || 'gcash',
               isPaidUpfront: data.isPaidUpfront || false,
             });
           }
@@ -498,9 +500,9 @@ const ProviderJobsScreen = ({navigation}) => {
           <Text style={{fontSize: 18, fontWeight: '700', color: '#00B14F'}}>
             ₱{job.amount?.toLocaleString() || 0}
           </Text>
-          {/* Payment Preference Badge */}
+          {/* Payment Method Badge - Always GCash/Maya */}
           <View style={{
-            backgroundColor: job.paymentPreference === 'pay_first' ? '#D1FAE5' : '#DBEAFE',
+            backgroundColor: '#D1FAE5',
             paddingHorizontal: 6,
             paddingVertical: 2,
             borderRadius: 4,
@@ -508,9 +510,9 @@ const ProviderJobsScreen = ({navigation}) => {
             <Text style={{
               fontSize: 9,
               fontWeight: '600',
-              color: job.paymentPreference === 'pay_first' ? '#059669' : '#2563EB',
+              color: '#059669',
             }}>
-              {job.paymentPreference === 'pay_first' ? 'PAY FIRST' : 'PAY LATER'}
+              {job.paymentMethod === 'maya' ? 'MAYA' : 'GCASH'}
             </Text>
           </View>
           {job.isPaidUpfront && (

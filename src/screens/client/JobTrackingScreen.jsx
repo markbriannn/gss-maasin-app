@@ -319,10 +319,10 @@ const JobTrackingScreen = ({navigation, route}) => {
 
   const getStatusColor = () => {
     switch (jobData?.status) {
-      case 'traveling': return '#3B82F6';
+      case 'traveling': return '#00B14F';
       case 'arrived': return '#10B981';
       case 'in_progress': return '#8B5CF6';
-      default: return '#6B7280';
+      default: return '#00B14F';
     }
   };
 
@@ -393,92 +393,77 @@ const JobTrackingScreen = ({navigation, route}) => {
         showsUserLocation={false}
         showsMyLocationButton={false}>
         
-        {/* Animated Provider Marker */}
+        {/* Provider Marker - Same style as ClientHomeScreen */}
         {providerLocation && (
           <Marker.Animated
             ref={markerRef}
             coordinate={providerCoordinate}
             title={providerInfo?.name || 'Provider'}
-            description="Provider's current location"
             anchor={{x: 0.5, y: 0.5}}
             flat={true}
             rotation={heading}>
-            <View style={{alignItems: 'center'}}>
-              <View style={{
-                width: 50,
-                height: 50,
-                borderRadius: 25,
-                borderWidth: 3,
-                borderColor: '#3B82F6',
-                backgroundColor: '#FFFFFF',
-                shadowColor: '#000',
-                shadowOffset: {width: 0, height: 2},
-                shadowOpacity: 0.3,
-                shadowRadius: 4,
-                elevation: 5,
-                justifyContent: 'center',
-                alignItems: 'center',
-                overflow: 'hidden',
-              }}>
-                {providerInfo?.photo ? (
-                  <Image 
-                    source={{uri: providerInfo.photo}} 
-                    style={{width: 44, height: 44, borderRadius: 22}} 
-                  />
-                ) : (
-                  <View style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 22,
-                    backgroundColor: '#3B82F6',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}>
-                    <Icon name="car" size={22} color="#FFFFFF" />
-                  </View>
-                )}
-              </View>
-              <View style={{
-                backgroundColor: '#3B82F6',
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-                borderRadius: 10,
-                marginTop: 6,
-              }}>
-                <Text style={{fontSize: 11, color: '#FFFFFF', fontWeight: '700'}}>
-                  {providerInfo?.name?.split(' ')[0] || 'Provider'}
+            <View style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: '#FFF',
+              justifyContent: 'center',
+              alignItems: 'center',
+              borderWidth: 3,
+              borderColor: '#00B14F',
+              overflow: 'hidden',
+              elevation: 5,
+              shadowColor: '#000',
+              shadowOffset: {width: 0, height: 2},
+              shadowOpacity: 0.3,
+              shadowRadius: 4,
+            }}>
+              {providerInfo?.photo ? (
+                <Image 
+                  source={{uri: providerInfo.photo}} 
+                  style={{width: 38, height: 38, borderRadius: 19}} 
+                />
+              ) : (
+                <Text style={{fontSize: 18, fontWeight: '700', color: '#00B14F'}}>
+                  {providerInfo?.name?.charAt(0)?.toUpperCase() || 'P'}
                 </Text>
-              </View>
+              )}
             </View>
           </Marker.Animated>
         )}
 
-        {/* Client/Destination Marker */}
+        {/* Client/Destination Marker - Same style as ClientHomeScreen */}
         {clientLocation && (
           <Marker
             coordinate={clientLocation}
             title="Your Location"
-            description="Destination"
             tracksViewChanges={false}>
-            <View style={{alignItems: 'center'}}>
-              <View style={{
-                backgroundColor: '#10B981',
-                padding: 10,
-                borderRadius: 25,
-                borderWidth: 3,
-                borderColor: '#FFFFFF',
-              }}>
-                <Icon name="home" size={22} color="#FFFFFF" />
-              </View>
+            <View style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: '#FFF',
+              justifyContent: 'center',
+              alignItems: 'center',
+              borderWidth: 3,
+              borderColor: '#EF4444',
+              overflow: 'hidden',
+              elevation: 5,
+              shadowColor: '#000',
+              shadowOffset: {width: 0, height: 2},
+              shadowOpacity: 0.3,
+              shadowRadius: 4,
+            }}>
+              <Icon name="home" size={22} color="#EF4444" />
             </View>
           </Marker>
         )}
 
-        {/* Route Line */}
+        {/* Route Line - Same blue color as ClientHomeScreen */}
         {routeCoordinates.length > 0 && (
           <Polyline
             coordinates={routeCoordinates}
-            strokeColor="#3B82F6"
+            strokeColor="#1A73E8"
             strokeWidth={5}
           />
         )}
@@ -545,7 +530,7 @@ const JobTrackingScreen = ({navigation, route}) => {
           marginBottom: 16,
         }}>
           <View style={{flex: 1, alignItems: 'center'}}>
-            <Icon name="speedometer-outline" size={24} color="#3B82F6" />
+            <Icon name="speedometer-outline" size={24} color="#00B14F" />
             <Text style={{fontSize: 18, fontWeight: '700', color: '#1F2937', marginTop: 4}}>
               {distance ? `${distance} km` : '--'}
             </Text>

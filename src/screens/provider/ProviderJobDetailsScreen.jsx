@@ -291,8 +291,9 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           client: clientInfo,
           clientName: data.clientName,
           createdAt: data.createdAt?.toDate?.()?.toLocaleDateString() || new Date().toLocaleDateString(),
-          // Payment preference
-          paymentPreference: data.paymentPreference || 'pay_later',
+          // Payment - Always Pay First
+          paymentPreference: 'pay_first',
+          paymentMethod: data.paymentMethod || 'gcash',
           isPaidUpfront: data.isPaidUpfront || false,
           upfrontPaidAmount: data.upfrontPaidAmount || 0,
           additionalCharges: data.additionalCharges || [],
@@ -1287,37 +1288,29 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           </View>
         )}
 
-        {/* Payment Preference */}
+        {/* Payment Method - Always GCash/Maya Pay First */}
         <View style={[styles.section, {backgroundColor: isDark ? '#1F2937' : '#FFFFFF'}]}>
           <Text style={[styles.sectionTitle, {color: isDark ? '#F9FAFB' : '#1F2937'}]}>Payment Method</Text>
           <View style={{
-            backgroundColor: jobData.paymentPreference === 'pay_first' 
-              ? (isDark ? '#064E3B' : '#D1FAE5') 
-              : (isDark ? '#1E3A5F' : '#DBEAFE'),
+            backgroundColor: isDark ? '#064E3B' : '#D1FAE5',
             borderRadius: 12,
             padding: 16,
             borderWidth: 1,
-            borderColor: jobData.paymentPreference === 'pay_first' 
-              ? (isDark ? '#10B981' : '#A7F3D0') 
-              : (isDark ? '#3B82F6' : '#BFDBFE'),
+            borderColor: isDark ? '#10B981' : '#A7F3D0',
           }}>
             <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
               <View style={{flexDirection: 'row', alignItems: 'center'}}>
                 <Icon 
-                  name={jobData.paymentPreference === 'pay_first' ? 'card' : 'time'} 
+                  name="wallet" 
                   size={24} 
-                  color={jobData.paymentPreference === 'pay_first' ? '#10B981' : '#3B82F6'} 
+                  color="#10B981" 
                 />
                 <View style={{marginLeft: 12}}>
-                  <Text style={{fontSize: 16, fontWeight: '700', color: jobData.paymentPreference === 'pay_first' ? '#10B981' : '#3B82F6'}}>
-                    {jobData.paymentPreference === 'pay_first' ? 'Pay First' : 'Pay Later'}
+                  <Text style={{fontSize: 16, fontWeight: '700', color: '#10B981'}}>
+                    {jobData.paymentMethod === 'maya' ? 'Maya' : 'GCash'}
                   </Text>
-                  <Text style={{fontSize: 12, color: jobData.paymentPreference === 'pay_first' 
-                    ? (isDark ? '#6EE7B7' : '#047857') 
-                    : (isDark ? '#93C5FD' : '#1D4ED8')}}>
-                    {jobData.paymentPreference === 'pay_first' 
-                      ? 'Client pays before you start' 
-                      : 'Client pays after job completion'}
+                  <Text style={{fontSize: 12, color: isDark ? '#6EE7B7' : '#047857'}}>
+                    Pay First • Protected Payment
                   </Text>
                 </View>
               </View>
@@ -1327,11 +1320,9 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                 </View>
               )}
             </View>
-            {jobData.paymentPreference === 'pay_first' && (
-              <Text style={{fontSize: 11, color: isDark ? '#6EE7B7' : '#047857', marginTop: 10, fontStyle: 'italic'}}>
-                You can still request additional charges if extra work or materials are needed.
-              </Text>
-            )}
+            <Text style={{fontSize: 11, color: isDark ? '#6EE7B7' : '#047857', marginTop: 10, fontStyle: 'italic'}}>
+              You can still request additional charges if extra work or materials are needed.
+            </Text>
           </View>
         </View>
 

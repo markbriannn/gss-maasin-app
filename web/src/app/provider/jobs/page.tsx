@@ -38,6 +38,7 @@ interface Job {
   providerFixedPrice: number;
   adminApproved: boolean;
   paymentPreference: string;
+  paymentMethod?: string;
   isPaidUpfront: boolean;
   completedAt?: string;
   completedAtRaw?: Date;
@@ -99,11 +100,19 @@ export default function JobsPage() {
       const jobsList: Job[] = [];
 
       if (activeTab === 'available') {
-        const jobsQuery = query(collection(db, 'bookings'), where('status', 'in', ['pending', 'pending_negotiation', 'approved']));
+        // Query jobs that are admin approved and assigned to this provider
+        // Provider should ONLY see jobs that admin has approved and sent to them
+        const jobsQuery = query(
+          collection(db, 'bookings'), 
+          where('providerId', '==', userId),
+          where('status', 'in', ['pending', 'pending_negotiation']),
+          where('adminApproved', '==', true)
+        );
         const snapshot = await getDocs(jobsQuery);
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data();
-          if (!data.providerId || data.providerId === userId) {
+          // Only show jobs that are admin approved and not rejected
+          if (data.adminApproved && !data.adminRejected) {
             let clientInfo: ClientInfo = { name: 'Unknown Client', phone: 'N/A', tier: null };
             if (data.clientId) {
               try {
@@ -130,7 +139,7 @@ export default function JobsPage() {
               createdAt: data.createdAt?.toDate?.() ? formatDateTime(data.createdAt.toDate()) : 'Unknown', createdAtRaw: data.createdAt?.toDate?.() || new Date(0),
               mediaFiles: data.mediaFiles || [], hasMedia: data.mediaFiles && data.mediaFiles.length > 0, isNegotiable: data.isNegotiable || false,
               offeredPrice: data.offeredPrice || 0, providerFixedPrice: data.providerFixedPrice || 0, adminApproved: data.adminApproved || false,
-              paymentPreference: data.paymentPreference || 'pay_later', isPaidUpfront: data.isPaidUpfront || false,
+              paymentPreference: 'pay_first', paymentMethod: data.paymentMethod || 'gcash', isPaidUpfront: data.isPaidUpfront || false,
             });
           }
         }
@@ -160,7 +169,7 @@ export default function JobsPage() {
             scheduledDate: data.scheduledDate || 'TBD', scheduledTime: data.scheduledTime || 'TBD', location: fullLocation, description: data.description || '',
             createdAt: data.createdAt?.toDate?.() ? formatDateTime(data.createdAt.toDate()) : 'Unknown', createdAtRaw: data.createdAt?.toDate?.() || new Date(0),
             mediaFiles: [], hasMedia: false, isNegotiable: false, offeredPrice: 0, providerFixedPrice: 0, adminApproved: true,
-            paymentPreference: data.paymentPreference || 'pay_later', isPaidUpfront: data.isPaidUpfront || false,
+            paymentPreference: 'pay_first', paymentMethod: data.paymentMethod || 'gcash', isPaidUpfront: data.isPaidUpfront || false,
           });
         }
         jobsList.sort((a, b) => b.createdAtRaw.getTime() - a.createdAtRaw.getTime());
@@ -188,7 +197,7 @@ export default function JobsPage() {
             status: data.status, client: clientInfo, amount: data.totalAmount || data.providerPrice || data.amount || data.price || 0, providerPrice: data.providerPrice || 0,
             scheduledDate: data.scheduledDate || 'TBD', scheduledTime: '', location: fullLocation, description: '',
             createdAt: '', createdAtRaw: new Date(0), mediaFiles: [], hasMedia: false, isNegotiable: false, offeredPrice: 0, providerFixedPrice: 0, adminApproved: true,
-            paymentPreference: data.paymentPreference || 'pay_later', isPaidUpfront: data.isPaidUpfront || false,
+            paymentPreference: 'pay_first', paymentMethod: data.paymentMethod || 'gcash', isPaidUpfront: data.isPaidUpfront || false,
             completedAt: data.completedAt?.toDate?.()?.toLocaleDateString() || 'Unknown', completedAtRaw: data.completedAt?.toDate?.() || new Date(0),
           });
         }
@@ -403,8 +412,8 @@ export default function JobsPage() {
                       <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                         <div className="flex items-center gap-2">
                           <span className="text-2xl font-bold text-blue-600">₱{job.amount?.toLocaleString() || 0}</span>
-                          <span className={`px-2 py-1 rounded-md text-[10px] font-bold ${job.paymentPreference === 'pay_first' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-                            {job.paymentPreference === 'pay_first' ? 'PAY FIRST' : 'PAY LATER'}
+                          <span className={`px-2 py-1 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-700`}>
+                            {job.paymentMethod === 'maya' ? 'MAYA' : 'GCASH'}
                           </span>
                           {job.isPaidUpfront && (
                             <span className="bg-emerald-500 text-white px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1">

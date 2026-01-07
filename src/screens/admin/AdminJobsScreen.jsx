@@ -61,10 +61,14 @@ const AdminJobsScreen = ({navigation, route}) => {
   const filters = [
     {id: 'all', label: 'All'},
     {id: 'pending', label: 'Pending'},
+    {id: 'awaiting_payment', label: 'Awaiting Pay'},
     {id: 'pending_negotiation', label: 'Nego'},
     {id: 'counter_offer', label: 'Counter'},
     {id: 'accepted', label: 'Accept'},
+    {id: 'traveling', label: 'Traveling'},
+    {id: 'arrived', label: 'Arrived'},
     {id: 'in_progress', label: 'Active'},
+    {id: 'pending_completion', label: 'Pending Done'},
     {id: 'completed', label: 'Done'},
     {id: 'cancelled', label: 'Cancel'},
     {id: 'disputed', label: 'Dispute'},
@@ -188,8 +192,9 @@ const AdminJobsScreen = ({navigation, route}) => {
             additionalCharges: data.additionalCharges || [],
             // Admin approval status
             adminApproved: data.adminApproved || false,
-            // Payment preference
-            paymentPreference: data.paymentPreference || 'pay_later',
+            // Payment - Always Pay First with GCash/Maya
+            paymentPreference: 'pay_first',
+            paymentMethod: data.paymentMethod || 'gcash',
             isPaidUpfront: data.isPaidUpfront || false,
             upfrontPaidAmount: data.upfrontPaidAmount || 0,
             // Keep raw data
@@ -262,14 +267,22 @@ const AdminJobsScreen = ({navigation, route}) => {
         return adminApproved 
           ? {backgroundColor: '#D1FAE5', color: '#059669'}
           : {backgroundColor: '#FEF3C7', color: '#D97706'};
+      case 'awaiting_payment':
+        return {backgroundColor: '#FEF3C7', color: '#D97706'};
       case 'pending_negotiation':
         return {backgroundColor: '#FEF3C7', color: '#F59E0B'};
       case 'counter_offer':
         return {backgroundColor: '#EDE9FE', color: '#8B5CF6'};
       case 'accepted':
         return {backgroundColor: '#DBEAFE', color: '#2563EB'};
+      case 'traveling':
+        return {backgroundColor: '#DBEAFE', color: '#2563EB'};
+      case 'arrived':
+        return {backgroundColor: '#E0E7FF', color: '#4F46E5'};
       case 'in_progress':
         return {backgroundColor: '#E0E7FF', color: '#4F46E5'};
+      case 'pending_completion':
+        return {backgroundColor: '#FEF3C7', color: '#F59E0B'};
       case 'completed':
         return {backgroundColor: '#D1FAE5', color: '#059669'};
       case 'cancelled':
@@ -286,10 +299,14 @@ const AdminJobsScreen = ({navigation, route}) => {
   const getStatusLabel = (status, adminApproved = false) => {
     switch (status) {
       case 'pending': return adminApproved ? 'Awaiting Provider' : 'Pending Approval';
+      case 'awaiting_payment': return 'Awaiting Payment';
       case 'pending_negotiation': return 'Price Negotiating';
       case 'counter_offer': return 'Counter Offer';
       case 'accepted': return 'Accepted';
+      case 'traveling': return 'Traveling';
+      case 'arrived': return 'Arrived';
       case 'in_progress': return 'In Progress';
+      case 'pending_completion': return 'Pending Completion';
       case 'completed': return 'Completed';
       case 'cancelled': return 'Cancelled';
       case 'rejected': return 'Rejected';
@@ -560,9 +577,9 @@ const AdminJobsScreen = ({navigation, route}) => {
         <View style={adminStyles.jobFooter}>
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
             <Text style={adminStyles.jobAmount}>₱{item.amount.toLocaleString()}</Text>
-            {/* Payment Preference Badge */}
+            {/* Payment Method Badge - Always GCash/Maya */}
             <View style={{
-              backgroundColor: item.paymentPreference === 'pay_first' ? '#D1FAE5' : '#DBEAFE',
+              backgroundColor: '#D1FAE5',
               paddingHorizontal: 8,
               paddingVertical: 3,
               borderRadius: 6,
@@ -570,9 +587,9 @@ const AdminJobsScreen = ({navigation, route}) => {
               <Text style={{
                 fontSize: 10,
                 fontWeight: '600',
-                color: item.paymentPreference === 'pay_first' ? '#059669' : '#2563EB',
+                color: '#059669',
               }}>
-                {item.paymentPreference === 'pay_first' ? 'PAY FIRST' : 'PAY LATER'}
+                {item.rawData?.paymentMethod === 'maya' ? 'MAYA' : 'GCASH'}
               </Text>
             </View>
             {item.isPaidUpfront && (
@@ -654,27 +671,25 @@ const AdminJobsScreen = ({navigation, route}) => {
                 )}
               </View>
 
-              {/* Payment Preference */}
+              {/* Payment Method - Always GCash/Maya Pay First */}
               <View style={[adminStyles.modalSection, {
-                backgroundColor: selectedJob.paymentPreference === 'pay_first' ? '#D1FAE5' : '#DBEAFE',
+                backgroundColor: '#D1FAE5',
                 padding: 16,
                 borderRadius: 12,
               }]}>
                 <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
                   <View style={{flexDirection: 'row', alignItems: 'center'}}>
                     <Icon 
-                      name={selectedJob.paymentPreference === 'pay_first' ? 'card' : 'time'} 
+                      name="wallet" 
                       size={24} 
-                      color={selectedJob.paymentPreference === 'pay_first' ? '#059669' : '#2563EB'} 
+                      color="#059669" 
                     />
                     <View style={{marginLeft: 12}}>
-                      <Text style={{fontSize: 14, fontWeight: '700', color: selectedJob.paymentPreference === 'pay_first' ? '#059669' : '#2563EB'}}>
-                        {selectedJob.paymentPreference === 'pay_first' ? 'Pay First' : 'Pay Later'}
+                      <Text style={{fontSize: 14, fontWeight: '700', color: '#059669'}}>
+                        {selectedJob.rawData?.paymentMethod === 'maya' ? 'Maya' : 'GCash'}
                       </Text>
-                      <Text style={{fontSize: 12, color: selectedJob.paymentPreference === 'pay_first' ? '#047857' : '#1D4ED8'}}>
-                        {selectedJob.paymentPreference === 'pay_first' 
-                          ? 'Client pays before service' 
-                          : 'Client pays after completion'}
+                      <Text style={{fontSize: 12, color: '#047857'}}>
+                        Pay First • Protected Payment
                       </Text>
                     </View>
                   </View>
