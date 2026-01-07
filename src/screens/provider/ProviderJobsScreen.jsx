@@ -59,20 +59,19 @@ const ProviderJobsScreen = ({navigation}) => {
       let jobsList = [];
 
       if (activeTab === 'available') {
-        // Fetch jobs that are admin approved and assigned to this provider
-        // Provider should ONLY see jobs that admin has approved and sent to them
+        // Fetch jobs assigned to this provider that are pending
+        // Provider can SEE all jobs assigned to them, but can only ACCEPT after admin approves
         const jobsQuery = query(
           collection(db, 'bookings'),
           where('providerId', '==', userId),
-          where('status', 'in', ['pending', 'pending_negotiation']),
-          where('adminApproved', '==', true)
+          where('status', 'in', ['pending', 'pending_negotiation'])
         );
         const snapshot = await getDocs(jobsQuery);
         
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data();
-          // Only show jobs that are admin approved and not rejected
-          if (data.adminApproved && !data.adminRejected) {
+          // Show all jobs assigned to this provider (not rejected)
+          if (!data.adminRejected) {
             // Get client info with gamification data
             let clientInfo = {name: 'Unknown Client', phone: 'N/A', tier: null, badges: []};
             if (data.clientId) {
