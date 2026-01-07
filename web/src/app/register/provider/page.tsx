@@ -27,7 +27,7 @@ const InteractiveMap: ComponentType<InteractiveMapProps> = dynamic(
   { ssr: false, loading: () => <div className="h-[250px] bg-gray-100 rounded-xl flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div> }
 );
 
-const TOTAL_STEPS = 11;
+const TOTAL_STEPS = 10;
 
 const ID_TYPES = [
   { value: 'national_id', label: 'National ID' },
@@ -451,30 +451,28 @@ export default function ProviderRegistration() {
 
   const canProceed = () => {
     switch (step) {
-      case 1: // Profile Photo
-        return true; // Optional
-      case 2: // Personal Info
+      case 1: // Personal Info
         return formData.firstName.trim() && formData.lastName.trim();
-      case 3: // Contact Info
+      case 2: // Contact Info
         return formData.email.trim() && formData.phoneNumber.trim() && 
                /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
-      case 4: // Email Verification
+      case 3: // Email Verification
         return emailVerified;
-      case 5: // Location
+      case 4: // Location
         return formData.streetAddress.trim() && formData.barangay.trim();
-      case 6: // Password
+      case 5: // Password
         // Password must have: 8+ chars, 1 uppercase, 1 number, and match confirmation
         return formData.password.length >= 8 && 
                /[A-Z]/.test(formData.password) && 
                /[0-9]/.test(formData.password) && 
                formData.password === formData.confirmPassword;
-      case 7: // Date of Birth
+      case 6: // Date of Birth
         return formData.dateOfBirth.trim();
-      case 8: // Service Category
+      case 7: // Service Category
         return formData.serviceCategory.trim();
-      case 9: // About Service with Pricing
+      case 8: // About Service with Pricing
         return formData.aboutService.trim().length >= 10 && formData.fixedPrice && parseFloat(formData.fixedPrice) > 0;
-      case 10: // Documents
+      case 9: // Documents
         return formData.idType && formData.validIdUrl && formData.barangayClearanceUrl && formData.policeClearanceUrl && formData.selfieUrl;
       default:
         return true;
@@ -576,66 +574,7 @@ export default function ProviderRegistration() {
 
   const renderStepContent = () => {
     switch (step) {
-      case 1: // Profile Photo
-        return (
-          <div className="space-y-6">
-            <div className="text-center mb-8">
-              <div className="w-20 h-20 bg-blue-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-                <Camera className="w-10 h-10 text-blue-500" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900">Profile Photo</h2>
-              <p className="text-gray-500 mt-1">Add a photo to help clients recognize you</p>
-            </div>
-
-            <div className="flex flex-col items-center">
-              <div 
-                className="relative w-32 h-32 rounded-full bg-gray-100 border-4 border-dashed border-gray-300 flex items-center justify-center overflow-hidden cursor-pointer hover:border-blue-400 transition-colors"
-                onClick={() => document.getElementById('photo-upload')?.click()}
-              >
-                {formData.profilePhoto ? (
-                  <img src={formData.profilePhoto} alt="Profile" className="w-full h-full object-cover" />
-                ) : isUploadingPhoto ? (
-                  <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
-                ) : (
-                  <Camera className="w-10 h-10 text-gray-400" />
-                )}
-              </div>
-              
-              <input
-                id="photo-upload"
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                className="hidden"
-              />
-              
-              <button
-                type="button"
-                onClick={() => document.getElementById('photo-upload')?.click()}
-                disabled={isUploadingPhoto}
-                className="mt-4 flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
-              >
-                {isUploadingPhoto ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4" />
-                    {formData.profilePhoto ? 'Change Photo' : 'Upload Photo'}
-                  </>
-                )}
-              </button>
-              
-              <p className="text-sm text-gray-500 mt-4 text-center">
-                A professional photo helps build trust with clients
-              </p>
-            </div>
-          </div>
-        );
-
-      case 2: // Personal Info
+      case 1: // Personal Info
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
@@ -702,7 +641,7 @@ export default function ProviderRegistration() {
           </div>
         );
 
-      case 3: // Contact Info
+      case 2: // Contact Info
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
@@ -748,7 +687,7 @@ export default function ProviderRegistration() {
         );
 
 
-      case 4: // Email Verification
+      case 3: // Email Verification
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
@@ -837,7 +776,7 @@ export default function ProviderRegistration() {
           </div>
         );
 
-      case 5: // Location with Map (simplified - 4 fields only like mobile)
+      case 4: // Location with Map (simplified - 4 fields only like mobile)
         return (
           <div className="space-y-6">
             <div className="text-center mb-6">
@@ -902,7 +841,7 @@ export default function ProviderRegistration() {
           </div>
         );
 
-      case 6: // Password
+      case 5: // Password
         const hasMinLength = formData.password.length >= 8;
         const hasUppercase = /[A-Z]/.test(formData.password);
         const hasNumber = /[0-9]/.test(formData.password);
@@ -996,7 +935,7 @@ export default function ProviderRegistration() {
           </div>
         );
 
-      case 7: // Date of Birth
+      case 6: // Date of Birth
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
@@ -1022,7 +961,7 @@ export default function ProviderRegistration() {
           </div>
         );
 
-      case 8: // Service Category
+      case 7: // Service Category
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
@@ -1064,7 +1003,7 @@ export default function ProviderRegistration() {
         );
 
 
-      case 9: // About Service with Pricing (like mobile)
+      case 8: // About Service with Pricing (like mobile)
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
@@ -1173,7 +1112,7 @@ export default function ProviderRegistration() {
           </div>
         );
 
-      case 10: // Documents Upload
+      case 9: // Documents Upload
         return (
           <div className="space-y-6">
             <div className="text-center mb-6">
@@ -1305,7 +1244,7 @@ export default function ProviderRegistration() {
           </div>
         );
 
-      case 11: // Success - Pending Approval
+      case 10: // Success - Pending Approval
         return (
           <div className="text-center py-8">
             <div className="w-24 h-24 bg-yellow-100 rounded-full mx-auto mb-6 flex items-center justify-center">

@@ -81,6 +81,10 @@ export default function ProviderDashboard() {
     if (!isLoading) {
       if (!isAuthenticated) router.push('/login');
       else if (user?.role?.toUpperCase() !== 'PROVIDER') router.push('/');
+      // Redirect to profile setup if no profile photo and setup not complete
+      else if (!user?.profilePhoto && !user?.profileSetupComplete) {
+        router.push('/provider/setup-profile');
+      }
     }
   }, [isLoading, isAuthenticated, user, router]);
 

@@ -31,6 +31,7 @@ interface User {
   houseNumber?: string;
   latitude?: number;
   longitude?: number;
+  profileSetupComplete?: boolean;
   // Location object (nested)
   location?: {
     barangay?: string;
