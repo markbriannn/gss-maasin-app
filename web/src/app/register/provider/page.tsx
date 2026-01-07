@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
@@ -8,7 +8,7 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { 
   Wrench, ArrowLeft, ArrowRight, User, Mail, MapPin, Lock, Briefcase, FileText,
-  CheckCircle, Clock, Calendar, Eye, EyeOff, Camera, Upload, Loader2, Navigation
+  CheckCircle, Clock, Calendar, Eye, EyeOff, Camera, Upload, Loader2, Navigation, ShieldCheck
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import type { ComponentType } from 'react';
@@ -27,7 +27,7 @@ const InteractiveMap: ComponentType<InteractiveMapProps> = dynamic(
   { ssr: false, loading: () => <div className="h-[250px] bg-gray-100 rounded-xl flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div> }
 );
 
-const TOTAL_STEPS = 10;
+const TOTAL_STEPS = 11;
 
 const ID_TYPES = [
   { value: 'national_id', label: 'National ID' },
@@ -138,6 +138,12 @@ export default function ProviderRegistration() {
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [generatedCode, setGeneratedCode] = useState('');
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [countdown, setCountdown] = useState(0);
 
   // Handle profile photo upload
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -388,6 +394,56 @@ export default function ProviderRegistration() {
     setError('');
   };
 
+  // Send email verification code
+  const sendEmailVerificationCode = async () => {
+    if (isSendingCode || !formData.email) return;
+    setIsSendingCode(true);
+    setError('');
+
+    try {
+      const response = await fetch('https://gss-maasin-app.onrender.com/api/email/send-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: formData.email,
+          name: formData.firstName 
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setGeneratedCode(data.code);
+        setCodeSent(true);
+        setCountdown(60);
+      } else {
+        setError(data.error || 'Failed to send verification code');
+      }
+    } catch (err) {
+      setError('Failed to send verification code. Please try again.');
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
+
+  // Verify email code
+  const verifyEmailCode = () => {
+    if (verificationCode === generatedCode) {
+      setEmailVerified(true);
+      setError('');
+    } else {
+      setError('Invalid verification code. Please try again.');
+    }
+  };
+
+  // Countdown timer for resend
+  React.useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+
 
   const canProceed = () => {
     switch (step) {
@@ -398,17 +454,19 @@ export default function ProviderRegistration() {
       case 3: // Contact Info
         return formData.email.trim() && formData.phoneNumber.trim() && 
                /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
-      case 4: // Location
+      case 4: // Email Verification
+        return emailVerified;
+      case 5: // Location
         return formData.streetAddress.trim() && formData.barangay.trim();
-      case 5: // Password
+      case 6: // Password
         return formData.password.length >= 8 && formData.password === formData.confirmPassword;
-      case 6: // Date of Birth
+      case 7: // Date of Birth
         return formData.dateOfBirth.trim();
-      case 7: // Service Category
+      case 8: // Service Category
         return formData.serviceCategory.trim();
-      case 8: // About Service with Pricing
+      case 9: // About Service with Pricing
         return formData.aboutService.trim().length >= 10 && formData.fixedPrice && parseFloat(formData.fixedPrice) > 0;
-      case 9: // Documents
+      case 10: // Documents
         return formData.idType && formData.validIdUrl && formData.barangayClearanceUrl && formData.policeClearanceUrl && formData.selfieUrl;
       default:
         return true;
@@ -682,7 +740,96 @@ export default function ProviderRegistration() {
         );
 
 
-      case 4: // Location with Map (simplified - 4 fields only like mobile)
+      case 4: // Email Verification
+        return (
+          <div className="space-y-6">
+            <div className="text-center mb-8">
+              <div className="w-20 h-20 bg-blue-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <ShieldCheck className="w-10 h-10 text-blue-500" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900">Verify Your Email</h2>
+              <p className="text-gray-500 mt-1">We&apos;ll send a verification code to</p>
+              <p className="text-blue-500 font-semibold">{formData.email}</p>
+            </div>
+
+            {!codeSent ? (
+              <button
+                onClick={sendEmailVerificationCode}
+                disabled={isSendingCode}
+                className="w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
+              >
+                {isSendingCode ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-5 h-5" />
+                    Send Verification Code
+                  </>
+                )}
+              </button>
+            ) : emailVerified ? (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
+                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                <p className="text-green-800 font-semibold">Email Verified!</p>
+                <p className="text-green-600 text-sm mt-1">Your email has been verified successfully.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Enter 6-digit code
+                  </label>
+                  <input
+                    type="text"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-2xl tracking-widest"
+                    placeholder="000000"
+                    maxLength={6}
+                  />
+                </div>
+
+                <button
+                  onClick={verifyEmailCode}
+                  disabled={verificationCode.length !== 6}
+                  className="w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 disabled:bg-gray-300"
+                >
+                  Verify Code
+                </button>
+
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Didn&apos;t receive the code?</p>
+                  {countdown > 0 ? (
+                    <p className="text-sm text-gray-400">Resend in {countdown}s</p>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setVerificationCode('');
+                        sendEmailVerificationCode();
+                      }}
+                      className="text-blue-500 font-medium text-sm hover:underline"
+                    >
+                      Resend Code
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-3">
+              <Mail className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-blue-800">Check your inbox</p>
+                <p className="text-sm text-blue-600">The code may take a few seconds to arrive. Check spam folder if not found.</p>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 5: // Location with Map (simplified - 4 fields only like mobile)
         return (
           <div className="space-y-6">
             <div className="text-center mb-6">
@@ -747,7 +894,7 @@ export default function ProviderRegistration() {
           </div>
         );
 
-      case 5: // Password
+      case 6: // Password
         const hasMinLength = formData.password.length >= 8;
         const hasUppercase = /[A-Z]/.test(formData.password);
         const hasNumber = /[0-9]/.test(formData.password);
@@ -841,7 +988,7 @@ export default function ProviderRegistration() {
           </div>
         );
 
-      case 6: // Date of Birth
+      case 7: // Date of Birth
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
@@ -867,7 +1014,7 @@ export default function ProviderRegistration() {
           </div>
         );
 
-      case 7: // Service Category
+      case 8: // Service Category
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
@@ -909,7 +1056,7 @@ export default function ProviderRegistration() {
         );
 
 
-      case 8: // About Service with Pricing (like mobile)
+      case 9: // About Service with Pricing (like mobile)
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
@@ -1018,7 +1165,7 @@ export default function ProviderRegistration() {
           </div>
         );
 
-      case 9: // Documents Upload
+      case 10: // Documents Upload
         return (
           <div className="space-y-6">
             <div className="text-center mb-6">
@@ -1150,7 +1297,7 @@ export default function ProviderRegistration() {
           </div>
         );
 
-      case 10: // Success - Pending Approval
+      case 11: // Success - Pending Approval
         return (
           <div className="text-center py-8">
             <div className="w-24 h-24 bg-yellow-100 rounded-full mx-auto mb-6 flex items-center justify-center">

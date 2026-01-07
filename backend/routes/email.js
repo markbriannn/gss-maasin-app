@@ -167,4 +167,32 @@ router.post('/verification-code', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/email/send-verification
+ * Send email verification code for registration
+ */
+router.post('/send-verification', async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Missing email' });
+    }
+    
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    const result = await emailService.sendVerificationCode(email, code, name);
+    
+    if (result.success) {
+      res.json({ success: true, code }); // Return code for verification (in production, store in DB/cache)
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    console.error('Send verification email error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
