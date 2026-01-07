@@ -542,9 +542,13 @@ export default function ProviderRegistration() {
         // Documents
         documents: {
           idType: formData.idType,
+          governmentIdUrl: formData.validIdUrl,
           validId: formData.validIdUrl,
+          barangayClearanceUrl: formData.barangayClearanceUrl,
           barangayClearance: formData.barangayClearanceUrl,
+          policeClearanceUrl: formData.policeClearanceUrl,
           policeClearance: formData.policeClearanceUrl,
+          selfieUrl: formData.selfieUrl,
           selfie: formData.selfieUrl,
         },
         role: 'PROVIDER',
