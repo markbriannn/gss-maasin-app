@@ -587,14 +587,28 @@ export default function ProviderJobDetailsPage() {
             )}
 
             {job.status === 'accepted' && (
-              <button
-                onClick={handleStartTraveling}
-                disabled={updating}
-                className="w-full py-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
-              >
-                {updating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Navigation className="w-5 h-5" />}
-                Start Traveling
-              </button>
+              <>
+                {/* Pay First - Waiting for client payment */}
+                {job.paymentPreference === 'pay_first' && !job.isPaidUpfront && (
+                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 mb-3 text-center">
+                    <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+                    <p className="font-semibold text-amber-700">Waiting for Client Payment</p>
+                    <p className="text-sm text-amber-600 mt-1">Client selected &quot;Pay First&quot;. You can start traveling once they complete payment.</p>
+                  </div>
+                )}
+                <button
+                  onClick={handleStartTraveling}
+                  disabled={updating || (job.paymentPreference === 'pay_first' && !job.isPaidUpfront)}
+                  className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
+                    job.paymentPreference === 'pay_first' && !job.isPaidUpfront
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50'
+                  }`}
+                >
+                  {updating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Navigation className="w-5 h-5" />}
+                  {job.paymentPreference === 'pay_first' && !job.isPaidUpfront ? 'Waiting for Payment...' : 'Start Traveling'}
+                </button>
+              </>
             )}
 
             {job.status === 'traveling' && (
