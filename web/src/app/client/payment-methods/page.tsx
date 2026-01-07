@@ -7,12 +7,12 @@ import ClientLayout from '@/components/layouts/ClientLayout';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import {
-  ArrowLeft, CreditCard, Plus, Trash2, Star, CheckCircle, X, Wallet, Smartphone, Banknote, Shield
+  ArrowLeft, CreditCard, Plus, Trash2, Star, CheckCircle, X, Wallet, Smartphone, Shield
 } from 'lucide-react';
 
 interface PaymentMethod {
   id: string;
-  type: 'gcash' | 'maya' | 'card' | 'cash';
+  type: 'gcash' | 'maya';
   name: string;
   accountNumber?: string;
   isDefault: boolean;
@@ -21,8 +21,6 @@ interface PaymentMethod {
 const PAYMENT_TYPES = [
   { id: 'gcash', name: 'GCash', icon: '💚', color: '#00B14F', bgColor: 'bg-green-50', textColor: 'text-green-600' },
   { id: 'maya', name: 'Maya', icon: '💜', color: '#7B3FE4', bgColor: 'bg-purple-50', textColor: 'text-purple-600' },
-  { id: 'card', name: 'Credit/Debit Card', icon: '💳', color: '#3B82F6', bgColor: 'bg-blue-50', textColor: 'text-blue-600' },
-  { id: 'cash', name: 'Cash', icon: '💵', color: '#10B981', bgColor: 'bg-emerald-50', textColor: 'text-emerald-600' },
 ];
 
 export default function PaymentMethodsPage() {
@@ -150,7 +148,7 @@ export default function PaymentMethodsPage() {
             </div>
             <div className="text-left">
               <p className="font-semibold text-gray-900">Add Payment Method</p>
-              <p className="text-sm text-gray-500">GCash, Maya, Card, or Cash</p>
+              <p className="text-sm text-gray-500">GCash or Maya</p>
             </div>
           </button>
 
@@ -267,21 +265,19 @@ export default function PaymentMethodsPage() {
                 </div>
 
                 {/* Account Number Input */}
-                {newMethod.type !== 'cash' && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      {newMethod.type === 'card' ? 'Card Number (last 4 digits)' : 'Phone Number'}
-                    </label>
-                    <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500">
-                      <div className="px-4 py-3 bg-gray-50 border-r border-gray-200">
-                        <Smartphone className="w-5 h-5 text-gray-400" />
-                      </div>
-                      <input type="text" value={newMethod.accountNumber} onChange={(e) => setNewMethod({ ...newMethod, accountNumber: e.target.value })}
-                        placeholder={newMethod.type === 'card' ? '1234' : '09XX XXX XXXX'}
-                        className="flex-1 px-4 py-3 outline-none" />
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500">
+                    <div className="px-4 py-3 bg-gray-50 border-r border-gray-200">
+                      <Smartphone className="w-5 h-5 text-gray-400" />
                     </div>
+                    <input type="text" value={newMethod.accountNumber} onChange={(e) => setNewMethod({ ...newMethod, accountNumber: e.target.value })}
+                      placeholder="09XX XXX XXXX"
+                      className="flex-1 px-4 py-3 outline-none" />
                   </div>
-                )}
+                </div>
 
                 {/* Action Buttons */}
                 <div className="flex gap-3 pt-2">
