@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import ToastNotification from "@/components/ToastNotification";
+import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,6 +23,18 @@ export default function RootLayout({
         <AuthProvider>
           {children}
           <ToastNotification />
+          <Toaster 
+            position="top-right" 
+            richColors 
+            closeButton
+            toastOptions={{
+              duration: 5000,
+              style: {
+                background: 'white',
+                border: '1px solid #e5e7eb',
+              },
+            }}
+          />
         </AuthProvider>
       </body>
     </html>

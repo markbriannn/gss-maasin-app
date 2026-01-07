@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { 
   Bell, MessageSquare, Briefcase, CheckCircle, 
   Star, CreditCard, X, ChevronRight, Sparkles
@@ -26,15 +27,50 @@ export default function ToastNotification() {
   const router = useRouter();
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
+  const addToast = useCallback((toastData: Omit<Toast, 'id'>) => {
     const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    setToasts(prev => [...prev, { ...toast, id }]);
+    setToasts(prev => [...prev, { ...toastData, id }]);
     
-    // Auto remove after 5 seconds
+    // Also show using sonner for better visibility
+    const toastType = toastData.color === 'red' ? 'error' : 
+                      toastData.color === 'amber' ? 'warning' : 
+                      toastData.color === 'emerald' ? 'success' : 'info';
+    
+    if (toastType === 'success') {
+      toast.success(toastData.title, {
+        description: toastData.message,
+        action: toastData.link ? {
+          label: 'View',
+          onClick: () => router.push(toastData.link!),
+        } : undefined,
+      });
+    } else if (toastType === 'error') {
+      toast.error(toastData.title, {
+        description: toastData.message,
+      });
+    } else if (toastType === 'warning') {
+      toast.warning(toastData.title, {
+        description: toastData.message,
+        action: toastData.link ? {
+          label: 'View',
+          onClick: () => router.push(toastData.link!),
+        } : undefined,
+      });
+    } else {
+      toast.info(toastData.title, {
+        description: toastData.message,
+        action: toastData.link ? {
+          label: 'View',
+          onClick: () => router.push(toastData.link!),
+        } : undefined,
+      });
+    }
+    
+    // Auto remove custom toast after 5 seconds
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 5000);
-  }, []);
+  }, [router]);
 
   const removeToast = (id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
@@ -70,8 +106,8 @@ export default function ToastNotification() {
           const data = change.doc.data();
           const createdAt = data.createdAt?.toDate() || new Date();
           
-          // Only show if it's a new notification (within last 10 seconds)
-          if (new Date().getTime() - createdAt.getTime() < 10000) {
+          // Only show if it's a new notification (within last 30 seconds)
+          if (new Date().getTime() - createdAt.getTime() < 30000) {
             const toast = getToastFromNotification(data);
             if (toast) addToast(toast);
           }
@@ -98,7 +134,7 @@ export default function ToastNotification() {
             const data = change.doc.data();
             const createdAt = data.createdAt?.toDate() || new Date();
             
-            if (new Date().getTime() - createdAt.getTime() < 10000) {
+            if (new Date().getTime() - createdAt.getTime() < 30000) {
               const toast = getToastFromNotification(data);
               if (toast) addToast(toast);
             }
