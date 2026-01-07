@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { sendBookingConfirmation } from '@/lib/emailjs';
+import { createPaymentSource, PaymentMethod } from '@/lib/paymongo';
 import ClientLayout from '@/components/layouts/ClientLayout';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -78,10 +79,11 @@ function BookServiceContent() {
 
   // Form state
   const [additionalNotes, setAdditionalNotes] = useState('');
-  const [paymentPreference, setPaymentPreference] = useState<'pay_first' | 'pay_later'>('pay_later');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gcash');
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
@@ -198,6 +200,7 @@ function BookServiceContent() {
       const systemFee = getSystemFee();
       const totalAmount = getTotalAmount();
 
+      // Create booking first with pending_payment status
       const bookingData = {
         clientId: user.uid,
         clientName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Client',
@@ -223,33 +226,47 @@ function BookServiceContent() {
         systemFee: systemFee,
         systemFeePercentage: 5,
         totalAmount: totalAmount,
-        paymentPreference,
+        // Escrow payment - always pay first
+        paymentMethod: paymentMethod,
+        paymentStatus: 'pending', // pending -> paid -> held -> released
         isPaidUpfront: false,
         upfrontPaidAmount: 0,
-        status: 'pending',
+        escrowAmount: totalAmount, // Amount held in escrow
+        status: 'awaiting_payment', // New status - waiting for payment
         adminApproved: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
 
       const docRef = await addDoc(collection(db, 'bookings'), bookingData);
-      setBookingId(docRef.id);
+      const newBookingId = docRef.id;
+      setBookingId(newBookingId);
+
+      // Now redirect to payment
+      setProcessingPayment(true);
       
-      if (user.email) {
-        sendBookingConfirmation(user.email, bookingData.clientName, {
-          serviceCategory: provider.serviceCategory,
-          title: bookingData.title,
-          providerName: `${provider.firstName} ${provider.lastName}`.trim(),
-          totalAmount: totalAmount,
-        }).catch(err => console.log('Email notification failed:', err));
+      const paymentResult = await createPaymentSource({
+        amount: totalAmount,
+        description: `${provider.serviceCategory} Service - ${provider.firstName} ${provider.lastName}`,
+        bookingId: newBookingId,
+        clientId: user.uid,
+        providerId: provider.id,
+        paymentMethod: paymentMethod,
+      });
+
+      if (paymentResult.success && paymentResult.checkoutUrl) {
+        // Redirect to PayMongo checkout
+        window.location.href = paymentResult.checkoutUrl;
+      } else {
+        alert('Failed to process payment: ' + (paymentResult.error || 'Unknown error'));
+        setProcessingPayment(false);
       }
-      setSubmitted(true);
     } catch (error) {
       console.error('Error creating booking:', error);
       alert('Failed to create booking');
-    } finally {
       setSubmitting(false);
       setUploadingMedia(false);
+      setProcessingPayment(false);
     }
   };
 
@@ -554,74 +571,77 @@ function BookServiceContent() {
                 <p className="text-xs text-gray-400 mt-2 text-right">{additionalNotes.length}/500 characters</p>
               </div>
 
-              {/* Payment Preference */}
+              {/* Payment Method - Escrow System */}
               <div className="bg-white rounded-3xl shadow-xl shadow-gray-100 p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center">
-                    <Wallet className="w-5 h-5 text-white" />
+                  <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-green-500 rounded-xl flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900">Payment Preference</h3>
-                    <p className="text-sm text-gray-500">Choose when you want to pay</p>
+                    <h3 className="font-bold text-gray-900">Secure Payment</h3>
+                    <p className="text-sm text-gray-500">Pay now, money released after job completion</p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Escrow Info */}
+                <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-2xl p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-emerald-800">Protected Payment</p>
+                      <p className="text-sm text-emerald-700 mt-1">
+                        Your payment is held securely until the job is completed and you confirm satisfaction.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-sm font-medium text-gray-700 mb-3">Select Payment Method</p>
+                <div className="grid grid-cols-2 gap-3">
                   <button
-                    onClick={() => setPaymentPreference('pay_first')}
-                    className={`relative p-5 rounded-2xl border-2 text-left transition-all ${
-                      paymentPreference === 'pay_first'
-                        ? 'border-[#00B14F] bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg shadow-green-100'
+                    onClick={() => setPaymentMethod('gcash')}
+                    className={`relative p-4 rounded-2xl border-2 text-center transition-all ${
+                      paymentMethod === 'gcash'
+                        ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                     }`}
                   >
-                    {paymentPreference === 'pay_first' && (
-                      <div className="absolute top-3 right-3 w-6 h-6 bg-[#00B14F] rounded-full flex items-center justify-center">
-                        <Check className="w-4 h-4 text-white" />
+                    {paymentMethod === 'gcash' && (
+                      <div className="absolute top-2 right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
                       </div>
                     )}
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${paymentPreference === 'pay_first' ? 'bg-green-100' : 'bg-gray-100'}`}>
-                      <CreditCard className={`w-6 h-6 ${paymentPreference === 'pay_first' ? 'text-[#00B14F]' : 'text-gray-400'}`} />
+                    <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center mx-auto mb-2">
+                      <span className="text-white font-bold text-lg">G</span>
                     </div>
-                    <p className={`font-bold mb-1 ${paymentPreference === 'pay_first' ? 'text-[#00B14F]' : 'text-gray-900'}`}>Pay First</p>
-                    <p className="text-sm text-gray-500">Secure payment before service starts</p>
-                    <div className="flex items-center gap-1 mt-3 text-xs text-green-600">
-                      <Shield className="w-3 h-3" />
-                      <span>Protected by GSS</span>
-                    </div>
+                    <p className={`font-semibold ${paymentMethod === 'gcash' ? 'text-blue-600' : 'text-gray-900'}`}>GCash</p>
                   </button>
 
                   <button
-                    onClick={() => setPaymentPreference('pay_later')}
-                    className={`relative p-5 rounded-2xl border-2 text-left transition-all ${
-                      paymentPreference === 'pay_later'
-                        ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-cyan-50 shadow-lg shadow-blue-100'
+                    onClick={() => setPaymentMethod('maya')}
+                    className={`relative p-4 rounded-2xl border-2 text-center transition-all ${
+                      paymentMethod === 'maya'
+                        ? 'border-green-500 bg-green-50 shadow-lg shadow-green-100'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                     }`}
                   >
-                    {paymentPreference === 'pay_later' && (
-                      <div className="absolute top-3 right-3 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                        <Check className="w-4 h-4 text-white" />
+                    {paymentMethod === 'maya' && (
+                      <div className="absolute top-2 right-2 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
                       </div>
                     )}
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${paymentPreference === 'pay_later' ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                      <Clock className={`w-6 h-6 ${paymentPreference === 'pay_later' ? 'text-blue-500' : 'text-gray-400'}`} />
+                    <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center mx-auto mb-2">
+                      <span className="text-white font-bold text-lg">M</span>
                     </div>
-                    <p className={`font-bold mb-1 ${paymentPreference === 'pay_later' ? 'text-blue-500' : 'text-gray-900'}`}>Pay Later</p>
-                    <p className="text-sm text-gray-500">Pay after job completion</p>
-                    <div className="flex items-center gap-1 mt-3 text-xs text-blue-600">
-                      <Sparkles className="w-3 h-3" />
-                      <span>Flexible payment</span>
-                    </div>
+                    <p className={`font-semibold ${paymentMethod === 'maya' ? 'text-green-600' : 'text-gray-900'}`}>Maya</p>
                   </button>
                 </div>
 
                 <div className="mt-4 p-4 bg-amber-50 rounded-xl flex gap-3">
                   <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-amber-800">
-                    {paymentPreference === 'pay_first' 
-                      ? 'You\'ll pay the base amount upfront. Additional charges for materials or extra work can be approved separately.'
-                      : 'Payment is due after job completion. The provider may request additional charges if extra work is needed.'}
+                    You&apos;ll be redirected to {paymentMethod === 'gcash' ? 'GCash' : 'Maya'} to complete payment. 
+                    Money will be held until the provider completes the job and you confirm.
                   </p>
                 </div>
               </div>
@@ -716,18 +736,18 @@ function BookServiceContent() {
                 {/* Submit Button */}
                 <button
                   onClick={handleSubmit}
-                  disabled={submitting || mediaFiles.length === 0}
+                  disabled={submitting || processingPayment || mediaFiles.length === 0}
                   className="w-full py-4 bg-gradient-to-r from-[#00B14F] to-emerald-500 text-white rounded-2xl font-bold text-lg hover:shadow-lg hover:shadow-green-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  {submitting ? (
+                  {submitting || processingPayment ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      {uploadingMedia ? 'Uploading...' : 'Submitting...'}
+                      {uploadingMedia ? 'Uploading...' : processingPayment ? 'Redirecting to Payment...' : 'Processing...'}
                     </>
                   ) : (
                     <>
-                      <span>Submit Request</span>
-                      <ArrowRight className="w-5 h-5" />
+                      <CreditCard className="w-5 h-5" />
+                      <span>Pay ₱{getTotalAmount().toLocaleString()} & Book</span>
                     </>
                   )}
                 </button>
@@ -736,15 +756,15 @@ function BookServiceContent() {
                 <div className="bg-gray-50 rounded-2xl p-4">
                   <div className="flex items-center gap-3 text-sm text-gray-600 mb-3">
                     <Shield className="w-5 h-5 text-[#00B14F]" />
-                    <span>Secure & Protected</span>
+                    <span>Payment held until job completion</span>
                   </div>
                   <div className="flex items-center gap-3 text-sm text-gray-600 mb-3">
                     <CheckCircle className="w-5 h-5 text-[#00B14F]" />
-                    <span>Verified Providers</span>
+                    <span>Money released only after you confirm</span>
                   </div>
                   <div className="flex items-center gap-3 text-sm text-gray-600">
                     <Sparkles className="w-5 h-5 text-[#00B14F]" />
-                    <span>Quality Guaranteed</span>
+                    <span>100% Secure with PayMongo</span>
                   </div>
                 </div>
               </div>

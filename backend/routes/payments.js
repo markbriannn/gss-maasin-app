@@ -715,7 +715,9 @@ router.post('/webhook', async (req, res) => {
         const providerShare = amountInPesos * 0.95; // 95% to provider
         const platformCommission = amountInPesos * 0.05; // 5% platform fee
 
-        // Check if this is a "pay first" upfront payment
+        // Check if this is an escrow payment (awaiting_payment status)
+        const isEscrowPayment = bookingData?.status === 'awaiting_payment';
+        // Check if this is a "pay first" upfront payment (legacy)
         const isUpfrontPayment = bookingData?.paymentPreference === 'pay_first' && !bookingData?.isPaidUpfront;
 
         // Update booking
@@ -727,8 +729,16 @@ router.post('/webhook', async (req, res) => {
           updatedAt: new Date(),
         };
 
-        if (isUpfrontPayment) {
-          // Pay First - mark as paid upfront
+        if (isEscrowPayment) {
+          // Escrow payment - mark as paid and change status to pending (awaiting admin approval)
+          bookingUpdate.isPaidUpfront = true;
+          bookingUpdate.upfrontPaidAmount = amountInPesos;
+          bookingUpdate.upfrontPaidAt = new Date();
+          bookingUpdate.paymentStatus = 'held'; // Money is held in escrow
+          bookingUpdate.status = 'pending'; // Now waiting for admin approval
+          console.log(`Escrow payment received for booking ${paymentData.bookingId}: ₱${amountInPesos}`);
+        } else if (isUpfrontPayment) {
+          // Pay First (legacy) - mark as paid upfront
           bookingUpdate.isPaidUpfront = true;
           bookingUpdate.upfrontPaidAmount = amountInPesos;
           bookingUpdate.upfrontPaidAt = new Date();
@@ -743,23 +753,24 @@ router.post('/webhook', async (req, res) => {
 
         await db.collection('bookings').doc(paymentData.bookingId).update(bookingUpdate);
 
-        // Create transaction record with provider share and commission
+        // For escrow payments, don't add to provider balance yet - wait until job is completed
+        // Only create transaction record for tracking
         await db.collection('transactions').add({
           bookingId: paymentData.bookingId,
           clientId: paymentData.userId,
           providerId: providerId,
-          type: 'payment',
+          type: isEscrowPayment ? 'escrow_payment' : 'payment',
           amount: amountInPesos,
           providerShare: providerShare,
           platformCommission: platformCommission,
           paymentId: payment.id,
           paymentMethod: paymentData.type,
-          status: 'completed',
+          status: isEscrowPayment ? 'held' : 'completed',
           createdAt: new Date(),
         });
 
-        // Update provider's available balance
-        if (providerId) {
+        // Only update provider's balance for non-escrow payments
+        if (!isEscrowPayment && providerId) {
           const providerRef = db.collection('users').doc(providerId);
           const providerDoc = await providerRef.get();
           const currentBalance = providerDoc.data()?.availableBalance || 0;
@@ -1372,6 +1383,93 @@ router.post('/admin/fail-payout/:payoutId', async (req, res) => {
     });
   } catch (error) {
     console.error('Error failing payout:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Release escrow payment - called when client confirms job completion
+router.post('/release-escrow/:bookingId', async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { clientId } = req.body;
+    const db = getDb();
+
+    // Get booking
+    const bookingDoc = await db.collection('bookings').doc(bookingId).get();
+    if (!bookingDoc.exists) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    const booking = bookingDoc.data();
+
+    // Verify client owns this booking
+    if (booking.clientId !== clientId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Check if payment is in escrow (held status)
+    if (booking.paymentStatus !== 'held') {
+      return res.status(400).json({ error: `Payment is not in escrow. Current status: ${booking.paymentStatus}` });
+    }
+
+    // Check if job is in pending_completion status
+    if (booking.status !== 'pending_completion') {
+      return res.status(400).json({ error: `Job must be marked as done by provider first. Current status: ${booking.status}` });
+    }
+
+    const providerId = booking.providerId;
+    const amount = booking.escrowAmount || booking.totalAmount || 0;
+    const providerShare = amount * 0.95;
+    const platformCommission = amount * 0.05;
+
+    // Update booking status
+    await db.collection('bookings').doc(bookingId).update({
+      status: 'completed',
+      paymentStatus: 'released',
+      completedAt: new Date(),
+      clientConfirmedAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // Update transaction status from 'held' to 'completed'
+    const transactionsSnapshot = await db.collection('transactions')
+      .where('bookingId', '==', bookingId)
+      .where('type', '==', 'escrow_payment')
+      .get();
+
+    for (const txDoc of transactionsSnapshot.docs) {
+      await txDoc.ref.update({
+        status: 'completed',
+        releasedAt: new Date(),
+      });
+    }
+
+    // Now add to provider's balance
+    if (providerId) {
+      const providerRef = db.collection('users').doc(providerId);
+      const providerDoc = await providerRef.get();
+      if (providerDoc.exists) {
+        const currentBalance = providerDoc.data()?.availableBalance || 0;
+        const currentEarnings = providerDoc.data()?.totalEarnings || 0;
+        
+        await providerRef.update({
+          availableBalance: currentBalance + providerShare,
+          totalEarnings: currentEarnings + providerShare,
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    console.log(`Escrow released for booking ${bookingId}: Provider gets ₱${providerShare}`);
+
+    res.json({
+      success: true,
+      message: 'Payment released to provider',
+      amount: amount,
+      providerShare: providerShare,
+    });
+  } catch (error) {
+    console.error('Error releasing escrow:', error.message);
     res.status(500).json({ error: error.message });
   }
 });

@@ -173,8 +173,11 @@ const JobDetailsScreen = ({navigation, route}) => {
             offeredPrice: data.offeredPrice,
             isNegotiable: data.isNegotiable,
             createdAt: data.createdAt?.toDate?.()?.toLocaleDateString() || new Date().toLocaleDateString(),
-            // Payment preference
+            // Payment preference and escrow
             paymentPreference: data.paymentPreference || 'pay_later',
+            paymentStatus: data.paymentStatus || null, // pending, held, released, refunded
+            paymentMethod: data.paymentMethod || null,
+            escrowAmount: data.escrowAmount || 0,
             isPaidUpfront: data.isPaidUpfront || false,
             upfrontPaidAmount: data.upfrontPaidAmount || 0,
             additionalCharges: data.additionalCharges || [],
@@ -338,19 +341,30 @@ const JobDetailsScreen = ({navigation, route}) => {
     const additionalChargesTotal = jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || 0), 0) || 0;
     const hasAdditionalToPay = additionalChargesTotal > 0;
     
+    // Check if this is an escrow payment that needs to be released
+    const isEscrowPayment = jobData.paymentStatus === 'held';
+    
     // For Pay First: if already paid upfront and no additional charges, go straight to payment_received
     const isPayFirstComplete = jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront && !hasAdditionalToPay;
     
-    const message = isPayFirstComplete 
-      ? 'Are you satisfied with the work? This will complete the job.'
-      : hasAdditionalToPay && jobData.isPaidUpfront
-        ? `Are you satisfied with the work? You have ₱${additionalChargesTotal.toLocaleString()} in additional charges to pay.`
-        : 'Are you satisfied with the work? This will proceed to payment.';
+    let message, buttonText;
     
-    const buttonText = isPayFirstComplete ? 'Yes, Complete Job' : 'Yes, Proceed to Pay';
+    if (isEscrowPayment) {
+      message = 'Are you satisfied with the work? This will release the payment from escrow to the provider.';
+      buttonText = 'Yes, Release Payment';
+    } else if (isPayFirstComplete) {
+      message = 'Are you satisfied with the work? This will complete the job.';
+      buttonText = 'Yes, Complete Job';
+    } else if (hasAdditionalToPay && jobData.isPaidUpfront) {
+      message = `Are you satisfied with the work? You have ₱${additionalChargesTotal.toLocaleString()} in additional charges to pay.`;
+      buttonText = 'Yes, Proceed to Pay';
+    } else {
+      message = 'Are you satisfied with the work? This will proceed to payment.';
+      buttonText = 'Yes, Proceed to Pay';
+    }
     
     Alert.alert(
-      'Confirm Work Complete',
+      isEscrowPayment ? 'Release Payment to Provider?' : 'Confirm Work Complete',
       message,
       [
         {text: 'Not Yet', style: 'cancel'},
@@ -360,7 +374,24 @@ const JobDetailsScreen = ({navigation, route}) => {
             try {
               setIsUpdating(true);
               
-              if (isPayFirstComplete) {
+              if (isEscrowPayment) {
+                // Call backend to release escrow
+                const apiUrl = APP_CONFIG?.API_URL || 'https://gss-maasin-app.onrender.com/api';
+                const response = await fetch(`${apiUrl}/payments/release-escrow/${jobData.id || jobId}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ clientId: user?.uid || user?.id }),
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                  setJobData(prev => ({...prev, status: 'completed', paymentStatus: 'released'}));
+                  Alert.alert('Payment Released! 🎉', `₱${result.providerShare?.toLocaleString() || ''} has been released to the provider. Thank you!`);
+                } else {
+                  Alert.alert('Error', result.error || 'Failed to release payment. Please try again.');
+                }
+              } else if (isPayFirstComplete) {
                 // Pay First with no additional charges - go straight to payment_received
                 await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
                   status: 'payment_received',

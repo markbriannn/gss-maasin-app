@@ -10,6 +10,7 @@ import {
   Image,
   PermissionsAndroid,
   Platform,
+  Linking,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -26,6 +27,8 @@ import {sendBookingConfirmation} from '../../services/emailService';
 import {attemptBooking, resetBookingLimit} from '../../utils/rateLimiter';
 import {uploadImage} from '../../services/imageUploadService';
 
+const API_URL = 'https://gss-maasin-app.onrender.com/api';
+
 const BookServiceScreen = ({navigation, route}) => {
   const {user} = useAuth();
   const {isDark, theme} = useTheme();
@@ -38,8 +41,9 @@ const BookServiceScreen = ({navigation, route}) => {
 
   const [serviceCategory, setServiceCategory] = useState(providerService);
   const [additionalNotes, setAdditionalNotes] = useState('');
-  const [paymentPreference, setPaymentPreference] = useState('pay_later'); // 'pay_first' or 'pay_later'
+  const [paymentMethod, setPaymentMethod] = useState('gcash'); // 'gcash' or 'maya'
   const [isLoading, setIsLoading] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
   const [mediaFiles, setMediaFiles] = useState([]);
 
   // Clear old rate limit data on mount (for development)
@@ -165,6 +169,21 @@ const BookServiceScreen = ({navigation, route}) => {
       const totalAmount = providerFixedPrice + systemFee;
       const autoTitle = `${serviceCategory} Service Request`;
 
+      // Upload media files first
+      const uploadedMedia = [];
+      for (const file of mediaFiles) {
+        try {
+          const uploadedUrl = await uploadImage(file.uri, `jobs/${user.uid}`, 'document');
+          uploadedMedia.push({
+            url: uploadedUrl,
+            type: file.type,
+            isVideo: file.isVideo,
+          });
+        } catch (uploadError) {
+          console.log('Media upload failed:', uploadError);
+        }
+      }
+
       const jobData = {
         serviceCategory: serviceCategory,
         title: autoTitle,
@@ -172,13 +191,17 @@ const BookServiceScreen = ({navigation, route}) => {
         additionalNotes: additionalNotes,
         clientId: user?.uid || user?.id,
         clientName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Client',
+        clientEmail: user?.email,
+        clientPhone: user?.phoneNumber,
         providerId: actualProviderId || null,
         providerName: displayProviderName || null,
-        status: 'pending',
-        // Payment preference
-        paymentPreference: paymentPreference,
+        // Escrow payment - always pay first
+        status: 'awaiting_payment', // New status - waiting for payment
+        paymentMethod: paymentMethod,
+        paymentStatus: 'pending', // pending -> paid -> held -> released
         isPaidUpfront: false,
         upfrontPaidAmount: 0,
+        escrowAmount: totalAmount, // Amount held in escrow
         providerFixedPrice: providerFixedPrice,
         providerPrice: providerFixedPrice,
         priceType: provider?.priceType || 'per_job',
@@ -196,33 +219,62 @@ const BookServiceScreen = ({navigation, route}) => {
           : user?.streetAddress
             ? `${user.streetAddress}, Maasin City`
             : 'Maasin City',
-        mediaFiles: [],
+        mediaFiles: uploadedMedia,
+        adminApproved: false,
       };
 
-      // Upload media files to Cloudinary
-      if (mediaFiles.length > 0) {
-        const uploadedMedia = [];
-        for (const file of mediaFiles) {
-          try {
-            const uploadedUrl = await uploadImage(file.uri, `jobs/${user.uid}`, 'document');
-            uploadedMedia.push({
-              url: uploadedUrl,
-              type: file.type,
-              isVideo: file.isVideo,
+      const createdJob = await jobService.createJobRequest(jobData);
+      const bookingId = createdJob?.id;
+
+      // Now redirect to payment
+      setProcessingPayment(true);
+      
+      try {
+        const response = await fetch(`${API_URL}/payments/create-source`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            amount: totalAmount,
+            bookingId: bookingId,
+            userId: user?.uid,
+            description: `${serviceCategory} Service - ${displayProviderName || 'Provider'}`,
+            type: paymentMethod,
+          }),
+        });
+
+        const paymentResult = await response.json();
+
+        if (paymentResult.success && paymentResult.checkoutUrl) {
+          // Open PayMongo checkout in browser
+          const supported = await Linking.canOpenURL(paymentResult.checkoutUrl);
+          if (supported) {
+            await Linking.openURL(paymentResult.checkoutUrl);
+            // Navigate to booking status to wait for payment confirmation
+            navigation.replace('BookingStatus', {
+              bookingId: bookingId,
+              booking: {...jobData, id: bookingId},
+              awaitingPayment: true,
             });
-          } catch (uploadError) {
-            console.log('Media upload failed:', uploadError);
-            // Continue with other files
+          } else {
+            Alert.alert('Error', 'Cannot open payment page');
+            setProcessingPayment(false);
           }
+        } else {
+          Alert.alert('Payment Error', paymentResult.error || 'Failed to process payment');
+          setProcessingPayment(false);
         }
-        jobData.mediaFiles = uploadedMedia;
+      } catch (paymentError) {
+        console.error('Payment error:', paymentError);
+        Alert.alert('Payment Error', 'Failed to connect to payment service');
+        setProcessingPayment(false);
       }
 
-      const createdJob = await jobService.createJobRequest(jobData);
-
+      // Send notifications
       smsEmailService
         .sendBookingConfirmation(
-          {...jobData, id: createdJob?.id || 'N/A'},
+          {...jobData, id: bookingId},
           user,
           {name: displayProviderName || 'Provider'},
         )
@@ -236,16 +288,10 @@ const BookServiceScreen = ({navigation, route}) => {
           totalAmount: totalAmount,
         }).catch(err => console.log('Email notification failed:', err));
       }
-
-      // Navigate to BookingStatus screen to show "Finding Provider" like Grab
-      navigation.replace('BookingStatus', {
-        bookingId: createdJob?.id,
-        booking: {...jobData, id: createdJob?.id},
-      });
     } catch (error) {
       Alert.alert('Error', error.message || 'Failed to create job request');
-    } finally {
       setIsLoading(false);
+      setProcessingPayment(false);
     }
   };
 
@@ -486,10 +532,33 @@ const BookServiceScreen = ({navigation, route}) => {
           onChangeText={setAdditionalNotes}
         />
 
-        {/* Payment Preference */}
+        {/* Payment Method - Escrow System */}
         <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8}}>
-          Payment Preference *
+          Payment Method *
         </Text>
+        
+        {/* Escrow Info Banner */}
+        <View style={{
+          backgroundColor: isDark ? '#064E3B' : '#ECFDF5',
+          padding: 12,
+          borderRadius: 12,
+          marginBottom: 16,
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          borderWidth: 1,
+          borderColor: isDark ? '#065F46' : '#A7F3D0',
+        }}>
+          <Icon name="shield-checkmark" size={20} color="#10B981" />
+          <View style={{marginLeft: 10, flex: 1}}>
+            <Text style={{fontSize: 13, fontWeight: '600', color: isDark ? '#A7F3D0' : '#065F46', marginBottom: 2}}>
+              Protected Payment
+            </Text>
+            <Text style={{fontSize: 12, color: isDark ? '#6EE7B7' : '#047857', lineHeight: 18}}>
+              Your payment is held securely until the job is completed and you confirm satisfaction.
+            </Text>
+          </View>
+        </View>
+
         <View style={{flexDirection: 'row', gap: 12, marginBottom: 20}}>
           <TouchableOpacity
             style={{
@@ -497,32 +566,44 @@ const BookServiceScreen = ({navigation, route}) => {
               padding: 16,
               borderRadius: 12,
               borderWidth: 2,
-              borderColor: paymentPreference === 'pay_first' ? '#00B14F' : isDark ? theme.colors.border : '#E5E7EB',
-              backgroundColor: paymentPreference === 'pay_first' ? (isDark ? '#064E3B' : '#F0FDF4') : (isDark ? theme.colors.card : '#FFFFFF'),
+              borderColor: paymentMethod === 'gcash' ? '#3B82F6' : isDark ? theme.colors.border : '#E5E7EB',
+              backgroundColor: paymentMethod === 'gcash' ? (isDark ? '#1E3A5F' : '#EFF6FF') : (isDark ? theme.colors.card : '#FFFFFF'),
               alignItems: 'center',
             }}
-            onPress={() => setPaymentPreference('pay_first')}>
-            <Icon 
-              name="card" 
-              size={28} 
-              color={paymentPreference === 'pay_first' ? '#00B14F' : isDark ? theme.colors.textSecondary : '#6B7280'} 
-            />
+            onPress={() => setPaymentMethod('gcash')}>
+            <View style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              backgroundColor: '#3B82F6',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: 8,
+            }}>
+              <Text style={{color: '#FFFFFF', fontWeight: 'bold', fontSize: 18}}>G</Text>
+            </View>
             <Text style={{
               fontSize: 14,
               fontWeight: '600',
-              color: paymentPreference === 'pay_first' ? '#00B14F' : isDark ? theme.colors.text : '#1F2937',
-              marginTop: 8,
+              color: paymentMethod === 'gcash' ? '#3B82F6' : isDark ? theme.colors.text : '#1F2937',
             }}>
-              Pay First
+              GCash
             </Text>
-            <Text style={{
-              fontSize: 11,
-              color: isDark ? theme.colors.textSecondary : '#6B7280',
-              textAlign: 'center',
-              marginTop: 4,
-            }}>
-              Pay before service starts
-            </Text>
+            {paymentMethod === 'gcash' && (
+              <View style={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                width: 20,
+                height: 20,
+                borderRadius: 10,
+                backgroundColor: '#3B82F6',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+                <Icon name="checkmark" size={12} color="#FFFFFF" />
+              </View>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -531,32 +612,44 @@ const BookServiceScreen = ({navigation, route}) => {
               padding: 16,
               borderRadius: 12,
               borderWidth: 2,
-              borderColor: paymentPreference === 'pay_later' ? '#3B82F6' : isDark ? theme.colors.border : '#E5E7EB',
-              backgroundColor: paymentPreference === 'pay_later' ? (isDark ? '#1E3A5F' : '#EFF6FF') : (isDark ? theme.colors.card : '#FFFFFF'),
+              borderColor: paymentMethod === 'maya' ? '#10B981' : isDark ? theme.colors.border : '#E5E7EB',
+              backgroundColor: paymentMethod === 'maya' ? (isDark ? '#064E3B' : '#ECFDF5') : (isDark ? theme.colors.card : '#FFFFFF'),
               alignItems: 'center',
             }}
-            onPress={() => setPaymentPreference('pay_later')}>
-            <Icon 
-              name="time" 
-              size={28} 
-              color={paymentPreference === 'pay_later' ? '#3B82F6' : isDark ? theme.colors.textSecondary : '#6B7280'} 
-            />
+            onPress={() => setPaymentMethod('maya')}>
+            <View style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              backgroundColor: '#10B981',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: 8,
+            }}>
+              <Text style={{color: '#FFFFFF', fontWeight: 'bold', fontSize: 18}}>M</Text>
+            </View>
             <Text style={{
               fontSize: 14,
               fontWeight: '600',
-              color: paymentPreference === 'pay_later' ? '#3B82F6' : isDark ? theme.colors.text : '#1F2937',
-              marginTop: 8,
+              color: paymentMethod === 'maya' ? '#10B981' : isDark ? theme.colors.text : '#1F2937',
             }}>
-              Pay Later
+              Maya
             </Text>
-            <Text style={{
-              fontSize: 11,
-              color: isDark ? theme.colors.textSecondary : '#6B7280',
-              textAlign: 'center',
-              marginTop: 4,
-            }}>
-              Pay after job is done
-            </Text>
+            {paymentMethod === 'maya' && (
+              <View style={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                width: 20,
+                height: 20,
+                borderRadius: 10,
+                backgroundColor: '#10B981',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+                <Icon name="checkmark" size={12} color="#FFFFFF" />
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -571,9 +664,7 @@ const BookServiceScreen = ({navigation, route}) => {
         }}>
           <Icon name="information-circle" size={18} color={isDark ? '#60A5FA' : '#F59E0B'} />
           <Text style={{fontSize: 12, color: isDark ? '#93C5FD' : '#92400E', marginLeft: 8, flex: 1, lineHeight: 18}}>
-            {paymentPreference === 'pay_first' 
-              ? 'You will pay the base amount upfront. If the provider needs additional materials or finds extra work, you can approve and pay for those separately.'
-              : 'You will pay after the job is completed. The provider may request additional charges if extra work or materials are needed.'}
+            You&apos;ll be redirected to {paymentMethod === 'gcash' ? 'GCash' : 'Maya'} to complete payment. Money will be held until the provider completes the job and you confirm.
           </Text>
         </View>
 
@@ -581,13 +672,50 @@ const BookServiceScreen = ({navigation, route}) => {
         <TouchableOpacity
           style={[authStyles.button, authStyles.buttonPrimary, {marginTop: 10}]}
           onPress={handleSubmit}
-          disabled={isLoading}>
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+          disabled={isLoading || processingPayment}>
+          {isLoading || processingPayment ? (
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <ActivityIndicator size="small" color="#FFFFFF" />
+              <Text style={[authStyles.buttonText, authStyles.buttonTextPrimary, {marginLeft: 8}]}>
+                {processingPayment ? 'Redirecting to Payment...' : 'Processing...'}
+              </Text>
+            </View>
           ) : (
-            <Text style={[authStyles.buttonText, authStyles.buttonTextPrimary]}>Submit Request</Text>
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <Icon name="card" size={20} color="#FFFFFF" />
+              <Text style={[authStyles.buttonText, authStyles.buttonTextPrimary, {marginLeft: 8}]}>
+                Pay ₱{((providerFixedPrice || 0) * 1.05).toLocaleString()} & Book
+              </Text>
+            </View>
           )}
         </TouchableOpacity>
+
+        {/* Trust Badges */}
+        <View style={{
+          backgroundColor: isDark ? theme.colors.card : '#F9FAFB',
+          padding: 16,
+          borderRadius: 12,
+          marginTop: 16,
+        }}>
+          <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
+            <Icon name="shield-checkmark" size={18} color="#00B14F" />
+            <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginLeft: 8}}>
+              Payment held until job completion
+            </Text>
+          </View>
+          <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
+            <Icon name="checkmark-circle" size={18} color="#00B14F" />
+            <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginLeft: 8}}>
+              Money released only after you confirm
+            </Text>
+          </View>
+          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <Icon name="lock-closed" size={18} color="#00B14F" />
+            <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginLeft: 8}}>
+              100% Secure with PayMongo
+            </Text>
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

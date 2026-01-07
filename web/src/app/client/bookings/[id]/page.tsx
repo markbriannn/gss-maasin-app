@@ -51,6 +51,9 @@ interface JobData {
   provider?: ProviderInfo;
   clientId: string;
   paymentPreference?: string;
+  paymentStatus?: string; // pending, held, released, refunded
+  paymentMethod?: string;
+  escrowAmount?: number;
   isPaidUpfront?: boolean;
   upfrontPaidAmount?: number;
   adminApproved?: boolean;
@@ -75,6 +78,7 @@ interface JobData {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
+  awaiting_payment: { label: 'Awaiting Payment', color: 'text-orange-600', bgColor: 'bg-orange-100' },
   pending: { label: 'Pending', color: 'text-amber-600', bgColor: 'bg-amber-100' },
   pending_negotiation: { label: 'Offer Sent', color: 'text-amber-600', bgColor: 'bg-amber-100' },
   counter_offer: { label: 'Counter Offer Received', color: 'text-purple-600', bgColor: 'bg-purple-100' },
@@ -270,7 +274,11 @@ function JobDetailsContent() {
   }, [job]);
 
   const handleConfirmCompletion = async () => {
-    if (!job) return;
+    if (!job || !user) return;
+    
+    // Check if this is an escrow payment that needs to be released
+    const isEscrowPayment = job.paymentStatus === 'held';
+    
     const additionalChargesTotal = (job.additionalCharges || [])
       .filter(c => c.status === 'approved')
       .reduce((sum, c) => sum + (c.total || 0), 0);
@@ -279,15 +287,33 @@ function JobDetailsContent() {
 
     setConfirmDialog({
       show: true,
-      title: isPayFirstComplete ? 'Confirm Job Complete? ✅' : 'Confirm & Proceed to Pay?',
-      message: isPayFirstComplete 
-        ? 'Are you satisfied with the work? This will mark the job as complete.'
-        : 'Are you satisfied with the work? This will proceed to payment.',
+      title: isEscrowPayment ? 'Release Payment to Provider? 💰' : (isPayFirstComplete ? 'Confirm Job Complete? ✅' : 'Confirm & Proceed to Pay?'),
+      message: isEscrowPayment 
+        ? 'Are you satisfied with the work? This will release the payment from escrow to the provider.'
+        : (isPayFirstComplete 
+            ? 'Are you satisfied with the work? This will mark the job as complete.'
+            : 'Are you satisfied with the work? This will proceed to payment.'),
       onConfirm: async () => {
         setConfirmDialog({ show: false, title: '', message: '', onConfirm: () => {} });
         setUpdating(true);
         try {
-          if (isPayFirstComplete) {
+          if (isEscrowPayment) {
+            // Call backend to release escrow
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
+            const response = await fetch(`${apiUrl}/payments/release-escrow/${job.id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ clientId: user.uid }),
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+              showAlert('success', 'Payment Released! 🎉', `₱${result.providerShare?.toLocaleString() || ''} has been released to the provider. Thank you!`);
+            } else {
+              showAlert('error', 'Error', result.error || 'Failed to release payment. Please try again.');
+            }
+          } else if (isPayFirstComplete) {
             await updateDoc(doc(db, 'bookings', job.id), {
               status: 'payment_received',
               clientConfirmedAt: serverTimestamp(),
@@ -775,32 +801,62 @@ function JobDetailsContent() {
           </div>
         )}
 
-        {/* Payment Preference */}
+        {/* Payment Status - Escrow System */}
         <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
-          <h3 className="font-semibold text-gray-900 mb-3">Payment Method</h3>
+          <h3 className="font-semibold text-gray-900 mb-3">Payment Status</h3>
           <div className={`rounded-xl p-4 border ${
-            job.paymentPreference === 'pay_first' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'
+            job.paymentStatus === 'held' ? 'bg-emerald-50 border-emerald-200' : 
+            job.paymentStatus === 'released' ? 'bg-blue-50 border-blue-200' :
+            job.isPaidUpfront ? 'bg-green-50 border-green-200' : 
+            'bg-amber-50 border-amber-200'
           }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {job.paymentPreference === 'pay_first' ? (
+                {job.paymentStatus === 'held' ? (
+                  <CheckCircle className="w-6 h-6 text-emerald-600" />
+                ) : job.paymentStatus === 'released' ? (
+                  <Banknote className="w-6 h-6 text-blue-600" />
+                ) : job.isPaidUpfront ? (
                   <CreditCard className="w-6 h-6 text-green-600" />
                 ) : (
-                  <Clock className="w-6 h-6 text-blue-600" />
+                  <Clock className="w-6 h-6 text-amber-600" />
                 )}
                 <div>
-                  <p className={`font-bold ${job.paymentPreference === 'pay_first' ? 'text-green-700' : 'text-blue-700'}`}>
-                    {job.paymentPreference === 'pay_first' ? 'Pay First' : 'Pay Later'}
+                  <p className={`font-bold ${
+                    job.paymentStatus === 'held' ? 'text-emerald-700' : 
+                    job.paymentStatus === 'released' ? 'text-blue-700' :
+                    job.isPaidUpfront ? 'text-green-700' : 'text-amber-700'
+                  }`}>
+                    {job.paymentStatus === 'held' ? 'Payment Held in Escrow' : 
+                     job.paymentStatus === 'released' ? 'Payment Released' :
+                     job.isPaidUpfront ? 'Paid Upfront' : 
+                     job.status === 'awaiting_payment' ? 'Awaiting Payment' :
+                     job.paymentPreference === 'pay_first' ? 'Pay First' : 'Pay Later'}
                   </p>
-                  <p className={`text-sm ${job.paymentPreference === 'pay_first' ? 'text-green-600' : 'text-blue-600'}`}>
-                    {job.paymentPreference === 'pay_first' ? 'Pay before service starts' : 'Pay after job completion'}
+                  <p className={`text-sm ${
+                    job.paymentStatus === 'held' ? 'text-emerald-600' : 
+                    job.paymentStatus === 'released' ? 'text-blue-600' :
+                    job.isPaidUpfront ? 'text-green-600' : 'text-amber-600'
+                  }`}>
+                    {job.paymentStatus === 'held' ? 'Released when you confirm job completion' : 
+                     job.paymentStatus === 'released' ? 'Payment sent to provider' :
+                     job.isPaidUpfront ? 'Payment secured' : 
+                     job.status === 'awaiting_payment' ? 'Complete payment to submit booking' :
+                     job.paymentPreference === 'pay_first' ? 'Pay before service starts' : 'Pay after job completion'}
                   </p>
                 </div>
               </div>
-              {job.isPaidUpfront && (
-                <span className="px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-lg">PAID</span>
+              {(job.isPaidUpfront || job.paymentStatus === 'held') && (
+                <span className="px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-lg">
+                  {job.paymentStatus === 'held' ? 'SECURED' : 'PAID'}
+                </span>
               )}
             </div>
+            {job.paymentMethod && (
+              <p className="text-sm text-gray-500 mt-2">
+                Payment method: {job.paymentMethod === 'gcash' ? 'GCash' : job.paymentMethod === 'maya' ? 'Maya' : job.paymentMethod}
+              </p>
+            )}
           </div>
         </div>
 

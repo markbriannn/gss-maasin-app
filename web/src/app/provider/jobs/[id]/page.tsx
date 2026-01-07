@@ -377,23 +377,41 @@ export default function ProviderJobDetailsPage() {
             </div>
           )}
 
-          {/* Payment Badge */}
-          {job.paymentPreference && (
+          {/* Payment Badge - Escrow System */}
+          {(job.paymentStatus || job.paymentPreference) && (
             <div className={`rounded-2xl p-4 mb-4 flex items-center gap-3 shadow-sm ${
-              job.isPaidUpfront 
+              job.paymentStatus === 'held' || job.isPaidUpfront 
                 ? 'bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200' 
+                : job.paymentStatus === 'released'
+                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200'
                 : 'bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200'
             }`}>
-              <div className={`p-2 rounded-xl ${job.isPaidUpfront ? 'bg-emerald-100' : 'bg-amber-100'}`}>
-                {job.isPaidUpfront ? (
+              <div className={`p-2 rounded-xl ${
+                job.paymentStatus === 'held' || job.isPaidUpfront ? 'bg-emerald-100' : 
+                job.paymentStatus === 'released' ? 'bg-blue-100' : 'bg-amber-100'
+              }`}>
+                {job.paymentStatus === 'held' || job.isPaidUpfront ? (
                   <CheckCircle className="w-5 h-5 text-emerald-600" />
+                ) : job.paymentStatus === 'released' ? (
+                  <Banknote className="w-5 h-5 text-blue-600" />
                 ) : (
                   <Banknote className="w-5 h-5 text-amber-600" />
                 )}
               </div>
-              <span className={`font-semibold ${job.isPaidUpfront ? 'text-emerald-700' : 'text-amber-700'}`}>
-                {job.isPaidUpfront ? 'Client Paid Upfront' : job.paymentPreference === 'pay_first' ? 'Pay First (Not Yet Paid)' : 'Pay After Service'}
-              </span>
+              <div>
+                <span className={`font-semibold ${
+                  job.paymentStatus === 'held' || job.isPaidUpfront ? 'text-emerald-700' : 
+                  job.paymentStatus === 'released' ? 'text-blue-700' : 'text-amber-700'
+                }`}>
+                  {job.paymentStatus === 'held' ? 'Payment Held in Escrow' : 
+                   job.paymentStatus === 'released' ? 'Payment Released to You' :
+                   job.isPaidUpfront ? 'Client Paid Upfront' : 
+                   'Awaiting Client Payment'}
+                </span>
+                {job.paymentStatus === 'held' && (
+                  <p className="text-xs text-emerald-600 mt-0.5">Released when client confirms completion</p>
+                )}
+              </div>
             </div>
           )}
 
@@ -587,28 +605,14 @@ export default function ProviderJobDetailsPage() {
             )}
 
             {job.status === 'accepted' && (
-              <>
-                {/* Pay First - Waiting for client payment */}
-                {job.paymentPreference === 'pay_first' && !job.isPaidUpfront && (
-                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 mb-3 text-center">
-                    <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
-                    <p className="font-semibold text-amber-700">Waiting for Client Payment</p>
-                    <p className="text-sm text-amber-600 mt-1">Client selected &quot;Pay First&quot;. You can start traveling once they complete payment.</p>
-                  </div>
-                )}
-                <button
-                  onClick={handleStartTraveling}
-                  disabled={updating || (job.paymentPreference === 'pay_first' && !job.isPaidUpfront)}
-                  className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
-                    job.paymentPreference === 'pay_first' && !job.isPaidUpfront
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50'
-                  }`}
-                >
-                  {updating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Navigation className="w-5 h-5" />}
-                  {job.paymentPreference === 'pay_first' && !job.isPaidUpfront ? 'Waiting for Payment...' : 'Start Traveling'}
-                </button>
-              </>
+              <button
+                onClick={handleStartTraveling}
+                disabled={updating}
+                className="w-full py-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
+              >
+                {updating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Navigation className="w-5 h-5" />}
+                Start Traveling
+              </button>
             )}
 
             {job.status === 'traveling' && (
