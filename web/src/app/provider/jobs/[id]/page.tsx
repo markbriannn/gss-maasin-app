@@ -42,6 +42,7 @@ interface JobData {
   clientPhoto?: string;
   clientAddress?: string;
   paymentPreference?: string;
+  paymentStatus?: string;
   isPaidUpfront?: boolean;
   adminApproved?: boolean;
   additionalCharges?: AdditionalCharge[];
