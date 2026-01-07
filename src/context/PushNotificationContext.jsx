@@ -32,31 +32,35 @@ export const PushNotificationProvider = ({children}) => {
         const token = await pushNotificationService.getToken();
         setFcmToken(token);
         
-        // Save to user's Firestore document
-        await pushNotificationService.saveTokenToUser(user.uid);
+        // Only proceed with FCM setup if token was obtained
+        if (token) {
+          // Save to user's Firestore document
+          await pushNotificationService.saveTokenToUser(user.uid);
 
-        // Listen for token refresh
-        const unsubscribeTokenRefresh = pushNotificationService.onTokenRefresh(user.uid);
+          // Listen for token refresh
+          const unsubscribeTokenRefresh = pushNotificationService.onTokenRefresh(user.uid);
 
-        // NOTE: Foreground messages are handled by NotificationContext to avoid duplicates
-        // Don't register another listener here
+          // Handle notification tap from background
+          pushNotificationService.onNotificationOpenedApp(handleNotificationTap);
 
-        // Handle notification tap from background
-        pushNotificationService.onNotificationOpenedApp(handleNotificationTap);
+          // Check if app was opened from notification
+          const initialNotification = await pushNotificationService.getInitialNotification();
+          if (initialNotification) {
+            // Small delay to ensure navigation is ready
+            setTimeout(() => handleNotificationTap(initialNotification), 1000);
+          }
 
-        // Check if app was opened from notification
-        const initialNotification = await pushNotificationService.getInitialNotification();
-        if (initialNotification) {
-          // Small delay to ensure navigation is ready
-          setTimeout(() => handleNotificationTap(initialNotification), 1000);
+          return () => {
+            unsubscribeTokenRefresh();
+          };
+        } else {
+          // FCM not available (emulator without Google Play Services)
+          console.log('Push notifications unavailable - app will use in-app notifications only');
         }
-
-        return () => {
-          unsubscribeTokenRefresh();
-        };
       }
     } catch (error) {
-      console.error('Error initializing push notifications:', error);
+      // Silently handle - push notifications are optional
+      console.log('Push notifications setup skipped:', error?.message || 'Unknown error');
     }
   };
 

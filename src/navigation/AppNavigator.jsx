@@ -323,6 +323,7 @@ import BookServiceScreen from '../screens/booking/BookServiceScreen';
 import SelectProviderScreen from '../screens/client/SelectProviderScreen';
 import JobDetailsScreen from '../screens/client/JobDetailsScreen';
 import JobTrackingScreen from '../screens/client/JobTrackingScreen';
+import BookingStatusScreen from '../screens/client/BookingStatusScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 
 // Profile Screens
@@ -699,6 +700,7 @@ export default function AppNavigator() {
           <Stack.Screen name="HireProvider" component={BookServiceScreen} />
           <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
           <Stack.Screen name="Tracking" component={JobTrackingScreen} />
+          <Stack.Screen name="BookingStatus" component={BookingStatusScreen} />
           <Stack.Screen name="Chat" component={ChatScreen} options={{gestureEnabled: false}} />
           <Stack.Screen name="Review" component={ReviewScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />

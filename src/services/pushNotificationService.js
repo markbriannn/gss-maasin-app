@@ -48,17 +48,33 @@ class PushNotificationService {
   }
 
   // Get FCM token for this device
-  async getToken() {
+  async getToken(retryCount = 0) {
     try {
       const token = await messaging().getToken();
-      console.log('FCM Token:', token);
+      console.log('FCM Token obtained successfully');
       
       // Store locally
       await AsyncStorage.setItem(FCM_TOKEN_KEY, token);
       
       return token;
     } catch (error) {
-      console.error('Error getting FCM token:', error);
+      // Handle SERVICE_NOT_AVAILABLE gracefully - common on emulators without Google Play
+      const errorMessage = error?.message || '';
+      if (errorMessage.includes('SERVICE_NOT_AVAILABLE') || errorMessage.includes('UNAVAILABLE')) {
+        // Only log once, not on retries
+        if (retryCount === 0) {
+          console.log('FCM: Google Play Services not available. Push notifications disabled.');
+        }
+        // Retry up to 2 times with delay (service might become available)
+        if (retryCount < 2) {
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          return this.getToken(retryCount + 1);
+        }
+        return null;
+      }
+      
+      // Log other errors normally
+      console.warn('FCM token error:', error?.code || error?.message || 'Unknown error');
       return null;
     }
   }

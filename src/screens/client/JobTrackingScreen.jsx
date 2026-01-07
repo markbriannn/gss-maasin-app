@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import {useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -9,24 +9,69 @@ import {
   Linking,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import MapView, {Marker, Polyline, PROVIDER_GOOGLE} from 'react-native-maps';
+import MapView, {Marker, Polyline, PROVIDER_GOOGLE, AnimatedRegion} from 'react-native-maps';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {db} from '../../config/firebase';
 import {doc, onSnapshot, getDoc} from 'firebase/firestore';
 import locationService from '../../services/locationService';
-import {MAPS_CONFIG} from '../../config/config';
+
+const GOOGLE_MAPS_API_KEY = 'AIzaSyBpGzpP1vVxZBIsw6gzkUPPDABSl8FktL4';
+const ANIMATION_DURATION = 1000; // 1 second smooth animation
 
 const JobTrackingScreen = ({navigation, route}) => {
   const {jobId, job} = route.params || {};
   const mapRef = useRef(null);
+  const markerRef = useRef(null);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [jobData, setJobData] = useState(job || null);
-  const [providerLocation, setProviderLocation] = useState(null);
   const [clientLocation, setClientLocation] = useState(null);
   const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [distance, setDistance] = useState(null);
   const [duration, setDuration] = useState(null);
   const [providerInfo, setProviderInfo] = useState(null);
+  const [heading, setHeading] = useState(0);
+
+  // Animated provider location for smooth movement
+  const providerCoordinate = useRef(
+    new AnimatedRegion({
+      latitude: 10.1301,
+      longitude: 124.8447,
+      latitudeDelta: 0.02,
+      longitudeDelta: 0.02,
+    })
+  ).current;
+
+  const [providerLocation, setProviderLocation] = useState(null);
+
+  // Calculate heading/bearing between two points
+  const calculateHeading = (from, to) => {
+    if (!from || !to) return 0;
+    const lat1 = from.latitude * Math.PI / 180;
+    const lat2 = to.latitude * Math.PI / 180;
+    const dLon = (to.longitude - from.longitude) * Math.PI / 180;
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    const bearing = Math.atan2(y, x) * 180 / Math.PI;
+    return (bearing + 360) % 360;
+  };
+
+  // Animate marker to new position smoothly
+  const animateMarker = (newCoordinate) => {
+    if (providerLocation) {
+      const newHeading = calculateHeading(providerLocation, newCoordinate);
+      setHeading(newHeading);
+    }
+
+    providerCoordinate.timing({
+      latitude: newCoordinate.latitude,
+      longitude: newCoordinate.longitude,
+      duration: ANIMATION_DURATION,
+      useNativeDriver: false,
+    }).start();
+
+    setProviderLocation(newCoordinate);
+  };
 
   // Listen to job updates for provider location
   useEffect(() => {
@@ -43,15 +88,27 @@ const JobTrackingScreen = ({navigation, route}) => {
           const data = docSnap.data();
           setJobData({...data, id: docSnap.id});
 
-          // Get provider location from booking
+          // Get provider location from booking - animate smoothly
           if (data.providerLocation) {
-            setProviderLocation({
+            const newLoc = {
               latitude: data.providerLocation.latitude,
               longitude: data.providerLocation.longitude,
-            });
+            };
+            if (providerLocation) {
+              animateMarker(newLoc);
+            } else {
+              // First time - set immediately
+              providerCoordinate.setValue({
+                latitude: newLoc.latitude,
+                longitude: newLoc.longitude,
+                latitudeDelta: 0.02,
+                longitudeDelta: 0.02,
+              });
+              setProviderLocation(newLoc);
+            }
           }
 
-          // Get client location from booking or user profile
+          // Get client location from booking
           if (data.latitude && data.longitude) {
             setClientLocation({
               latitude: data.latitude,
@@ -59,7 +116,7 @@ const JobTrackingScreen = ({navigation, route}) => {
             });
           }
 
-          // Fetch provider info if not already loaded
+          // Fetch provider info
           if (data.providerId && !providerInfo) {
             try {
               const providerDoc = await getDoc(doc(db, 'users', data.providerId));
@@ -70,16 +127,18 @@ const JobTrackingScreen = ({navigation, route}) => {
                   name: `${pData.firstName || ''} ${pData.lastName || ''}`.trim() || 'Provider',
                   phone: pData.phone,
                   photo: pData.profilePhoto,
-                  // Also get provider's current location from their profile
-                  latitude: pData.latitude,
-                  longitude: pData.longitude,
                 });
+                
                 // Use provider's profile location if booking doesn't have it
                 if (!data.providerLocation && pData.latitude && pData.longitude) {
-                  setProviderLocation({
-                    latitude: pData.latitude,
-                    longitude: pData.longitude,
+                  const newLoc = {latitude: pData.latitude, longitude: pData.longitude};
+                  providerCoordinate.setValue({
+                    latitude: newLoc.latitude,
+                    longitude: newLoc.longitude,
+                    latitudeDelta: 0.02,
+                    longitudeDelta: 0.02,
                   });
+                  setProviderLocation(newLoc);
                 }
               }
             } catch (e) {
@@ -88,17 +147,13 @@ const JobTrackingScreen = ({navigation, route}) => {
           }
         }
         setIsLoading(false);
-      },
-      (error) => {
-        console.error('Error listening to job:', error);
-        setIsLoading(false);
       }
     );
 
     return () => unsubscribe();
   }, [jobId, job?.id]);
 
-  // Also listen to provider's user document for real-time location
+  // Listen to provider's user document for real-time location updates
   useEffect(() => {
     const providerId = jobData?.providerId || job?.providerId;
     if (!providerId) return;
@@ -109,10 +164,14 @@ const JobTrackingScreen = ({navigation, route}) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (data.latitude && data.longitude) {
-            setProviderLocation({
+            const newLoc = {
               latitude: data.latitude,
               longitude: data.longitude,
-            });
+            };
+            
+            // Animate to new position smoothly
+            animateMarker(newLoc);
+            
             setProviderInfo(prev => ({
               ...prev,
               id: docSnap.id,
@@ -122,9 +181,6 @@ const JobTrackingScreen = ({navigation, route}) => {
             }));
           }
         }
-      },
-      (error) => {
-        console.log('Error listening to provider location:', error);
       }
     );
 
@@ -143,7 +199,6 @@ const JobTrackingScreen = ({navigation, route}) => {
           });
         } catch (error) {
           console.log('Error getting client location:', error);
-          // Use default Maasin City location
           setClientLocation(locationService.getDefaultLocation());
         }
       }
@@ -159,66 +214,41 @@ const JobTrackingScreen = ({navigation, route}) => {
     }
   }, [providerLocation, clientLocation]);
 
-  // Fetch route using OSRM (free, no API key needed)
-  const fetchRouteOSRM = async (origin, dest) => {
+  // Fetch route using OSRM (works from client-side)
+  const fetchRoute = async (origin, dest) => {
     try {
       const url = `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson`;
-      const response = await fetch(url);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
       const data = await response.json();
-
+      
       if (data.code === 'Ok' && data.routes?.[0]) {
         const route = data.routes[0];
-        // OSRM returns [lng, lat], we need {latitude, longitude}
         const points = route.geometry.coordinates.map(coord => ({
           latitude: coord[1],
           longitude: coord[0],
         }));
-        setRouteCoordinates(points);
-        // Distance in meters, convert to km
-        setDistance((route.distance / 1000).toFixed(1));
-        // Duration in seconds, convert to minutes
-        setDuration(Math.round(route.duration / 60));
-        return true;
+        if (points.length > 1) {
+          setRouteCoordinates(points);
+          setDistance((route.distance / 1000).toFixed(1));
+          setDuration(Math.round(route.duration / 60));
+          return;
+        }
       }
-      return false;
-    } catch (error) {
-      console.log('OSRM routing failed:', error);
-      return false;
+    } catch (e) {
+      console.log('OSRM error:', e.message);
     }
-  };
 
-  const fetchRoute = async (origin, dest) => {
-    // Try OSRM first (free, no API key)
-    const osrmSuccess = await fetchRouteOSRM(origin, dest);
-    if (osrmSuccess) return;
-
-    // Fallback to Google Directions API
-    try {
-      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${dest.latitude},${dest.longitude}&mode=driving&key=${MAPS_CONFIG.API_KEY}`;
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (data.status === 'OK' && data.routes.length > 0) {
-        const route = data.routes[0];
-        const leg = route.legs[0];
-        const points = decodePolyline(route.overview_polyline.points);
-        setRouteCoordinates(points);
-        setDistance((leg.distance.value / 1000).toFixed(1));
-        setDuration(Math.round(leg.duration.value / 60));
-      } else {
-        // Final fallback to straight line
-        setRouteCoordinates([origin, dest]);
-        const dist = locationService.calculateDistance(
-          origin.latitude, origin.longitude,
-          dest.latitude, dest.longitude
-        );
-        setDistance(dist.toFixed(1));
-        setDuration(Math.round((dist / 30) * 60));
-      }
-    } catch (error) {
-      console.error('Error fetching route:', error);
-      setRouteCoordinates([origin, dest]);
-    }
+    // Fallback - straight line
+    setRouteCoordinates([origin, dest]);
+    const dist = locationService.calculateDistance(origin.latitude, origin.longitude, dest.latitude, dest.longitude);
+    setDistance(dist.toFixed(1));
+    setDuration(Math.round((dist / 30) * 60));
   };
 
   const decodePolyline = (encoded) => {
@@ -355,49 +385,72 @@ const JobTrackingScreen = ({navigation, route}) => {
         style={{flex: 1}}
         provider={PROVIDER_GOOGLE}
         initialRegion={{
-          latitude: providerLocation?.latitude || clientLocation?.latitude || MAPS_CONFIG.DEFAULT_LATITUDE,
-          longitude: providerLocation?.longitude || clientLocation?.longitude || MAPS_CONFIG.DEFAULT_LONGITUDE,
+          latitude: providerLocation?.latitude || clientLocation?.latitude || 10.1301,
+          longitude: providerLocation?.longitude || clientLocation?.longitude || 124.8447,
           latitudeDelta: 0.02,
           longitudeDelta: 0.02,
         }}
         showsUserLocation={false}
-        showsMyLocationButton={false}
-      >
-        {/* Provider Marker */}
+        showsMyLocationButton={false}>
+        
+        {/* Animated Provider Marker */}
         {providerLocation && (
-          <Marker
-            coordinate={providerLocation}
+          <Marker.Animated
+            ref={markerRef}
+            coordinate={providerCoordinate}
             title={providerInfo?.name || 'Provider'}
             description="Provider's current location"
-          >
+            anchor={{x: 0.5, y: 0.5}}
+            flat={true}
+            rotation={heading}>
             <View style={{alignItems: 'center'}}>
               <View style={{
-                backgroundColor: '#3B82F6',
-                padding: 8,
-                borderRadius: 20,
+                width: 50,
+                height: 50,
+                borderRadius: 25,
                 borderWidth: 3,
-                borderColor: '#FFFFFF',
+                borderColor: '#3B82F6',
+                backgroundColor: '#FFFFFF',
                 shadowColor: '#000',
                 shadowOffset: {width: 0, height: 2},
-                shadowOpacity: 0.25,
+                shadowOpacity: 0.3,
                 shadowRadius: 4,
                 elevation: 5,
+                justifyContent: 'center',
+                alignItems: 'center',
+                overflow: 'hidden',
               }}>
-                <Icon name="car" size={20} color="#FFFFFF" />
+                {providerInfo?.photo ? (
+                  <Image 
+                    source={{uri: providerInfo.photo}} 
+                    style={{width: 44, height: 44, borderRadius: 22}} 
+                  />
+                ) : (
+                  <View style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    backgroundColor: '#3B82F6',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}>
+                    <Icon name="car" size={22} color="#FFFFFF" />
+                  </View>
+                )}
               </View>
               <View style={{
                 backgroundColor: '#3B82F6',
-                paddingHorizontal: 8,
+                paddingHorizontal: 10,
                 paddingVertical: 4,
-                borderRadius: 8,
-                marginTop: 4,
+                borderRadius: 10,
+                marginTop: 6,
               }}>
-                <Text style={{fontSize: 10, color: '#FFFFFF', fontWeight: '600'}}>
+                <Text style={{fontSize: 11, color: '#FFFFFF', fontWeight: '700'}}>
                   {providerInfo?.name?.split(' ')[0] || 'Provider'}
                 </Text>
               </View>
             </View>
-          </Marker>
+          </Marker.Animated>
         )}
 
         {/* Client/Destination Marker */}
@@ -406,16 +459,16 @@ const JobTrackingScreen = ({navigation, route}) => {
             coordinate={clientLocation}
             title="Your Location"
             description="Destination"
-          >
+            tracksViewChanges={false}>
             <View style={{alignItems: 'center'}}>
               <View style={{
                 backgroundColor: '#10B981',
-                padding: 8,
-                borderRadius: 20,
+                padding: 10,
+                borderRadius: 25,
                 borderWidth: 3,
                 borderColor: '#FFFFFF',
               }}>
-                <Icon name="home" size={20} color="#FFFFFF" />
+                <Icon name="home" size={22} color="#FFFFFF" />
               </View>
             </View>
           </Marker>
@@ -426,7 +479,7 @@ const JobTrackingScreen = ({navigation, route}) => {
           <Polyline
             coordinates={routeCoordinates}
             strokeColor="#3B82F6"
-            strokeWidth={4}
+            strokeWidth={5}
           />
         )}
       </MapView>
@@ -470,9 +523,9 @@ const JobTrackingScreen = ({navigation, route}) => {
             </Text>
             <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 4}}>
               <View style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
+                width: 10,
+                height: 10,
+                borderRadius: 5,
                 backgroundColor: getStatusColor(),
                 marginRight: 6,
               }} />
@@ -521,8 +574,7 @@ const JobTrackingScreen = ({navigation, route}) => {
               justifyContent: 'center',
               marginRight: 8,
             }}
-            onPress={handleCallProvider}
-          >
+            onPress={handleCallProvider}>
             <Icon name="call" size={20} color="#00B14F" />
             <Text style={{fontSize: 14, fontWeight: '600', color: '#1F2937', marginLeft: 8}}>
               Call
@@ -539,8 +591,7 @@ const JobTrackingScreen = ({navigation, route}) => {
               justifyContent: 'center',
               marginLeft: 8,
             }}
-            onPress={handleMessageProvider}
-          >
+            onPress={handleMessageProvider}>
             <Icon name="chatbubble" size={20} color="#FFFFFF" />
             <Text style={{fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginLeft: 8}}>
               Message

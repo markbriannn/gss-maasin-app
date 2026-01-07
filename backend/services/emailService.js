@@ -1,26 +1,31 @@
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
-// Initialize Resend with API key from environment (optional - app uses EmailJS now)
-let resend = null;
-if (process.env.RESEND_API_KEY) {
-  resend = new Resend(process.env.RESEND_API_KEY);
-}
+// Create Gmail SMTP transporter
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: parseInt(process.env.SMTP_PORT) || 587,
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
-// Default from email (use your verified domain later)
-const FROM_EMAIL = process.env.FROM_EMAIL || 'GSS Maasin <onboarding@resend.dev>';
+// Default from email
+const FROM_EMAIL = process.env.FROM_EMAIL || 'GSS Maasin <gssmaasin@gmail.com>';
 
 /**
  * Send a generic email
  */
 const sendEmail = async (to, subject, html, text = null) => {
-  // If Resend is not configured, return success (app uses EmailJS now)
-  if (!resend) {
-    console.log('Resend not configured, skipping email. App uses EmailJS directly.');
-    return { success: true, message: 'Email skipped - using EmailJS in app' };
+  // Check if SMTP is configured
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.log('SMTP not configured, skipping email');
+    return { success: true, message: 'Email skipped - SMTP not configured' };
   }
   
   try {
-    const { data, error } = await resend.emails.send({
+    const info = await transporter.sendMail({
       from: FROM_EMAIL,
       to: to,
       subject: subject,
@@ -28,13 +33,8 @@ const sendEmail = async (to, subject, html, text = null) => {
       text: text || subject,
     });
 
-    if (error) {
-      console.error('Email send error:', error);
-      return { success: false, error: error.message };
-    }
-
-    console.log('Email sent successfully:', data?.id);
-    return { success: true, id: data?.id };
+    console.log('Email sent successfully:', info.messageId);
+    return { success: true, id: info.messageId };
   } catch (error) {
     console.error('Email service error:', error);
     return { success: false, error: error.message };
@@ -188,6 +188,36 @@ const sendPaymentReceipt = async (clientEmail, payment) => {
 };
 
 /**
+ * Send password reset email
+ */
+const sendPasswordResetEmail = async (email, resetCode) => {
+  const subject = 'GSS Maasin - Password Reset Code';
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #00B14F; padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+      </div>
+      <div style="padding: 30px; background: #f9f9f9;">
+        <h2 style="color: #1F2937;">Password Reset Request</h2>
+        <p style="color: #4B5563;">Use the code below to reset your password:</p>
+        
+        <div style="background: #00B14F; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+          <p style="color: white; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 0;">
+            ${resetCode}
+          </p>
+        </div>
+        
+        <p style="color: #6B7280; font-size: 14px;">
+          This code expires in 10 minutes. If you didn't request this, please ignore this email.
+        </p>
+      </div>
+    </div>
+  `;
+  
+  return sendEmail(email, subject, html);
+};
+
+/**
  * Send job rejection notification to client
  */
 const sendJobRejectionNotification = async (clientEmail, booking, reason = null) => {
@@ -222,11 +252,27 @@ const sendJobRejectionNotification = async (clientEmail, booking, reason = null)
   return sendEmail(clientEmail, subject, html);
 };
 
+/**
+ * Verify SMTP connection
+ */
+const verifyConnection = async () => {
+  try {
+    await transporter.verify();
+    console.log('✓ Gmail SMTP connection verified');
+    return true;
+  } catch (error) {
+    console.error('Gmail SMTP connection failed:', error.message);
+    return false;
+  }
+};
+
 module.exports = {
   sendEmail,
   sendBookingConfirmation,
   sendJobAcceptedNotification,
   sendProviderApprovalNotification,
   sendPaymentReceipt,
+  sendPasswordResetEmail,
   sendJobRejectionNotification,
+  verifyConnection,
 };

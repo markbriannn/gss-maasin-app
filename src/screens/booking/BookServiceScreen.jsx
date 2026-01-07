@@ -237,11 +237,11 @@ const BookServiceScreen = ({navigation, route}) => {
         }).catch(err => console.log('Email notification failed:', err));
       }
 
-      Alert.alert(
-        'Success',
-        'Your request has been submitted and is pending admin approval. Once approved, the provider will be notified.',
-        [{text: 'OK', onPress: () => navigation.navigate('Bookings')}],
-      );
+      // Navigate to BookingStatus screen to show "Finding Provider" like Grab
+      navigation.replace('BookingStatus', {
+        bookingId: createdJob?.id,
+        booking: {...jobData, id: createdJob?.id},
+      });
     } catch (error) {
       Alert.alert('Error', error.message || 'Failed to create job request');
     } finally {
