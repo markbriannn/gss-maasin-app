@@ -463,7 +463,11 @@ export default function ProviderRegistration() {
       case 5: // Location
         return formData.streetAddress.trim() && formData.barangay.trim();
       case 6: // Password
-        return formData.password.length >= 8 && formData.password === formData.confirmPassword;
+        // Password must have: 8+ chars, 1 uppercase, 1 number, and match confirmation
+        return formData.password.length >= 8 && 
+               /[A-Z]/.test(formData.password) && 
+               /[0-9]/.test(formData.password) && 
+               formData.password === formData.confirmPassword;
       case 7: // Date of Birth
         return formData.dateOfBirth.trim();
       case 8: // Service Category

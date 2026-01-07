@@ -343,7 +343,11 @@ export default function ClientRegistration() {
       case 4:
         return formData.streetAddress.trim() && formData.barangay.trim();
       case 5:
-        return formData.password.length >= 8 && formData.password === formData.confirmPassword;
+        // Password must have: 8+ chars, 1 uppercase, 1 number, and match confirmation
+        return formData.password.length >= 8 && 
+               /[A-Z]/.test(formData.password) && 
+               /[0-9]/.test(formData.password) && 
+               formData.password === formData.confirmPassword;
       case 6:
         return true; // Profile photo is optional
       default:
@@ -755,11 +759,11 @@ export default function ClientRegistration() {
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className={`w-4 h-4 ${hasUppercase ? 'text-green-500' : 'text-gray-300'}`} />
-                  <span className={`text-sm ${hasUppercase ? 'text-green-600' : 'text-gray-500'}`}>One uppercase letter (recommended)</span>
+                  <span className={`text-sm ${hasUppercase ? 'text-green-600' : 'text-gray-500'}`}>One uppercase letter</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className={`w-4 h-4 ${hasNumber ? 'text-green-500' : 'text-gray-300'}`} />
-                  <span className={`text-sm ${hasNumber ? 'text-green-600' : 'text-gray-500'}`}>One number (recommended)</span>
+                  <span className={`text-sm ${hasNumber ? 'text-green-600' : 'text-gray-500'}`}>One number</span>
                 </div>
               </div>
             </div>
