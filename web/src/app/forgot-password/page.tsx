@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { sendPasswordResetCode } from '@/lib/emailjs';
 import Link from 'next/link';
@@ -19,10 +19,6 @@ export default function ForgotPasswordPage() {
   const [step, setStep] = useState<'email' | 'code' | 'newPassword' | 'success'>('email');
   const [error, setError] = useState('');
 
-  const generateCode = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  };
-
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
@@ -34,36 +30,36 @@ export default function ForgotPasswordPage() {
     setError('');
 
     try {
-      // Check if user exists
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('email', '==', email.toLowerCase()));
-      const snapshot = await getDocs(q);
+      // Call backend to generate reset code
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com';
+      const baseUrl = API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${baseUrl}/api/auth/generate-reset-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.toLowerCase() }),
+      });
 
-      if (snapshot.empty) {
-        setError('No account found with this email address');
+      const result = await response.json();
+
+      if (!response.ok) {
+        setError(result.error || 'Failed to generate reset code');
         setLoading(false);
         return;
       }
 
-      // Generate and store reset code
-      const resetCode = generateCode();
-
-      // Store code in Firestore with expiry
-      await setDoc(doc(db, 'passwordResets', email.toLowerCase()), {
-        code: resetCode,
-        email: email.toLowerCase(),
-        createdAt: new Date(),
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
-        used: false,
-      });
-
-      // Send email via backend
-      const result = await sendPasswordResetCode(email, resetCode);
-      
-      if (result.success) {
-        setStep('code');
+      if (result.code) {
+        // Send email via backend
+        const emailResult = await sendPasswordResetCode(email, result.code);
+        
+        if (emailResult.success) {
+          setStep('code');
+        } else {
+          setError('Failed to send reset code. Please try again.');
+        }
       } else {
-        setError('Failed to send reset code. Please try again.');
+        // Backend returns success without code if user doesn't exist (for security)
+        setStep('code'); // Still show code screen for security
       }
     } catch (err: unknown) {
       console.error('Password reset error:', err);
@@ -80,51 +76,9 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    setLoading(true);
-    setError('');
-
-    try {
-      // Get the stored reset code
-      const resetDoc = await getDoc(doc(db, 'passwordResets', email.toLowerCase()));
-      
-      if (!resetDoc.exists()) {
-        setError('Reset code not found. Please request a new one.');
-        setLoading(false);
-        return;
-      }
-
-      const resetData = resetDoc.data();
-      
-      // Check if code matches
-      if (resetData.code !== code) {
-        setError('Invalid code. Please try again.');
-        setLoading(false);
-        return;
-      }
-
-      // Check if code is expired
-      const expiresAt = resetData.expiresAt.toDate();
-      if (new Date() > expiresAt) {
-        setError('Code has expired. Please request a new one.');
-        setLoading(false);
-        return;
-      }
-
-      // Check if code was already used
-      if (resetData.used) {
-        setError('This code has already been used. Please request a new one.');
-        setLoading(false);
-        return;
-      }
-
-      // Code is valid, proceed to password reset
-      setStep('newPassword');
-    } catch (err) {
-      console.error('Code verification error:', err);
-      setError('Failed to verify code. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    // Code will be verified when resetting password via backend
+    // Just move to next step - backend will validate the code
+    setStep('newPassword');
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -144,26 +98,27 @@ export default function ForgotPasswordPage() {
     setError('');
 
     try {
-      // Find the user
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('email', '==', email.toLowerCase()));
-      const snapshot = await getDocs(q);
-
-      if (snapshot.empty) {
-        setError('User not found');
-        setLoading(false);
-        return;
-      }
-
-      const userDoc = snapshot.docs[0];
+      // Call backend to update password in Firebase Auth
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com';
+      const baseUrl = API_URL.replace(/\/api\/?$/, '');
       
-      // Update password in Firestore
-      await updateDoc(doc(db, 'users', userDoc.id), {
-        password: newPassword, // In production, this should be hashed
-        updatedAt: new Date(),
+      const response = await fetch(`${baseUrl}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.toLowerCase(),
+          code: code,
+          newPassword: newPassword,
+        }),
       });
 
-      // Mark reset code as used
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to reset password');
+      }
+
+      // Mark reset code as used in Firestore
       await updateDoc(doc(db, 'passwordResets', email.toLowerCase()), {
         used: true,
         usedAt: new Date(),
@@ -172,7 +127,7 @@ export default function ForgotPasswordPage() {
       setStep('success');
     } catch (err) {
       console.error('Password reset error:', err);
-      setError('Failed to reset password. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to reset password. Please try again.');
     } finally {
       setLoading(false);
     }
