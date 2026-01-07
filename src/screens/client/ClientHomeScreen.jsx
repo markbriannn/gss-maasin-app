@@ -39,39 +39,6 @@ const SNAP_POINTS = {
   MAX: SCREEN_HEIGHT * 0.85,  // Expanded - almost full screen
 };
 
-// Memoized Marker Component to prevent re-renders
-const ProviderMarker = memo(({provider, isSelected, onPress}) => {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  
-  return (
-    <Marker
-      identifier={provider.id}
-      coordinate={{latitude: provider.latitude, longitude: provider.longitude}}
-      onPress={onPress}
-      tracksViewChanges={!imageLoaded}>
-      <View style={[styles.marker, isSelected && styles.markerSelected]}>
-        {provider.profilePhoto ? (
-          <Image 
-            source={{uri: provider.profilePhoto}} 
-            style={styles.markerImg}
-            onLoad={() => setImageLoaded(true)}
-          />
-        ) : (
-          <Text style={styles.markerInitial}>
-            {provider.name?.charAt(0)?.toUpperCase() || 'P'}
-          </Text>
-        )}
-      </View>
-    </Marker>
-  );
-}, (prev, next) => {
-  return prev.provider.id === next.provider.id && 
-         prev.isSelected === next.isSelected &&
-         prev.provider.latitude === next.provider.latitude &&
-         prev.provider.longitude === next.provider.longitude &&
-         prev.provider.profilePhoto === next.provider.profilePhoto;
-});
-
 const FILTERS = [
   {id: 'recommended', label: 'Recommended', icon: 'car'},
   {id: 'cheapest', label: 'Cheapest', icon: 'wallet-outline'},
@@ -164,6 +131,7 @@ const ClientHomeScreen = ({navigation}) => {
   const {unreadCount} = useNotifications();
   const {user} = useAuth();
   const mapRef = useRef(null);
+  const isSelectingRef = useRef(false); // Prevent double-tap crashes
   
   const [providers, setProviders] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -173,6 +141,7 @@ const ClientHomeScreen = ({navigation}) => {
   const [refreshing, setRefreshing] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState([]);
   const [routeCoordinates, setRouteCoordinates] = useState([]);
+  const [avgResponseTime, setAvgResponseTime] = useState(5); // Default 5 mins
   const [region, setRegion] = useState({
     latitude: 10.1335, longitude: 124.8513, latitudeDelta: 0.05, longitudeDelta: 0.05,
   });
@@ -180,6 +149,7 @@ const ClientHomeScreen = ({navigation}) => {
   useEffect(() => {
     initLocation();
     loadFavorites();
+    loadAvgResponseTime();
   }, []);
 
   const initLocation = async () => {
@@ -189,6 +159,10 @@ const ClientHomeScreen = ({navigation}) => {
       setRegion({...region, latitude: location.latitude, longitude: location.longitude});
     } catch (e) {
       console.log('Location error:', e);
+      // Use default Maasin City location as fallback
+      const defaultLocation = locationService.getDefaultLocation();
+      setUserLocation(defaultLocation);
+      setRegion({...region, latitude: defaultLocation.latitude, longitude: defaultLocation.longitude});
     }
   };
 
@@ -199,6 +173,44 @@ const ClientHomeScreen = ({navigation}) => {
       const snapshot = await getDocs(query(collection(db, 'favorites'), where('userId', '==', userId)));
       setFavoriteIds(snapshot.docs.map(d => d.data().providerId));
     } catch (e) {}
+  };
+
+  // Calculate real-time average response time from recent jobs
+  const loadAvgResponseTime = async () => {
+    try {
+      // Get jobs from last 7 days that have been accepted
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const jobsQuery = query(
+        collection(db, 'jobs'),
+        where('status', 'in', ['accepted', 'in_progress', 'completed']),
+        where('createdAt', '>=', sevenDaysAgo)
+      );
+      
+      const snapshot = await getDocs(jobsQuery);
+      const responseTimes = [];
+      
+      snapshot.forEach((docSnap) => {
+        const job = docSnap.data();
+        // Calculate response time (time between creation and acceptance)
+        if (job.createdAt && job.acceptedAt) {
+          const created = job.createdAt.toDate ? job.createdAt.toDate() : new Date(job.createdAt);
+          const accepted = job.acceptedAt.toDate ? job.acceptedAt.toDate() : new Date(job.acceptedAt);
+          const diffMinutes = Math.round((accepted - created) / (1000 * 60));
+          if (diffMinutes > 0 && diffMinutes < 60) { // Only count reasonable response times
+            responseTimes.push(diffMinutes);
+          }
+        }
+      });
+      
+      if (responseTimes.length > 0) {
+        const avg = Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length);
+        setAvgResponseTime(Math.max(1, avg)); // Minimum 1 minute
+      }
+    } catch (e) {
+      console.log('Error loading avg response time:', e);
+    }
   };
 
   const toggleFavorite = async (providerId) => {
@@ -259,8 +271,20 @@ const ClientHomeScreen = ({navigation}) => {
     return () => unsub();
   }, [selectedCategory, userLocation, activeFilter]);
 
-  const handleSelectProvider = async (provider) => {
+  const handleSelectProvider = useCallback(async (provider) => {
+    // Prevent rapid double-taps from causing crashes
+    if (isSelectingRef.current) return;
+    isSelectingRef.current = true;
+    
     try {
+      // Toggle selection - if already selected, unselect
+      if (selectedProvider?.id === provider.id) {
+        setSelectedProvider(null);
+        setRouteCoordinates([]);
+        isSelectingRef.current = false;
+        return;
+      }
+      
       setSelectedProvider(provider);
       setRouteCoordinates([]); // Clear old route
       
@@ -292,20 +316,32 @@ const ClientHomeScreen = ({navigation}) => {
       }
       
       // Fetch actual road directions
-      if (userLocation?.latitude && userLocation?.longitude && 
-          provider.latitude && provider.longitude) {
+      const originLat = userLocation?.latitude || region.latitude;
+      const originLng = userLocation?.longitude || region.longitude;
+      
+      console.log('Fetching route from:', originLat, originLng, 'to:', provider.latitude, provider.longitude);
+      
+      if (originLat && originLng && provider.latitude && provider.longitude) {
         const route = await fetchDirections(
-          {latitude: userLocation.latitude, longitude: userLocation.longitude},
+          {latitude: originLat, longitude: originLng},
           {latitude: provider.latitude, longitude: provider.longitude}
         );
+        console.log('Route fetched, points:', route?.length);
         if (route && route.length > 0) {
           setRouteCoordinates(route);
         }
+      } else {
+        console.log('Missing coordinates for route');
       }
     } catch (error) {
       console.log('Error selecting provider:', error);
+    } finally {
+      // Allow new selections after a short delay
+      setTimeout(() => {
+        isSelectingRef.current = false;
+      }, 300);
     }
-  };
+  }, [selectedProvider, userLocation, region]);
 
   const handleBook = () => {
     if (selectedProvider) {
@@ -382,13 +418,28 @@ const ClientHomeScreen = ({navigation}) => {
             if (!p.latitude || !p.longitude || isNaN(p.latitude) || isNaN(p.longitude)) {
               return null;
             }
+            const isSelected = selectedProvider?.id === p.id;
             return (
-              <ProviderMarker
+              <Marker
                 key={p.id}
-                provider={p}
-                isSelected={selectedProvider?.id === p.id}
+                identifier={p.id}
+                coordinate={{latitude: p.latitude, longitude: p.longitude}}
                 onPress={() => handleSelectProvider(p)}
-              />
+                tracksViewChanges={false}>
+                <View style={[styles.marker, isSelected && styles.markerSelected]}>
+                  {p.profilePhoto ? (
+                    <Image 
+                      source={{uri: p.profilePhoto}} 
+                      style={styles.markerImg}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text style={styles.markerInitial}>
+                      {p.name?.charAt(0)?.toUpperCase() || 'P'}
+                    </Text>
+                  )}
+                </View>
+              </Marker>
             );
           })}
           
@@ -404,9 +455,12 @@ const ClientHomeScreen = ({navigation}) => {
 
         {/* Header */}
         <SafeAreaView style={styles.header} edges={['top']}>
-          <TouchableOpacity style={styles.searchBtn}>
-            <Icon name="search" size={22} color="#00B14F" />
-          </TouchableOpacity>
+          <View style={styles.liveBannerInline}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>{onlineCount} providers online</Text>
+            <Text style={styles.liveSep}>•</Text>
+            <Text style={styles.liveText}>Avg. {avgResponseTime} min response</Text>
+          </View>
           <TouchableOpacity style={styles.notifBtn} onPress={() => navigation.navigate('Notifications')}>
             <Icon name="notifications" size={22} color="#374151" />
             {unreadCount > 0 && (
@@ -414,14 +468,6 @@ const ClientHomeScreen = ({navigation}) => {
             )}
           </TouchableOpacity>
         </SafeAreaView>
-
-        {/* Live Banner */}
-        <View style={styles.liveBanner}>
-          <View style={styles.liveDot} />
-          <Text style={styles.liveText}>{onlineCount} providers online</Text>
-          <Text style={styles.liveSep}>•</Text>
-          <Text style={styles.liveText}>Avg. 5 min response</Text>
-        </View>
 
         {/* Categories */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll} contentContainerStyle={styles.catContent}>
@@ -533,25 +579,27 @@ const ClientHomeScreen = ({navigation}) => {
           )}
         </ScrollView>
 
-        {/* Bottom Action */}
-        {selectedProvider && (
-          <View style={styles.bottomBar}>
-            <View style={styles.payRow}>
-              <View style={styles.payMethod}>
-                <Icon name="cash-outline" size={20} color="#00B14F" />
-                <Text style={styles.payText}>Cash</Text>
-              </View>
-              <TouchableOpacity style={styles.offersBtn}>
-                <Icon name="pricetag" size={16} color="#6B7280" />
-                <Text style={styles.offersText}>Offers</Text>
-              </TouchableOpacity>
+        {/* Bottom Action - removed, now outside sheet */}
+      </Animated.View>
+
+      {/* Bottom Action - Outside sheet so it's always visible */}
+      {selectedProvider && (
+        <View style={styles.fixedBottomBar}>
+          <View style={styles.payRow}>
+            <View style={styles.payMethod}>
+              <Icon name="cash-outline" size={20} color="#00B14F" />
+              <Text style={styles.payText}>Cash</Text>
             </View>
-            <TouchableOpacity style={styles.bookBtn} onPress={handleBook}>
-              <Text style={styles.bookText}>Contact Us</Text>
+            <TouchableOpacity style={styles.offersBtn}>
+              <Icon name="pricetag" size={16} color="#6B7280" />
+              <Text style={styles.offersText}>Offers</Text>
             </TouchableOpacity>
           </View>
-        )}
-      </Animated.View>
+          <TouchableOpacity style={styles.bookBtn} onPress={handleBook}>
+            <Text style={styles.bookText}>Contact Us</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
@@ -564,25 +612,24 @@ const styles = StyleSheet.create({
   mapContainer: {flex: 1},
   map: {flex: 1},
   marker: {width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#00B14F', overflow: 'hidden'},
-  markerSelected: {borderColor: '#F59E0B', transform: [{scale: 1.15}]},
+  markerSelected: {borderColor: '#00B14F', borderWidth: 4, transform: [{scale: 1.15}]},
   markerImg: {width: 38, height: 38, borderRadius: 19},
   markerInitial: {fontSize: 18, fontWeight: '700', color: '#00B14F'},
 
   // Header
-  header: {position: 'absolute', top: 0, left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between'},
-  searchBtn: {width: 48, height: 48, backgroundColor: '#FFF', borderRadius: 24, justifyContent: 'center', alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8},
+  header: {position: 'absolute', top: 0, left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8},
   notifBtn: {width: 48, height: 48, backgroundColor: '#FFF', borderRadius: 24, justifyContent: 'center', alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8},
-  badge: {position: 'absolute', top: 6, right: 6, minWidth: 18, height: 18, backgroundColor: '#EF4444', borderRadius: 9, justifyContent: 'center', alignItems: 'center'},
+  badge: {position: 'absolute', top: 8, right: 8, minWidth: 18, height: 18, backgroundColor: '#EF4444', borderRadius: 9, justifyContent: 'center', alignItems: 'center'},
   badgeText: {fontSize: 10, fontWeight: '700', color: '#FFF'},
 
-  // Live Banner
-  liveBanner: {position: 'absolute', top: 60, left: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: '#00B14F', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20},
+  // Live Banner (inline in header)
+  liveBannerInline: {flexDirection: 'row', alignItems: 'center', backgroundColor: '#00B14F', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 24},
   liveDot: {width: 8, height: 8, backgroundColor: '#FFF', borderRadius: 4, marginRight: 8},
   liveText: {fontSize: 12, fontWeight: '600', color: '#FFF'},
-  liveSep: {marginHorizontal: 6, color: 'rgba(255,255,255,0.6)'},
+  liveSep: {marginHorizontal: 6, color: 'rgba(255,255,255,0.8)'},
 
   // Categories
-  catScroll: {position: 'absolute', top: 100, left: 0, right: 0},
+  catScroll: {position: 'absolute', top: 60, left: 0, right: 0},
   catContent: {paddingHorizontal: 16},
   catPill: {flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, marginRight: 8, elevation: 3, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4},
   catText: {fontSize: 13, fontWeight: '600', color: '#374151', marginLeft: 6},
@@ -669,6 +716,7 @@ const styles = StyleSheet.create({
 
   // Bottom Bar
   bottomBar: {position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFF', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24, borderTopWidth: 1, borderTopColor: '#F3F4F6'},
+  fixedBottomBar: {position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFF', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 34, borderTopWidth: 1, borderTopColor: '#E5E7EB', elevation: 20, shadowColor: '#000', shadowOffset: {width: 0, height: -4}, shadowOpacity: 0.1, shadowRadius: 8},
   payRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12},
   payMethod: {flexDirection: 'row', alignItems: 'center', gap: 8},
   payText: {fontSize: 14, fontWeight: '500', color: '#1F2937'},

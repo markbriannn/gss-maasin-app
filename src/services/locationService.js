@@ -65,6 +65,7 @@ class LocationService {
         }
       }
 
+      // Try high accuracy first with longer timeout
       Geolocation.getCurrentPosition(
         (position) => {
           resolve({
@@ -75,13 +76,33 @@ class LocationService {
           });
         },
         (error) => {
-          console.error('Error getting current location:', error);
-          reject(error);
+          console.log('High accuracy location failed, trying low accuracy fallback:', error);
+          
+          // Fallback: Try with low accuracy (faster, uses network/cell towers)
+          Geolocation.getCurrentPosition(
+            (position) => {
+              resolve({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+                timestamp: position.timestamp,
+              });
+            },
+            (fallbackError) => {
+              console.error('Error getting current location:', fallbackError);
+              reject(fallbackError);
+            },
+            {
+              enableHighAccuracy: false,
+              timeout: 20000,
+              maximumAge: 60000, // Accept cached location up to 1 minute old
+            }
+          );
         },
         {
           enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 10000,
+          timeout: 30000, // Increased from 15s to 30s
+          maximumAge: 30000, // Accept cached location up to 30 seconds old
         }
       );
     });

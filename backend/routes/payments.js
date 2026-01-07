@@ -236,7 +236,7 @@ router.post('/create-gcash-source', async (req, res) => {
     await db.collection('payments').doc(source.id).set({
       sourceId: source.id,
       bookingId,
-      userId,
+      userId: userId || null,
       amount,
       type: 'gcash',
       status: 'pending',
@@ -320,7 +320,7 @@ router.post('/create-paymaya-source', async (req, res) => {
     await db.collection('payments').doc(source.id).set({
       sourceId: source.id,
       bookingId,
-      userId,
+      userId: userId || null,
       amount,
       type: 'paymaya',
       status: 'pending',
