@@ -187,9 +187,17 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           completedAt: formatTimestamp(data.completedAt),
           cancelledAt: formatTimestamp(data.cancelledAt),
           approvedAt: formatTimestamp(data.approvedAt),
-          scheduledDate: data.scheduledDate || '',
-          scheduledTime: data.scheduledTime || '',
+          scheduledDate: formatTimestamp(data.scheduledDate) || data.scheduledDate || '',
+          scheduledTime: data.scheduledTime?.toDate?.() ? data.scheduledTime.toDate().toLocaleTimeString() : (data.scheduledTime || ''),
+          // Payment fields - Always Pay First
+          paymentPreference: 'pay_first',
+          paymentMethod: data.paymentMethod || 'gcash',
+          isPaidUpfront: data.isPaidUpfront || false,
+          upfrontPaidAmount: data.upfrontPaidAmount || 0,
+          additionalCharges: data.additionalCharges || [],
         };
+
+        console.log('[ProviderJobDetails] Real-time update - status:', data.status, 'isPaidUpfront:', data.isPaidUpfront, 'adminApproved:', data.adminApproved);
 
         setJobData(prev => ({
           ...prev,
@@ -272,8 +280,8 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           description: data.description || data.notes,
           status: data.status,
           adminApproved: data.adminApproved || false,
-          scheduledDate: data.scheduledDate,
-          scheduledTime: data.scheduledTime,
+          scheduledDate: data.scheduledDate?.toDate?.() ? data.scheduledDate.toDate().toLocaleDateString() : data.scheduledDate,
+          scheduledTime: data.scheduledTime?.toDate?.() ? data.scheduledTime.toDate().toLocaleTimeString() : data.scheduledTime,
           date: data.date,
           time: data.time,
           // Pricing breakdown - providerPrice is what provider earns (before system fee)

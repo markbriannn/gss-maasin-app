@@ -3,21 +3,20 @@ import {
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
   StyleSheet,
   Dimensions,
   StatusBar,
   Image,
   Alert,
   Animated,
-  Share,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MapView, {Marker, Polyline, PROVIDER_GOOGLE} from 'react-native-maps';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {db} from '../../config/firebase';
 import {doc, onSnapshot, updateDoc, getDoc} from 'firebase/firestore';
-import {SERVICE_CATEGORIES} from '../../config/constants';
 
 const {height: SCREEN_HEIGHT} = Dimensions.get('window');
 
@@ -30,6 +29,7 @@ const BookingStatusScreen = ({navigation, route}) => {
   const [providerLocation, setProviderLocation] = useState(null);
   const [providerInfo, setProviderInfo] = useState(null);
   const [routeCoordinates, setRouteCoordinates] = useState([]);
+  const [showProviderModal, setShowProviderModal] = useState(false);
 
   // Animate progress bar
   useEffect(() => {
@@ -78,17 +78,33 @@ const BookingStatusScreen = ({navigation, route}) => {
             return;
           }
 
+          // Set provider info from booking data first (in case we can't fetch from users)
+          if (!providerInfo && (data.providerName || data.providerId)) {
+            setProviderInfo(prev => ({
+              ...prev,
+              name: data.providerName || prev?.name || 'Provider',
+              photo: data.providerPhoto || prev?.photo,
+              serviceCategory: data.serviceCategory || prev?.serviceCategory,
+              rating: data.providerRating || prev?.rating,
+              reviewCount: data.providerReviewCount || prev?.reviewCount,
+              barangay: data.providerBarangay || prev?.barangay,
+            }));
+          }
+
           // Fetch provider info and location from their user document
-          if (data.providerId && !providerInfo) {
+          if (data.providerId) {
             try {
               const providerDoc = await getDoc(doc(db, 'users', data.providerId));
               if (providerDoc.exists()) {
                 const pData = providerDoc.data();
                 setProviderInfo({
                   id: providerDoc.id,
-                  name: `${pData.firstName || ''} ${pData.lastName || ''}`.trim() || 'Provider',
-                  photo: pData.profilePhoto,
-                  serviceCategory: pData.serviceCategory,
+                  name: `${pData.firstName || ''} ${pData.lastName || ''}`.trim() || data.providerName || 'Provider',
+                  photo: pData.profilePhoto || data.providerPhoto,
+                  serviceCategory: pData.serviceCategory || data.serviceCategory,
+                  rating: pData.rating || pData.averageRating || 0,
+                  reviewCount: pData.reviewCount || 0,
+                  barangay: pData.barangay,
                 });
                 
                 // Get provider's current location
@@ -212,33 +228,31 @@ const BookingStatusScreen = ({navigation, route}) => {
     );
   };
 
-  const handleShareTrip = async () => {
-    try {
-      await Share.share({
-        message: `I'm booking a ${booking?.serviceCategory || 'service'} at ${booking?.address || 'my location'}. Booking ID: ${bookingId}`,
-      });
-    } catch (e) {}
-  };
-
-  const handleSafety = () => {
-    Alert.alert(
-      'Safety Features',
-      'Emergency contacts and safety features will be available once a provider accepts your booking.',
-      [{text: 'OK'}]
-    );
-  };
-
   const getStatusText = () => {
+    // Check admin approval first for pending status
+    if (booking?.status === 'pending') {
+      if (!booking?.adminApproved) {
+        return {title: 'Awaiting Admin Confirmation', subtitle: 'Your booking is being reviewed'};
+      }
+      return {title: 'Awaiting Provider Confirmation', subtitle: 'Waiting for a provider to accept'};
+    }
+    
     switch (booking?.status) {
-      case 'pending':
-        return {title: 'Finding you a Provider', subtitle: 'Connecting you with providers nearby'};
       case 'accepted':
-        return {title: 'Provider Found!', subtitle: 'Waiting for provider to start traveling'};
+        return {title: 'Provider Confirmed', subtitle: 'Provider is preparing to come to you'};
       case 'traveling':
-        return {title: 'Provider En Route', subtitle: 'Your provider is coming to you'};
+        return {title: 'Provider On The Way', subtitle: 'Your provider is coming to you'};
+      case 'arrived':
+        return {title: 'Provider Arrived', subtitle: 'Your provider has arrived at your location'};
+      case 'in_progress':
+        return {title: 'Work In Progress', subtitle: 'Provider is working on your service'};
       default:
         return {title: 'Processing', subtitle: 'Please wait...'};
     }
+  };
+
+  const handleNavigateToDetails = () => {
+    navigation.navigate('JobDetails', {jobId: bookingId, job: booking});
   };
 
   const progressWidth = progressAnim.interpolate({
@@ -280,17 +294,18 @@ const BookingStatusScreen = ({navigation, route}) => {
         {providerLocation && (
           <Marker 
             coordinate={providerLocation} 
-            title={providerInfo?.name || 'Provider'}
+            title={providerInfo?.name || booking?.providerName || 'Provider'}
+            onPress={() => setShowProviderModal(true)}
             tracksViewChanges={true}>
             <View style={styles.providerMarker}>
-              {providerInfo?.photo ? (
+              {(providerInfo?.photo || booking?.providerPhoto) ? (
                 <Image 
-                  source={{uri: providerInfo.photo}} 
+                  source={{uri: providerInfo?.photo || booking?.providerPhoto}} 
                   style={styles.providerMarkerImg}
                 />
               ) : (
                 <Text style={styles.providerMarkerInitial}>
-                  {providerInfo?.name?.charAt(0)?.toUpperCase() || 'P'}
+                  {(providerInfo?.name || booking?.providerName)?.charAt(0)?.toUpperCase() || 'P'}
                 </Text>
               )}
             </View>
@@ -328,36 +343,42 @@ const BookingStatusScreen = ({navigation, route}) => {
 
       {/* Bottom Sheet */}
       <View style={styles.sheet}>
-        {/* Status Card */}
-        <View style={styles.statusCard}>
+        {/* Status Card - Tappable to navigate to Job Details */}
+        <TouchableOpacity 
+          style={styles.statusCard} 
+          onPress={handleNavigateToDetails}
+          activeOpacity={0.7}>
           <View style={styles.statusContent}>
             <View style={{flex: 1}}>
               <Text style={styles.statusTitle}>{status.title}</Text>
               <Text style={styles.statusSubtitle}>{status.subtitle}</Text>
             </View>
-            {/* Show provider photo if available, otherwise show car icon */}
-            {providerInfo?.photo ? (
+            {/* Provider Photo */}
+            {(providerInfo?.photo || booking?.providerPhoto) ? (
               <Image
-                source={{uri: providerInfo.photo}}
+                source={{uri: providerInfo?.photo || booking?.providerPhoto}}
                 style={styles.providerPhoto}
               />
             ) : (
-              <Image
-                source={{uri: 'https://cdn-icons-png.flaticon.com/512/3097/3097180.png'}}
-                style={styles.statusIcon}
-              />
+              <View style={styles.statusIconContainer}>
+                <Icon name="person" size={28} color="#00B14F" />
+              </View>
             )}
           </View>
           
-          {/* Show provider name if accepted */}
-          {booking?.status === 'accepted' && providerInfo?.name && (
+          {/* Provider Name */}
+          {(providerInfo?.name || booking?.providerName) && (
             <View style={styles.providerInfoRow}>
               <Icon name="person" size={16} color="#00B14F" />
-              <Text style={styles.providerInfoText}>{providerInfo.name}</Text>
-              {providerInfo?.serviceCategory && (
+              <Text style={styles.providerInfoText}>
+                {providerInfo?.name || booking?.providerName}
+              </Text>
+              {(providerInfo?.serviceCategory || booking?.serviceCategory) && (
                 <>
                   <Text style={styles.providerInfoSep}>•</Text>
-                  <Text style={styles.providerInfoText}>{providerInfo.serviceCategory}</Text>
+                  <Text style={styles.providerInfoText}>
+                    {providerInfo?.serviceCategory || booking?.serviceCategory}
+                  </Text>
                 </>
               )}
             </View>
@@ -367,48 +388,28 @@ const BookingStatusScreen = ({navigation, route}) => {
           <View style={styles.progressBg}>
             <Animated.View style={[styles.progressBar, {width: progressWidth}]} />
           </View>
-          <Text style={styles.tipText}>
-            {booking?.status === 'accepted' 
-              ? 'Provider is preparing to come to you...'
-              : 'Did you know... You can book multiple services at once!'}
-          </Text>
-        </View>
-
-        {/* Service Categories Row */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          style={styles.categoriesScroll}
-          contentContainerStyle={styles.categoriesContent}>
-          {SERVICE_CATEGORIES.slice(0, 6).map((cat) => (
-            <View key={cat.id} style={styles.categoryItem}>
-              <View style={[styles.categoryIcon, {backgroundColor: cat.color + '20'}]}>
-                <Icon name={cat.icon} size={24} color={cat.color} />
-              </View>
-              <Text style={styles.categoryLabel}>{cat.name}</Text>
+          
+          {/* Tap hint */}
+          <View style={styles.tapHintRow}>
+            <Text style={styles.tipText}>
+              {booking?.status === 'accepted' 
+                ? 'Provider is preparing to come to you...'
+                : booking?.adminApproved 
+                  ? 'Waiting for provider to accept...'
+                  : 'Admin will review your booking shortly...'}
+            </Text>
+            <View style={styles.tapHint}>
+              <Text style={styles.tapHintText}>Tap for details</Text>
+              <Icon name="chevron-forward" size={14} color="#6B7280" />
             </View>
-          ))}
-        </ScrollView>
+          </View>
+        </TouchableOpacity>
 
-        {/* Booking Details */}
+        {/* Booking Details - Service Location Only */}
         <View style={styles.detailsCard}>
           <View style={styles.detailRow}>
             <View style={styles.detailDot}>
               <View style={styles.greenDot} />
-            </View>
-            <View style={styles.detailInfo}>
-              <Text style={styles.detailLabel}>Pickup</Text>
-              <Text style={styles.detailAddress} numberOfLines={2}>
-                {booking?.address || 'Your current location'}
-              </Text>
-            </View>
-          </View>
-          
-          <View style={styles.detailDivider} />
-          
-          <View style={styles.detailRow}>
-            <View style={styles.detailDot}>
-              <View style={styles.redDot} />
             </View>
             <View style={styles.detailInfo}>
               <Text style={styles.detailLabel}>Service Location</Text>
@@ -435,23 +436,87 @@ const BookingStatusScreen = ({navigation, route}) => {
           </Text>
         </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.actionBtn} onPress={handleShareTrip}>
-            <Icon name="share-social-outline" size={22} color="#374151" />
-            <Text style={styles.actionText}>Share trip</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={handleSafety}>
-            <Icon name="shield-checkmark-outline" size={22} color="#374151" />
-            <Text style={styles.actionText}>Safety</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Cancel Button */}
         <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelBooking}>
           <Text style={styles.cancelText}>Cancel order</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Provider Status Modal - Shows when tapping provider marker on map */}
+      <Modal
+        visible={showProviderModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowProviderModal(false)}>
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowProviderModal(false)}>
+          <View style={styles.providerModal}>
+            {/* Provider Photo */}
+            <View style={styles.modalPhotoWrap}>
+              {(providerInfo?.photo || booking?.providerPhoto) ? (
+                <Image 
+                  source={{uri: providerInfo?.photo || booking?.providerPhoto}} 
+                  style={styles.modalPhoto}
+                />
+              ) : (
+                <View style={styles.modalPhotoPlaceholder}>
+                  <Icon name="person" size={40} color="#00B14F" />
+                </View>
+              )}
+              <View style={styles.modalOnlineDot} />
+            </View>
+
+            {/* Provider Name */}
+            <Text style={styles.modalName}>
+              {providerInfo?.name || booking?.providerName || 'Provider'}
+            </Text>
+
+            {/* Provider Details - Reviews and Location */}
+            <View style={styles.modalDetailsRow}>
+              <Text style={styles.modalDetailText}>
+                {booking?.providerReviewCount || providerInfo?.reviewCount || 0} review{(booking?.providerReviewCount || providerInfo?.reviewCount || 0) !== 1 ? 's' : ''}
+              </Text>
+            </View>
+
+            {/* Location/Barangay */}
+            {(providerInfo?.barangay || booking?.providerBarangay) && (
+              <Text style={styles.modalLocationText}>
+                {providerInfo?.barangay || booking?.providerBarangay}
+              </Text>
+            )}
+
+            {/* Service Category */}
+            <View style={styles.modalServiceRow}>
+              <Icon name="construct" size={16} color="#00B14F" />
+              <Text style={styles.modalServiceText}>
+                {booking?.serviceCategory || providerInfo?.serviceCategory || 'Service'}
+              </Text>
+            </View>
+
+            {/* Status with Loading */}
+            <View style={styles.modalStatusCard}>
+              <ActivityIndicator size="small" color="#00B14F" style={{marginRight: 12}} />
+              <View style={{flex: 1}}>
+                <Text style={styles.modalStatusTitle}>{status.title}</Text>
+                <Text style={styles.modalStatusSubtitle}>{status.subtitle}</Text>
+              </View>
+            </View>
+
+            {/* View Details Button */}
+            <TouchableOpacity 
+              style={styles.modalViewBtn}
+              onPress={() => {
+                setShowProviderModal(false);
+                handleNavigateToDetails();
+              }}>
+              <Text style={styles.modalViewText}>View Booking Details</Text>
+              <Icon name="chevron-forward" size={18} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -573,6 +638,14 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
   },
+  statusIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#D1FAE5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   providerPhoto: {
     width: 60,
     height: 60,
@@ -612,30 +685,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     fontStyle: 'italic',
+    flex: 1,
   },
-  categoriesScroll: {
-    marginBottom: 16,
-  },
-  categoriesContent: {
-    paddingRight: 16,
-  },
-  categoryItem: {
+  tapHintRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 20,
-    width: 60,
+    justifyContent: 'space-between',
   },
-  categoryIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
+  tapHint: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
   },
-  categoryLabel: {
-    fontSize: 11,
+  tapHintText: {
+    fontSize: 12,
     color: '#6B7280',
-    textAlign: 'center',
+    marginRight: 2,
   },
   detailsCard: {
     backgroundColor: '#FFF',
@@ -661,12 +725,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#00B14F',
     borderRadius: 6,
   },
-  redDot: {
-    width: 12,
-    height: 12,
-    backgroundColor: '#EF4444',
-    borderRadius: 6,
-  },
   detailInfo: {
     flex: 1,
   },
@@ -679,13 +737,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#1F2937',
-  },
-  detailDivider: {
-    width: 2,
-    height: 24,
-    backgroundColor: '#E5E7EB',
-    marginLeft: 11,
-    marginVertical: 4,
   },
   paymentCard: {
     flexDirection: 'row',
@@ -737,26 +788,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1F2937',
   },
-  actionRow: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    gap: 12,
-  },
-  actionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-  },
-  actionText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-  },
   cancelBtn: {
     alignItems: 'center',
     paddingVertical: 16,
@@ -766,6 +797,129 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#EF4444',
+  },
+  // Provider Status Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  providerModal: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 320,
+    alignItems: 'center',
+  },
+  modalPhotoWrap: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  modalPhoto: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: '#00B14F',
+  },
+  modalPhotoPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F0FDF4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#00B14F',
+  },
+  modalOnlineDot: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#00B14F',
+    borderWidth: 2,
+    borderColor: '#FFF',
+  },
+  modalName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  modalDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  modalDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  modalDetailText: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  modalDetailSep: {
+    marginHorizontal: 8,
+    color: '#D1D5DB',
+  },
+  modalLocationText: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 12,
+  },
+  modalServiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 6,
+  },
+  modalServiceText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#00B14F',
+  },
+  modalStatusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderRadius: 12,
+    padding: 16,
+    width: '100%',
+    marginBottom: 16,
+  },
+  modalStatusTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  modalStatusSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  modalViewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00B14F',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    width: '100%',
+    gap: 8,
+  },
+  modalViewText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFF',
   },
 });
 

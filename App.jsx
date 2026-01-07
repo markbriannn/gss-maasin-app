@@ -1,5 +1,5 @@
 import React, {useEffect, useState, useRef} from 'react';
-import {StatusBar, LogBox, Animated, StyleSheet} from 'react-native';
+import {StatusBar, LogBox, Animated, StyleSheet, Linking, Alert} from 'react-native';
 import {NavigationContainer, DefaultTheme, DarkTheme, createNavigationContainerRef} from '@react-navigation/native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
@@ -14,6 +14,7 @@ import {PushNotificationProvider} from './src/context/PushNotificationContext';
 import SplashScreen from './src/screens/splash/SplashScreen';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import {setBackgroundMessageHandler} from './src/services/pushNotificationService';
+import paymentService from './src/services/paymentService';
 
 // Create navigation ref for notification handling
 const navigationRef = createNavigationContainerRef();
@@ -56,13 +57,88 @@ const CustomDarkTheme = {
   },
 };
 
+// Deep linking configuration for payment redirects
+const linking = {
+  prefixes: ['gssmaasin://', 'https://gss-maasin-app.vercel.app'],
+  config: {
+    screens: {
+      // Payment redirect screens
+      JobDetails: {
+        path: 'payment/:status',
+        parse: {
+          status: (status) => status,
+          bookingId: (bookingId) => bookingId,
+        },
+      },
+    },
+  },
+};
+
+// Handle deep link for payment
+const handleDeepLink = async (url, navigationRef) => {
+  console.log('Deep link received:', url);
+  
+  if (!url) return;
+  
+  try {
+    // Parse the URL
+    const urlObj = new URL(url.replace('gssmaasin://', 'https://app/'));
+    const path = urlObj.pathname;
+    const params = urlObj.searchParams;
+    const bookingId = params.get('bookingId');
+    
+    console.log('Deep link path:', path, 'bookingId:', bookingId);
+    
+    if (path.includes('payment/success') && bookingId) {
+      // Payment successful - verify and navigate
+      const result = await paymentService.verifyAndProcessPayment(bookingId);
+      
+      if (result.success && result.status === 'paid') {
+        Alert.alert('Payment Successful! 🎉', 'Your payment has been processed.');
+      }
+      
+      // Navigate to job details
+      if (navigationRef.current?.isReady()) {
+        navigationRef.current.navigate('JobDetails', { jobId: bookingId });
+      }
+    } else if (path.includes('payment/failed') && bookingId) {
+      // Payment failed
+      Alert.alert('Payment Failed', 'Your payment was not completed. Please try again.');
+      
+      if (navigationRef.current?.isReady()) {
+        navigationRef.current.navigate('JobDetails', { jobId: bookingId });
+      }
+    }
+  } catch (error) {
+    console.error('Error handling deep link:', error);
+  }
+};
+
 // Inner app component that uses theme
 const AppContent = () => {
   const {isDark} = useTheme();
   
+  // Handle deep links
+  useEffect(() => {
+    // Handle initial URL (app opened via deep link)
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink(url, navigationRef);
+      }
+    });
+    
+    // Handle deep links when app is already open
+    const subscription = Linking.addEventListener('url', ({url}) => {
+      handleDeepLink(url, navigationRef);
+    });
+    
+    return () => subscription.remove();
+  }, []);
+  
   return (
     <NavigationContainer 
       ref={navigationRef}
+      linking={linking}
       theme={isDark ? CustomDarkTheme : CustomLightTheme}
       onReady={() => {
         // Set navigation ref for notification handling

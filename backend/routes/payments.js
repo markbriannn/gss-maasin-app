@@ -60,8 +60,9 @@ router.post('/create-source', async (req, res) => {
       console.log('Error checking existing payments:', queryError.message);
     }
 
-    // Use a proper redirect URL
-    const baseUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
+    // Use deep link for mobile app redirect
+    const mobileDeepLink = `gssmaasin://payment`;
+    const webFallback = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
       ? process.env.FRONTEND_URL 
       : 'https://gss-maasin-app.vercel.app';
 
@@ -76,8 +77,8 @@ router.post('/create-source', async (req, res) => {
             currency: 'PHP',
             type: sourceType,
             redirect: {
-              success: `${baseUrl}/client/bookings/${bookingId}?payment=success`,
-              failed: `${baseUrl}/client/bookings/${bookingId}?payment=failed`,
+              success: `${mobileDeepLink}/success?bookingId=${bookingId}`,
+              failed: `${mobileDeepLink}/failed?bookingId=${bookingId}`,
             },
             metadata: {
               bookingId,
@@ -203,8 +204,9 @@ router.post('/create-gcash-source', async (req, res) => {
       console.log('Error checking existing GCash payments:', queryError.message);
     }
 
-    // Use a proper redirect URL (PayMongo requires valid URLs)
-    const baseUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
+    // Use deep link for mobile app redirect
+    const mobileDeepLink = `gssmaasin://payment`;
+    const webFallback = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
       ? process.env.FRONTEND_URL 
       : 'https://gss-maasin-app.vercel.app';
 
@@ -217,8 +219,8 @@ router.post('/create-gcash-source', async (req, res) => {
             currency: 'PHP',
             type: 'gcash',
             redirect: {
-              success: `${baseUrl}/client/bookings/${bookingId}?payment=success`,
-              failed: `${baseUrl}/client/bookings/${bookingId}?payment=failed`,
+              success: `${mobileDeepLink}/success?bookingId=${bookingId}`,
+              failed: `${mobileDeepLink}/failed?bookingId=${bookingId}`,
             },
             metadata: {
               bookingId,
@@ -287,8 +289,9 @@ router.post('/create-paymaya-source', async (req, res) => {
       console.log('Error checking existing Maya payments:', queryError.message);
     }
 
-    // Use a proper redirect URL (PayMongo requires valid URLs)
-    const baseUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
+    // Use deep link for mobile app redirect
+    const mobileDeepLink = `gssmaasin://payment`;
+    const webFallback = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
       ? process.env.FRONTEND_URL 
       : 'https://gss-maasin-app.vercel.app';
 
@@ -301,8 +304,8 @@ router.post('/create-paymaya-source', async (req, res) => {
             currency: 'PHP',
             type: 'paymaya',
             redirect: {
-              success: `${baseUrl}/client/bookings/${bookingId}?payment=success`,
-              failed: `${baseUrl}/client/bookings/${bookingId}?payment=failed`,
+              success: `${mobileDeepLink}/success?bookingId=${bookingId}`,
+              failed: `${mobileDeepLink}/failed?bookingId=${bookingId}`,
             },
             metadata: {
               bookingId,

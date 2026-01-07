@@ -9,6 +9,8 @@ import {
   StyleSheet,
   StatusBar,
   Image,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MapView, {Marker, Polyline, PROVIDER_GOOGLE} from 'react-native-maps';
@@ -137,6 +139,8 @@ const ClientHomeScreen = ({navigation}) => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [activeFilter, setActiveFilter] = useState('recommended');
   const [selectedProvider, setSelectedProvider] = useState(null);
+  const [showProviderModal, setShowProviderModal] = useState(false);
+  const [activeBookings, setActiveBookings] = useState({}); // Map of providerId -> booking
   const [userLocation, setUserLocation] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState([]);
@@ -150,6 +154,7 @@ const ClientHomeScreen = ({navigation}) => {
     initLocation();
     loadFavorites();
     loadAvgResponseTime();
+    loadActiveBookings();
   }, []);
 
   const initLocation = async () => {
@@ -174,6 +179,41 @@ const ClientHomeScreen = ({navigation}) => {
       setFavoriteIds(snapshot.docs.map(d => d.data().providerId));
     } catch (e) {}
   };
+
+  // Load active bookings for the current user (pending, accepted, traveling, arrived, in_progress)
+  const loadActiveBookings = () => {
+    const userId = user?.uid || user?.id;
+    if (!userId) return;
+
+    // Listen to active bookings in real-time
+    const activeStatuses = ['pending', 'accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion'];
+    const bookingsQuery = query(
+      collection(db, 'bookings'),
+      where('clientId', '==', userId),
+      where('status', 'in', activeStatuses)
+    );
+
+    const unsubscribe = onSnapshot(bookingsQuery, (snapshot) => {
+      const bookingsMap = {};
+      snapshot.forEach((docSnap) => {
+        const booking = { id: docSnap.id, ...docSnap.data() };
+        if (booking.providerId) {
+          bookingsMap[booking.providerId] = booking;
+        }
+      });
+      setActiveBookings(bookingsMap);
+    });
+
+    return unsubscribe;
+  };
+
+  // Set up real-time listener for active bookings
+  useEffect(() => {
+    const unsubscribe = loadActiveBookings();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user?.uid, user?.id]);
 
   // Calculate real-time average response time from recent jobs
   const loadAvgResponseTime = async () => {
@@ -271,22 +311,38 @@ const ClientHomeScreen = ({navigation}) => {
     return () => unsub();
   }, [selectedCategory, userLocation, activeFilter]);
 
-  const handleSelectProvider = useCallback(async (provider) => {
+  const handleSelectProvider = useCallback(async (provider, fromMarker = false) => {
     // Prevent rapid double-taps from causing crashes
     if (isSelectingRef.current) return;
     isSelectingRef.current = true;
     
     try {
+      // If clicking from map marker and provider has active booking, go directly to BookingStatus
+      if (fromMarker && activeBookings[provider.id]) {
+        isSelectingRef.current = false;
+        navigation.navigate('BookingStatus', {
+          bookingId: activeBookings[provider.id].id,
+          booking: activeBookings[provider.id],
+        });
+        return;
+      }
+      
       // Toggle selection - if already selected, unselect
-      if (selectedProvider?.id === provider.id) {
+      if (selectedProvider?.id === provider.id && !fromMarker) {
         setSelectedProvider(null);
         setRouteCoordinates([]);
+        setShowProviderModal(false);
         isSelectingRef.current = false;
         return;
       }
       
       setSelectedProvider(provider);
       setRouteCoordinates([]); // Clear old route
+      
+      // Show modal when tapping from map marker
+      if (fromMarker) {
+        setShowProviderModal(true);
+      }
       
       // Fit map to show both user and provider
       if (mapRef.current && provider.latitude && provider.longitude) {
@@ -424,7 +480,7 @@ const ClientHomeScreen = ({navigation}) => {
                 key={p.id}
                 identifier={p.id}
                 coordinate={{latitude: p.latitude, longitude: p.longitude}}
-                onPress={() => handleSelectProvider(p)}
+                onPress={() => handleSelectProvider(p, true)}
                 tracksViewChanges={false}>
                 <View style={[styles.marker, isSelected && styles.markerSelected]}>
                   {p.profilePhoto ? (
@@ -583,7 +639,7 @@ const ClientHomeScreen = ({navigation}) => {
       </Animated.View>
 
       {/* Bottom Action - Outside sheet so it's always visible */}
-      {selectedProvider && (
+      {selectedProvider && !showProviderModal && (
         <View style={styles.fixedBottomBar}>
           <View style={styles.payRow}>
             <View style={styles.payMethod}>
@@ -600,6 +656,147 @@ const ClientHomeScreen = ({navigation}) => {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Provider Info Modal - Shows when tapping provider marker on map */}
+      <Modal
+        visible={showProviderModal && selectedProvider !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowProviderModal(false)}>
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowProviderModal(false)}>
+          <View style={styles.providerModal}>
+            {/* Close button */}
+            <TouchableOpacity 
+              style={styles.modalCloseBtn} 
+              onPress={() => setShowProviderModal(false)}>
+              <Icon name="close" size={24} color="#6B7280" />
+            </TouchableOpacity>
+
+            {/* Provider Photo */}
+            <View style={styles.modalAvatarWrap}>
+              {selectedProvider?.profilePhoto ? (
+                <Image 
+                  source={{uri: selectedProvider.profilePhoto}} 
+                  style={styles.modalAvatar}
+                />
+              ) : (
+                <View style={styles.modalAvatarPlaceholder}>
+                  <Icon name="person" size={48} color="#00B14F" />
+                </View>
+              )}
+              {selectedProvider?.isOnline && (
+                <View style={styles.onlineBadge} />
+              )}
+            </View>
+
+            {/* Provider Name */}
+            <Text style={styles.modalName}>{selectedProvider?.name}</Text>
+            
+            {/* Service Category */}
+            <View style={styles.modalServiceRow}>
+              <Icon name="construct" size={16} color="#00B14F" />
+              <Text style={styles.modalService}>{selectedProvider?.serviceCategory}</Text>
+            </View>
+
+            {/* Rating & Reviews */}
+            <View style={styles.modalRatingRow}>
+              <Icon name="star" size={18} color="#F59E0B" />
+              <Text style={styles.modalRating}>{selectedProvider?.rating?.toFixed(1) || '0.0'}</Text>
+              <Text style={styles.modalReviews}>({selectedProvider?.reviewCount || 0} reviews)</Text>
+            </View>
+
+            {/* Location/Barangay */}
+            {selectedProvider?.barangay && (
+              <Text style={styles.modalBarangay}>{selectedProvider.barangay}</Text>
+            )}
+
+            {/* Check if there's an active booking with this provider */}
+            {activeBookings[selectedProvider?.id] ? (
+              <>
+                {/* BOOKED PROVIDER - Show status */}
+                <View style={styles.modalStatusCard}>
+                  <ActivityIndicator size="small" color="#00B14F" style={{marginRight: 12}} />
+                  <View style={{flex: 1}}>
+                    <Text style={styles.modalStatusTitle}>
+                      {activeBookings[selectedProvider.id].adminApproved 
+                        ? 'Awaiting Provider Confirmation'
+                        : 'Awaiting Admin Confirmation'}
+                    </Text>
+                    <Text style={styles.modalStatusSubtitle}>
+                      {activeBookings[selectedProvider.id].adminApproved 
+                        ? 'Waiting for provider to accept'
+                        : 'Your booking is being reviewed'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* View Booking Details Button */}
+                <TouchableOpacity 
+                  style={styles.modalBookBtn}
+                  onPress={() => {
+                    setShowProviderModal(false);
+                    navigation.navigate('BookingStatus', {
+                      bookingId: activeBookings[selectedProvider.id].id,
+                      booking: activeBookings[selectedProvider.id],
+                    });
+                  }}>
+                  <Text style={styles.modalBookText}>View Booking Status</Text>
+                  <Icon name="chevron-forward" size={18} color="#FFF" />
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                {/* NOT BOOKED - Show normal info and Contact Us */}
+                {/* Distance & Time */}
+                <View style={styles.modalInfoRow}>
+                  <View style={styles.modalInfoItem}>
+                    <Icon name="location" size={18} color="#6B7280" />
+                    <Text style={styles.modalInfoText}>{selectedProvider?.distance?.toFixed(1) || '0'} km away</Text>
+                  </View>
+                  <View style={styles.modalInfoItem}>
+                    <Icon name="time" size={18} color="#6B7280" />
+                    <Text style={styles.modalInfoText}>{selectedProvider?.estimatedTime}</Text>
+                  </View>
+                </View>
+
+                {/* Price */}
+                <View style={styles.modalPriceRow}>
+                  <Text style={styles.modalPriceLabel}>Starting at</Text>
+                  <Text style={styles.modalPrice}>₱{selectedProvider?.fixedPrice?.toLocaleString() || '0'}</Text>
+                </View>
+
+                {/* Action Buttons */}
+                <View style={styles.modalActions}>
+                  <TouchableOpacity 
+                    style={styles.modalViewBtn}
+                    onPress={() => {
+                      setShowProviderModal(false);
+                      navigation.navigate('ProviderProfile', {
+                        providerId: selectedProvider?.id,
+                        provider: selectedProvider,
+                      });
+                    }}>
+                    <Icon name="eye-outline" size={20} color="#00B14F" />
+                    <Text style={styles.modalViewText}>View Profile</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.modalBookBtn}
+                    onPress={() => {
+                      setShowProviderModal(false);
+                      handleBook();
+                    }}>
+                    <Icon name="chatbubble-outline" size={20} color="#FFF" />
+                    <Text style={styles.modalBookText}>Contact Us</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -724,6 +921,38 @@ const styles = StyleSheet.create({
   offersText: {fontSize: 14, color: '#6B7280'},
   bookBtn: {backgroundColor: '#00B14F', borderRadius: 12, paddingVertical: 16, alignItems: 'center'},
   bookText: {fontSize: 16, fontWeight: '700', color: '#FFF'},
+
+  // Provider Info Modal
+  modalOverlay: {flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end'},
+  providerModal: {backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, alignItems: 'center'},
+  modalCloseBtn: {position: 'absolute', top: 16, right: 16, width: 36, height: 36, borderRadius: 18, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center'},
+  modalAvatarWrap: {position: 'relative', marginBottom: 16},
+  modalAvatar: {width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: '#00B14F'},
+  modalAvatarPlaceholder: {width: 100, height: 100, borderRadius: 50, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#00B14F'},
+  onlineBadge: {position: 'absolute', bottom: 4, right: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: '#00B14F', borderWidth: 3, borderColor: '#FFF'},
+  modalName: {fontSize: 22, fontWeight: '700', color: '#1F2937', marginBottom: 4},
+  modalServiceRow: {flexDirection: 'row', alignItems: 'center', marginBottom: 12},
+  modalService: {fontSize: 15, fontWeight: '600', color: '#00B14F', marginLeft: 6},
+  modalRatingRow: {flexDirection: 'row', alignItems: 'center', marginBottom: 8},
+  modalRating: {fontSize: 16, fontWeight: '700', color: '#1F2937', marginLeft: 4},
+  modalReviews: {fontSize: 14, color: '#6B7280', marginLeft: 4},
+  modalSep: {marginHorizontal: 8, color: '#D1D5DB'},
+  modalJobs: {fontSize: 14, color: '#6B7280'},
+  modalBarangay: {fontSize: 13, color: '#6B7280', marginBottom: 16},
+  modalInfoRow: {flexDirection: 'row', justifyContent: 'center', gap: 24, marginBottom: 16},
+  modalInfoItem: {flexDirection: 'row', alignItems: 'center', gap: 6},
+  modalInfoText: {fontSize: 14, color: '#6B7280'},
+  modalPriceRow: {alignItems: 'center', marginBottom: 20},
+  modalPriceLabel: {fontSize: 13, color: '#9CA3AF', marginBottom: 2},
+  modalPrice: {fontSize: 28, fontWeight: '700', color: '#1F2937'},
+  modalStatusCard: {flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', borderRadius: 12, padding: 16, width: '100%', marginBottom: 16, marginTop: 8},
+  modalStatusTitle: {fontSize: 15, fontWeight: '700', color: '#1F2937', marginBottom: 2},
+  modalStatusSubtitle: {fontSize: 13, color: '#6B7280'},
+  modalActions: {flexDirection: 'row', gap: 12, width: '100%'},
+  modalViewBtn: {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, borderWidth: 2, borderColor: '#00B14F', gap: 8},
+  modalViewText: {fontSize: 15, fontWeight: '600', color: '#00B14F'},
+  modalBookBtn: {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, backgroundColor: '#00B14F', gap: 8},
+  modalBookText: {fontSize: 15, fontWeight: '600', color: '#FFF'},
 });
 
 export default ClientHomeScreen;

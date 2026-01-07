@@ -65,9 +65,17 @@ android {
     }
 }
 
+configurations.all {
+    resolutionStrategy {
+        // Force compatible version of androidx.browser for react-native-inappbrowser-reborn
+        force 'androidx.browser:browser:1.8.0'
+    }
+}
+
 dependencies {
     implementation("com.facebook.react:react-android")
     implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.browser:browser:1.8.0'
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

@@ -100,8 +100,8 @@ const ClientBookingsScreen = ({navigation}) => {
             status: data.status?.toUpperCase() || 'PENDING',
             description: data.description || '',
             amount: data.amount || data.price || 0,
-            scheduledDate: data.scheduledDate || 'TBD',
-            scheduledTime: data.scheduledTime || '',
+            scheduledDate: data.scheduledDate?.toDate?.() ? data.scheduledDate.toDate().toLocaleDateString() : (data.scheduledDate || 'TBD'),
+            scheduledTime: data.scheduledTime?.toDate?.() ? data.scheduledTime.toDate().toLocaleTimeString() : (data.scheduledTime || ''),
             location: fullLocation,
             // New negotiation fields
             isNegotiable: data.isNegotiable || false,

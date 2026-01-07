@@ -118,7 +118,7 @@ export const paymentService = {
           navigationBarDividerColor: 'white',
           enableUrlBarHiding: true,
           enableDefaultShare: false,
-          forceCloseOnRedirection: false,
+          forceCloseOnRedirection: true, // Close browser when redirected to deep link
           // Animation
           animations: {
             startEnter: 'slide_in_right',

@@ -31,7 +31,41 @@ const JobDetailsScreen = ({navigation, route}) => {
   const {job, jobId} = route.params || {};
   const {user} = useAuth();
   const {isDark, theme} = useTheme();
-  const [jobData, setJobData] = useState(job || null);
+  
+  // Helper function to safely convert Firestore timestamps
+  const formatTimestamp = (timestamp, type = 'date') => {
+    if (!timestamp) return null;
+    // If it has toDate method (Firestore Timestamp)
+    if (timestamp?.toDate) {
+      const date = timestamp.toDate();
+      return type === 'date' ? date.toLocaleDateString() : date.toLocaleTimeString();
+    }
+    // If it's an object with seconds (plain timestamp object)
+    if (timestamp?.seconds) {
+      const date = new Date(timestamp.seconds * 1000);
+      return type === 'date' ? date.toLocaleDateString() : date.toLocaleTimeString();
+    }
+    // If it's already a string, return as-is
+    if (typeof timestamp === 'string') return timestamp;
+    // If it's a Date object
+    if (timestamp instanceof Date) {
+      return type === 'date' ? timestamp.toLocaleDateString() : timestamp.toLocaleTimeString();
+    }
+    return null;
+  };
+  
+  // Format initial job data from route params
+  const formatJobData = (data) => {
+    if (!data) return null;
+    return {
+      ...data,
+      scheduledDate: formatTimestamp(data.scheduledDate, 'date'),
+      scheduledTime: formatTimestamp(data.scheduledTime, 'time'),
+      createdAt: formatTimestamp(data.createdAt, 'date') || new Date().toLocaleDateString(),
+    };
+  };
+  
+  const [jobData, setJobData] = useState(formatJobData(job) || null);
   const [isLoading, setIsLoading] = useState(!job);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showNewOfferModal, setShowNewOfferModal] = useState(false);
@@ -163,8 +197,8 @@ const JobDetailsScreen = ({navigation, route}) => {
             serviceCategory: data.serviceCategory || data.service,
             description: data.description || data.notes,
             status: data.status,
-            scheduledDate: data.scheduledDate,
-            scheduledTime: data.scheduledTime,
+            scheduledDate: formatTimestamp(data.scheduledDate, 'date'),
+            scheduledTime: formatTimestamp(data.scheduledTime, 'time'),
             price: data.totalAmount || data.price,
             address: data.address,
             mediaFiles: data.mediaFiles || [],
@@ -172,7 +206,7 @@ const JobDetailsScreen = ({navigation, route}) => {
             counterOfferNote: data.counterOfferNote,
             offeredPrice: data.offeredPrice,
             isNegotiable: data.isNegotiable,
-            createdAt: data.createdAt?.toDate?.()?.toLocaleDateString() || new Date().toLocaleDateString(),
+            createdAt: formatTimestamp(data.createdAt, 'date') || new Date().toLocaleDateString(),
             // Payment - Always Pay First with GCash/Maya
             paymentPreference: 'pay_first', // Always pay first
             paymentStatus: data.paymentStatus || null, // pending, held, released, refunded
