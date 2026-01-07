@@ -23,7 +23,7 @@ const paymongoAuth = {
 // Generic create-source endpoint (routes to gcash or paymaya based on type)
 router.post('/create-source', async (req, res) => {
   try {
-    const { amount, bookingId, userId, description, type } = req.body;
+    const { amount, bookingId, userId, description, type, platform } = req.body;
 
     if (!amount || !bookingId) {
       return res.status(400).json({ error: 'amount and bookingId are required' });
@@ -61,10 +61,18 @@ router.post('/create-source', async (req, res) => {
     }
 
     // PayMongo requires valid HTTP/HTTPS URLs for redirects
-    // Use web fallback URL, the mobile app will handle deep linking separately
-    const webFallback = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
+    const webUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
       ? process.env.FRONTEND_URL 
       : 'https://gss-maasin-app.vercel.app';
+
+    // Use different redirect URLs based on platform
+    const isWeb = platform === 'web';
+    const successUrl = isWeb 
+      ? `${webUrl}/client/bookings/${bookingId}?payment=success`
+      : `${webUrl}/payment/success?bookingId=${bookingId}`;
+    const failedUrl = isWeb 
+      ? `${webUrl}/client/bookings/${bookingId}?payment=failed`
+      : `${webUrl}/payment/failed?bookingId=${bookingId}`;
 
     const sourceType = paymentType === 'maya' ? 'paymaya' : paymentType;
 
@@ -77,8 +85,8 @@ router.post('/create-source', async (req, res) => {
             currency: 'PHP',
             type: sourceType,
             redirect: {
-              success: `${webFallback}/payment/success?bookingId=${bookingId}`,
-              failed: `${webFallback}/payment/failed?bookingId=${bookingId}`,
+              success: successUrl,
+              failed: failedUrl,
             },
             metadata: {
               bookingId,
@@ -174,7 +182,7 @@ const markEventProcessed = async (db, eventId, eventType) => {
 
 router.post('/create-gcash-source', async (req, res) => {
   try {
-    const { amount, bookingId, userId, description } = req.body;
+    const { amount, bookingId, userId, description, platform } = req.body;
 
     if (!amount || !bookingId) {
       return res.status(400).json({ error: 'amount and bookingId are required' });
@@ -205,9 +213,18 @@ router.post('/create-gcash-source', async (req, res) => {
     }
 
     // PayMongo requires valid HTTP/HTTPS URLs for redirects
-    const webFallback = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
+    const webUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
       ? process.env.FRONTEND_URL 
       : 'https://gss-maasin-app.vercel.app';
+
+    // Use different redirect URLs based on platform
+    const isWeb = platform === 'web';
+    const successUrl = isWeb 
+      ? `${webUrl}/client/bookings/${bookingId}?payment=success`
+      : `${webUrl}/payment/success?bookingId=${bookingId}`;
+    const failedUrl = isWeb 
+      ? `${webUrl}/client/bookings/${bookingId}?payment=failed`
+      : `${webUrl}/payment/failed?bookingId=${bookingId}`;
 
     const response = await axios.post(
       `${PAYMONGO_API}/sources`,
@@ -218,8 +235,8 @@ router.post('/create-gcash-source', async (req, res) => {
             currency: 'PHP',
             type: 'gcash',
             redirect: {
-              success: `${webFallback}/payment/success?bookingId=${bookingId}`,
-              failed: `${webFallback}/payment/failed?bookingId=${bookingId}`,
+              success: successUrl,
+              failed: failedUrl,
             },
             metadata: {
               bookingId,
@@ -258,7 +275,7 @@ router.post('/create-gcash-source', async (req, res) => {
 
 router.post('/create-paymaya-source', async (req, res) => {
   try {
-    const { amount, bookingId, userId, description } = req.body;
+    const { amount, bookingId, userId, description, platform } = req.body;
 
     if (!amount || !bookingId) {
       return res.status(400).json({ error: 'amount and bookingId are required' });
@@ -289,9 +306,18 @@ router.post('/create-paymaya-source', async (req, res) => {
     }
 
     // PayMongo requires valid HTTP/HTTPS URLs for redirects
-    const webFallback = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
+    const webUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
       ? process.env.FRONTEND_URL 
       : 'https://gss-maasin-app.vercel.app';
+
+    // Use different redirect URLs based on platform
+    const isWeb = platform === 'web';
+    const successUrl = isWeb 
+      ? `${webUrl}/client/bookings/${bookingId}?payment=success`
+      : `${webUrl}/payment/success?bookingId=${bookingId}`;
+    const failedUrl = isWeb 
+      ? `${webUrl}/client/bookings/${bookingId}?payment=failed`
+      : `${webUrl}/payment/failed?bookingId=${bookingId}`;
 
     const response = await axios.post(
       `${PAYMONGO_API}/sources`,
@@ -302,8 +328,8 @@ router.post('/create-paymaya-source', async (req, res) => {
             currency: 'PHP',
             type: 'paymaya',
             redirect: {
-              success: `${webFallback}/payment/success?bookingId=${bookingId}`,
-              failed: `${webFallback}/payment/failed?bookingId=${bookingId}`,
+              success: successUrl,
+              failed: failedUrl,
             },
             metadata: {
               bookingId,

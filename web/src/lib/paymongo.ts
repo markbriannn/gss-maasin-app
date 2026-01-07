@@ -60,6 +60,7 @@ export const createPaymentSource = async (params: CreatePaymentParams): Promise<
         description,
         bookingId,
         userId: clientId, // Pass userId to backend
+        platform: 'web', // Tell backend this is from web
         redirect: {
           success: successUrl || `${baseUrl}/client/bookings/${bookingId}?payment=success`,
           failed: failedUrl || `${baseUrl}/client/bookings/${bookingId}?payment=failed`,
