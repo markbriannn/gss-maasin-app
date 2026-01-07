@@ -270,6 +270,10 @@ export default function ClientRegistration() {
     if (verificationCode === generatedCode) {
       setEmailVerified(true);
       setError('');
+      // Auto-advance to next step after short delay
+      setTimeout(() => {
+        setStep(step + 1);
+      }, 1000);
     } else {
       setError('Invalid verification code. Please try again.');
     }
