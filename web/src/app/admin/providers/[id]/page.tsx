@@ -241,8 +241,14 @@ export default function AdminProviderDetailsPage() {
     if (!provider || !confirm("Suspend this provider?")) return;
     setUpdating(true);
     try {
-      await updateDoc(doc(db, "users", provider.id), { status: "suspended", providerStatus: "suspended", suspendedAt: new Date(), suspendedBy: user?.uid });
-      setProvider((prev) => (prev ? { ...prev, status: "suspended", providerStatus: "suspended" } : null));
+      await updateDoc(doc(db, "users", provider.id), { 
+        status: "suspended", 
+        providerStatus: "suspended", 
+        isOnline: false,
+        suspendedAt: new Date(), 
+        suspendedBy: user?.uid 
+      });
+      setProvider((prev) => (prev ? { ...prev, status: "suspended", providerStatus: "suspended", isOnline: false } : null));
       alert("Provider suspended");
     } catch (error) {
       console.error("Error suspending provider:", error);
