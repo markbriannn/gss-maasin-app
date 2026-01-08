@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, addDoc, collection, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { sendBookingConfirmation } from '@/lib/email';
 import { createPaymentSource, PaymentMethod } from '@/lib/paymongo';
@@ -182,6 +182,26 @@ function BookServiceContent() {
   const handleSubmit = async () => {
     if (!provider || !user) return;
     if (mediaFiles.length === 0) { alert('Please upload at least one photo or video'); return; }
+
+    // Check if client already has an active booking with this provider
+    try {
+      const activeStatuses = ['pending', 'approved', 'accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion', 'pending_payment', 'payment_received'];
+      const existingBookingsQuery = query(
+        collection(db, 'bookings'),
+        where('clientId', '==', user.uid),
+        where('providerId', '==', provider.id),
+        where('status', 'in', activeStatuses)
+      );
+      const existingBookingsSnap = await getDocs(existingBookingsQuery);
+      
+      if (!existingBookingsSnap.empty) {
+        alert(`You already have an active booking with ${provider.firstName} ${provider.lastName}. Please wait for it to complete or cancel it before booking again.`);
+        return;
+      }
+    } catch (checkError) {
+      console.log('Error checking existing bookings:', checkError);
+      // Continue with booking if check fails
+    }
 
     setSubmitting(true);
     try {

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { doc, onSnapshot, updateDoc, serverTimestamp, getDoc, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp, getDoc, collection, query, where, getDocs, addDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ProviderLayout from '@/components/layouts/ProviderLayout';
 import Link from 'next/link';
@@ -228,7 +228,7 @@ export default function ProviderJobDetailsPage() {
   };
 
   const handleConfirmPayment = async () => {
-    if (!job) return;
+    if (!job || !user) return;
     const finalAmount = calculateTotal();
     const systemFee = finalAmount * 0.05;
     const providerEarnings = finalAmount - systemFee;
@@ -240,6 +240,55 @@ export default function ProviderJobDetailsPage() {
       providerEarnings,
       providerConfirmedPaymentAt: serverTimestamp(),
     });
+
+    // Award gamification points for job completion
+    try {
+      const gamificationRef = doc(db, 'gamification', user.uid);
+      const clientGamificationRef = doc(db, 'gamification', job.clientId);
+      
+      // Award provider points (JOB_COMPLETED: 100 points)
+      const providerGamDoc = await getDoc(gamificationRef);
+      if (providerGamDoc.exists()) {
+        await updateDoc(gamificationRef, {
+          points: (providerGamDoc.data().points || 0) + 100,
+          'stats.completedJobs': (providerGamDoc.data().stats?.completedJobs || 0) + 1,
+          'stats.totalEarnings': (providerGamDoc.data().stats?.totalEarnings || 0) + providerEarnings,
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        await setDoc(gamificationRef, {
+          points: 100,
+          role: 'PROVIDER',
+          stats: { completedJobs: 1, totalEarnings: providerEarnings, rating: 0, reviewCount: 0 },
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      // Award client points (BOOKING_COMPLETED: 50 points)
+      const clientGamDoc = await getDoc(clientGamificationRef);
+      if (clientGamDoc.exists()) {
+        await updateDoc(clientGamificationRef, {
+          points: (clientGamDoc.data().points || 0) + 50,
+          'stats.completedBookings': (clientGamDoc.data().stats?.completedBookings || 0) + 1,
+          'stats.totalSpent': (clientGamDoc.data().stats?.totalSpent || 0) + finalAmount,
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        await setDoc(clientGamificationRef, {
+          points: 50,
+          role: 'CLIENT',
+          stats: { completedBookings: 1, totalSpent: finalAmount, reviewsGiven: 0 },
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+      
+      console.log('Gamification points awarded for job completion');
+    } catch (gamError) {
+      console.error('Error awarding gamification points:', gamError);
+      // Don't fail the job completion if gamification fails
+    }
   };
 
   const handleReject = async () => {

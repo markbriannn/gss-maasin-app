@@ -563,7 +563,7 @@ export default function AdminJobsPage() {
                       </div>
                       <div>
                         <p className={`font-bold ${selectedJob.paymentPreference === 'pay_first' ? 'text-emerald-700' : 'text-blue-700'}`}>
-                          {selectedJob.paymentPreference === 'pay_first' ? 'Pay First' : 'Pay Later'}
+                          {selectedJob.paymentPreference === 'pay_first' ? 'PAID' : 'Pay Later'}
                         </p>
                         <p className={`text-sm ${selectedJob.paymentPreference === 'pay_first' ? 'text-emerald-600' : 'text-blue-600'}`}>
                           {selectedJob.paymentPreference === 'pay_first' ? 'Client pays before service' : 'Client pays after completion'}

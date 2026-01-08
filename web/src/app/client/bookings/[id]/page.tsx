@@ -831,7 +831,7 @@ function JobDetailsContent() {
                      job.paymentStatus === 'released' ? 'Payment Released' :
                      job.isPaidUpfront ? 'Paid Upfront' : 
                      job.status === 'awaiting_payment' ? 'Awaiting Payment' :
-                     job.paymentPreference === 'pay_first' ? 'Pay First' : 'Pay Later'}
+                     job.paymentPreference === 'pay_first' ? 'PAID' : 'Pay Later'}
                   </p>
                   <p className={`text-sm ${
                     job.paymentStatus === 'held' ? 'text-emerald-600' : 
@@ -977,7 +977,7 @@ function JobDetailsContent() {
         )}
 
         {/* Review Prompt - Completed but not reviewed */}
-        {job.status === 'completed' && !job.reviewed && (
+        {(job.status === 'completed' || job.status === 'payment_received') && !job.reviewed && (
           <div className="bg-amber-50 border border-amber-300 rounded-xl p-5 mb-4">
             <div className="flex items-center gap-3 mb-3">
               <Star className="w-7 h-7 text-amber-500" />
@@ -997,7 +997,7 @@ function JobDetailsContent() {
         )}
 
         {/* Review Submitted Badge */}
-        {job.status === 'completed' && job.reviewed && (
+        {(job.status === 'completed' || job.status === 'payment_received') && job.reviewed && (
           <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4 flex items-center gap-3">
             <CheckCircle className="w-6 h-6 text-green-500" />
             <div className="flex-1">
@@ -1042,7 +1042,7 @@ function JobDetailsContent() {
                 <p className="text-lg font-bold text-amber-800">Payment Required First</p>
                 <p className="text-2xl font-bold text-amber-600 mt-2">{formatCurrency(calculateTotal())}</p>
                 <p className="text-sm text-amber-700 mt-2">
-                  You selected "Pay First". Please pay now so the provider can start working.
+                  Payment is required before the provider can start working.
                 </p>
               </div>
               <button

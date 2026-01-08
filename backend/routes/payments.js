@@ -1173,6 +1173,7 @@ router.post('/request-payout', async (req, res) => {
     // Create payout request
     const payoutRef = await db.collection('payouts').add({
       providerId,
+      providerName: `${providerData.firstName || ''} ${providerData.lastName || ''}`.trim() || 'Provider',
       amount,
       accountMethod: accountMethod || providerData.payoutAccount?.method,
       accountNumber: accountNumber || providerData.payoutAccount?.accountNumber,
@@ -1187,6 +1188,41 @@ router.post('/request-payout', async (req, res) => {
       pendingPayout: (providerData.pendingPayout || 0) + amount,
       updatedAt: new Date(),
     });
+
+    // Send notification to all admins about the payout request
+    try {
+      const adminsSnapshot = await db.collection('users')
+        .where('role', '==', 'ADMIN')
+        .get();
+      
+      const providerName = `${providerData.firstName || ''} ${providerData.lastName || ''}`.trim() || 'A provider';
+      const payoutMethod = (accountMethod || providerData.payoutAccount?.method || 'wallet').toUpperCase();
+      
+      const notificationPromises = adminsSnapshot.docs.map(adminDoc => {
+        return db.collection('notifications').add({
+          userId: adminDoc.id,
+          targetUserId: adminDoc.id,
+          type: 'payout_request',
+          title: 'New Payout Request',
+          message: `${providerName} requested a payout of ₱${amount.toLocaleString()} via ${payoutMethod}`,
+          data: {
+            payoutId: payoutRef.id,
+            providerId,
+            providerName,
+            amount,
+            accountMethod: payoutMethod,
+          },
+          read: false,
+          createdAt: new Date(),
+        });
+      });
+      
+      await Promise.all(notificationPromises);
+      console.log(`Sent payout request notification to ${adminsSnapshot.docs.length} admins`);
+    } catch (notifError) {
+      console.error('Error sending admin notification:', notifError.message);
+      // Don't fail the payout request if notification fails
+    }
 
     res.json({
       success: true,
@@ -1668,6 +1704,56 @@ router.post('/release-escrow/:bookingId', async (req, res) => {
           updatedAt: new Date(),
         });
       }
+    }
+
+    // Award gamification points for job completion
+    try {
+      // Award provider points (JOB_COMPLETED: 100 points)
+      const providerGamRef = db.collection('gamification').doc(providerId);
+      const providerGamDoc = await providerGamRef.get();
+      if (providerGamDoc.exists) {
+        const data = providerGamDoc.data();
+        await providerGamRef.update({
+          points: (data.points || 0) + 100,
+          'stats.completedJobs': (data.stats?.completedJobs || 0) + 1,
+          'stats.totalEarnings': (data.stats?.totalEarnings || 0) + providerShare,
+          updatedAt: new Date(),
+        });
+      } else {
+        await providerGamRef.set({
+          points: 100,
+          role: 'PROVIDER',
+          stats: { completedJobs: 1, totalEarnings: providerShare, rating: 0, reviewCount: 0 },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+
+      // Award client points (BOOKING_COMPLETED: 50 points)
+      const clientGamRef = db.collection('gamification').doc(clientId);
+      const clientGamDoc = await clientGamRef.get();
+      if (clientGamDoc.exists) {
+        const data = clientGamDoc.data();
+        await clientGamRef.update({
+          points: (data.points || 0) + 50,
+          'stats.completedBookings': (data.stats?.completedBookings || 0) + 1,
+          'stats.totalSpent': (data.stats?.totalSpent || 0) + amount,
+          updatedAt: new Date(),
+        });
+      } else {
+        await clientGamRef.set({
+          points: 50,
+          role: 'CLIENT',
+          stats: { completedBookings: 1, totalSpent: amount, reviewsGiven: 0 },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+      
+      console.log(`Gamification points awarded for escrow release - Provider: 100pts, Client: 50pts`);
+    } catch (gamError) {
+      console.error('Error awarding gamification points:', gamError);
+      // Don't fail the escrow release if gamification fails
     }
 
     console.log(`Escrow released for booking ${bookingId}: Provider gets ₱${providerShare}`);

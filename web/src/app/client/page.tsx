@@ -10,7 +10,7 @@ import dynamic from 'next/dynamic';
 import { 
   Search, Star, Heart, Zap, Droplets, Hammer, Sparkles, X,
   Navigation, User, Loader2, MapPin, DollarSign,
-  ChevronRight
+  ChevronRight, Clock, MessageCircle
 } from 'lucide-react';
 
 const ClientMapView = dynamic(
@@ -49,6 +49,15 @@ interface Provider {
   responseTime?: number;
   estimatedArrival?: string;
   tier?: string;
+}
+
+interface ActiveBooking {
+  id: string;
+  status: string;
+  serviceCategory: string;
+  totalAmount: number;
+  createdAt: Date;
+  adminApproved: boolean;
 }
 
 const SERVICE_CATEGORIES = [
@@ -120,6 +129,8 @@ export default function ClientDashboard() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
+  const [activeBooking, setActiveBooking] = useState<ActiveBooking | null>(null);
+  const [showProviderModal, setShowProviderModal] = useState(false);
   
   const [panelHeight, setPanelHeight] = useState(PANEL_MID);
   const [isDragging, setIsDragging] = useState(false);
@@ -331,11 +342,70 @@ export default function ClientDashboard() {
     );
   };
 
-  const handleProviderSelect = (provider: Provider) => {
+  const handleProviderSelect = async (provider: Provider) => {
     setSelectedProvider(provider);
     if (provider.latitude && provider.longitude) {
       setMapCenter({ lat: provider.latitude, lng: provider.longitude });
     }
+    
+    // Check if client has an active booking with this provider
+    if (user?.uid) {
+      try {
+        const activeStatuses = ['pending', 'approved', 'accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion', 'pending_payment', 'payment_received'];
+        const bookingsQuery = query(
+          collection(db, 'bookings'),
+          where('clientId', '==', user.uid),
+          where('providerId', '==', provider.id),
+          where('status', 'in', activeStatuses)
+        );
+        const bookingsSnap = await getDocs(bookingsQuery);
+        
+        if (!bookingsSnap.empty) {
+          const bookingDoc = bookingsSnap.docs[0];
+          const bookingData = bookingDoc.data();
+          setActiveBooking({
+            id: bookingDoc.id,
+            status: bookingData.status,
+            serviceCategory: bookingData.serviceCategory,
+            totalAmount: bookingData.totalAmount || bookingData.amount || 0,
+            createdAt: bookingData.createdAt?.toDate() || new Date(),
+            adminApproved: bookingData.adminApproved || false,
+          });
+        } else {
+          setActiveBooking(null);
+        }
+      } catch (error) {
+        console.log('Error checking active bookings:', error);
+        setActiveBooking(null);
+      }
+    }
+    
+    // Show modal when clicking from map marker
+    setShowProviderModal(true);
+  };
+
+  const handleProviderSelectFromList = (provider: Provider) => {
+    setSelectedProvider(provider);
+    if (provider.latitude && provider.longitude) {
+      setMapCenter({ lat: provider.latitude, lng: provider.longitude });
+    }
+    // Don't show modal when selecting from list, just highlight
+    setShowProviderModal(false);
+  };
+
+  const getStatusDisplay = (status: string, adminApproved: boolean) => {
+    const statusMap: Record<string, { label: string; color: string; bg: string }> = {
+      'pending': { label: adminApproved ? 'Pending Provider' : 'Awaiting Admin Review', color: '#F59E0B', bg: 'bg-amber-50' },
+      'approved': { label: 'Approved', color: '#10B981', bg: 'bg-green-50' },
+      'accepted': { label: 'Provider Accepted', color: '#3B82F6', bg: 'bg-blue-50' },
+      'traveling': { label: 'Provider On The Way', color: '#3B82F6', bg: 'bg-blue-50' },
+      'arrived': { label: 'Provider Arrived', color: '#8B5CF6', bg: 'bg-purple-50' },
+      'in_progress': { label: 'Work In Progress', color: '#00B14F', bg: 'bg-green-50' },
+      'pending_completion': { label: 'Awaiting Confirmation', color: '#F59E0B', bg: 'bg-amber-50' },
+      'pending_payment': { label: 'Awaiting Payment', color: '#3B82F6', bg: 'bg-blue-50' },
+      'payment_received': { label: 'Payment Received', color: '#10B981', bg: 'bg-green-50' },
+    };
+    return statusMap[status] || { label: status, color: '#6B7280', bg: 'bg-gray-50' };
   };
 
   const handleBookProvider = () => {
@@ -478,7 +548,7 @@ export default function ClientDashboard() {
                   return (
                     <div
                       key={provider.id}
-                      onClick={() => handleProviderSelect(provider)}
+                      onClick={() => handleProviderSelectFromList(provider)}
                       className={`rounded-xl border transition-all cursor-pointer overflow-hidden ${
                         isSelected
                           ? 'border-emerald-500 bg-emerald-50 shadow-md shadow-emerald-500/20'
@@ -561,8 +631,8 @@ export default function ClientDashboard() {
             )}
           </div>
 
-          {/* Contact Button */}
-          {selectedProvider && (
+          {/* Contact Button - Simple bottom bar when provider selected from list */}
+          {selectedProvider && !showProviderModal && (
             <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 shadow-2xl">
               <div className="flex items-center gap-4 mb-3">
                 <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
@@ -596,6 +666,211 @@ export default function ClientDashboard() {
           )}
         </div>
       </div>
+
+      {/* Provider Modal - Shows when clicking provider marker on map */}
+      {showProviderModal && selectedProvider && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowProviderModal(false)}
+          />
+          
+          {/* Modal Content */}
+          <div className="relative bg-white rounded-t-3xl w-full max-w-lg p-6 pb-8 animate-slide-up">
+            {/* Close Button */}
+            <button 
+              onClick={() => setShowProviderModal(false)}
+              className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+
+            {activeBooking ? (
+              // BOOKED - Show booking status
+              <>
+                <div className="text-center mb-6">
+                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4 ${getStatusDisplay(activeBooking.status, activeBooking.adminApproved).bg}`}>
+                    <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: getStatusDisplay(activeBooking.status, activeBooking.adminApproved).color }} />
+                    <span className="text-sm font-bold" style={{ color: getStatusDisplay(activeBooking.status, activeBooking.adminApproved).color }}>
+                      {getStatusDisplay(activeBooking.status, activeBooking.adminApproved).label}
+                    </span>
+                  </div>
+                  
+                  {/* Provider Info */}
+                  <div className="flex items-center justify-center gap-3 mb-2">
+                    <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 border-4 border-white shadow-lg">
+                      {selectedProvider.profilePhoto ? (
+                        <img src={selectedProvider.profilePhoto} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-2xl bg-gradient-to-br from-emerald-50 to-teal-50">
+                          {SERVICE_CATEGORIES.find(c => c.id === selectedProvider.serviceCategory?.toLowerCase())?.emoji || '🛠️'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900">{selectedProvider.firstName} {selectedProvider.lastName}</h3>
+                  <div className="flex items-center justify-center gap-2 text-gray-500 mt-1">
+                    <span>{selectedProvider.serviceCategory}</span>
+                    <span>•</span>
+                    <div className="flex items-center gap-1">
+                      <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                      <span>{selectedProvider.rating?.toFixed(1) || '0.0'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Booking Details */}
+                <div className="bg-gray-50 rounded-2xl p-4 mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm text-gray-500">Total Amount</span>
+                    <span className="text-2xl font-bold text-gray-900">₱{activeBooking.totalAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Service</span>
+                    <span className="font-medium text-gray-700">{activeBooking.serviceCategory}</span>
+                  </div>
+                </div>
+
+                <p className="text-center text-sm text-gray-500 mb-4">
+                  {activeBooking.adminApproved 
+                    ? 'Waiting for provider to accept your booking...'
+                    : 'Your booking is being reviewed by admin...'}
+                </p>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowProviderModal(false);
+                      router.push(`/client/providers/${selectedProvider.id}`);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 py-4 bg-gray-100 text-gray-700 rounded-2xl font-semibold hover:bg-gray-200 transition-colors"
+                  >
+                    <User className="w-5 h-5" />
+                    View Profile
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowProviderModal(false);
+                      router.push(`/client/bookings/${activeBooking.id}`);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl font-semibold shadow-lg shadow-emerald-500/30 hover:shadow-xl transition-all"
+                  >
+                    View Booking
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </>
+            ) : (
+              // NOT BOOKED - Show provider info and Contact Us
+              <>
+                {/* Provider Photo - Clickable */}
+                <div className="text-center mb-4">
+                  <button
+                    onClick={() => {
+                      setShowProviderModal(false);
+                      router.push(`/client/providers/${selectedProvider.id}`);
+                    }}
+                    className="relative inline-block group"
+                  >
+                    <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 border-4 border-white shadow-xl mx-auto">
+                      {selectedProvider.profilePhoto ? (
+                        <img src={selectedProvider.profilePhoto} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-3xl bg-gradient-to-br from-emerald-50 to-teal-50">
+                          {SERVICE_CATEGORIES.find(c => c.id === selectedProvider.serviceCategory?.toLowerCase())?.emoji || '🛠️'}
+                        </div>
+                      )}
+                    </div>
+                    {selectedProvider.isOnline && (
+                      <div className="absolute bottom-1 right-1/2 translate-x-6 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white" />
+                    )}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-white text-xs font-medium">View Profile</span>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Name */}
+                <button
+                  onClick={() => {
+                    setShowProviderModal(false);
+                    router.push(`/client/providers/${selectedProvider.id}`);
+                  }}
+                  className="block w-full text-center hover:text-emerald-600 transition-colors"
+                >
+                  <h3 className="text-xl font-bold text-gray-900">{selectedProvider.firstName} {selectedProvider.lastName}</h3>
+                </button>
+
+                {/* Service & Rating */}
+                <div className="flex items-center justify-center gap-3 mt-2 mb-4">
+                  <div className="flex items-center gap-1.5 text-emerald-600">
+                    <span className="text-lg">{SERVICE_CATEGORIES.find(c => c.id === selectedProvider.serviceCategory?.toLowerCase())?.emoji}</span>
+                    <span className="font-medium">{selectedProvider.serviceCategory}</span>
+                  </div>
+                  <span className="text-gray-300">|</span>
+                  <div className="flex items-center gap-1">
+                    <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+                    <span className="font-semibold text-gray-900">{selectedProvider.rating?.toFixed(1) || '0.0'}</span>
+                    <span className="text-gray-500 text-sm">({selectedProvider.reviewCount || 0})</span>
+                  </div>
+                </div>
+
+                {/* Location */}
+                {selectedProvider.barangay && (
+                  <p className="text-center text-gray-500 text-sm mb-4">
+                    <MapPin className="w-4 h-4 inline mr-1" />
+                    {selectedProvider.barangay}
+                  </p>
+                )}
+
+                {/* Distance & Time */}
+                <div className="flex items-center justify-center gap-6 mb-4">
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Navigation className="w-5 h-5 text-gray-400" />
+                    <span>{selectedProvider.distance?.toFixed(1) || '0'} km away</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Clock className="w-5 h-5 text-gray-400" />
+                    <span>{selectedProvider.estimatedArrival}</span>
+                  </div>
+                </div>
+
+                {/* Price */}
+                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl p-4 mb-6 text-center">
+                  <p className="text-sm text-gray-500 mb-1">Starting at</p>
+                  <p className="text-3xl font-bold text-emerald-600">₱{selectedProvider.fixedPrice?.toLocaleString() || '0'}</p>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowProviderModal(false);
+                      router.push(`/client/providers/${selectedProvider.id}`);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 py-4 bg-gray-100 text-gray-700 rounded-2xl font-semibold hover:bg-gray-200 transition-colors"
+                  >
+                    <User className="w-5 h-5" />
+                    View Profile
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowProviderModal(false);
+                      router.push(`/client/book?providerId=${selectedProvider.id}`);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl font-semibold shadow-lg shadow-blue-500/30 hover:shadow-xl transition-all"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    Contact Us
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </ClientLayout>
   );
 }

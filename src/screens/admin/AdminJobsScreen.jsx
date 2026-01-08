@@ -689,7 +689,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                         {selectedJob.rawData?.paymentMethod === 'maya' ? 'Maya' : 'GCash'}
                       </Text>
                       <Text style={{fontSize: 12, color: '#047857'}}>
-                        Pay First • Protected Payment
+                        PAID • Protected Payment
                       </Text>
                     </View>
                   </View>

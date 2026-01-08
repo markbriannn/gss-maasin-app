@@ -1318,7 +1318,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                     {jobData.paymentMethod === 'maya' ? 'Maya' : 'GCash'}
                   </Text>
                   <Text style={{fontSize: 12, color: isDark ? '#6EE7B7' : '#047857'}}>
-                    Pay First • Protected Payment
+                    PAID • Protected Payment
                   </Text>
                 </View>
               </View>
@@ -1521,7 +1521,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                         Waiting for Client Payment
                       </Text>
                       <Text style={{fontSize: 13, color: '#B45309', marginTop: 4, textAlign: 'center'}}>
-                        Client selected "Pay First". You can start traveling once they complete payment.
+                        Client has paid. You can start traveling once admin approves.
                       </Text>
                     </View>
                   )}

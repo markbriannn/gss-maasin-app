@@ -351,7 +351,7 @@ export default function AdminJobDetailsPage() {
               <div className="text-right">
                 <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl ${job.paymentPreference === "pay_first" ? "bg-white/20" : "bg-white/20"}`}>
                   <CreditCard className="w-5 h-5 text-white" />
-                  <span className="text-white font-bold">{job.paymentPreference === "pay_first" ? "Pay First" : "Pay Later"}</span>
+                  <span className="text-white font-bold">{job.paymentPreference === "pay_first" ? "PAID" : "Pay Later"}</span>
                 </div>
                 {job.isPaidUpfront && (
                   <div className="mt-2 bg-white text-emerald-600 px-4 py-2 rounded-xl font-bold text-sm">

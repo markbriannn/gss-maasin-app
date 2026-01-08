@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ProviderLayout from '@/components/layouts/ProviderLayout';
 import { 
@@ -170,8 +170,50 @@ export default function WalletPage() {
     setRequestingPayout(true);
     try {
       const payoutAmount = earnings.available;
-      await addDoc(collection(db, 'payoutRequests'), { providerId: user!.uid, providerName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim(), amount: payoutAmount, accountMethod: payoutAccount.method, accountNumber: payoutAccount.accountNumber, accountName: payoutAccount.accountName, status: 'pending', requestedAt: serverTimestamp() });
+      const providerName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Provider';
+      
+      // Create payout request
+      const payoutRef = await addDoc(collection(db, 'payoutRequests'), { 
+        providerId: user!.uid, 
+        providerName, 
+        amount: payoutAmount, 
+        accountMethod: payoutAccount.method, 
+        accountNumber: payoutAccount.accountNumber, 
+        accountName: payoutAccount.accountName, 
+        status: 'pending', 
+        requestedAt: serverTimestamp() 
+      });
+      
       await updateDoc(doc(db, 'users', user!.uid), { pendingPayout: (earnings.pending || 0) + payoutAmount });
+      
+      // Send notification to all admins
+      try {
+        const adminsQuery = query(collection(db, 'users'), where('role', '==', 'ADMIN'));
+        const adminsSnapshot = await getDocs(adminsQuery);
+        
+        const notificationPromises = adminsSnapshot.docs.map(adminDoc => 
+          addDoc(collection(db, 'notifications'), {
+            userId: adminDoc.id,
+            targetUserId: adminDoc.id,
+            type: 'payout_request',
+            title: 'New Payout Request',
+            message: `${providerName} requested a payout of ₱${payoutAmount.toLocaleString()} via ${methodName}`,
+            data: {
+              payoutId: payoutRef.id,
+              providerId: user!.uid,
+              providerName,
+              amount: payoutAmount,
+              accountMethod: methodName,
+            },
+            read: false,
+            createdAt: serverTimestamp(),
+          })
+        );
+        await Promise.all(notificationPromises);
+      } catch (notifError) {
+        console.error('Error sending admin notification:', notifError);
+      }
+      
       alert(`Payout request of ₱${payoutAmount.toFixed(2)} submitted! Admin will process it within 24 hours.`);
     } catch (error) { console.error('Error requesting payout:', error); alert('Failed to request payout'); }
     finally { setRequestingPayout(false); }

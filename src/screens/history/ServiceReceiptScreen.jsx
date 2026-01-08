@@ -165,7 +165,7 @@ Thank you for using GSS Maasin!
         providerService: serviceCategory,
       });
     } else {
-      navigation.navigate('ClientHome');
+      navigation.navigate('ClientMain');
     }
   };
 

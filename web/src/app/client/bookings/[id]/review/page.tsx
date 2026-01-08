@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { doc, getDoc, addDoc, updateDoc, collection, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, addDoc, updateDoc, collection, serverTimestamp, query, where, getDocs, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import { ArrowLeft, Star, User, Loader2, CheckCircle, Camera, X, AlertCircle } from 'lucide-react';
@@ -81,8 +81,8 @@ export default function ReviewPage() {
         return;
       }
 
-      // 2. Job must be completed
-      if (data.status !== 'completed') {
+      // 2. Job must be completed or payment_received
+      if (data.status !== 'completed' && data.status !== 'payment_received') {
         setEligible(false);
         setIneligibleReason('You can only review completed jobs.');
         setLoading(false);
@@ -265,6 +265,52 @@ export default function ReviewPage() {
           averageRating: newRating,
           reviewCount: newCount,
         });
+      }
+
+      // Award gamification points for review
+      try {
+        // Award points to client for reviewing (20 points)
+        const clientGamificationRef = doc(db, 'gamification', user!.uid);
+        const clientGamificationSnap = await getDoc(clientGamificationRef);
+        
+        if (clientGamificationSnap.exists()) {
+          const currentPoints = clientGamificationSnap.data().points || 0;
+          const currentReviews = clientGamificationSnap.data().stats?.reviewsGiven || 0;
+          await updateDoc(clientGamificationRef, {
+            points: currentPoints + 20 + (rating === 5 ? 10 : 0), // 20 for review + 10 bonus for 5-star
+            'stats.reviewsGiven': currentReviews + 1,
+            updatedAt: serverTimestamp(),
+          });
+        } else {
+          // Create gamification doc if doesn't exist - use setDoc with user ID
+          await setDoc(clientGamificationRef, {
+            points: 20 + (rating === 5 ? 10 : 0),
+            role: 'CLIENT',
+            stats: { completedBookings: 0, reviewsGiven: 1, totalSpent: 0 },
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        }
+
+        // Award points to provider for 5-star review (50 points)
+        if (rating === 5) {
+          const providerGamificationRef = doc(db, 'gamification', job.providerId);
+          const providerGamificationSnap = await getDoc(providerGamificationRef);
+          
+          if (providerGamificationSnap.exists()) {
+            const currentPoints = providerGamificationSnap.data().points || 0;
+            const currentReviewCount = providerGamificationSnap.data().stats?.reviewCount || 0;
+            await updateDoc(providerGamificationRef, {
+              points: currentPoints + 50,
+              'stats.reviewCount': currentReviewCount + 1,
+              updatedAt: serverTimestamp(),
+            });
+          }
+        }
+        console.log('Gamification points awarded for review');
+      } catch (gamificationError) {
+        console.error('Gamification error:', gamificationError);
+        // Don't fail the review if gamification fails
       }
 
       setSubmitted(true);

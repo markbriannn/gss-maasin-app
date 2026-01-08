@@ -23,7 +23,7 @@ export const submitReview = async (jobId, providerId, clientId, rating, comment,
     }
 
     const job = jobSnap.data();
-    if (job.status !== 'completed') {
+    if (job.status !== 'completed' && job.status !== 'payment_received') {
       return { success: false, error: 'Only completed jobs can be reviewed' };
     }
 
@@ -165,8 +165,8 @@ export const isJobEligibleForReview = async (jobId, userId) => {
 
     const job = jobSnap.data();
 
-    // Must be completed
-    if (job.status !== 'completed') {
+    // Must be completed or payment_received
+    if (job.status !== 'completed' && job.status !== 'payment_received') {
       return { eligible: false, reason: 'Job must be completed' };
     }
 

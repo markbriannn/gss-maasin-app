@@ -11,6 +11,7 @@ import {
   Image,
   Modal,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MapView, {Marker, Polyline, PROVIDER_GOOGLE} from 'react-native-maps';
@@ -27,6 +28,8 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withRepeat,
+  withTiming,
   runOnJS,
 } from 'react-native-reanimated';
 import {useFocusEffect} from '@react-navigation/native';
@@ -128,6 +131,39 @@ const fetchDirections = async (origin, destination) => {
 
   // Fallback - return straight line
   return [origin, destination];
+};
+
+// Animated Progress Bar Component
+const AnimatedProgressBar = () => {
+  const translateX = useSharedValue(-100);
+  
+  useEffect(() => {
+    translateX.value = withRepeat(
+      withTiming(200, { duration: 1500 }),
+      -1, // infinite
+      false
+    );
+  }, []);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+  
+  return (
+    <View style={{marginTop: 10, height: 4, backgroundColor: '#D1FAE5', borderRadius: 2, overflow: 'hidden'}}>
+      <Animated.View 
+        style={[
+          {
+            width: '50%',
+            height: 4,
+            backgroundColor: '#00B14F',
+            borderRadius: 2,
+          },
+          animatedStyle
+        ]} 
+      />
+    </View>
+  );
 };
 
 const ClientHomeScreen = ({navigation}) => {
@@ -239,25 +275,26 @@ const ClientHomeScreen = ({navigation}) => {
   // Calculate real-time average response time from recent jobs
   const loadAvgResponseTime = async () => {
     try {
-      // Get jobs from last 7 days that have been accepted
+      // Get completed bookings from last 7 days to calculate avg response time
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       
-      const jobsQuery = query(
-        collection(db, 'jobs'),
-        where('status', 'in', ['accepted', 'in_progress', 'completed']),
+      // Query bookings instead of jobs - simpler query without 'in' + inequality
+      const bookingsQuery = query(
+        collection(db, 'bookings'),
+        where('status', '==', 'completed'),
         where('createdAt', '>=', sevenDaysAgo)
       );
       
-      const snapshot = await getDocs(jobsQuery);
+      const snapshot = await getDocs(bookingsQuery);
       const responseTimes = [];
       
       snapshot.forEach((docSnap) => {
-        const job = docSnap.data();
+        const booking = docSnap.data();
         // Calculate response time (time between creation and acceptance)
-        if (job.createdAt && job.acceptedAt) {
-          const created = job.createdAt.toDate ? job.createdAt.toDate() : new Date(job.createdAt);
-          const accepted = job.acceptedAt.toDate ? job.acceptedAt.toDate() : new Date(job.acceptedAt);
+        if (booking.createdAt && booking.acceptedAt) {
+          const created = booking.createdAt.toDate ? booking.createdAt.toDate() : new Date(booking.createdAt);
+          const accepted = booking.acceptedAt.toDate ? booking.acceptedAt.toDate() : new Date(booking.acceptedAt);
           const diffMinutes = Math.round((accepted - created) / (1000 * 60));
           if (diffMinutes > 0 && diffMinutes < 60) { // Only count reasonable response times
             responseTimes.push(diffMinutes);
@@ -338,13 +375,11 @@ const ClientHomeScreen = ({navigation}) => {
     isSelectingRef.current = true;
     
     try {
-      // If clicking from map marker and provider has active booking, go directly to BookingStatus
-      if (fromMarker && activeBookings[provider.id]) {
+      // If provider has active booking, always show modal with booking details
+      if (activeBookings[provider.id]) {
+        setSelectedProvider(provider);
+        setShowProviderModal(true);
         isSelectingRef.current = false;
-        navigation.navigate('BookingStatus', {
-          bookingId: activeBookings[provider.id].id,
-          booking: activeBookings[provider.id],
-        });
         return;
       }
       
@@ -686,11 +721,22 @@ const ClientHomeScreen = ({navigation}) => {
               <Icon name="close" size={24} color="#6B7280" />
             </TouchableOpacity>
 
-            {/* Provider Photo */}
-            <View style={styles.modalAvatarWrap}>
-              {selectedProvider?.profilePhoto ? (
-                <Image 
-                  source={{uri: selectedProvider.profilePhoto}} 
+            {/* Only show provider photo/name/rating when NOT booked */}
+            {!activeBookings[selectedProvider?.id] && (
+              <>
+                {/* Provider Photo - Clickable to view profile */}
+                <TouchableOpacity 
+                  style={styles.modalAvatarWrap}
+                  onPress={() => {
+                    setShowProviderModal(false);
+                    navigation.navigate('ProviderProfile', {
+                      providerId: selectedProvider?.id,
+                      provider: selectedProvider,
+                    });
+                  }}>
+                  {selectedProvider?.profilePhoto ? (
+                    <Image 
+                      source={{uri: selectedProvider.profilePhoto}} 
                   style={styles.modalAvatar}
                 />
               ) : (
@@ -701,10 +747,23 @@ const ClientHomeScreen = ({navigation}) => {
               {selectedProvider?.isOnline && (
                 <View style={styles.onlineBadge} />
               )}
-            </View>
+              {/* Tap to view profile hint */}
+              <View style={styles.viewProfileHint}>
+                <Icon name="eye-outline" size={12} color="#FFF" />
+              </View>
+            </TouchableOpacity>
 
-            {/* Provider Name */}
-            <Text style={styles.modalName}>{selectedProvider?.name}</Text>
+            {/* Provider Name - Also clickable */}
+            <TouchableOpacity
+              onPress={() => {
+                setShowProviderModal(false);
+                navigation.navigate('ProviderProfile', {
+                  providerId: selectedProvider?.id,
+                  provider: selectedProvider,
+                });
+              }}>
+              <Text style={styles.modalName}>{selectedProvider?.name}</Text>
+            </TouchableOpacity>
             
             {/* Service Category */}
             <View style={styles.modalServiceRow}>
@@ -720,28 +779,87 @@ const ClientHomeScreen = ({navigation}) => {
             </View>
 
             {/* Location/Barangay */}
-            {selectedProvider?.barangay && (
+            {selectedProvider?.barangay && !activeBookings[selectedProvider?.id] && (
               <Text style={styles.modalBarangay}>{selectedProvider.barangay}</Text>
+            )}
+              </>
             )}
 
             {/* Check if there's an active booking with this provider */}
             {activeBookings[selectedProvider?.id] ? (
               <>
-                {/* BOOKED PROVIDER - Show status */}
-                <View style={styles.modalStatusCard}>
-                  <ActivityIndicator size="small" color="#00B14F" style={{marginRight: 12}} />
+                <View style={styles.bookingStatusCard}>
+                  {/* Left side - Status info */}
                   <View style={{flex: 1}}>
-                    <Text style={styles.modalStatusTitle}>
+                    <Text style={styles.bookingStatusTitle}>
                       {activeBookings[selectedProvider.id].adminApproved 
                         ? 'Awaiting Provider Confirmation'
                         : 'Awaiting Admin Confirmation'}
                     </Text>
-                    <Text style={styles.modalStatusSubtitle}>
+                    <Text style={styles.bookingStatusSubtitle}>
                       {activeBookings[selectedProvider.id].adminApproved 
                         ? 'Waiting for provider to accept'
                         : 'Your booking is being reviewed'}
                     </Text>
+                    
+                    {/* Provider name and service with star rating */}
+                    <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 16}}>
+                      <Icon name="person" size={18} color="#00B14F" />
+                      <Text style={{fontSize: 15, fontWeight: '700', color: '#1F2937', marginLeft: 8}}>
+                        {selectedProvider?.name}
+                      </Text>
+                      <Text style={{fontSize: 15, color: '#9CA3AF', marginHorizontal: 8}}>•</Text>
+                      <Text style={{fontSize: 15, fontWeight: '500', color: '#374151'}}>
+                        {selectedProvider?.serviceCategory}
+                      </Text>
+                      <Icon name="star" size={14} color="#F59E0B" style={{marginLeft: 8}} />
+                      <Text style={{fontSize: 14, fontWeight: '600', color: '#1F2937', marginLeft: 2}}>
+                        {selectedProvider?.rating?.toFixed(1) || '0.0'}
+                      </Text>
+                    </View>
+                    
+                    {/* Animated Progress bar */}
+                    <AnimatedProgressBar />
+                    
+                    {/* Bottom row */}
+                    <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12}}>
+                      <Text style={{fontSize: 13, color: '#9CA3AF', fontStyle: 'italic'}}>
+                        {activeBookings[selectedProvider.id].adminApproved 
+                          ? 'Provider will respond shortly...'
+                          : 'Admin will review your booking shortly...'}
+                      </Text>
+                      <TouchableOpacity 
+                        style={{flexDirection: 'row', alignItems: 'center'}}
+                        onPress={() => navigation.navigate('JobDetails', { jobId: activeBookings[selectedProvider.id].id })}>
+                        <Text style={{fontSize: 13, color: '#6B7280'}}>Tap for details</Text>
+                        <Icon name="chevron-forward" size={16} color="#6B7280" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
+                  
+                  {/* Right side - Provider photo (clickable) */}
+                  <TouchableOpacity 
+                    style={{marginLeft: 12}}
+                    onPress={() => {
+                      setShowProviderModal(false);
+                      navigation.navigate('ProviderProfile', {
+                        providerId: selectedProvider?.id,
+                        provider: selectedProvider,
+                      });
+                    }}>
+                    <View style={styles.providerPhotoCircle}>
+                      {selectedProvider?.profilePhoto ? (
+                        <Image 
+                          source={{uri: selectedProvider.profilePhoto}} 
+                          style={{width: 80, height: 80, borderRadius: 40}}
+                        />
+                      ) : (
+                        <View style={{width: 80, height: 80, borderRadius: 40, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center'}}>
+                          <Icon name="person" size={36} color="#00B14F" />
+                        </View>
+                      )}
+                    </View>
+                  </TouchableOpacity>
                 </View>
 
                 {/* Service Location */}
@@ -750,8 +868,8 @@ const ClientHomeScreen = ({navigation}) => {
                     <View style={{width: 10, height: 10, backgroundColor: '#00B14F', borderRadius: 5}} />
                   </View>
                   <View style={{flex: 1}}>
-                    <Text style={{fontSize: 11, color: '#9CA3AF'}}>Service Location</Text>
-                    <Text style={{fontSize: 13, fontWeight: '500', color: '#1F2937'}} numberOfLines={2}>
+                    <Text style={{fontSize: 12, color: '#9CA3AF'}}>Service Location</Text>
+                    <Text style={{fontSize: 14, fontWeight: '500', color: '#1F2937'}} numberOfLines={2}>
                       {activeBookings[selectedProvider.id].serviceAddress || activeBookings[selectedProvider.id].address || 'Service at your location'}
                     </Text>
                   </View>
@@ -760,15 +878,17 @@ const ClientHomeScreen = ({navigation}) => {
                 {/* Payment Info */}
                 <View style={styles.modalPaymentCard}>
                   <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <Icon name="wallet-outline" size={20} color="#00B14F" />
-                    <Text style={{fontSize: 14, fontWeight: '600', color: '#1F2937', marginLeft: 8}}>
+                    <View style={{width: 36, height: 36, borderRadius: 8, backgroundColor: '#ECFDF5', justifyContent: 'center', alignItems: 'center'}}>
+                      <Icon name="wallet-outline" size={20} color="#00B14F" />
+                    </View>
+                    <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginLeft: 10}}>
                       {activeBookings[selectedProvider.id].paymentMethod === 'maya' ? 'Maya' : 'GCash'}
                     </Text>
-                    <View style={{backgroundColor: '#DBEAFE', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 8}}>
-                      <Text style={{fontSize: 10, fontWeight: '600', color: '#2563EB'}}>Pay First</Text>
+                    <View style={{backgroundColor: '#DBEAFE', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginLeft: 10}}>
+                      <Text style={{fontSize: 11, fontWeight: '600', color: '#2563EB'}}>PAID</Text>
                     </View>
                   </View>
-                  <Text style={{fontSize: 16, fontWeight: '700', color: '#1F2937'}}>
+                  <Text style={{fontSize: 18, fontWeight: '700', color: '#1F2937'}}>
                     ₱{activeBookings[selectedProvider.id].totalAmount?.toLocaleString() || '0'}
                   </Text>
                 </View>
@@ -777,11 +897,27 @@ const ClientHomeScreen = ({navigation}) => {
                 <TouchableOpacity 
                   style={styles.modalCancelBtn}
                   onPress={() => {
-                    setShowProviderModal(false);
-                    navigation.navigate('BookingStatus', {
-                      bookingId: activeBookings[selectedProvider.id].id,
-                      booking: activeBookings[selectedProvider.id],
-                    });
+                    Alert.alert(
+                      'Cancel Booking',
+                      'Are you sure you want to cancel this booking?',
+                      [
+                        { text: 'No', style: 'cancel' },
+                        { 
+                          text: 'Yes, Cancel', 
+                          style: 'destructive',
+                          onPress: async () => {
+                            try {
+                              const bookingRef = doc(db, 'bookings', activeBookings[selectedProvider.id].id);
+                              await setDoc(bookingRef, { status: 'cancelled' }, { merge: true });
+                              setShowProviderModal(false);
+                              Alert.alert('Cancelled', 'Your booking has been cancelled.');
+                            } catch (error) {
+                              Alert.alert('Error', 'Failed to cancel booking. Please try again.');
+                            }
+                          }
+                        }
+                      ]
+                    );
                   }}>
                   <Text style={{fontSize: 14, fontWeight: '600', color: '#EF4444'}}>Cancel order</Text>
                 </TouchableOpacity>
@@ -969,6 +1105,7 @@ const styles = StyleSheet.create({
   modalAvatar: {width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: '#00B14F'},
   modalAvatarPlaceholder: {width: 100, height: 100, borderRadius: 50, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#00B14F'},
   onlineBadge: {position: 'absolute', bottom: 4, right: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: '#00B14F', borderWidth: 3, borderColor: '#FFF'},
+  viewProfileHint: {position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderRadius: 14, backgroundColor: '#00B14F', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#FFF'},
   modalName: {fontSize: 22, fontWeight: '700', color: '#1F2937', marginBottom: 4},
   modalServiceRow: {flexDirection: 'row', alignItems: 'center', marginBottom: 12},
   modalService: {fontSize: 15, fontWeight: '600', color: '#00B14F', marginLeft: 6},
@@ -996,6 +1133,14 @@ const styles = StyleSheet.create({
   modalViewText: {fontSize: 15, fontWeight: '600', color: '#00B14F'},
   modalBookBtn: {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, backgroundColor: '#00B14F', gap: 8},
   modalBookText: {fontSize: 15, fontWeight: '600', color: '#FFF'},
+  
+  // Booking Status Card (like BookingStatusScreen)
+  bookingStatusCard: {flexDirection: 'row', backgroundColor: '#F0FDF4', borderRadius: 16, padding: 16, width: '100%', marginBottom: 16},
+  bookingStatusTitle: {fontSize: 18, fontWeight: '700', color: '#1F2937'},
+  bookingStatusSubtitle: {fontSize: 13, color: '#6B7280', marginTop: 2},
+  bookingProviderPhoto: {width: 70, height: 70, borderRadius: 35, borderWidth: 3, borderColor: '#1F2937', overflow: 'hidden'},
+  providerPhotoCircle: {width: 80, height: 80, borderRadius: 40, backgroundColor: '#F0FDF4', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#00B14F'},
+  providerPhotoOverlay: {backgroundColor: 'rgba(31, 41, 55, 0.85)', width: '100%', paddingVertical: 6, paddingHorizontal: 8, alignItems: 'center'},
 });
 
 export default ClientHomeScreen;

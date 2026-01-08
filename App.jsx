@@ -129,16 +129,17 @@ const handleDeepLink = async (url, navigationRef) => {
         Alert.alert('Payment Successful! 🎉', 'Your payment has been processed.');
       }
       
-      // Navigate to job details
+      // Navigate to ClientMain - booking details show inline
       if (navigationRef.current?.isReady()) {
-        navigationRef.current.navigate('JobDetails', { jobId: bookingId });
+        navigationRef.current.navigate('ClientMain');
       }
     } else if (path.includes('payment/failed') && bookingId) {
       // Payment failed
       Alert.alert('Payment Failed', 'Your payment was not completed. Please try again.');
       
+      // Navigate to ClientMain
       if (navigationRef.current?.isReady()) {
-        navigationRef.current.navigate('JobDetails', { jobId: bookingId });
+        navigationRef.current.navigate('ClientMain');
       }
     }
   } catch (error) {

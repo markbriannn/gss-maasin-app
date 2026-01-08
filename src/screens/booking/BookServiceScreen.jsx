@@ -30,6 +30,8 @@ import {attemptBooking, resetBookingLimit} from '../../utils/rateLimiter';
 import {uploadImage} from '../../services/imageUploadService';
 import locationService from '../../services/locationService';
 import paymentService from '../../services/paymentService';
+import {collection, query, where, getDocs} from 'firebase/firestore';
+import {db} from '../../config/firebase';
 
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
 
@@ -303,6 +305,32 @@ const BookServiceScreen = ({navigation, route}) => {
       return;
     }
 
+    // Check if client already has an active booking with this provider
+    if (actualProviderId) {
+      try {
+        const activeStatuses = ['pending', 'approved', 'accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion', 'pending_payment', 'payment_received'];
+        const existingBookingsQuery = query(
+          collection(db, 'bookings'),
+          where('clientId', '==', user?.uid || user?.id),
+          where('providerId', '==', actualProviderId),
+          where('status', 'in', activeStatuses)
+        );
+        const existingBookingsSnap = await getDocs(existingBookingsQuery);
+        
+        if (!existingBookingsSnap.empty) {
+          Alert.alert(
+            'Active Booking Exists',
+            `You already have an active booking with ${displayProviderName || 'this provider'}. Please wait for it to complete or cancel it before booking again.`,
+            [{text: 'OK'}]
+          );
+          return;
+        }
+      } catch (checkError) {
+        console.log('Error checking existing bookings:', checkError);
+        // Continue with booking if check fails
+      }
+    }
+
     const rateLimitCheck = await attemptBooking(user?.uid);
     if (!rateLimitCheck.allowed) {
       Alert.alert('Please Wait', rateLimitCheck.message);
@@ -400,12 +428,8 @@ const BookServiceScreen = ({navigation, route}) => {
             const openResult = await paymentService.openPaymentCheckout(paymentResult.checkoutUrl);
             
             if (openResult.success) {
-              // Navigate to booking status to wait for payment confirmation
-              navigation.replace('BookingStatus', {
-                bookingId: bookingId,
-                booking: {...jobData, id: bookingId},
-                awaitingPayment: true,
-              });
+              // Navigate back to ClientMain - booking details will show inline in the modal
+              navigation.replace('ClientMain');
             } else {
               Alert.alert('Error', 'Cannot open payment page. Please try again.');
               setProcessingPayment(false);

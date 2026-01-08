@@ -484,10 +484,10 @@ const JobDetailsScreen = ({navigation, route}) => {
     setShowPaymentModal(true);
   };
 
-  // Pay First - Client pays upfront before service starts
+  // PAID - Client pays upfront before service starts
   const handlePayUpfront = () => {
     Alert.alert(
-      'Pay First',
+      'Pay Now',
       `Pay ₱${(jobData?.totalAmount || jobData?.amount || 0).toLocaleString()} now before the service starts?`,
       [
         {text: 'Cancel', style: 'cancel'},
