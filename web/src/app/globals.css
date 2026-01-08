@@ -91,3 +91,19 @@ body {
 .animate-slide-up {
   animation: slideUp 0.3s ease-out forwards;
 }
+
+/* Scale up animation for centered modals */
+@keyframes scaleUp {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-scale-up {
+  animation: scaleUp 0.2s ease-out forwards;
+}

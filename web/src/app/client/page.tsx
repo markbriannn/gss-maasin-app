@@ -669,7 +669,7 @@ export default function ClientDashboard() {
 
       {/* Provider Modal - Shows when clicking provider marker on map */}
       {showProviderModal && selectedProvider && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-black/50"
@@ -677,7 +677,7 @@ export default function ClientDashboard() {
           />
           
           {/* Modal Content */}
-          <div className="relative bg-white rounded-t-3xl w-full max-w-lg p-6 pb-8 animate-slide-up">
+          <div className="relative bg-white rounded-3xl w-full max-w-md p-6 animate-scale-up shadow-2xl">
             {/* Close Button */}
             <button 
               onClick={() => setShowProviderModal(false)}
