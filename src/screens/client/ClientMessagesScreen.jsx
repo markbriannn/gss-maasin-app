@@ -223,7 +223,7 @@ const ClientMessagesScreen = ({navigation}) => {
                   color: isDark ? theme.colors.text : '#1F2937',
                 }}
                 numberOfLines={1}>
-                {conversation.otherUser?.name || 'Unknown'}
+                {conversation.otherUser?.role === 'ADMIN' ? 'GSS Support' : (conversation.otherUser?.name || 'Unknown')}
               </Text>
               {/* Role Badge - Only show ADMIN or PROVIDER (not CLIENT since this is client screen) */}
               {conversation.otherUser?.role &&
@@ -239,7 +239,7 @@ const ClientMessagesScreen = ({navigation}) => {
                         conversation.otherUser.role === 'ADMIN' ? '#8B5CF6' : '#3B82F6',
                     }}>
                     <Text style={{fontSize: 10, fontWeight: '700', color: '#FFFFFF'}}>
-                      {conversation.otherUser.role}
+                      {conversation.otherUser.role === 'ADMIN' ? 'SUPPORT' : conversation.otherUser.role}
                     </Text>
                   </View>
                 )}

@@ -240,7 +240,7 @@ const ProviderMessagesScreen = ({navigation}) => {
                   fontWeight: conversation.unreadCount > 0 ? '700' : '600',
                   color: isDark ? theme.colors.text : '#1F2937',
                 }}>
-                {conversation.otherUser?.name || 'Unknown'}
+                {conversation.otherUser?.role?.toUpperCase() === 'ADMIN' ? 'GSS Support' : (conversation.otherUser?.name || 'Unknown')}
               </Text>
               {conversation.otherUser?.role && (
                 <View
@@ -257,7 +257,7 @@ const ProviderMessagesScreen = ({navigation}) => {
                       fontWeight: '600',
                       color: getRoleBadgeColor(conversation.otherUser?.role),
                     }}>
-                    {conversation.otherUser?.role}
+                    {conversation.otherUser?.role?.toUpperCase() === 'ADMIN' ? 'SUPPORT' : conversation.otherUser?.role}
                   </Text>
                 </View>
               )}
@@ -487,7 +487,7 @@ const ProviderMessagesScreen = ({navigation}) => {
             }}>
             {showArchived
               ? 'Archived conversations will appear here'
-              : 'When clients or admin message you, conversations will appear here'}
+              : 'When clients or support message you, conversations will appear here'}
           </Text>
         </View>
       )}

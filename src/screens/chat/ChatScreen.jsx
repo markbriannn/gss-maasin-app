@@ -631,11 +631,11 @@ const ChatScreen = ({route, navigation}) => {
 
         <View style={styles.headerInfo}>
           <Text style={[styles.headerName, isDark && {color: theme.colors.text}]}>
-            {recipient?.name || 'User'}
+            {recipient?.role?.toUpperCase() === 'ADMIN' ? 'GSS Support' : (recipient?.name || 'User')}
           </Text>
           {recipient?.role ? (
             <Text style={[styles.headerRole, isDark && {color: theme.colors.textSecondary}]}>
-              {recipient.role.charAt(0) + recipient.role.slice(1).toLowerCase()}
+              {recipient.role.toUpperCase() === 'ADMIN' ? 'Support Team' : recipient.role.charAt(0) + recipient.role.slice(1).toLowerCase()}
             </Text>
           ) : (
             <View style={styles.onlineIndicator}>
