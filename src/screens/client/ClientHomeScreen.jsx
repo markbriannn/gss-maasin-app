@@ -141,6 +141,7 @@ const ClientHomeScreen = ({navigation}) => {
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [showProviderModal, setShowProviderModal] = useState(false);
   const [activeBookings, setActiveBookings] = useState({}); // Map of providerId -> booking
+  const [selectedActiveBooking, setSelectedActiveBooking] = useState(null); // Currently viewing booking inline
   const [userLocation, setUserLocation] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState([]);
@@ -195,13 +196,24 @@ const ClientHomeScreen = ({navigation}) => {
 
     const unsubscribe = onSnapshot(bookingsQuery, (snapshot) => {
       const bookingsMap = {};
+      let firstBooking = null;
       snapshot.forEach((docSnap) => {
         const booking = { id: docSnap.id, ...docSnap.data() };
         if (booking.providerId) {
           bookingsMap[booking.providerId] = booking;
+          // Track first active booking to show inline
+          if (!firstBooking) {
+            firstBooking = booking;
+          }
         }
       });
       setActiveBookings(bookingsMap);
+      // Auto-select first active booking to show inline
+      if (firstBooking && !selectedActiveBooking) {
+        setSelectedActiveBooking(firstBooking);
+      } else if (!firstBooking) {
+        setSelectedActiveBooking(null);
+      }
     });
 
     return unsubscribe;
@@ -723,9 +735,38 @@ const ClientHomeScreen = ({navigation}) => {
                   </View>
                 </View>
 
-                {/* View Booking Details Button */}
+                {/* Service Location */}
+                <View style={styles.modalLocationCard}>
+                  <View style={styles.modalLocationDot}>
+                    <View style={{width: 10, height: 10, backgroundColor: '#00B14F', borderRadius: 5}} />
+                  </View>
+                  <View style={{flex: 1}}>
+                    <Text style={{fontSize: 11, color: '#9CA3AF'}}>Service Location</Text>
+                    <Text style={{fontSize: 13, fontWeight: '500', color: '#1F2937'}} numberOfLines={2}>
+                      {activeBookings[selectedProvider.id].serviceAddress || activeBookings[selectedProvider.id].address || 'Service at your location'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Payment Info */}
+                <View style={styles.modalPaymentCard}>
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <Icon name="wallet-outline" size={20} color="#00B14F" />
+                    <Text style={{fontSize: 14, fontWeight: '600', color: '#1F2937', marginLeft: 8}}>
+                      {activeBookings[selectedProvider.id].paymentMethod === 'maya' ? 'Maya' : 'GCash'}
+                    </Text>
+                    <View style={{backgroundColor: '#DBEAFE', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 8}}>
+                      <Text style={{fontSize: 10, fontWeight: '600', color: '#2563EB'}}>Pay First</Text>
+                    </View>
+                  </View>
+                  <Text style={{fontSize: 16, fontWeight: '700', color: '#1F2937'}}>
+                    ₱{activeBookings[selectedProvider.id].totalAmount?.toLocaleString() || '0'}
+                  </Text>
+                </View>
+
+                {/* Cancel Button */}
                 <TouchableOpacity 
-                  style={styles.modalBookBtn}
+                  style={styles.modalCancelBtn}
                   onPress={() => {
                     setShowProviderModal(false);
                     navigation.navigate('BookingStatus', {
@@ -733,8 +774,7 @@ const ClientHomeScreen = ({navigation}) => {
                       booking: activeBookings[selectedProvider.id],
                     });
                   }}>
-                  <Text style={styles.modalBookText}>View Booking Status</Text>
-                  <Icon name="chevron-forward" size={18} color="#FFF" />
+                  <Text style={{fontSize: 14, fontWeight: '600', color: '#EF4444'}}>Cancel order</Text>
                 </TouchableOpacity>
               </>
             ) : (
@@ -935,9 +975,13 @@ const styles = StyleSheet.create({
   modalPriceRow: {alignItems: 'center', marginBottom: 20},
   modalPriceLabel: {fontSize: 13, color: '#9CA3AF', marginBottom: 2},
   modalPrice: {fontSize: 28, fontWeight: '700', color: '#1F2937'},
-  modalStatusCard: {flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', borderRadius: 12, padding: 16, width: '100%', marginBottom: 16, marginTop: 8},
+  modalStatusCard: {flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', borderRadius: 12, padding: 16, width: '100%', marginBottom: 12, marginTop: 8},
   modalStatusTitle: {fontSize: 15, fontWeight: '700', color: '#1F2937', marginBottom: 2},
   modalStatusSubtitle: {fontSize: 13, color: '#6B7280'},
+  modalLocationCard: {flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#FFF', borderRadius: 12, padding: 12, width: '100%', marginBottom: 8, borderWidth: 1, borderColor: '#E5E7EB'},
+  modalLocationDot: {width: 20, alignItems: 'center', marginRight: 10, paddingTop: 2},
+  modalPaymentCard: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFF', borderRadius: 12, padding: 12, width: '100%', marginBottom: 12, borderWidth: 1, borderColor: '#E5E7EB'},
+  modalCancelBtn: {alignItems: 'center', paddingVertical: 12, width: '100%'},
   modalActions: {flexDirection: 'row', gap: 12, width: '100%'},
   modalViewBtn: {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, borderWidth: 2, borderColor: '#00B14F', gap: 8},
   modalViewText: {fontSize: 15, fontWeight: '600', color: '#00B14F'},
