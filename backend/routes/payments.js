@@ -3,6 +3,7 @@ const router = express.Router();
 const axios = require('axios');
 const crypto = require('crypto');
 const { getDb } = require('../config/firebase');
+const { sendRefundNotification } = require('../services/emailService');
 
 const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY;
 const PAYMONGO_WEBHOOK_SECRET = process.env.PAYMONGO_WEBHOOK_SECRET;
@@ -1047,6 +1048,31 @@ router.post('/auto-refund/:bookingId', async (req, res) => {
     }
 
     console.log(`Auto-refund successful for booking ${bookingId}: ₱${refund.attributes.amount / 100}`);
+
+    // Send refund notification email to client
+    try {
+      // Get client email
+      if (bookingData.clientId) {
+        const clientDoc = await db.collection('users').doc(bookingData.clientId).get();
+        if (clientDoc.exists) {
+          const clientData = clientDoc.data();
+          const clientEmail = clientData.email;
+          
+          if (clientEmail) {
+            await sendRefundNotification(clientEmail, {
+              amount: refund.attributes.amount / 100,
+              serviceCategory: bookingData.serviceCategory,
+              paymentMethod: paymentData?.type || bookingData.paymentMethod || 'GCash/Maya',
+              refundId: refund.id,
+            });
+            console.log(`Refund notification email sent to ${clientEmail}`);
+          }
+        }
+      }
+    } catch (emailError) {
+      console.error('Error sending refund notification email:', emailError.message);
+      // Don't fail the refund if email fails
+    }
 
     res.json({
       success: true,

@@ -282,6 +282,52 @@ const sendJobRejectionNotification = async (clientEmail, booking, reason = null)
   return sendEmail(clientEmail, subject, html);
 };
 
+/**
+ * Send refund notification to client
+ */
+const sendRefundNotification = async (clientEmail, refundData) => {
+  const subject = `Refund Processed - ₱${(refundData.amount || 0).toLocaleString()}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #00B14F; padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+      </div>
+      <div style="padding: 30px; background: #f9f9f9;">
+        <h2 style="color: #1F2937;">Refund Processed ✓</h2>
+        <p style="color: #4B5563;">
+          Your refund has been successfully processed for your cancelled booking.
+        </p>
+        
+        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <p><strong>Refund Amount:</strong> ₱${(refundData.amount || 0).toLocaleString()}</p>
+          <p><strong>Service:</strong> ${refundData.serviceCategory || 'Service Request'}</p>
+          <p><strong>Payment Method:</strong> ${refundData.paymentMethod || 'GCash/Maya'}</p>
+          <p><strong>Reference ID:</strong> ${refundData.refundId || 'N/A'}</p>
+          <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+        </div>
+        
+        <div style="background: #FEF3C7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #F59E0B;">
+          <p style="color: #92400E; margin: 0; font-weight: bold;">⏱️ Important: Refund Processing Time</p>
+          <p style="color: #92400E; margin: 10px 0 0 0; font-size: 14px;">
+            PayMongo refunds typically take <strong>5-10 business days</strong> to reflect in your GCash or Maya account. 
+            Please allow this time for the funds to appear in your wallet.
+          </p>
+        </div>
+        
+        <p style="color: #6B7280; font-size: 14px;">
+          If you don't see the refund after 10 business days, please contact our support team.
+        </p>
+      </div>
+      <div style="padding: 20px; text-align: center; color: #9CA3AF; font-size: 12px;">
+        <p>GSS Maasin - General Service System</p>
+        <p>Maasin City, Southern Leyte</p>
+      </div>
+    </div>
+  `;
+  
+  return sendEmail(clientEmail, subject, html);
+};
+
 module.exports = {
   sendEmail,
   sendBookingConfirmation,
@@ -291,4 +337,5 @@ module.exports = {
   sendPasswordResetEmail,
   sendVerificationCode,
   sendJobRejectionNotification,
+  sendRefundNotification,
 };
