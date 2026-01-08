@@ -27,6 +27,8 @@ import {
 import {db} from '../../config/firebase';
 import smsEmailService from '../../services/smsEmailService';
 import {sendBookingConfirmation, sendJobRejectionEmail} from '../../services/emailService';
+import {getProviderTier} from '../../utils/gamification';
+import {TierBadge} from '../../components/gamification';
 
 const {width} = Dimensions.get('window');
 const MEDIA_SIZE = (width - 60) / 3;
@@ -137,7 +139,9 @@ const AdminJobsScreen = ({navigation, route}) => {
             id: data.providerId || null, 
             name: data.providerName || 'Not Assigned', 
             phone: 'N/A', 
-            role: 'PROVIDER'
+            role: 'PROVIDER',
+            tier: null,
+            points: 0,
           };
           if (data.providerId) {
             try {
@@ -150,6 +154,8 @@ const AdminJobsScreen = ({navigation, route}) => {
                   name: fetchedName || data.providerName || providerData.email?.split('@')[0] || 'Unknown',
                   phone: providerData.phone || providerData.phoneNumber || 'Not provided',
                   role: 'PROVIDER',
+                  tier: providerData.tier || null,
+                  points: providerData.points || 0,
                 };
               }
             } catch (e) {
@@ -782,6 +788,12 @@ const AdminJobsScreen = ({navigation, route}) => {
                   <Icon name="person" size={20} color="#00B14F" />
                   <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.provider.name}</Text>
                 </View>
+                {/* Provider Tier Badge */}
+                {(selectedJob.provider?.tier || selectedJob.provider?.points > 0) && (
+                  <View style={{marginLeft: 28, marginTop: 4, marginBottom: 8}}>
+                    <TierBadge tier={selectedJob.provider?.tier || getProviderTier(selectedJob.provider.points)} size="small" />
+                  </View>
+                )}
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="call" size={20} color="#00B14F" />
                   <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.provider.phone}</Text>

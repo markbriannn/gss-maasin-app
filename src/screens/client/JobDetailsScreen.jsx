@@ -1005,9 +1005,9 @@ const JobDetailsScreen = ({navigation, route}) => {
                   </Text>
                 </View>
                 {/* Provider Tier */}
-                {jobData.provider?.points > 0 && (
+                {(jobData.provider?.tier || jobData.provider?.points > 0) && (
                   <View style={{marginTop: 4}}>
-                    <TierBadge tier={getProviderTier(jobData.provider.points)} size="small" />
+                    <TierBadge tier={jobData.provider?.tier || getProviderTier(jobData.provider.points)} size="small" />
                   </View>
                 )}
               </View>

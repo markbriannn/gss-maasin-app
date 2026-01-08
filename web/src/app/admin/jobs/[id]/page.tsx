@@ -25,6 +25,8 @@ interface JobData {
   providerName?: string;
   providerPhone?: string;
   providerEmail?: string;
+  providerTier?: string;
+  providerPoints?: number;
   amount: number;
   providerPrice: number;
   systemFee: number;
@@ -81,6 +83,29 @@ const getStatusStyle = (status: string, adminApproved: boolean) => {
   }
 };
 
+// Helper to get tier display info
+const getTierDisplay = (tier?: string, points?: number) => {
+  // First check tier name
+  if (tier) {
+    switch (tier.toLowerCase()) {
+      case 'diamond': return { name: 'Diamond', color: 'bg-cyan-500' };
+      case 'platinum': return { name: 'Platinum', color: 'bg-gray-400' };
+      case 'gold': return { name: 'Gold', color: 'bg-yellow-500' };
+      case 'silver': return { name: 'Silver', color: 'bg-gray-300' };
+      case 'bronze': return { name: 'Bronze', color: 'bg-amber-600' };
+    }
+  }
+  // Fall back to points
+  if (points && points > 0) {
+    if (points >= 5000) return { name: 'Diamond', color: 'bg-cyan-500' };
+    if (points >= 2500) return { name: 'Platinum', color: 'bg-gray-400' };
+    if (points >= 1000) return { name: 'Gold', color: 'bg-yellow-500' };
+    if (points >= 500) return { name: 'Silver', color: 'bg-gray-300' };
+    return { name: 'Bronze', color: 'bg-amber-600' };
+  }
+  return null;
+};
+
 export default function AdminJobDetailsPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -114,13 +139,19 @@ export default function AdminJobDetailsPage() {
           } catch (e) {}
         }
 
-        let providerInfo = { name: data.providerName || "Not Assigned", phone: "", email: "" };
+        let providerInfo = { name: data.providerName || "Not Assigned", phone: "", email: "", tier: "", points: 0 };
         if (data.providerId) {
           try {
             const providerDoc = await getDoc(doc(db, "users", data.providerId));
             if (providerDoc.exists()) {
               const pData = providerDoc.data();
-              providerInfo = { name: `${pData.firstName || ""} ${pData.lastName || ""}`.trim() || "Unknown", phone: pData.phone || pData.phoneNumber || "", email: pData.email || "" };
+              providerInfo = { 
+                name: `${pData.firstName || ""} ${pData.lastName || ""}`.trim() || "Unknown", 
+                phone: pData.phone || pData.phoneNumber || "", 
+                email: pData.email || "",
+                tier: pData.tier || "",
+                points: pData.points || 0,
+              };
             }
           } catch (e) {}
         }
@@ -138,6 +169,8 @@ export default function AdminJobDetailsPage() {
           providerName: providerInfo.name,
           providerPhone: providerInfo.phone,
           providerEmail: providerInfo.email,
+          providerTier: providerInfo.tier,
+          providerPoints: providerInfo.points,
           amount: data.totalAmount || data.amount || data.providerPrice || data.providerFixedPrice || data.price || 0,
           providerPrice: data.providerPrice || data.providerFixedPrice || data.offeredPrice || data.price || 0,
           systemFee: data.systemFee || 0,
@@ -392,6 +425,18 @@ export default function AdminJobDetailsPage() {
                   <p className="font-semibold text-gray-900 text-lg">{job.providerName}</p>
                   {job.providerPhone && <p className="text-gray-500">{job.providerPhone}</p>}
                   {job.providerEmail && <p className="text-gray-500 text-sm">{job.providerEmail}</p>}
+                  {/* Provider Tier Badge */}
+                  {(() => {
+                    const tierDisplay = getTierDisplay(job.providerTier, job.providerPoints);
+                    if (!tierDisplay) return null;
+                    return (
+                      <div className="mt-2">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${tierDisplay.color} text-white`}>
+                          {tierDisplay.name}
+                        </span>
+                      </div>
+                    );
+                  })()}
                   {job.providerId && (
                     <Link href={`/chat/new?recipientId=${job.providerId}`}
                       className="mt-4 flex items-center gap-2 text-violet-600 font-medium hover:underline">

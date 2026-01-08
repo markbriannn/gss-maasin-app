@@ -582,6 +582,19 @@ function JobDetailsContent() {
   const providerRating = job.provider?.rating || 0;
   const providerReviewCount = job.provider?.reviewCount || 0;
   const providerPoints = job.provider?.points || 0;
+  const providerTier = job.provider?.tier;
+
+  // Helper to get tier display info from tier name
+  const getTierDisplayFromName = (tier?: string) => {
+    switch (tier?.toLowerCase()) {
+      case 'diamond': return { name: 'Diamond', color: 'bg-cyan-500' };
+      case 'platinum': return { name: 'Platinum', color: 'bg-gray-400' };
+      case 'gold': return { name: 'Gold', color: 'bg-yellow-500' };
+      case 'silver': return { name: 'Silver', color: 'bg-gray-300' };
+      case 'bronze': return { name: 'Bronze', color: 'bg-amber-600' };
+      default: return null;
+    }
+  };
 
   return (
     <ClientLayout>
@@ -704,11 +717,17 @@ function JobDetailsContent() {
                   </span>
                 </div>
                 {/* Provider Tier Badge */}
-                {providerPoints > 0 && (
+                {(providerTier || providerPoints > 0) && (
                   <div className="mt-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${getTierInfo(providerPoints).color} text-white`}>
-                      {getTierInfo(providerPoints).name}
-                    </span>
+                    {(() => {
+                      const tierDisplay = providerTier ? getTierDisplayFromName(providerTier) : (providerPoints > 0 ? getTierInfo(providerPoints) : null);
+                      if (!tierDisplay) return null;
+                      return (
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${tierDisplay.color} text-white`}>
+                          {tierDisplay.name}
+                        </span>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
