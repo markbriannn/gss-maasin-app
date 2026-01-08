@@ -1,6 +1,6 @@
 import React, {useState, useEffect} from 'react';
-import {View, Text, Animated} from 'react-native';
-import {createStackNavigator} from '@react-navigation/stack';
+import {View, Text} from 'react-native';
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createDrawerNavigator} from '@react-navigation/drawer';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -377,7 +377,7 @@ import DirectionsScreen from '../screens/navigation/DirectionsScreen';
 // Gamification Screen
 import LeaderboardScreen from '../screens/gamification/LeaderboardScreen';
 
-const Stack = createStackNavigator();
+const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const Drawer = createDrawerNavigator();
 
@@ -422,6 +422,8 @@ function ClientTabs() {
           fontWeight: '600',
         },
         headerShown: false,
+        lazy: true,
+        unmountOnBlur: false,
       })}>
       <Tab.Screen name="Home" component={ClientHomeScreen} />
       <Tab.Screen name="Bookings" component={ClientBookingsScreen} />
@@ -474,6 +476,8 @@ function ProviderTabs() {
           fontWeight: '600',
         },
         headerShown: false,
+        lazy: true,
+        unmountOnBlur: false,
       })}>
       <Tab.Screen name="Dashboard" component={ProviderDashboardScreen} />
       <Tab.Screen name="Jobs" component={ProviderJobsScreen} />
@@ -528,6 +532,8 @@ function AdminTabs() {
           fontWeight: '600',
         },
         headerShown: false,
+        lazy: true,
+        unmountOnBlur: false,
       })}>
       <Tab.Screen name="Dashboard" component={AdminDashboardScreen} />
       <Tab.Screen name="Providers" component={AdminProvidersScreen} />
@@ -586,45 +592,8 @@ export default function AppNavigator() {
       screenOptions={{
         headerShown: false,
         gestureEnabled: true,
-        gestureDirection: 'horizontal',
-        cardStyleInterpolator: ({current, next, layouts}) => {
-          return {
-            cardStyle: {
-              transform: [
-                {
-                  translateX: current.progress.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [layouts.screen.width, 0],
-                  }),
-                },
-              ],
-              opacity: current.progress.interpolate({
-                inputRange: [0, 0.5, 1],
-                outputRange: [0, 0.5, 1],
-              }),
-            },
-            overlayStyle: {
-              opacity: current.progress.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 0.5],
-              }),
-            },
-          };
-        },
-        transitionSpec: {
-          open: {
-            animation: 'timing',
-            config: {
-              duration: 250,
-            },
-          },
-          close: {
-            animation: 'timing',
-            config: {
-              duration: 200,
-            },
-          },
-        },
+        animation: 'slide_from_right',
+        animationDuration: 200,
       }}>
       {!isAuthenticated ? (
         <>
@@ -632,13 +601,13 @@ export default function AppNavigator() {
           <Stack.Screen 
             name="GuestHome" 
             component={GuestHomeScreen}
-            options={{animationEnabled: false}}
+            options={{animation: 'none'}}
           />
           {/* Onboarding is only accessible on first install, not after logout */}
           <Stack.Screen 
             name="Onboarding" 
             component={OnboardingScreen}
-            options={{animationEnabled: false}}
+            options={{animation: 'none'}}
           />
           <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
