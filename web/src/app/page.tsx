@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Image from 'next/image';
 import {
@@ -57,13 +57,12 @@ export default function GuestHomePage() {
     }
   }, [isAuthenticated, user, authLoading, router]);
 
-  useEffect(() => { loadProviders(); }, [selectedCategory]);
-
-  const loadProviders = async () => {
+  // Real-time listener for providers
+  useEffect(() => {
     setIsLoading(true);
-    try {
-      const providersQuery = query(collection(db, 'users'), where('role', '==', 'PROVIDER'));
-      const querySnapshot = await getDocs(providersQuery);
+    const providersQuery = query(collection(db, 'users'), where('role', '==', 'PROVIDER'));
+    
+    const unsubscribe = onSnapshot(providersQuery, (querySnapshot) => {
       const providersList: Provider[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -85,12 +84,14 @@ export default function GuestHomePage() {
         });
       });
       setProviders(providersList);
-    } catch (error) {
-      console.error('Error loading providers:', error);
-    } finally {
       setIsLoading(false);
-    }
-  };
+    }, (error) => {
+      console.error('Error loading providers:', error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [selectedCategory]);
 
   const getCategoryConfig = (categoryId: string) => SERVICE_CATEGORIES.find(c => c.id === categoryId?.toLowerCase()) || SERVICE_CATEGORIES[0];
 

@@ -655,13 +655,24 @@ export default function ClientDashboard() {
                 </div>
               </div>
               
-              <button
-                onClick={() => router.push(`/client/book?providerId=${selectedProvider.id}`)}
-                className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-500/30 hover:shadow-xl transition-all flex items-center justify-center gap-2"
-              >
-                Contact Us
-                <ChevronRight className="w-5 h-5" />
-              </button>
+              {activeBooking ? (
+                <button
+                  onClick={() => router.push(`/client/bookings/${activeBooking.id}`)}
+                  className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-amber-500/30 hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                >
+                  <Clock className="w-5 h-5" />
+                  {activeBooking.status === 'pending' ? 'Pending Approval' : 'View Booking'}
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => router.push(`/client/book?providerId=${selectedProvider.id}`)}
+                  className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-500/30 hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                >
+                  Contact Us
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              )}
             </div>
           )}
         </div>

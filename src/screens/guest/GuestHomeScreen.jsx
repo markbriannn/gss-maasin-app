@@ -14,7 +14,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {SERVICE_CATEGORIES} from '../../config/constants';
 import locationService from '../../services/locationService';
 import {db} from '../../config/firebase';
-import {collection, query, where, getDocs} from 'firebase/firestore';
+import {collection, query, where, onSnapshot} from 'firebase/firestore';
 import {guestHomeStyles as styles} from '../../css/profileStyles';
 
 // Animated Header Banner with floating icons
@@ -581,27 +581,14 @@ const GuestHomeScreen = ({navigation}) => {
   }, []);
 
   useEffect(() => {
-    loadNearbyProviders();
-  }, [selectedCategory, userLocation]);
+    // Set up real-time listener for providers
+    const providersQuery = query(
+      collection(db, 'users'),
+      where('role', '==', 'PROVIDER'),
+    );
 
-  const getCurrentLocation = async () => {
-    try {
-      const location = await locationService.getCurrentLocation();
-      setUserLocation(location);
-    } catch (error) {
-      console.error('Error getting location:', error);
-    }
-  };
-
-  const loadNearbyProviders = async () => {
     setIsLoading(true);
-    try {
-      const providersQuery = query(
-        collection(db, 'users'),
-        where('role', '==', 'PROVIDER'),
-      );
-
-      const querySnapshot = await getDocs(providersQuery);
+    const unsubscribe = onSnapshot(providersQuery, (querySnapshot) => {
       const providersList = [];
 
       querySnapshot.forEach(docSnapshot => {
@@ -652,11 +639,22 @@ const GuestHomeScreen = ({navigation}) => {
         (a, b) => parseFloat(a.distance) - parseFloat(b.distance),
       );
       setProviders(providersList);
-    } catch (error) {
+      setIsLoading(false);
+    }, (error) => {
       console.error('Error loading providers:', error);
       setProviders([]);
-    } finally {
       setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [selectedCategory, userLocation]);
+
+  const getCurrentLocation = async () => {
+    try {
+      const location = await locationService.getCurrentLocation();
+      setUserLocation(location);
+    } catch (error) {
+      console.error('Error getting location:', error);
     }
   };
 

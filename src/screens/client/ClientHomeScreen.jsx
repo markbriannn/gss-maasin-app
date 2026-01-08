@@ -697,9 +697,23 @@ const ClientHomeScreen = ({navigation}) => {
       {/* Bottom Action - Outside sheet so it's always visible */}
       {selectedProvider && !showProviderModal && (
         <View style={styles.fixedBottomBar}>
-          <TouchableOpacity style={styles.bookBtn} onPress={handleBook}>
-            <Text style={styles.bookText}>Contact Us</Text>
-          </TouchableOpacity>
+          {activeBookings[selectedProvider.id] ? (
+            <TouchableOpacity 
+              style={[styles.bookBtn, {backgroundColor: '#F59E0B'}]} 
+              onPress={() => {
+                const booking = activeBookings[selectedProvider.id];
+                navigation.navigate('JobDetails', {jobId: booking.id});
+              }}>
+              <Icon name="time-outline" size={20} color="#FFF" style={{marginRight: 8}} />
+              <Text style={styles.bookText}>
+                {activeBookings[selectedProvider.id].status === 'pending' ? 'Pending Approval' : 'View Booking'}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.bookBtn} onPress={handleBook}>
+              <Text style={styles.bookText}>Contact Us</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
