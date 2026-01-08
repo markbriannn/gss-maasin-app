@@ -130,6 +130,7 @@ export default function ClientDashboard() {
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [activeBooking, setActiveBooking] = useState<ActiveBooking | null>(null);
+  const [activeBookingsMap, setActiveBookingsMap] = useState<Map<string, ActiveBooking>>(new Map());
   const [showProviderModal, setShowProviderModal] = useState(false);
   
   const [panelHeight, setPanelHeight] = useState(PANEL_MID);
@@ -201,6 +202,38 @@ export default function ClientDashboard() {
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.push('/login');
   }, [isLoading, isAuthenticated, router]);
+
+  // Load active bookings in real-time
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    const activeStatuses = ['pending', 'approved', 'accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion', 'pending_payment', 'payment_received'];
+    const bookingsQuery = query(
+      collection(db, 'bookings'),
+      where('clientId', '==', user.uid),
+      where('status', 'in', activeStatuses)
+    );
+
+    const unsubscribe = onSnapshot(bookingsQuery, (snapshot) => {
+      const bookingsMap = new Map<string, ActiveBooking>();
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.providerId) {
+          bookingsMap.set(data.providerId, {
+            id: docSnap.id,
+            status: data.status,
+            serviceCategory: data.serviceCategory,
+            totalAmount: data.totalAmount || data.amount || 0,
+            createdAt: data.createdAt?.toDate() || new Date(),
+            adminApproved: data.adminApproved || false,
+          });
+        }
+      });
+      setActiveBookingsMap(bookingsMap);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
 
   useEffect(() => {
     if (user?.uid) {
@@ -342,43 +375,15 @@ export default function ClientDashboard() {
     );
   };
 
-  const handleProviderSelect = async (provider: Provider) => {
+  const handleProviderSelect = (provider: Provider) => {
     setSelectedProvider(provider);
     if (provider.latitude && provider.longitude) {
       setMapCenter({ lat: provider.latitude, lng: provider.longitude });
     }
     
-    // Check if client has an active booking with this provider
-    if (user?.uid) {
-      try {
-        const activeStatuses = ['pending', 'approved', 'accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion', 'pending_payment', 'payment_received'];
-        const bookingsQuery = query(
-          collection(db, 'bookings'),
-          where('clientId', '==', user.uid),
-          where('providerId', '==', provider.id),
-          where('status', 'in', activeStatuses)
-        );
-        const bookingsSnap = await getDocs(bookingsQuery);
-        
-        if (!bookingsSnap.empty) {
-          const bookingDoc = bookingsSnap.docs[0];
-          const bookingData = bookingDoc.data();
-          setActiveBooking({
-            id: bookingDoc.id,
-            status: bookingData.status,
-            serviceCategory: bookingData.serviceCategory,
-            totalAmount: bookingData.totalAmount || bookingData.amount || 0,
-            createdAt: bookingData.createdAt?.toDate() || new Date(),
-            adminApproved: bookingData.adminApproved || false,
-          });
-        } else {
-          setActiveBooking(null);
-        }
-      } catch (error) {
-        console.log('Error checking active bookings:', error);
-        setActiveBooking(null);
-      }
-    }
+    // Check if client has an active booking with this provider from preloaded map
+    const booking = activeBookingsMap.get(provider.id);
+    setActiveBooking(booking || null);
     
     // Show modal when clicking from map marker
     setShowProviderModal(true);
@@ -389,6 +394,11 @@ export default function ClientDashboard() {
     if (provider.latitude && provider.longitude) {
       setMapCenter({ lat: provider.latitude, lng: provider.longitude });
     }
+    
+    // Check if client has an active booking with this provider from preloaded map
+    const booking = activeBookingsMap.get(provider.id);
+    setActiveBooking(booking || null);
+    
     // Don't show modal when selecting from list, just highlight
     setShowProviderModal(false);
   };
