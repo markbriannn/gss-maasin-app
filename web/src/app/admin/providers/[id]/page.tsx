@@ -205,8 +205,14 @@ export default function AdminProviderDetailsPage() {
     if (!provider || !confirm("Approve this provider?")) return;
     setUpdating(true);
     try {
-      await updateDoc(doc(db, "users", provider.id), { status: "approved", providerStatus: "approved", approvedAt: new Date(), approvedBy: user?.uid });
-      setProvider((prev) => (prev ? { ...prev, status: "approved", providerStatus: "approved" } : null));
+      await updateDoc(doc(db, "users", provider.id), { 
+        status: "approved", 
+        providerStatus: "approved", 
+        isOnline: true,
+        approvedAt: new Date(), 
+        approvedBy: user?.uid 
+      });
+      setProvider((prev) => (prev ? { ...prev, status: "approved", providerStatus: "approved", isOnline: true } : null));
       alert("Provider approved successfully!");
     } catch (error) {
       console.error("Error approving provider:", error);
@@ -250,8 +256,15 @@ export default function AdminProviderDetailsPage() {
     if (!provider || !confirm("Reactivate this provider?")) return;
     setUpdating(true);
     try {
-      await updateDoc(doc(db, "users", provider.id), { status: "approved", providerStatus: "approved", reactivatedAt: new Date() });
-      setProvider((prev) => (prev ? { ...prev, status: "approved", providerStatus: "approved" } : null));
+      await updateDoc(doc(db, "users", provider.id), { 
+        status: "approved", 
+        providerStatus: "approved", 
+        isOnline: true,
+        reactivatedAt: new Date(),
+        suspensionReason: null,
+        suspendedAt: null
+      });
+      setProvider((prev) => (prev ? { ...prev, status: "approved", providerStatus: "approved", isOnline: true } : null));
       alert("Provider reactivated");
     } catch (error) {
       console.error("Error reactivating provider:", error);
