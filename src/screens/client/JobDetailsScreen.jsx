@@ -354,12 +354,35 @@ const JobDetailsScreen = ({navigation, route}) => {
         cancelledBy: 'client',
         cancellationReason: reason,
       });
+
+      // Process automatic refund if payment was made
+      if (jobData.paid || jobData.isPaidUpfront) {
+        try {
+          const API_URL = 'https://gss-maasin-app.onrender.com/api';
+          const refundResponse = await fetch(`${API_URL}/payments/auto-refund/${jobData.id || jobId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason, cancelledBy: 'client' }),
+          });
+          const refundResult = await refundResponse.json();
+          if (refundResult.refunded) {
+            Alert.alert('Cancelled & Refunded', `Job cancelled. Refund of ₱${refundResult.amount} will be processed to your ${jobData.paymentMethod || 'payment method'}.`);
+          } else {
+            Alert.alert('Cancelled', 'Job has been cancelled');
+          }
+        } catch (refundError) {
+          console.error('Refund error:', refundError);
+          Alert.alert('Cancelled', 'Job cancelled. Refund will be processed shortly.');
+        }
+      } else {
+        Alert.alert('Cancelled', 'Job has been cancelled');
+      }
+
       // Notify provider about cancellation
       if (jobData.providerId) {
         notificationService.notifyJobCancelled(jobData, 'client', reason);
       }
       setShowCancelModal(false);
-      Alert.alert('Cancelled', 'Job has been cancelled');
       navigation.goBack();
     } catch (error) {
       console.error('Error cancelling job:', error);

@@ -921,6 +921,163 @@ router.post('/refund', async (req, res) => {
   }
 });
 
+// Automatic refund for cancelled/rejected bookings
+router.post('/auto-refund/:bookingId', async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { reason, cancelledBy } = req.body;
+    const db = getDb();
+
+    // Get booking data
+    const bookingDoc = await db.collection('bookings').doc(bookingId).get();
+    if (!bookingDoc.exists) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    const bookingData = bookingDoc.data();
+
+    // Check if booking was paid
+    if (!bookingData.paid && !bookingData.isPaidUpfront) {
+      return res.json({ success: true, message: 'No payment to refund', refunded: false });
+    }
+
+    // Check if already refunded
+    if (bookingData.refunded) {
+      return res.json({ success: true, message: 'Already refunded', refunded: true });
+    }
+
+    // Get payment record
+    const paymentsSnapshot = await db.collection('payments')
+      .where('bookingId', '==', bookingId)
+      .where('status', '==', 'paid')
+      .get();
+
+    if (paymentsSnapshot.empty) {
+      // Try to find by paymentId on booking
+      if (!bookingData.paymentId) {
+        return res.json({ success: true, message: 'No payment record found', refunded: false });
+      }
+    }
+
+    const paymentDoc = paymentsSnapshot.docs[0];
+    const paymentData = paymentDoc?.data();
+    const paymentId = paymentData?.paymentId || bookingData.paymentId;
+
+    if (!paymentId) {
+      return res.json({ success: true, message: 'No PayMongo payment ID found', refunded: false });
+    }
+
+    // Calculate refund amount
+    const refundAmount = bookingData.upfrontPaidAmount || bookingData.totalAmount || paymentData?.amount;
+
+    if (!refundAmount || refundAmount <= 0) {
+      return res.json({ success: true, message: 'No amount to refund', refunded: false });
+    }
+
+    console.log(`Processing auto-refund for booking ${bookingId}: ₱${refundAmount}`);
+
+    // Process refund via PayMongo
+    const refundResponse = await axios.post(
+      `${PAYMONGO_API}/refunds`,
+      {
+        data: {
+          attributes: {
+            amount: Math.round(refundAmount * 100), // Convert to centavos
+            payment_id: paymentId,
+            reason: reason || 'requested_by_customer',
+            notes: `Auto-refund for cancelled booking. Cancelled by: ${cancelledBy || 'system'}`,
+          },
+        },
+      },
+      paymongoAuth
+    );
+
+    const refund = refundResponse.data.data;
+
+    // Update booking with refund info
+    await db.collection('bookings').doc(bookingId).update({
+      refunded: true,
+      refundedAt: new Date(),
+      refundId: refund.id,
+      refundAmount: refund.attributes.amount / 100,
+      refundStatus: refund.attributes.status,
+      paymentStatus: 'refunded',
+    });
+
+    // Update payment record
+    if (paymentDoc) {
+      await db.collection('payments').doc(paymentDoc.id).update({
+        refunded: true,
+        refundId: refund.id,
+        refundedAt: new Date(),
+        refundAmount: refund.attributes.amount / 100,
+      });
+    }
+
+    // Create refund transaction record
+    await db.collection('transactions').add({
+      bookingId: bookingId,
+      clientId: bookingData.clientId,
+      providerId: bookingData.providerId,
+      type: 'refund',
+      amount: refund.attributes.amount / 100,
+      refundId: refund.id,
+      reason: reason || 'Booking cancelled',
+      cancelledBy: cancelledBy || 'system',
+      status: 'completed',
+      createdAt: new Date(),
+    });
+
+    // If provider already received payment, deduct from their balance
+    if (bookingData.providerId && !bookingData.paymentStatus?.includes('held')) {
+      const providerRef = db.collection('users').doc(bookingData.providerId);
+      const providerDoc = await providerRef.get();
+      if (providerDoc.exists) {
+        const providerData = providerDoc.data();
+        const providerShare = refundAmount * 0.95;
+        const currentBalance = providerData.availableBalance || 0;
+        const currentEarnings = providerData.totalEarnings || 0;
+        
+        await providerRef.update({
+          availableBalance: Math.max(0, currentBalance - providerShare),
+          totalEarnings: Math.max(0, currentEarnings - providerShare),
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    console.log(`Auto-refund successful for booking ${bookingId}: ₱${refund.attributes.amount / 100}`);
+
+    res.json({
+      success: true,
+      refunded: true,
+      refundId: refund.id,
+      amount: refund.attributes.amount / 100,
+      status: refund.attributes.status,
+      message: 'Refund processed successfully',
+    });
+  } catch (error) {
+    console.error('Error processing auto-refund:', error.response?.data || error.message);
+    
+    // If PayMongo refund fails, still mark as needing manual refund
+    const db = getDb();
+    try {
+      await db.collection('bookings').doc(req.params.bookingId).update({
+        refundPending: true,
+        refundError: error.response?.data?.errors?.[0]?.detail || error.message,
+      });
+    } catch (updateError) {
+      console.error('Error updating booking with refund error:', updateError);
+    }
+
+    res.status(500).json({ 
+      success: false,
+      error: error.response?.data?.errors?.[0]?.detail || error.message,
+      message: 'Refund failed - marked for manual processing'
+    });
+  }
+});
+
 // Get provider balance
 router.get('/provider-balance/:providerId', async (req, res) => {
   try {

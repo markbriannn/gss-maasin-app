@@ -295,9 +295,13 @@ export const jobService = {
     }
   },
 
-  // Cancel Job
+  // Cancel Job with automatic refund
   cancelJob: async (jobId, cancelledBy, reason) => {
     try {
+      // Get job data first to check if paid
+      const jobDoc = await getDoc(doc(db, 'bookings', jobId));
+      const jobData = jobDoc.exists() ? jobDoc.data() : {};
+
       await updateDoc(doc(db, 'bookings', jobId), {
         status: 'cancelled',
         cancelledBy,
@@ -305,6 +309,24 @@ export const jobService = {
         cancelledAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+
+      // Process automatic refund if payment was made
+      if (jobData.paid || jobData.isPaidUpfront) {
+        try {
+          const API_URL = process.env.API_BASE_URL || 'https://gss-maasin-app.onrender.com/api';
+          const response = await fetch(`${API_URL}/payments/auto-refund/${jobId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason, cancelledBy }),
+          });
+          const refundResult = await response.json();
+          console.log('Auto-refund result:', refundResult);
+        } catch (refundError) {
+          console.error('Auto-refund failed:', refundError);
+          // Don't throw - cancellation succeeded, refund can be processed manually
+        }
+      }
+
       return {success: true};
     } catch (error) {
       console.error('Error cancelling job:', error);
@@ -362,9 +384,13 @@ export const jobService = {
     }
   },
 
-  // Admin Reject Job
+  // Admin Reject Job with automatic refund
   adminRejectJob: async (jobId, adminId, reason) => {
     try {
+      // Get job data first to check if paid
+      const jobDoc = await getDoc(doc(db, 'bookings', jobId));
+      const jobData = jobDoc.exists() ? jobDoc.data() : {};
+
       await updateDoc(doc(db, 'bookings', jobId), {
         status: 'rejected',
         adminApproved: false,
@@ -373,6 +399,23 @@ export const jobService = {
         rejectReason: reason,
         updatedAt: serverTimestamp(),
       });
+
+      // Process automatic refund if payment was made
+      if (jobData.paid || jobData.isPaidUpfront) {
+        try {
+          const API_URL = process.env.API_BASE_URL || 'https://gss-maasin-app.onrender.com/api';
+          const response = await fetch(`${API_URL}/payments/auto-refund/${jobId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason, cancelledBy: 'admin' }),
+          });
+          const refundResult = await response.json();
+          console.log('Auto-refund result:', refundResult);
+        } catch (refundError) {
+          console.error('Auto-refund failed:', refundError);
+        }
+      }
+
       return {success: true};
     } catch (error) {
       console.error('Error rejecting job:', error);

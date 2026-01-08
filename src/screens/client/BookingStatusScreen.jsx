@@ -218,6 +218,25 @@ const BookingStatusScreen = ({navigation, route}) => {
                 cancelledAt: new Date(),
                 cancelledBy: 'client',
               });
+
+              // Process automatic refund if payment was made
+              if (booking?.paid || booking?.isPaidUpfront) {
+                try {
+                  const API_URL = 'https://gss-maasin-app.onrender.com/api';
+                  const refundResponse = await fetch(`${API_URL}/payments/auto-refund/${bookingId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: 'Client cancelled booking', cancelledBy: 'client' }),
+                  });
+                  const refundResult = await refundResponse.json();
+                  if (refundResult.refunded) {
+                    Alert.alert('Cancelled & Refunded', `Booking cancelled. Refund of ₱${refundResult.amount} will be processed.`);
+                  }
+                } catch (refundError) {
+                  console.error('Refund error:', refundError);
+                }
+              }
+
               navigation.goBack();
             } catch (e) {
               Alert.alert('Error', 'Failed to cancel booking');

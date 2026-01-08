@@ -36,6 +36,7 @@ interface JobData {
   mediaUrls?: (string | { url: string; type?: string; isVideo?: boolean })[];
   adminApproved: boolean;
   paymentPreference: string;
+  paid?: boolean;
   isPaidUpfront: boolean;
   upfrontPaidAmount?: number;
   isNegotiable: boolean;
@@ -189,7 +190,29 @@ export default function AdminJobDetailsPage() {
     setUpdating(true);
     try {
       await updateDoc(doc(db, "bookings", job.id), { status: "rejected", adminRejected: true, rejectedAt: serverTimestamp(), rejectedBy: user?.uid, updatedAt: serverTimestamp() });
-      alert("Job rejected");
+      
+      // Process automatic refund if payment was made
+      if (job.paid || job.isPaidUpfront) {
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
+          const refundResponse = await fetch(`${apiUrl}/payments/auto-refund/${job.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: 'Admin rejected job', cancelledBy: 'admin' }),
+          });
+          const refundResult = await refundResponse.json();
+          if (refundResult.refunded) {
+            alert(`Job rejected. Refund of ₱${refundResult.amount} processed.`);
+          } else {
+            alert("Job rejected");
+          }
+        } catch (refundError) {
+          console.error("Refund error:", refundError);
+          alert("Job rejected. Refund may need manual processing.");
+        }
+      } else {
+        alert("Job rejected");
+      }
     } catch (error) {
       console.error("Error rejecting job:", error);
       alert("Failed to reject job");
@@ -203,7 +226,29 @@ export default function AdminJobDetailsPage() {
     setUpdating(true);
     try {
       await updateDoc(doc(db, "bookings", job.id), { status: "cancelled", cancelledAt: serverTimestamp(), cancelledBy: "admin", updatedAt: serverTimestamp() });
-      alert("Job cancelled");
+      
+      // Process automatic refund if payment was made
+      if (job.paid || job.isPaidUpfront) {
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
+          const refundResponse = await fetch(`${apiUrl}/payments/auto-refund/${job.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: 'Admin cancelled job', cancelledBy: 'admin' }),
+          });
+          const refundResult = await refundResponse.json();
+          if (refundResult.refunded) {
+            alert(`Job cancelled. Refund of ₱${refundResult.amount} processed.`);
+          } else {
+            alert("Job cancelled");
+          }
+        } catch (refundError) {
+          console.error("Refund error:", refundError);
+          alert("Job cancelled. Refund may need manual processing.");
+        }
+      } else {
+        alert("Job cancelled");
+      }
     } catch (error) {
       console.error("Error cancelling job:", error);
       alert("Failed to cancel job");
