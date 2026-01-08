@@ -29,6 +29,7 @@ import Animated, {
   withSpring,
   runOnJS,
 } from 'react-native-reanimated';
+import {useFocusEffect} from '@react-navigation/native';
 
 const {height: SCREEN_HEIGHT, width: SCREEN_WIDTH} = Dimensions.get('window');
 const MAP_HEIGHT = SCREEN_HEIGHT * 0.45;
@@ -150,6 +151,14 @@ const ClientHomeScreen = ({navigation}) => {
   const [region, setRegion] = useState({
     latitude: 10.1335, longitude: 124.8513, latitudeDelta: 0.05, longitudeDelta: 0.05,
   });
+  const [refreshKey, setRefreshKey] = useState(0); // Force re-subscription on focus
+
+  // Force refresh providers when screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      setRefreshKey(prev => prev + 1);
+    }, [])
+  );
 
   useEffect(() => {
     initLocation();
@@ -321,7 +330,7 @@ const ClientHomeScreen = ({navigation}) => {
       setProviders(list);
     });
     return () => unsub();
-  }, [selectedCategory, userLocation, activeFilter]);
+  }, [selectedCategory, userLocation, activeFilter, refreshKey]);
 
   const handleSelectProvider = useCallback(async (provider, fromMarker = false) => {
     // Prevent rapid double-taps from causing crashes

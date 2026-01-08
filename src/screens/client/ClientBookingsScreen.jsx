@@ -1,4 +1,4 @@
-import {useState, useEffect} from 'react';
+import {useState, useEffect, useCallback, useRef} from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {collection, query, where, onSnapshot, doc, getDoc} from 'firebase/firest
 import {db} from '../../config/firebase';
 import {globalStyles} from '../../css/globalStyles';
 import {dashboardStyles} from '../../css/dashboardStyles';
+import {useFocusEffect} from '@react-navigation/native';
 
 const ClientBookingsScreen = ({navigation}) => {
   const {user} = useAuth();
@@ -24,6 +25,20 @@ const ClientBookingsScreen = ({navigation}) => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sortBy, setSortBy] = useState('date_desc'); // date_desc, date_asc, amount_desc, amount_asc
+  const [refreshKey, setRefreshKey] = useState(0); // Force re-subscription on focus
+  const unsubscribeRef = useRef(null);
+
+  // Force refresh when screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      // Increment refreshKey to force useEffect to re-run and re-subscribe
+      setRefreshKey(prev => prev + 1);
+      
+      return () => {
+        // Cleanup on blur if needed
+      };
+    }, [])
+  );
 
   // Real-time listener for bookings
   useEffect(() => {
@@ -146,11 +161,14 @@ const ClientBookingsScreen = ({navigation}) => {
       }
     );
 
+    // Store unsubscribe ref for cleanup
+    unsubscribeRef.current = unsubscribe;
+
     return () => {
       isMounted = false;
       unsubscribe();
     };
-  }, [user, activeTab, sortBy]);
+  }, [user, activeTab, sortBy, refreshKey]);
 
   const onRefresh = () => {
     setRefreshing(true);
