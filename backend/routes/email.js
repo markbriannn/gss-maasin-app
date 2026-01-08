@@ -149,17 +149,17 @@ router.post('/password-reset', async (req, res) => {
 
 /**
  * POST /api/email/verification-code
- * Send verification code
+ * Send verification code for registration
  */
 router.post('/verification-code', async (req, res) => {
   try {
-    const { email, code } = req.body;
+    const { email, code, name } = req.body;
     
     if (!email || !code) {
       return res.status(400).json({ error: 'Missing email or code' });
     }
     
-    const result = await emailService.sendPasswordResetEmail(email, code);
+    const result = await emailService.sendVerificationCode(email, code, name);
     res.json(result);
   } catch (error) {
     console.error('Verification code email error:', error);
