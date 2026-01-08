@@ -521,8 +521,8 @@ export default function ProviderRegistration() {
         landmark: formData.landmark,
         city: formData.city,
         province: formData.province,
-        latitude: formData.latitude,
-        longitude: formData.longitude,
+        latitude: formData.latitude || 10.1335,
+        longitude: formData.longitude || 124.8513,
         location: {
           streetAddress: formData.streetAddress,
           houseNumber: formData.houseNumber,

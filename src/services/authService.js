@@ -159,6 +159,9 @@ export const authService = {
       email,
       role: 'PROVIDER',
       ...rest,
+      // Ensure latitude/longitude are always set with defaults
+      latitude: rest.latitude || 10.1335,
+      longitude: rest.longitude || 124.8513,
       documents: {
         governmentId: documents?.validId?.fileName || null,
         governmentIdUrl: validIdUrl,
