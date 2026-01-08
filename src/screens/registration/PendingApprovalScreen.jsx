@@ -39,13 +39,13 @@ const PendingApprovalScreen = ({navigation, route}) => {
         lastName: params?.personalInfo?.lastName,
         suffix: params?.personalInfo?.suffix,
         dateOfBirth: params?.dateOfBirth,
-        // Location fields
+        // Location fields - use defaults if not set
         barangay: params?.location?.barangay,
         streetAddress: params?.location?.streetAddress,
         houseNumber: params?.location?.houseNumber,
         landmark: params?.location?.landmark,
-        latitude: params?.location?.latitude,
-        longitude: params?.location?.longitude,
+        latitude: params?.location?.latitude || 10.1335,
+        longitude: params?.location?.longitude || 124.8513,
         // Service info
         serviceCategory: params?.serviceCategory,
         services: params?.services,

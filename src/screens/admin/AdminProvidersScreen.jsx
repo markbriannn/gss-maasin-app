@@ -270,12 +270,12 @@ const AdminProvidersScreen = ({navigation, route}) => {
         updatedAt: new Date(),
       };
       
-      // If reactivating from suspended, clear suspension fields and set online
+      // If approving/reactivating, set online and clear suspension fields
       if (newStatus === 'approved') {
         updateData.suspensionReason = null;
         updateData.suspensionReasonLabel = null;
         updateData.suspendedAt = null;
-        updateData.isOnline = true; // Set back online when reactivated
+        updateData.isOnline = true;
       }
       
       await updateDoc(providerRef, updateData);
