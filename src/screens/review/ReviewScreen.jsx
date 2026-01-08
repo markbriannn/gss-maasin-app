@@ -124,7 +124,8 @@ const ReviewScreen = ({navigation, route}) => {
         user.uid,
         rating,
         review.trim(),
-        uploadedImageUrls
+        uploadedImageUrls,
+        `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Client'
       );
 
       if (result.success) {

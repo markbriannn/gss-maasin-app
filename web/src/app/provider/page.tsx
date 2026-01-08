@@ -123,12 +123,14 @@ export default function ProviderDashboard() {
           const baseAmount = data.providerPrice || data.offeredPrice || data.totalAmount || data.price || 0;
           const approvedCharges = data.additionalCharges?.filter((c: { status: string }) => c.status === 'approved').reduce((sum: number, c: { amount: number }) => sum + (c.amount || 0), 0) || 0;
           const amount = data.finalAmount || (baseAmount + approvedCharges);
-          totalEarnings += amount;
+          // Deduct the 5% service fee to show actual provider earnings
+          const providerEarnings = amount / 1.05; // Remove the fee that was added to client price
+          totalEarnings += providerEarnings;
           completedJobs++;
           const completedAt = data.completedAt?.toDate?.() || data.clientConfirmedAt?.toDate?.();
           if (completedAt) {
-            if (completedAt >= today) { todayEarnings += amount; jobsToday++; }
-            if (completedAt >= weekAgo) weekEarnings += amount;
+            if (completedAt >= today) { todayEarnings += providerEarnings; jobsToday++; }
+            if (completedAt >= weekAgo) weekEarnings += providerEarnings;
           }
         }
         if (data.status === 'in_progress' || data.status === 'accepted' || data.status === 'traveling' || data.status === 'arrived') activeJobs++;
@@ -224,7 +226,7 @@ export default function ProviderDashboard() {
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <p className="text-blue-100 text-sm mb-1">Today&apos;s Earnings</p>
-                  <p className="text-4xl font-bold text-white">₱{stats.todayEarnings.toLocaleString()}</p>
+                  <p className="text-4xl font-bold text-white">₱{Math.round(stats.todayEarnings).toLocaleString()}</p>
                 </div>
                 <div className="flex items-center gap-1 px-3 py-1.5 bg-green-500/20 rounded-full">
                   <TrendingUp className="w-4 h-4 text-green-300" />
@@ -235,11 +237,11 @@ export default function ProviderDashboard() {
                 <div className="flex gap-6">
                   <div>
                     <p className="text-blue-200 text-xs">This Week</p>
-                    <p className="text-white font-bold text-lg">₱{stats.weekEarnings.toLocaleString()}</p>
+                    <p className="text-white font-bold text-lg">₱{Math.round(stats.weekEarnings).toLocaleString()}</p>
                   </div>
                   <div>
                     <p className="text-blue-200 text-xs">All Time</p>
-                    <p className="text-white font-bold text-lg">₱{stats.totalEarnings.toLocaleString()}</p>
+                    <p className="text-white font-bold text-lg">₱{Math.round(stats.totalEarnings).toLocaleString()}</p>
                   </div>
                 </div>
                 <button onClick={() => router.push('/provider/earnings')}

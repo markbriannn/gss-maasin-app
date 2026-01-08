@@ -11,8 +11,9 @@ import { onReviewSubmitted } from './gamificationService';
  * @param {number} rating - Rating 1-5
  * @param {string} comment - Review comment
  * @param {string[]} images - Array of image URLs (optional)
+ * @param {string} reviewerName - Name of the reviewer (optional)
  */
-export const submitReview = async (jobId, providerId, clientId, rating, comment, images = []) => {
+export const submitReview = async (jobId, providerId, clientId, rating, comment, images = [], reviewerName = '') => {
   try {
     // 1. Verify job exists and is completed
     const jobRef = doc(db, 'bookings', jobId);
@@ -47,11 +48,27 @@ export const submitReview = async (jobId, providerId, clientId, rating, comment,
       return { success: false, error: 'Reviews can only be submitted within 30 days of job completion' };
     }
 
-    // 4. Create review document with images
+    // 4. Get reviewer name if not provided
+    let finalReviewerName = reviewerName;
+    if (!finalReviewerName && clientId) {
+      try {
+        const clientDoc = await getDoc(doc(db, 'users', clientId));
+        if (clientDoc.exists()) {
+          const clientData = clientDoc.data();
+          finalReviewerName = `${clientData.firstName || ''} ${clientData.lastName || ''}`.trim() || 'Client';
+        }
+      } catch (e) {
+        console.log('Could not fetch reviewer name:', e);
+      }
+    }
+
+    // 5. Create review document with images and reviewer name
     const reviewRef = await addDoc(collection(db, 'reviews'), {
       jobId,
       providerId,
       reviewerId: clientId,
+      reviewerName: finalReviewerName || 'Client', // Save reviewer name for display
+      authorName: finalReviewerName || 'Client', // Also save as authorName for compatibility with web
       rating: Math.min(5, Math.max(1, parseInt(rating))), // Clamp 1-5
       comment: comment?.trim() || '',
       images: images || [], // Store image URLs

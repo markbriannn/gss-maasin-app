@@ -23,6 +23,7 @@ import {dashboardStyles} from '../../css/dashboardStyles';
 import {useJobNotifications, useUserNotifications, useOfflineSupport} from '../../hooks/useRealtimeService';
 import {TierCard} from '../../components/gamification';
 import {getUserTierAndBadges} from '../../services/gamificationService';
+import {APP_CONFIG} from '../../config/constants';
 
 const getGreeting = () => {
   const hour = new Date().getHours();
@@ -147,14 +148,18 @@ const ProviderDashboardScreen = ({navigation}) => {
           finalAmount = baseAmount + approvedAdditionalCharges;
         }
         
+        // Deduct the service fee to show actual provider earnings
+        const serviceFeeRate = APP_CONFIG.SERVICE_FEE_PERCENTAGE / 100;
+        const providerEarnings = finalAmount / (1 + serviceFeeRate); // Remove the fee that was added to client price
+        
         const completedDate = job.completedAt?.toDate?.() || new Date(job.completedAt);
         
         if (completedDate >= today) {
-          todayEarnings += finalAmount;
+          todayEarnings += providerEarnings;
           jobsToday++;
         }
         if (completedDate >= weekAgo) {
-          weekEarnings += finalAmount;
+          weekEarnings += providerEarnings;
         }
       });
       
@@ -164,15 +169,19 @@ const ProviderDashboardScreen = ({navigation}) => {
         const approvedAdditionalCharges = job.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
         const finalAmount = baseAmount + approvedAdditionalCharges;
         
+        // Deduct the service fee to show actual provider earnings
+        const serviceFeeRate = APP_CONFIG.SERVICE_FEE_PERCENTAGE / 100;
+        const providerEarnings = finalAmount / (1 + serviceFeeRate); // Remove the fee that was added to client price
+        
         // Use clientConfirmedAt for Pay First jobs since that's when payment was confirmed
         const confirmedDate = job.clientConfirmedAt?.toDate?.() || job.updatedAt?.toDate?.() || new Date();
         
         if (confirmedDate >= today) {
-          todayEarnings += finalAmount;
+          todayEarnings += providerEarnings;
           jobsToday++;
         }
         if (confirmedDate >= weekAgo) {
-          weekEarnings += finalAmount;
+          weekEarnings += providerEarnings;
         }
       });
 
@@ -467,13 +476,13 @@ const ProviderDashboardScreen = ({navigation}) => {
         <View style={[dashboardStyles.earningsCard, isDark && {backgroundColor: theme.colors.card}]}>
           <Text style={[dashboardStyles.earningsTitle, isDark && {color: theme.colors.textSecondary}]}>Today's Earnings</Text>
           <Text style={[dashboardStyles.earningsAmount, isDark && {color: theme.colors.text}]}>
-            ₱{earnings.today.toLocaleString()}
+            ₱{Math.round(earnings.today).toLocaleString()}
           </Text>
           <View style={dashboardStyles.earningsRow}>
             <View style={dashboardStyles.earningsItem}>
               <Text style={[dashboardStyles.earningsItemLabel, isDark && {color: theme.colors.textSecondary}]}>This Week</Text>
               <Text style={[dashboardStyles.earningsItemValue, isDark && {color: theme.colors.text}]}>
-                ₱{earnings.week.toLocaleString()}
+                ₱{Math.round(earnings.week).toLocaleString()}
               </Text>
             </View>
           </View>

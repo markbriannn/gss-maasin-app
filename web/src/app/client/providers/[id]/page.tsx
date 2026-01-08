@@ -86,6 +86,7 @@ export default function ProviderDetailsPage() {
   const [gamificationData, setGamificationData] = useState<{ points: number; tier: typeof PROVIDER_TIERS[0] } | null>(null);
   const [stats, setStats] = useState({ completedJobs: 0, rating: 0, reviewCount: 0, responseTime: '' });
   const [isFavorite, setIsFavorite] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
@@ -527,7 +528,9 @@ export default function ProviderDetailsPage() {
                     {review.images && review.images.length > 0 && (
                       <div className="flex gap-2 mt-3 overflow-x-auto">
                         {review.images.map((imgUrl, idx) => (
-                          <Image key={idx} src={imgUrl} alt="" width={80} height={80} className="w-20 h-20 rounded-xl object-cover flex-shrink-0" />
+                          <button key={idx} onClick={() => setSelectedImage(imgUrl)} className="flex-shrink-0 hover:opacity-80 transition-opacity">
+                            <Image src={imgUrl} alt="" width={80} height={80} className="w-20 h-20 rounded-xl object-cover" />
+                          </button>
                         ))}
                       </div>
                     )}
@@ -549,6 +552,31 @@ export default function ProviderDetailsPage() {
             </Link>
           </div>
         </div>
+
+        {/* Image Viewer Modal */}
+        {selectedImage && (
+          <div 
+            className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4"
+            onClick={() => setSelectedImage(null)}
+          >
+            <button 
+              className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
+              onClick={() => setSelectedImage(null)}
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <Image 
+              src={selectedImage} 
+              alt="Review image" 
+              width={800} 
+              height={600} 
+              className="max-w-full max-h-[80vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
       </div>
     </ClientLayout>
   );

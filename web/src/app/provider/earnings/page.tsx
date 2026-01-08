@@ -89,12 +89,14 @@ export default function EarningsPage() {
           const baseAmount = data.finalAmount || data.providerPrice || data.totalAmount || 0;
           const additionalCharges = data.approvedAdditionalCharges?.reduce((sum: number, c: { amount: number }) => sum + (c.amount || 0), 0) || 0;
           const amount = baseAmount + additionalCharges;
+          // Deduct the 5% service fee to show actual provider earnings
+          const providerEarnings = amount / 1.05;
           const earnedDate = isPayFirstConfirmed ? data.clientConfirmedAt?.toDate() || data.updatedAt?.toDate() || new Date() : data.completedAt?.toDate() || new Date();
 
-          totalEarnings += amount;
-          if (earnedDate >= today) todayEarnings += amount;
-          if (earnedDate >= weekAgo) weekEarnings += amount;
-          if (earnedDate >= monthAgo) monthEarnings += amount;
+          totalEarnings += providerEarnings;
+          if (earnedDate >= today) todayEarnings += providerEarnings;
+          if (earnedDate >= weekAgo) weekEarnings += providerEarnings;
+          if (earnedDate >= monthAgo) monthEarnings += providerEarnings;
 
           if (periodStart && earnedDate < periodStart) continue;
 
@@ -110,7 +112,7 @@ export default function EarningsPage() {
           }
 
           earningsList.push({
-            id: docSnap.id, serviceCategory: data.serviceCategory || 'Service', clientName, amount, baseAmount, additionalCharges,
+            id: docSnap.id, serviceCategory: data.serviceCategory || 'Service', clientName, amount: providerEarnings, baseAmount: baseAmount / 1.05, additionalCharges: additionalCharges / 1.05,
             date: earnedDate, status: data.status, isPaidUpfront: data.isPaidUpfront || false,
           });
         }

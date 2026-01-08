@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator} from 'react-native';
+import {View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Modal, Dimensions} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {globalStyles} from '../../css/globalStyles';
@@ -11,6 +11,8 @@ import {useTheme} from '../../context/ThemeContext';
 import {APP_CONFIG} from '../../config/constants';
 import {TierBadge, BadgeList} from '../../components/gamification';
 import {getUserTierAndBadges} from '../../services/gamificationService';
+
+const {width: SCREEN_WIDTH, height: SCREEN_HEIGHT} = Dimensions.get('window');
 
 const mapProviderData = (data = {}, id) => {
   const normalizedRating = (() => {
@@ -70,6 +72,7 @@ const ProviderProfileScreen = ({navigation, route}) => {
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [gamificationData, setGamificationData] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
   // Use providerId from params, or passedProvider.id, or fallback to current user (for provider viewing own profile)
   const fallbackProviderId = providerId || passedProvider?.id || user?.uid;
   const viewingSelf = provider?.id && user?.uid && provider.id === user.uid;
@@ -160,10 +163,11 @@ const ProviderProfileScreen = ({navigation, route}) => {
       const items = await Promise.all(
         filteredDocs.map(async (d) => {
           const data = d.data();
-          let reviewerName = 'Anonymous';
+          // Use saved reviewerName/authorName/clientName first, then fallback to lookup
+          let reviewerName = data.reviewerName || data.authorName || data.clientName || '';
           
-          // Fetch reviewer name if reviewerId exists
-          if (data.reviewerId) {
+          // Only fetch from users collection if no name is saved in the review
+          if (!reviewerName && data.reviewerId) {
             try {
               const reviewerDoc = await getDoc(doc(db, 'users', data.reviewerId));
               if (reviewerDoc.exists()) {
@@ -178,7 +182,7 @@ const ProviderProfileScreen = ({navigation, route}) => {
           return {
             id: d.id,
             ...data,
-            reviewerName,
+            reviewerName: reviewerName || 'Anonymous',
           };
         })
       );
@@ -587,18 +591,23 @@ const ProviderProfileScreen = ({navigation, route}) => {
                 {r.images && r.images.length > 0 && (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginTop: 10}}>
                     {r.images.map((imgUrl, idx) => (
-                      <Image
+                      <TouchableOpacity
                         key={idx}
-                        source={{uri: imgUrl}}
-                        style={{
-                          width: 80,
-                          height: 80,
-                          borderRadius: 8,
-                          marginRight: 8,
-                          backgroundColor: isDark ? theme.colors.border : '#F3F4F6',
-                        }}
-                        resizeMode="cover"
-                      />
+                        onPress={() => setSelectedImage(imgUrl)}
+                        activeOpacity={0.8}
+                      >
+                        <Image
+                          source={{uri: imgUrl}}
+                          style={{
+                            width: 80,
+                            height: 80,
+                            borderRadius: 8,
+                            marginRight: 8,
+                            backgroundColor: isDark ? theme.colors.border : '#F3F4F6',
+                          }}
+                          resizeMode="cover"
+                        />
+                      </TouchableOpacity>
                     ))}
                   </ScrollView>
                 )}
@@ -645,6 +654,45 @@ const ProviderProfileScreen = ({navigation, route}) => {
             )}
           </View>
         )}
+
+        {/* Image Viewer Modal */}
+        <Modal
+          visible={!!selectedImage}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setSelectedImage(null)}
+        >
+          <View style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            <TouchableOpacity
+              style={{
+                position: 'absolute',
+                top: 50,
+                right: 20,
+                zIndex: 10,
+                padding: 10,
+              }}
+              onPress={() => setSelectedImage(null)}
+            >
+              <Icon name="close" size={30} color="#FFFFFF" />
+            </TouchableOpacity>
+            {selectedImage && (
+              <Image
+                source={{uri: selectedImage}}
+                style={{
+                  width: SCREEN_WIDTH - 40,
+                  height: SCREEN_HEIGHT * 0.7,
+                  borderRadius: 12,
+                }}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+        </Modal>
     </SafeAreaView>
   );
 };
