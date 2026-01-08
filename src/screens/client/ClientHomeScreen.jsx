@@ -166,6 +166,59 @@ const AnimatedProgressBar = () => {
   );
 };
 
+// Memoized Provider Card Component for better performance
+const ProviderCard = memo(({provider, isSelected, onPress}) => {
+  return (
+    <TouchableOpacity
+      style={[styles.card, isSelected && styles.cardSelected]}
+      onPress={onPress}
+      activeOpacity={0.7}>
+      <View style={styles.cardRow}>
+        {/* Avatar */}
+        <View style={styles.avatarWrap}>
+          {provider.profilePhoto ? (
+            <FastImage source={{uri: provider.profilePhoto, priority: FastImage.priority.normal}} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Icon name="construct" size={28} color="#00B14F" />
+            </View>
+          )}
+        </View>
+
+        {/* Info */}
+        <View style={styles.info}>
+          <View style={styles.nameRow}>
+            <Text style={styles.providerName}>{provider.name}</Text>
+          </View>
+          <View style={styles.serviceRow}>
+            <Text style={styles.serviceName}>{provider.serviceCategory}</Text>
+            <Icon name="star" size={14} color="#F59E0B" style={{marginLeft: 6}} />
+            <Text style={styles.rating}>{provider.rating.toFixed(1)}</Text>
+          </View>
+          <Text style={styles.estTime}>{provider.estimatedTime}</Text>
+          {provider.completedJobs > 20 && (
+            <View style={styles.jobsBadge}>
+              <Icon name="checkmark-circle" size={12} color="#00B14F" />
+              <Text style={styles.jobsBadgeText}>{provider.completedJobs}+ jobs done</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Price */}
+        <View style={styles.priceWrap}>
+          <Text style={styles.price}>₱{provider.fixedPrice.toLocaleString()}</Text>
+          <Text style={styles.priceLabel}>Estimate</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}, (prevProps, nextProps) => {
+  // Only re-render if these props change
+  return prevProps.provider.id === nextProps.provider.id &&
+         prevProps.isSelected === nextProps.isSelected &&
+         prevProps.provider.isOnline === nextProps.provider.isOnline;
+});
+
 const ClientHomeScreen = ({navigation}) => {
   const {unreadCount} = useNotifications();
   const {user} = useAuth();
@@ -379,26 +432,23 @@ const ClientHomeScreen = ({navigation}) => {
       if (activeBookings[provider.id]) {
         setSelectedProvider(provider);
         setShowProviderModal(true);
-        isSelectingRef.current = false;
         return;
       }
       
-      // Toggle selection - if already selected, unselect
-      if (selectedProvider?.id === provider.id && !fromMarker) {
+      // If clicking from card (not marker), show modal immediately
+      // Only toggle off if clicking the same provider from card AND modal is already showing
+      if (!fromMarker && selectedProvider?.id === provider.id && showProviderModal) {
         setSelectedProvider(null);
         setRouteCoordinates([]);
         setShowProviderModal(false);
-        isSelectingRef.current = false;
         return;
       }
       
       setSelectedProvider(provider);
       setRouteCoordinates([]); // Clear old route
       
-      // Show modal when tapping from map marker
-      if (fromMarker) {
-        setShowProviderModal(true);
-      }
+      // Always show modal when selecting a provider (from card or marker)
+      setShowProviderModal(true);
       
       // Fit map to show both user and provider
       if (mapRef.current && provider.latitude && provider.longitude) {
@@ -427,33 +477,29 @@ const ClientHomeScreen = ({navigation}) => {
         }
       }
       
-      // Fetch actual road directions
+      // Fetch actual road directions in background (don't block UI)
       const originLat = userLocation?.latitude || region.latitude;
       const originLng = userLocation?.longitude || region.longitude;
       
-      console.log('Fetching route from:', originLat, originLng, 'to:', provider.latitude, provider.longitude);
-      
       if (originLat && originLng && provider.latitude && provider.longitude) {
-        const route = await fetchDirections(
+        fetchDirections(
           {latitude: originLat, longitude: originLng},
           {latitude: provider.latitude, longitude: provider.longitude}
-        );
-        console.log('Route fetched, points:', route?.length);
-        if (route && route.length > 0) {
-          setRouteCoordinates(route);
-        }
-      } else {
-        console.log('Missing coordinates for route');
+        ).then(route => {
+          if (route && route.length > 0) {
+            setRouteCoordinates(route);
+          }
+        }).catch(err => console.log('Route fetch error:', err));
       }
     } catch (error) {
       console.log('Error selecting provider:', error);
     } finally {
-      // Allow new selections after a short delay
+      // Allow new selections after a very short delay
       setTimeout(() => {
         isSelectingRef.current = false;
-      }, 300);
+      }, 100);
     }
-  }, [selectedProvider, userLocation, region]);
+  }, [selectedProvider, showProviderModal, userLocation, region, activeBookings]);
 
   const handleBook = () => {
     if (selectedProvider) {
@@ -635,59 +681,14 @@ const ClientHomeScreen = ({navigation}) => {
               <Text style={styles.emptyText}>Try selecting a different category</Text>
             </View>
           ) : (
-            providers.map((provider) => {
-              const isSelected = selectedProvider?.id === provider.id;
-              const isFav = favoriteIds.includes(provider.id);
-
-              return (
-                <TouchableOpacity
-                  key={provider.id}
-                  style={[styles.card, isSelected && styles.cardSelected]}
-                  onPress={() => handleSelectProvider(provider)}
-                  activeOpacity={0.7}>
-                  <View style={styles.cardRow}>
-                    {/* Avatar */}
-                    <View style={styles.avatarWrap}>
-                      {provider.profilePhoto ? (
-                        <FastImage source={{uri: provider.profilePhoto}} style={styles.avatar} />
-                      ) : (
-                        <View style={styles.avatarPlaceholder}>
-                          <Icon name="construct" size={28} color="#00B14F" />
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Info */}
-                    <View style={styles.info}>
-                      <View style={styles.nameRow}>
-                        <Text style={styles.providerName}>{provider.name}</Text>
-                      </View>
-                      <View style={styles.serviceRow}>
-                        <Text style={styles.serviceName}>{provider.serviceCategory}</Text>
-                        <Icon name="star" size={14} color="#F59E0B" style={{marginLeft: 6}} />
-                        <Text style={styles.rating}>{provider.rating.toFixed(1)}</Text>
-                        <TouchableOpacity style={{marginLeft: 4}}>
-                          <Icon name="information-circle-outline" size={18} color="#9CA3AF" />
-                        </TouchableOpacity>
-                      </View>
-                      <Text style={styles.estTime}>{provider.estimatedTime}</Text>
-                      {provider.completedJobs > 20 && (
-                        <View style={styles.jobsBadge}>
-                          <Icon name="checkmark-circle" size={12} color="#00B14F" />
-                          <Text style={styles.jobsBadgeText}>{provider.completedJobs}+ jobs done</Text>
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Price */}
-                    <View style={styles.priceWrap}>
-                      <Text style={styles.price}>₱{provider.fixedPrice.toLocaleString()}</Text>
-                      <Text style={styles.priceLabel}>Estimate</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })
+            providers.map((provider) => (
+              <ProviderCard
+                key={provider.id}
+                provider={provider}
+                isSelected={selectedProvider?.id === provider.id}
+                onPress={() => handleSelectProvider(provider)}
+              />
+            ))
           )}
         </ScrollView>
 
@@ -721,7 +722,7 @@ const ClientHomeScreen = ({navigation}) => {
       <Modal
         visible={showProviderModal && selectedProvider !== null}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowProviderModal(false)}>
         <TouchableOpacity 
           style={styles.modalOverlay} 
