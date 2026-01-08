@@ -81,11 +81,43 @@ const handleDeepLink = async (url, navigationRef) => {
   if (!url) return;
   
   try {
-    // Parse the URL
-    const urlObj = new URL(url.replace('gssmaasin://', 'https://app/'));
-    const path = urlObj.pathname;
-    const params = urlObj.searchParams;
-    const bookingId = params.get('bookingId');
+    // Parse the URL manually (React Native doesn't have full URL API)
+    let path = '';
+    let bookingId = null;
+    
+    // Handle gssmaasin:// scheme
+    if (url.startsWith('gssmaasin://')) {
+      const withoutScheme = url.replace('gssmaasin://', '');
+      const [pathPart, queryPart] = withoutScheme.split('?');
+      path = pathPart;
+      
+      if (queryPart) {
+        const params = queryPart.split('&');
+        for (const param of params) {
+          const [key, value] = param.split('=');
+          if (key === 'bookingId') {
+            bookingId = decodeURIComponent(value);
+          }
+        }
+      }
+    } else if (url.startsWith('https://')) {
+      // Handle https:// URLs
+      const withoutProtocol = url.replace('https://', '');
+      const slashIndex = withoutProtocol.indexOf('/');
+      const pathAndQuery = slashIndex >= 0 ? withoutProtocol.substring(slashIndex) : '';
+      const [pathPart, queryPart] = pathAndQuery.split('?');
+      path = pathPart;
+      
+      if (queryPart) {
+        const params = queryPart.split('&');
+        for (const param of params) {
+          const [key, value] = param.split('=');
+          if (key === 'bookingId') {
+            bookingId = decodeURIComponent(value);
+          }
+        }
+      }
+    }
     
     console.log('Deep link path:', path, 'bookingId:', bookingId);
     
