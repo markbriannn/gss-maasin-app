@@ -149,48 +149,60 @@ export const incrementStat = async (userId, statKey, amount = 1, role = 'CLIENT'
 // Get top providers leaderboard
 export const getProviderLeaderboard = async (limitCount = 10) => {
   try {
-    // Fetch all gamification docs and filter/sort in memory to avoid composite index
-    const q = query(collection(db, 'gamification'));
-    const snapshot = await getDocs(q);
+    // Fetch all gamification docs
+    const gamificationQuery = query(collection(db, 'gamification'));
+    const gamificationSnapshot = await getDocs(gamificationQuery);
     
-    // Filter providers and sort by points
-    const providerDocs = snapshot.docs
-      .filter(d => d.data().role === 'PROVIDER')
-      .sort((a, b) => (b.data().points || 0) - (a.data().points || 0));
+    // Create a map of gamification data
+    const gamificationMap = new Map();
+    gamificationSnapshot.docs.forEach(d => {
+      const data = d.data();
+      gamificationMap.set(d.id, { points: data.points || 0, stats: data.stats || {} });
+    });
 
+    // Fetch all users to include providers without gamification data
+    const usersQuery = query(collection(db, 'users'));
+    const usersSnapshot = await getDocs(usersQuery);
+    
     const leaderboard = [];
 
-    for (const docSnap of providerDocs) {
-      // Stop if we have enough approved providers
-      if (leaderboard.length >= limitCount) break;
-      
-      const data = docSnap.data();
-      // Get provider profile for name and photo
-      const userDoc = await getDoc(doc(db, 'users', docSnap.id));
-      if (!userDoc.exists()) continue;
-      
+    usersSnapshot.docs.forEach(userDoc => {
       const userData = userDoc.data();
       
-      // Only include approved providers
-      const isApproved = userData.status === 'approved' || userData.providerStatus === 'approved';
-      if (!isApproved) continue;
+      // Only include providers
+      if (userData.role?.toUpperCase() !== 'PROVIDER') return;
+      
+      // Check if provider is approved - be lenient, include if not explicitly rejected
+      const status = userData.status?.toLowerCase();
+      const providerStatus = userData.providerStatus?.toLowerCase();
+      const isApproved = status === 'approved' || providerStatus === 'approved';
+      const isRejected = status === 'rejected' || providerStatus === 'rejected' || status === 'suspended' || providerStatus === 'suspended';
+      
+      // Include if approved OR if not explicitly rejected (for providers without status set)
+      if (!isApproved && isRejected) return;
+      
+      const gamData = gamificationMap.get(userDoc.id);
+      const points = gamData?.points || userData.points || 0;
+      const stats = gamData?.stats || {};
       
       leaderboard.push({
-        id: docSnap.id,
-        points: data.points || 0,
-        stats: data.stats || {},
+        id: userDoc.id,
+        points,
+        stats,
         name: userData.firstName 
           ? `${userData.firstName} ${userData.lastName || ''}`.trim()
           : 'Provider',
         service: userData.serviceCategory || userData.service || 'Service Provider',
-        rating: userData.rating || userData.averageRating || data.stats?.rating || 0,
+        rating: userData.rating || userData.averageRating || stats.rating || 0,
         photoURL: userData.profilePhoto || userData.photoURL || null,
-        tier: getProviderTier(data.points || 0),
-        badges: getProviderBadges(data.stats || {}),
+        tier: getProviderTier(points),
+        badges: getProviderBadges(stats),
       });
-    }
+    });
 
-    return leaderboard;
+    // Sort by points descending and limit
+    leaderboard.sort((a, b) => b.points - a.points);
+    return leaderboard.slice(0, limitCount);
   } catch (error) {
     console.error('Error getting provider leaderboard:', error);
     return [];
@@ -200,20 +212,18 @@ export const getProviderLeaderboard = async (limitCount = 10) => {
 // Get top clients leaderboard
 export const getClientLeaderboard = async (limitCount = 10) => {
   try {
-    // First, get gamification data for clients who have it
+    // Fetch all gamification data
     const gamificationQuery = query(collection(db, 'gamification'));
     const gamificationSnapshot = await getDocs(gamificationQuery);
     
-    // Create a map of client gamification data
-    const clientGamificationMap = new Map();
+    // Create a map of gamification data
+    const gamificationMap = new Map();
     gamificationSnapshot.docs.forEach(d => {
       const data = d.data();
-      if (data.role === 'CLIENT') {
-        clientGamificationMap.set(d.id, data);
-      }
+      gamificationMap.set(d.id, { points: data.points || 0, stats: data.stats || {} });
     });
 
-    // Also fetch all clients from users collection to include those without gamification data
+    // Fetch all users to include clients without gamification data
     const usersQuery = query(collection(db, 'users'));
     const usersSnapshot = await getDocs(usersQuery);
     
@@ -224,9 +234,9 @@ export const getClientLeaderboard = async (limitCount = 10) => {
       // Only include clients (not providers or admins)
       if (userData.role?.toUpperCase() !== 'CLIENT') return;
       
-      const gamificationData = clientGamificationMap.get(userDoc.id);
-      const points = gamificationData?.points || 0;
-      const stats = gamificationData?.stats || {};
+      const gamData = gamificationMap.get(userDoc.id);
+      const points = gamData?.points || userData.points || 0;
+      const stats = gamData?.stats || {};
       
       allClients.push({
         id: userDoc.id,

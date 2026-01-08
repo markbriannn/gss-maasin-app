@@ -80,9 +80,14 @@ export default function LeaderboardPage() {
         const stats = gamData?.stats || {};
 
         if (role === 'PROVIDER') {
-          // Check if provider is approved
-          const isApproved = userData.status === 'approved' || userData.providerStatus === 'approved';
-          if (isApproved) {
+          // Check if provider is approved - be lenient, include if not explicitly rejected
+          const status = userData.status?.toLowerCase();
+          const providerStatus = userData.providerStatus?.toLowerCase();
+          const isApproved = status === 'approved' || providerStatus === 'approved';
+          const isRejected = status === 'rejected' || providerStatus === 'rejected' || status === 'suspended' || providerStatus === 'suspended';
+          
+          // Include if approved OR if not explicitly rejected (for providers without status set)
+          if (isApproved || !isRejected) {
             providersList.push({
               id: userDoc.id,
               name: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Provider',
