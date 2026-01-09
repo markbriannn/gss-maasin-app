@@ -59,6 +59,7 @@ export default function ChatPage() {
     conversationIdParam !== 'new' ? conversationIdParam : null
   );
   const [recipient, setRecipient] = useState<Recipient | null>(null);
+  const resolvedRecipientIdRef = useRef<string | null>(null); // Store resolved recipient ID
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Typing indicator states
@@ -256,16 +257,50 @@ export default function ChatPage() {
 
         // If we have a recipient ID, find or create conversation
         if (recipientId) {
+          let actualRecipientId = recipientId;
+          
+          // Handle special case: "admin" means find an actual admin user
+          if (recipientId === 'admin') {
+            try {
+              const adminsQuery = query(
+                collection(db, 'users'),
+                where('role', '==', 'ADMIN')
+              );
+              const adminsSnapshot = await getDocs(adminsQuery);
+              if (!adminsSnapshot.empty) {
+                actualRecipientId = adminsSnapshot.docs[0].id;
+                console.log('[Chat] Found admin user:', actualRecipientId);
+              } else {
+                console.error('[Chat] No admin users found');
+                setLoading(false);
+                return;
+              }
+            } catch (e) {
+              console.error('[Chat] Error finding admin:', e);
+              setLoading(false);
+              return;
+            }
+          }
+          
           // Fetch recipient info
-          const recipientDoc = await getDoc(doc(db, 'users', recipientId));
+          const recipientDoc = await getDoc(doc(db, 'users', actualRecipientId));
           if (recipientDoc.exists()) {
             const recipientData = recipientDoc.data();
             const isAdmin = recipientData.role?.toUpperCase() === 'ADMIN';
+            resolvedRecipientIdRef.current = actualRecipientId; // Store in ref
             setRecipient({
-              id: recipientId,
+              id: actualRecipientId,
               name: isAdmin ? 'GSS Support' : (`${recipientData.firstName || ''} ${recipientData.lastName || ''}`.trim() || recipientData.displayName || 'User'),
               photo: recipientData.profilePhoto,
               role: isAdmin ? 'Support Team' : recipientData.role,
+            });
+          } else {
+            // User not found, but still store the ID
+            resolvedRecipientIdRef.current = actualRecipientId;
+            setRecipient({
+              id: actualRecipientId,
+              name: 'User',
+              role: 'CLIENT',
             });
           }
 
@@ -277,15 +312,37 @@ export default function ChatPage() {
           const convSnapshot = await getDocs(convQuery);
           
           let existingConvId: string | null = null;
-          convSnapshot.forEach((doc) => {
-            const data = doc.data();
-            if (data.participants?.includes(recipientId)) {
-              existingConvId = doc.id;
+          let fallbackConvId: string | null = null;
+          
+          console.log('[Chat] Looking for existing conversation with:', actualRecipientId, 'jobId:', jobId);
+          console.log('[Chat] Found', convSnapshot.docs.length, 'conversations for user');
+          
+          convSnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            if (data.participants?.includes(actualRecipientId)) {
+              console.log('[Chat] Found conversation:', docSnap.id, 'jobId:', data.jobId);
+              // Priority 1: Match by jobId if specified
+              if (jobId && data.jobId === jobId) {
+                console.log('[Chat] Exact jobId match found:', docSnap.id);
+                existingConvId = docSnap.id;
+                return;
+              }
+              // Priority 2: Any conversation between these users (fallback)
+              if (!fallbackConvId) {
+                fallbackConvId = docSnap.id;
+              }
             }
           });
 
+          // Use exact match if found, otherwise use fallback
           if (existingConvId) {
+            console.log('[Chat] Using exact match conversation:', existingConvId);
             setConversationId(existingConvId);
+          } else if (fallbackConvId) {
+            console.log('[Chat] Using fallback conversation:', fallbackConvId);
+            setConversationId(fallbackConvId);
+          } else {
+            console.log('[Chat] No existing conversation found, will create new one');
           }
           // If no existing conversation, we'll create one when first message is sent
         }
@@ -382,15 +439,28 @@ export default function ChatPage() {
       }
 
       // Create conversation if it doesn't exist
-      if (!convId && recipientId) {
+      if (!convId) {
+        const actualRecipientId = recipient?.id || resolvedRecipientIdRef.current;
+        if (!actualRecipientId) {
+          console.error('[Chat] No recipient ID available');
+          throw new Error('No recipient ID');
+        }
+        console.log('[Chat] Creating new conversation between', user.uid, 'and', actualRecipientId);
         const convRef = await addDoc(collection(db, 'conversations'), {
-          participants: [user.uid, recipientId],
+          participants: [user.uid, actualRecipientId],
           createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
           lastMessage: imageUrl ? '📷 Image' : messageText,
-          lastMessageAt: serverTimestamp(),
+          lastMessageTime: serverTimestamp(),
+          lastSenderId: user.uid,
           jobId: jobId || null,
+          unreadCount: {
+            [user.uid]: 0,
+            [actualRecipientId]: 1, // Recipient has 1 unread message
+          },
         });
         convId = convRef.id;
+        console.log('[Chat] Created new conversation:', convId);
         setConversationId(convId);
       }
 
@@ -459,9 +529,10 @@ export default function ChatPage() {
       });
 
       // Send FCM push notification to recipient
-      if (recipient?.id) {
+      const notifyRecipientId = recipient?.id || resolvedRecipientIdRef.current;
+      if (notifyRecipientId && notifyRecipientId !== user.uid) {
         const messagePreview = imageUrl ? '📷 Image' : messageText;
-        pushNotifications.newMessageToUser(recipient.id, senderName, messagePreview, convId, user.uid);
+        pushNotifications.newMessageToUser(notifyRecipientId, senderName, messagePreview, convId, user.uid);
       }
     } catch (error) {
       console.error('Error sending message:', error);

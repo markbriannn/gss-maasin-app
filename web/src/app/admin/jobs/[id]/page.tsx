@@ -442,7 +442,7 @@ export default function AdminJobDetailsPage() {
                   <p className="font-semibold text-gray-900 text-lg">{job.clientName}</p>
                   {job.clientPhone && <p className="text-gray-500">{job.clientPhone}</p>}
                   {job.clientEmail && <p className="text-gray-500 text-sm">{job.clientEmail}</p>}
-                  <Link href={`/chat/new?recipientId=${job.clientId}`}
+                  <Link href={`/chat/new?recipientId=${job.clientId}&jobId=${job.id}`}
                     className="mt-4 flex items-center gap-2 text-violet-600 font-medium hover:underline">
                     <MessageCircle className="w-4 h-4" /> Message Client
                   </Link>
@@ -470,7 +470,7 @@ export default function AdminJobDetailsPage() {
                     );
                   })()}
                   {job.providerId && (
-                    <Link href={`/chat/new?recipientId=${job.providerId}`}
+                    <Link href={`/chat/new?recipientId=${job.providerId}&jobId=${job.id}`}
                       className="mt-4 flex items-center gap-2 text-violet-600 font-medium hover:underline">
                       <MessageCircle className="w-4 h-4" /> Message Provider
                     </Link>

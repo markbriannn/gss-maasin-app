@@ -1,16 +1,55 @@
-import React from 'react';
-import {View, Text, ScrollView, TouchableOpacity, Linking} from 'react-native';
+import React, {useState, useEffect} from 'react';
+import {View, Text, ScrollView, TouchableOpacity, Linking, ActivityIndicator} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {globalStyles} from '../../css/globalStyles';
 import {useAuth} from '../../context/AuthContext';
 import {useTheme} from '../../context/ThemeContext';
 import {APP_CONFIG} from '../../config/constants';
+import {db} from '../../config/firebase';
+import {collection, query, where, getDocs} from 'firebase/firestore';
 
 const HelpScreen = ({navigation}) => {
   const {user} = useAuth();
   const {isDark, theme} = useTheme();
   const isProvider = user?.role === 'PROVIDER';
+  const isAdmin = user?.role === 'ADMIN';
+  const [loadingChat, setLoadingChat] = useState(false);
+
+  // Navigate to chat with admin/support
+  const handleChatWithSupport = async () => {
+    if (isAdmin) return; // Admin doesn't need to chat with themselves
+    
+    setLoadingChat(true);
+    try {
+      // Find an admin user
+      const adminsQuery = query(
+        collection(db, 'users'),
+        where('role', '==', 'ADMIN')
+      );
+      const adminsSnapshot = await getDocs(adminsQuery);
+      
+      if (!adminsSnapshot.empty) {
+        const adminDoc = adminsSnapshot.docs[0];
+        const adminData = adminDoc.data();
+        
+        navigation.navigate('Chat', {
+          recipient: {
+            id: adminDoc.id,
+            name: 'GSS Support',
+            role: 'ADMIN',
+            profilePhoto: adminData.profilePhoto || null,
+          },
+        });
+      } else {
+        console.log('No admin users found');
+      }
+    } catch (error) {
+      console.error('Error finding admin:', error);
+    } finally {
+      setLoadingChat(false);
+    }
+  };
 
   // Client FAQs
   const clientFaqItems = [
@@ -197,6 +236,52 @@ const HelpScreen = ({navigation}) => {
         <Text style={[globalStyles.heading4, {marginTop: 24, marginBottom: 16}, isDark && {color: theme.colors.text}]}>
           Contact Us
         </Text>
+
+        {/* Chat with Support - Primary option */}
+        {!isAdmin && (
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#00B14F',
+              padding: 16,
+              borderRadius: 12,
+              marginBottom: 12,
+              shadowColor: '#00B14F',
+              shadowOffset: {width: 0, height: 4},
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              elevation: 4,
+            }}
+            onPress={handleChatWithSupport}
+            disabled={loadingChat}>
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginRight: 16,
+              }}>
+              {loadingChat ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Icon name="chatbubbles" size={22} color="#FFFFFF" />
+              )}
+            </View>
+            <View style={{flex: 1}}>
+              <Text style={{fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 2}}>
+                Live Chat
+              </Text>
+              <Text style={{fontSize: 15, fontWeight: '600', color: '#FFFFFF'}}>
+                Chat with GSS Support
+              </Text>
+            </View>
+            <Icon name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
+          </TouchableOpacity>
+        )}
 
         {contactOptions.map((option) => (
           <TouchableOpacity
