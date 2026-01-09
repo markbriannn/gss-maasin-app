@@ -30,6 +30,7 @@ import smsEmailService from '../../services/smsEmailService';
 import {sendBookingConfirmation, sendJobRejectionEmail} from '../../services/emailService';
 import {getProviderTier} from '../../utils/gamification';
 import {TierBadge} from '../../components/gamification';
+import notificationService from '../../services/notificationService';
 
 const {width} = Dimensions.get('window');
 const MEDIA_SIZE = (width - 60) / 3;
@@ -366,9 +367,25 @@ const AdminJobsScreen = ({navigation, route}) => {
                     createdAt: new Date(),
                     read: false,
                   });
+                  
+                  // Send FCM push notification to client
+                  notificationService.pushAdminApproved(job.clientId, {
+                    id: job.id,
+                    serviceCategory: job.category,
+                  }).catch(err => console.log('FCM push to client failed:', err));
                 } catch (notifError) {
                   console.log('Error creating client notification:', notifError);
                 }
+              }
+              
+              // Send FCM push notification to provider about new job
+              if (job.providerId) {
+                notificationService.pushNewJobAvailable(job.providerId, {
+                  id: job.id,
+                  serviceCategory: job.category,
+                  isNegotiable: job.isNegotiable,
+                  offeredPrice: job.offeredPrice,
+                }).catch(err => console.log('FCM push to provider failed:', err));
               }
               
               setShowDetailModal(false);
@@ -462,6 +479,13 @@ const AdminJobsScreen = ({navigation, route}) => {
                     createdAt: new Date(),
                     read: false,
                   });
+                  
+                  // Send FCM push notification to client
+                  notificationService.sendPushToUser(job.clientId, 
+                    '❌ Booking Rejected',
+                    `Your ${job.category || 'service'} request was not approved. Please try again or contact support.`,
+                    { type: 'job_rejected', jobId: job.id }
+                  ).catch(err => console.log('FCM push to client failed:', err));
                 } catch (notifError) {
                   console.log('Error creating client notification:', notifError);
                 }

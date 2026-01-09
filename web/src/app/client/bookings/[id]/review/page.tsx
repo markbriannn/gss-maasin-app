@@ -7,6 +7,7 @@ import { doc, getDoc, addDoc, updateDoc, collection, serverTimestamp, query, whe
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import { ArrowLeft, Star, User, Loader2, CheckCircle, Camera, X, AlertCircle } from 'lucide-react';
+import { pushNotifications } from '@/lib/pushNotifications';
 
 interface JobData {
   id: string;
@@ -266,6 +267,10 @@ export default function ReviewPage() {
           reviewCount: newCount,
         });
       }
+
+      // Send FCM push notification to provider about new review
+      const reviewerName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Client';
+      pushNotifications.newReviewToProvider(job.providerId, rating, reviewerName);
 
       // Award gamification points for review
       try {

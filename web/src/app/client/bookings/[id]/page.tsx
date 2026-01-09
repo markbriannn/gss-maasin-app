@@ -12,6 +12,7 @@ import {
   CreditCard, CheckCircle, AlertCircle, Star, User,
   Banknote, Loader2, Wallet, X, ChevronRight, Navigation, Tag
 } from 'lucide-react';
+import { pushNotifications } from '@/lib/pushNotifications';
 
 interface AdditionalCharge {
   id: string;
@@ -324,6 +325,10 @@ function JobDetailsContent() {
               clientConfirmedAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
             });
+            // Send FCM push to provider about payment received
+            if (job.providerId) {
+              pushNotifications.paymentReceivedToProvider(job.providerId, job.id, calculateTotal());
+            }
             showAlert('success', 'Job Complete! 🎉', 'Waiting for provider to confirm completion.');
           } else {
             await updateDoc(doc(db, 'bookings', job.id), {
@@ -376,6 +381,10 @@ function JobDetailsContent() {
             paymentMethod: 'cash',
             updatedAt: serverTimestamp(),
           });
+          // Send FCM push to provider about payment received
+          if (job.providerId) {
+            pushNotifications.paymentReceivedToProvider(job.providerId, job.id, amount);
+          }
           showAlert('success', 'Additional Payment Complete! ✅', 'Provider will confirm to complete the job.');
         } else {
           await updateDoc(doc(db, 'bookings', job.id), {
@@ -385,6 +394,10 @@ function JobDetailsContent() {
             finalAmount: amount,
             updatedAt: serverTimestamp(),
           });
+          // Send FCM push to provider about payment received
+          if (job.providerId) {
+            pushNotifications.paymentReceivedToProvider(job.providerId, job.id, amount);
+          }
           showAlert('success', 'Payment Recorded! 💵', 'Waiting for provider confirmation.');
         }
         setShowPaymentModal(false);
@@ -464,6 +477,9 @@ function JobDetailsContent() {
           createdAt: new Date(),
           read: false,
         });
+        
+        // Send FCM push notification to provider
+        pushNotifications.jobCancelledToUser(job.providerId, job.id, 'Client');
       }
       
       setShowCancelModal(false);

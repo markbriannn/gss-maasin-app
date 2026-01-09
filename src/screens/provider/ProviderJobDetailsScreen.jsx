@@ -416,8 +416,9 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               }));
               // Notify client via push notification
               notificationService.notifyJobAccepted(jobData);
-              // Send push notification to client
-              notificationService.pushJobAccepted?.(jobData.clientId, jobData, user?.firstName || 'Provider');
+              // Send FCM push notification to client
+              notificationService.pushJobAccepted(jobData.clientId, jobData, user?.firstName || 'Provider')
+                .catch(err => console.log('FCM push failed:', err));
               // Send SMS notification (async)
               if (jobData.client) {
                 smsEmailService.notifyJobAccepted(jobData, jobData.client, {name: user?.firstName || 'Provider'})
@@ -714,8 +715,9 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               startLocationTracking();
               // Notify client
               notificationService.notifyProviderTraveling?.(jobData);
-              // Send push notification to client
-              notificationService.pushJobStatusUpdate?.(jobData.clientId, jobData, 'traveling');
+              // Send FCM push notification to client
+              notificationService.pushJobStatusUpdate(jobData.clientId, jobData, 'traveling')
+                .catch(err => console.log('FCM push failed:', err));
               Alert.alert('On the way!', 'Client has been notified and can now track your location.');
             } catch (error) {
               console.error('Error starting travel:', error);
@@ -778,8 +780,9 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               }
               setJobData(prev => ({...prev, status: 'arrived'}));
               notificationService.notifyProviderArrived?.(jobData);
-              // Send push notification to client
-              notificationService.pushJobStatusUpdate?.(jobData.clientId, jobData, 'arrived');
+              // Send FCM push notification to client
+              notificationService.pushJobStatusUpdate(jobData.clientId, jobData, 'arrived')
+                .catch(err => console.log('FCM push failed:', err));
               Alert.alert('Arrived', 'Client has been notified of your arrival.');
             } catch (error) {
               console.error('Error marking arrived:', error);
@@ -841,6 +844,9 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               setJobData(prev => ({...prev, status: 'in_progress'}));
               // Notify client via push notification
               notificationService.notifyJobStarted(jobData);
+              // Send FCM push notification to client
+              notificationService.pushJobStatusUpdate(jobData.clientId, jobData, 'in_progress')
+                .catch(err => console.log('FCM push failed:', err));
               // Send SMS notification (async)
               if (jobData.client) {
                 smsEmailService.notifyJobStarted(jobData, jobData.client)
@@ -907,8 +913,9 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               setJobData(prev => ({...prev, status: 'pending_completion'}));
               // Notify client to confirm completion
               notificationService.notifyWorkCompleted?.(jobData);
-              // Send push notification
-              notificationService.pushJobStatusUpdate?.(jobData.clientId, jobData, 'pending_completion');
+              // Send FCM push notification
+              notificationService.pushJobStatusUpdate(jobData.clientId, jobData, 'completed')
+                .catch(err => console.log('FCM push failed:', err));
               Alert.alert(
                 'Waiting for Client', 
                 'The client has been notified to confirm the work is complete and proceed to payment.'
@@ -985,6 +992,9 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               
               // Notify client job is fully completed
               notificationService.notifyJobCompleted?.(jobData);
+              // Send FCM push notification to client
+              notificationService.pushJobStatusUpdate(jobData.clientId, jobData, 'completed')
+                .catch(err => console.log('FCM push failed:', err));
               // Send SMS/Email notification (async)
               if (jobData.client) {
                 smsEmailService.notifyJobCompleted(jobData, jobData.client, {name: user?.firstName || 'Provider'})

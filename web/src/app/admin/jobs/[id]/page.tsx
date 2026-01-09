@@ -7,9 +7,10 @@ import { doc, getDoc, updateDoc, onSnapshot, serverTimestamp } from "firebase/fi
 import { db } from "@/lib/firebase";
 import AdminLayout from "@/components/layouts/AdminLayout";
 import Link from "next/link";
+import { pushNotifications } from "@/lib/pushNotifications";
 import {
-  ArrowLeft, CheckCircle, XCircle, Clock, MapPin, Calendar, DollarSign, User, Wrench,
-  MessageCircle, CreditCard, FileText, Image, AlertTriangle, ChevronRight, Zap, Ban,
+  ArrowLeft, CheckCircle, XCircle, Clock, Calendar, DollarSign, User, Wrench,
+  MessageCircle, CreditCard, FileText, Image, Zap, Ban,
 } from "lucide-react";
 
 interface JobData {
@@ -209,6 +210,19 @@ export default function AdminJobDetailsPage() {
     setUpdating(true);
     try {
       await updateDoc(doc(db, "bookings", job.id), { adminApproved: true, approvedAt: serverTimestamp(), approvedBy: user?.uid, updatedAt: serverTimestamp() });
+      
+      // Send FCM push notification to client
+      if (job.clientId) {
+        pushNotifications.jobApprovedToClient(job.clientId, job.id, job.category || 'service')
+          .catch(err => console.log('FCM push to client failed:', err));
+      }
+      
+      // Send FCM push notification to provider
+      if (job.providerId) {
+        pushNotifications.newJobToProvider(job.providerId, job.id, job.category || 'service')
+          .catch(err => console.log('FCM push to provider failed:', err));
+      }
+      
       alert("Job approved successfully!");
     } catch (error) {
       console.error("Error approving job:", error);
@@ -223,6 +237,12 @@ export default function AdminJobDetailsPage() {
     setUpdating(true);
     try {
       await updateDoc(doc(db, "bookings", job.id), { status: "rejected", adminRejected: true, rejectedAt: serverTimestamp(), rejectedBy: user?.uid, updatedAt: serverTimestamp() });
+      
+      // Send FCM push notification to client
+      if (job.clientId) {
+        pushNotifications.jobRejectedToClient(job.clientId, job.id, job.category || 'service')
+          .catch(err => console.log('FCM push to client failed:', err));
+      }
       
       // Process automatic refund if payment was made
       if (job.paid || job.isPaidUpfront) {
@@ -259,6 +279,18 @@ export default function AdminJobDetailsPage() {
     setUpdating(true);
     try {
       await updateDoc(doc(db, "bookings", job.id), { status: "cancelled", cancelledAt: serverTimestamp(), cancelledBy: "admin", updatedAt: serverTimestamp() });
+      
+      // Send FCM push notification to client
+      if (job.clientId) {
+        pushNotifications.jobCancelledToUser(job.clientId, job.id, 'admin')
+          .catch(err => console.log('FCM push to client failed:', err));
+      }
+      
+      // Send FCM push notification to provider
+      if (job.providerId) {
+        pushNotifications.jobCancelledToUser(job.providerId, job.id, 'admin')
+          .catch(err => console.log('FCM push to provider failed:', err));
+      }
       
       // Process automatic refund if payment was made
       if (job.paid || job.isPaidUpfront) {

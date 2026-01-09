@@ -11,6 +11,7 @@ import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import { ArrowLeft, Send, User, Loader2, Image as ImageIcon, X, Check, CheckCheck, Smile } from 'lucide-react';
 import { uploadImage } from '@/lib/cloudinary';
+import { pushNotifications } from '@/lib/pushNotifications';
 
 interface Reaction {
   emoji: string;
@@ -400,6 +401,13 @@ export default function ChatPage() {
         updatedAt: serverTimestamp(),
         unreadCount,
       });
+
+      // Send FCM push notification to recipient
+      if (recipient?.id) {
+        const senderName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User';
+        const messagePreview = imageUrl ? '📷 Image' : messageText;
+        pushNotifications.newMessageToUser(recipient.id, senderName, messagePreview, convId);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       setNewMessage(messageText); // Restore message on error

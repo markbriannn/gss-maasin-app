@@ -30,6 +30,7 @@ import {attemptBooking, resetBookingLimit} from '../../utils/rateLimiter';
 import {uploadImage} from '../../services/imageUploadService';
 import locationService from '../../services/locationService';
 import paymentService from '../../services/paymentService';
+import notificationService from '../../services/notificationService';
 import {collection, query, where, getDocs} from 'firebase/firestore';
 import {db} from '../../config/firebase';
 
@@ -401,6 +402,11 @@ const BookServiceScreen = ({navigation, route}) => {
 
       const createdJob = await jobService.createJobRequest(jobData);
       const bookingId = createdJob?.id;
+
+      // Send FCM push notification to admins about new booking
+      const clientName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Client';
+      notificationService.pushNewJobToAdmins({...jobData, id: bookingId}, clientName)
+        .catch(err => console.log('FCM push to admins failed:', err));
 
       // Now redirect to payment
       setProcessingPayment(true);

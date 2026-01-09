@@ -7,6 +7,7 @@ import { doc, getDoc, addDoc, collection, serverTimestamp, query, where, getDocs
 import { db } from '@/lib/firebase';
 import { sendBookingConfirmation } from '@/lib/email';
 import { createPaymentSource, PaymentMethod } from '@/lib/paymongo';
+import { pushNotifications } from '@/lib/pushNotifications';
 import ClientLayout from '@/components/layouts/ClientLayout';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -262,6 +263,10 @@ function BookServiceContent() {
       const docRef = await addDoc(collection(db, 'bookings'), bookingData);
       const newBookingId = docRef.id;
       setBookingId(newBookingId);
+
+      // Send FCM push notification to admins about new booking
+      const clientName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Client';
+      pushNotifications.newBookingToAdmins(newBookingId, clientName, provider.serviceCategory);
 
       // Now redirect to payment
       setProcessingPayment(true);

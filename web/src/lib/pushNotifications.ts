@@ -215,3 +215,191 @@ export async function isPushSupported(): Promise<boolean> {
     return false;
   }
 }
+
+
+// ========== PUSH NOTIFICATION SENDERS (via Backend) ==========
+
+/**
+ * Send push notification to a specific user
+ */
+export async function sendPushToUser(
+  userId: string,
+  title: string,
+  body: string,
+  data: Record<string, string> = {}
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!userId) {
+      console.log('[Push Web] No userId provided, skipping');
+      return { success: false, error: 'No userId' };
+    }
+
+    console.log('[Push Web] Sending notification to user:', userId);
+    const response = await fetch(`${API_URL}/notifications/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        title,
+        body,
+        data: { ...data, timestamp: new Date().toISOString() },
+      }),
+    });
+
+    const result = await response.json();
+    console.log('[Push Web] Result:', result);
+    return result;
+  } catch (error) {
+    console.error('[Push Web] Error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+/**
+ * Send push notification to all admins
+ */
+export async function sendPushToAdmins(
+  title: string,
+  body: string,
+  data: Record<string, string> = {}
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('[Push Web] Sending notification to admins');
+    const response = await fetch(`${API_URL}/notifications/send-to-admins`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        body,
+        data: { ...data, timestamp: new Date().toISOString() },
+      }),
+    });
+
+    const result = await response.json();
+    console.log('[Push Web] Result:', result);
+    return result;
+  } catch (error) {
+    console.error('[Push Web] Error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+// ========== NOTIFICATION TEMPLATES ==========
+
+export const pushNotifications = {
+  // Notify admins about new booking
+  newBookingToAdmins: (jobId: string, clientName: string, serviceCategory: string) =>
+    sendPushToAdmins(
+      '📋 New Job Request',
+      `${clientName} requested ${serviceCategory}`,
+      { type: 'new_job', jobId }
+    ),
+
+  // Notify client about job approval
+  jobApprovedToClient: (clientId: string, jobId: string, serviceCategory: string) =>
+    sendPushToUser(
+      clientId,
+      '✅ Booking Approved',
+      `Your ${serviceCategory} request has been approved and sent to providers.`,
+      { type: 'job_approved', jobId }
+    ),
+
+  // Notify provider about new available job
+  newJobToProvider: (providerId: string, jobId: string, serviceCategory: string) =>
+    sendPushToUser(
+      providerId,
+      '📋 New Job Available',
+      `New ${serviceCategory} job is available for you.`,
+      { type: 'new_job', jobId }
+    ),
+
+  // Notify client about job rejection
+  jobRejectedToClient: (clientId: string, jobId: string, serviceCategory: string) =>
+    sendPushToUser(
+      clientId,
+      '❌ Booking Rejected',
+      `Your ${serviceCategory} request was not approved.`,
+      { type: 'job_rejected', jobId }
+    ),
+
+  // Notify client about job acceptance
+  jobAcceptedToClient: (clientId: string, jobId: string, providerName: string) =>
+    sendPushToUser(
+      clientId,
+      '🎉 Job Accepted!',
+      `${providerName} has accepted your service request!`,
+      { type: 'job_accepted', jobId }
+    ),
+
+  // Notify client about provider traveling
+  providerTravelingToClient: (clientId: string, jobId: string) =>
+    sendPushToUser(
+      clientId,
+      '🚗 Provider On The Way',
+      'Your provider is traveling to your location.',
+      { type: 'provider_traveling', jobId }
+    ),
+
+  // Notify client about provider arrived
+  providerArrivedToClient: (clientId: string, jobId: string) =>
+    sendPushToUser(
+      clientId,
+      '📍 Provider Arrived',
+      'Your provider has arrived at your location.',
+      { type: 'provider_arrived', jobId }
+    ),
+
+  // Notify client about job started
+  jobStartedToClient: (clientId: string, jobId: string, serviceCategory: string) =>
+    sendPushToUser(
+      clientId,
+      '🔧 Work Started',
+      `Your ${serviceCategory} job is now in progress.`,
+      { type: 'job_started', jobId }
+    ),
+
+  // Notify client about job completed
+  jobCompletedToClient: (clientId: string, jobId: string, serviceCategory: string) =>
+    sendPushToUser(
+      clientId,
+      '✅ Work Complete',
+      `Your ${serviceCategory} job has been completed. Please confirm and leave a review!`,
+      { type: 'job_completed', jobId }
+    ),
+
+  // Notify about job cancellation
+  jobCancelledToUser: (userId: string, jobId: string, cancelledBy: string) =>
+    sendPushToUser(
+      userId,
+      '❌ Job Cancelled',
+      `The job has been cancelled by ${cancelledBy}.`,
+      { type: 'job_cancelled', jobId }
+    ),
+
+  // Notify about new message
+  newMessageToUser: (userId: string, senderName: string, messagePreview: string, conversationId: string) =>
+    sendPushToUser(
+      userId,
+      `💬 ${senderName}`,
+      messagePreview.length > 50 ? messagePreview.substring(0, 50) + '...' : messagePreview,
+      { type: 'new_message', conversationId }
+    ),
+
+  // Notify provider about new review
+  newReviewToProvider: (providerId: string, rating: number, reviewerName: string) =>
+    sendPushToUser(
+      providerId,
+      '⭐ New Review!',
+      `${reviewerName} gave you ${rating} star${rating > 1 ? 's' : ''}. Check your profile to see the review.`,
+      { type: 'new_review' }
+    ),
+
+  // Notify provider about payment received
+  paymentReceivedToProvider: (providerId: string, jobId: string, amount: number) =>
+    sendPushToUser(
+      providerId,
+      '💰 Payment Received!',
+      `You received ₱${amount.toLocaleString()} for your completed job.`,
+      { type: 'payment_received', jobId }
+    ),
+};

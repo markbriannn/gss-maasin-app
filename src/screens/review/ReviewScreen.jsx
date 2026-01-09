@@ -11,6 +11,7 @@ import {submitReview, isJobEligibleForReview} from '../../services/reviewService
 import {launchImageLibrary} from 'react-native-image-picker';
 import {uploadImage} from '../../services/imageUploadService';
 import {attemptReview} from '../../utils/rateLimiter';
+import notificationService from '../../services/notificationService';
 
 const ReviewScreen = ({navigation, route}) => {
   const {user} = useAuth();
@@ -139,6 +140,15 @@ const ReviewScreen = ({navigation, route}) => {
         } catch (e) {
           console.log('Could not update booking reviewed status:', e);
         }
+
+        // Send FCM push notification to provider about new review
+        const reviewerName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Client';
+        notificationService.sendPushToUser(
+          providerId,
+          '⭐ New Review!',
+          `${reviewerName} gave you ${rating} star${rating > 1 ? 's' : ''}. Check your profile to see the review.`,
+          { type: 'new_review' }
+        );
 
         Alert.alert(
           'Thank You!', 

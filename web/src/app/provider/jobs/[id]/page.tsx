@@ -12,6 +12,7 @@ import {
   CheckCircle, AlertCircle, User, Navigation, Play,
   Plus, Minus, Loader2, Banknote, Image as ImageIcon
 } from 'lucide-react';
+import { pushNotifications } from '@/lib/pushNotifications';
 
 interface AdditionalCharge {
   id: string;
@@ -175,10 +176,38 @@ export default function ProviderJobDetailsPage() {
     }
   };
 
-  const handleAccept = () => updateJobStatus('accepted', { acceptedAt: serverTimestamp() });
-  const handleStartTraveling = () => updateJobStatus('traveling', { travelingAt: serverTimestamp() });
-  const handleArrived = () => updateJobStatus('arrived', { arrivedAt: serverTimestamp() });
-  const handleStartWork = () => updateJobStatus('in_progress', { startedAt: serverTimestamp() });
+  const handleAccept = async () => {
+    await updateJobStatus('accepted', { acceptedAt: serverTimestamp() });
+    // Send FCM push to client
+    if (job?.clientId) {
+      const providerName = user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : job.providerName || 'Provider';
+      pushNotifications.jobAcceptedToClient(job.clientId, job.id, providerName);
+    }
+  };
+  
+  const handleStartTraveling = async () => {
+    await updateJobStatus('traveling', { travelingAt: serverTimestamp() });
+    // Send FCM push to client
+    if (job?.clientId) {
+      pushNotifications.providerTravelingToClient(job.clientId, job.id);
+    }
+  };
+  
+  const handleArrived = async () => {
+    await updateJobStatus('arrived', { arrivedAt: serverTimestamp() });
+    // Send FCM push to client
+    if (job?.clientId) {
+      pushNotifications.providerArrivedToClient(job.clientId, job.id);
+    }
+  };
+  
+  const handleStartWork = async () => {
+    await updateJobStatus('in_progress', { startedAt: serverTimestamp() });
+    // Send FCM push to client
+    if (job?.clientId) {
+      pushNotifications.jobStartedToClient(job.clientId, job.id, job.serviceCategory || 'Service');
+    }
+  };
 
   const handleStartChat = async (clientId: string) => {
     if (!user?.uid || !clientId) return;
@@ -225,6 +254,10 @@ export default function ProviderJobDetailsPage() {
       markedDoneAt: serverTimestamp(),
       finalAmount,
     });
+    // Send FCM push to client
+    if (job.clientId) {
+      pushNotifications.jobCompletedToClient(job.clientId, job.id, job.serviceCategory || 'Service');
+    }
   };
 
   const handleConfirmPayment = async () => {

@@ -382,6 +382,14 @@ const JobDetailsScreen = ({navigation, route}) => {
       if (jobData.providerId) {
         notificationService.notifyJobCancelled(jobData, 'client', reason);
         
+        // Send FCM push notification to provider (works when app is closed)
+        notificationService.sendPushToUser(
+          jobData.providerId,
+          '❌ Job Cancelled',
+          `Client cancelled the ${jobData.serviceCategory || 'service'} job.${reason ? ` Reason: ${reason}` : ''}`,
+          { type: 'job_cancelled', jobId: jobData.id || jobId }
+        );
+        
         // Create Firestore notification for provider
         try {
           const notifRef = doc(collection(db, 'notifications'));
