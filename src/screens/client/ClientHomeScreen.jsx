@@ -808,24 +808,7 @@ const ClientHomeScreen = ({navigation}) => {
         {/* Bottom Action - removed, now outside sheet */}
       </Animated.View>
 
-      {/* Bottom Action - Outside sheet so it's always visible */}
-      {selectedProvider && !showProviderModal && (
-        <View style={styles.fixedBottomBar}>
-          {activeBookings[selectedProvider.id] ? (
-            <TouchableOpacity 
-              style={[styles.bookBtn, {backgroundColor: '#F59E0B'}]} 
-              onPress={() => {
-                const booking = activeBookings[selectedProvider.id];
-                navigation.navigate('JobDetails', {jobId: booking.id});
-              }}>
-              <Icon name="time-outline" size={20} color="#FFF" style={{marginRight: 8}} />
-              <Text style={styles.bookText}>
-                {activeBookings[selectedProvider.id].status === 'pending' ? 'Pending Approval' : 'View Booking'}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      )}
+
 
       {/* Provider Info Modal - Shows when tapping provider marker on map */}
       <Modal
