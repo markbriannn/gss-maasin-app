@@ -803,11 +803,7 @@ const ClientHomeScreen = ({navigation}) => {
                 {activeBookings[selectedProvider.id].status === 'pending' ? 'Pending Approval' : 'View Booking'}
               </Text>
             </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.bookBtn} onPress={handleBook}>
-              <Text style={styles.bookText}>Contact Us</Text>
-            </TouchableOpacity>
-          )}
+          ) : null}
         </View>
       )}
 
