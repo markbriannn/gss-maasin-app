@@ -12,6 +12,7 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MapView, {Marker, Polyline, PROVIDER_GOOGLE} from 'react-native-maps';
@@ -324,6 +325,21 @@ const ClientHomeScreen = ({navigation}) => {
     latitude: 10.1335, longitude: 124.8513, latitudeDelta: 0.05, longitudeDelta: 0.05,
   });
   const [refreshKey, setRefreshKey] = useState(0); // Force re-subscription on focus
+  
+  // Cancel modal state
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedCancelReason, setSelectedCancelReason] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
+  
+  const CANCEL_REASONS = [
+    'Changed my mind',
+    'Found another provider',
+    'Schedule conflict',
+    'Price too high',
+    'Provider not responding',
+    'Other',
+  ];
 
   // Force refresh providers when screen gains focus
   useFocusEffect(
@@ -1012,30 +1028,8 @@ const ClientHomeScreen = ({navigation}) => {
                 {/* Cancel Button */}
                 <TouchableOpacity 
                   style={styles.modalCancelBtn}
-                  onPress={() => {
-                    Alert.alert(
-                      'Cancel Booking',
-                      'Are you sure you want to cancel this booking?',
-                      [
-                        { text: 'No', style: 'cancel' },
-                        { 
-                          text: 'Yes, Cancel', 
-                          style: 'destructive',
-                          onPress: async () => {
-                            try {
-                              const bookingRef = doc(db, 'bookings', activeBookings[selectedProvider.id].id);
-                              await setDoc(bookingRef, { status: 'cancelled' }, { merge: true });
-                              setShowProviderModal(false);
-                              Alert.alert('Cancelled', 'Your booking has been cancelled.');
-                            } catch (error) {
-                              Alert.alert('Error', 'Failed to cancel booking. Please try again.');
-                            }
-                          }
-                        }
-                      ]
-                    );
-                  }}>
-                  <Text style={{fontSize: 14, fontWeight: '600', color: '#EF4444'}}>Cancel order</Text>
+                  onPress={() => setShowCancelModal(true)}>
+                  <Text style={{fontSize: 14, fontWeight: '600', color: '#EF4444'}}>Cancel Job</Text>
                 </TouchableOpacity>
               </>
             ) : (
@@ -1087,6 +1081,173 @@ const ClientHomeScreen = ({navigation}) => {
             )}
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Cancel Job Modal */}
+      <Modal
+        visible={showCancelModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowCancelModal(false)}>
+        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end'}}>
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            padding: 20,
+            maxHeight: '80%',
+          }}>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20}}>
+              <Text style={{fontSize: 18, fontWeight: '700', color: '#1F2937'}}>Cancel Job</Text>
+              <TouchableOpacity onPress={() => setShowCancelModal(false)}>
+                <Icon name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{fontSize: 14, color: '#6B7280', marginBottom: 16}}>
+              Please let us know why you're cancelling this job request.
+            </Text>
+
+            {CANCEL_REASONS.map((reason) => (
+              <TouchableOpacity
+                key={reason}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  backgroundColor: selectedCancelReason === reason ? '#FEE2E2' : '#F9FAFB',
+                  borderRadius: 10,
+                  marginBottom: 8,
+                  borderWidth: 1,
+                  borderColor: selectedCancelReason === reason ? '#EF4444' : '#E5E7EB',
+                }}
+                onPress={() => setSelectedCancelReason(reason)}>
+                <Icon 
+                  name={selectedCancelReason === reason ? 'radio-button-on' : 'radio-button-off'} 
+                  size={20} 
+                  color={selectedCancelReason === reason ? '#EF4444' : '#9CA3AF'} 
+                />
+                <Text style={{
+                  marginLeft: 12, 
+                  fontSize: 15, 
+                  color: selectedCancelReason === reason ? '#DC2626' : '#374151',
+                  fontWeight: selectedCancelReason === reason ? '600' : '400',
+                }}>
+                  {reason}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            {selectedCancelReason === 'Other' && (
+              <TextInput
+                style={{
+                  backgroundColor: '#F9FAFB',
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: '#E5E7EB',
+                  padding: 12,
+                  fontSize: 14,
+                  color: '#1F2937',
+                  height: 80,
+                  textAlignVertical: 'top',
+                  marginTop: 8,
+                }}
+                placeholder="Please specify your reason..."
+                multiline
+                value={cancelReason}
+                onChangeText={setCancelReason}
+              />
+            )}
+
+            <View style={{flexDirection: 'row', marginTop: 20}}>
+              <TouchableOpacity 
+                style={{
+                  flex: 1,
+                  backgroundColor: '#F3F4F6',
+                  borderRadius: 12,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  marginRight: 8,
+                }}
+                onPress={() => {
+                  setShowCancelModal(false);
+                  setSelectedCancelReason('');
+                  setCancelReason('');
+                }}>
+                <Text style={{color: '#6B7280', fontSize: 16, fontWeight: '600'}}>Keep Job</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={{
+                  flex: 1,
+                  backgroundColor: selectedCancelReason ? '#EF4444' : '#FCA5A5',
+                  borderRadius: 12,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  marginLeft: 8,
+                }}
+                onPress={async () => {
+                  if (!selectedCancelReason || !selectedProvider || !activeBookings[selectedProvider.id]) return;
+                  
+                  setIsCancelling(true);
+                  try {
+                    const bookingId = activeBookings[selectedProvider.id].id;
+                    const finalReason = selectedCancelReason === 'Other' ? cancelReason : selectedCancelReason;
+                    
+                    // Update booking status
+                    const bookingRef = doc(db, 'bookings', bookingId);
+                    await setDoc(bookingRef, { 
+                      status: 'cancelled',
+                      cancelledAt: new Date(),
+                      cancelReason: finalReason,
+                      cancelledBy: 'client',
+                    }, { merge: true });
+                    
+                    // Create notification for provider
+                    await setDoc(doc(collection(db, 'notifications')), {
+                      userId: selectedProvider.id,
+                      type: 'booking_cancelled',
+                      title: 'Booking Cancelled',
+                      message: `Client cancelled the booking. Reason: ${finalReason}`,
+                      bookingId: bookingId,
+                      read: false,
+                      createdAt: new Date(),
+                    });
+                    
+                    // Try auto-refund
+                    try {
+                      const API_URL = 'https://gss-maasin-app.onrender.com/api';
+                      await fetch(`${API_URL}/payments/auto-refund/${bookingId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reason: finalReason, cancelledBy: 'client' }),
+                      });
+                    } catch (refundError) {
+                      console.log('Auto-refund error:', refundError);
+                    }
+                    
+                    setShowCancelModal(false);
+                    setShowProviderModal(false);
+                    setSelectedCancelReason('');
+                    setCancelReason('');
+                    Alert.alert('Cancelled', 'Your booking has been cancelled. Refund will be processed within 5-10 business days.');
+                  } catch (error) {
+                    console.error('Cancel error:', error);
+                    Alert.alert('Error', 'Failed to cancel booking. Please try again.');
+                  } finally {
+                    setIsCancelling(false);
+                  }
+                }}
+                disabled={isCancelling || !selectedCancelReason}>
+                {isCancelling ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={{color: '#FFFFFF', fontSize: 16, fontWeight: '600'}}>Cancel Job</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );

@@ -1132,7 +1132,7 @@ function JobDetailsContent() {
               onClick={() => setShowCancelModal(true)}
               className="w-full py-3.5 border-2 border-red-300 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors"
             >
-              Cancel Request
+              Cancel Job
             </button>
           )}
 
