@@ -34,7 +34,7 @@ const PasswordScreen = ({navigation, route}) => {
   const hasUppercase = /[A-Z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
-  const canContinue = hasMinLength && passwordsMatch;
+  const canContinue = hasMinLength && hasUppercase && hasNumber && passwordsMatch;
 
   const handleNext = () => {
     if (!canContinue) return;
@@ -104,8 +104,8 @@ const PasswordScreen = ({navigation, route}) => {
         <View style={styles.requirementsCard}>
           <Text style={styles.requirementsTitle}>Password Requirements</Text>
           <PasswordRequirement met={hasMinLength} text="At least 8 characters" />
-          <PasswordRequirement met={hasUppercase} text="One uppercase letter (recommended)" />
-          <PasswordRequirement met={hasNumber} text="One number (recommended)" />
+          <PasswordRequirement met={hasUppercase} text="One uppercase letter" />
+          <PasswordRequirement met={hasNumber} text="One number" />
         </View>
 
         {/* Confirm Password Input */}

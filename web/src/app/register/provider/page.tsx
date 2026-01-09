@@ -466,8 +466,16 @@ export default function ProviderRegistration() {
                /[A-Z]/.test(formData.password) && 
                /[0-9]/.test(formData.password) && 
                formData.password === formData.confirmPassword;
-      case 6: // Date of Birth
-        return formData.dateOfBirth.trim();
+      case 6: // Date of Birth - must be 18+
+        if (!formData.dateOfBirth.trim()) return false;
+        const birthDate = new Date(formData.dateOfBirth);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        return age >= 18;
       case 7: // Service Category
         return formData.serviceCategory.trim();
       case 8: // About Service with Pricing
@@ -940,6 +948,18 @@ export default function ProviderRegistration() {
         );
 
       case 6: // Date of Birth
+        const isUnder18 = (() => {
+          if (!formData.dateOfBirth) return false;
+          const birthDate = new Date(formData.dateOfBirth);
+          const today = new Date();
+          let age = today.getFullYear() - birthDate.getFullYear();
+          const monthDiff = today.getMonth() - birthDate.getMonth();
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+          }
+          return age < 18;
+        })();
+        
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
@@ -958,9 +978,17 @@ export default function ProviderRegistration() {
                 type="date"
                 value={formData.dateOfBirth}
                 onChange={(e) => updateForm('dateOfBirth', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${
+                  isUnder18 
+                    ? 'border-red-500 bg-red-50 focus:ring-red-500' 
+                    : 'border-gray-300 focus:ring-blue-500'
+                }`}
               />
-              <p className="text-sm text-gray-500 mt-2">You must be at least 18 years old to register as a provider.</p>
+              <p className={`text-sm mt-2 ${isUnder18 ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
+                {isUnder18 
+                  ? '⚠️ You must be at least 18 years old to register as a provider.' 
+                  : 'You must be at least 18 years old to register as a provider.'}
+              </p>
             </div>
           </div>
         );
