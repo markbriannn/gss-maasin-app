@@ -87,6 +87,8 @@ export default function ProviderDetailsPage() {
   const [stats, setStats] = useState({ completedJobs: 0, rating: 0, reviewCount: 0, responseTime: '' });
   const [isFavorite, setIsFavorite] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [hasActiveBooking, setHasActiveBooking] = useState(false);
+  const [activeBookingId, setActiveBookingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
@@ -99,6 +101,43 @@ export default function ProviderDetailsPage() {
     fetchProviderStats();
     fetchGamificationData();
   }, [providerId]);
+
+  // Check for active booking with this provider
+  useEffect(() => {
+    const checkActiveBooking = async () => {
+      if (!providerId || !user?.uid) return;
+      
+      try {
+        const activeStatuses = ['pending', 'confirmed', 'accepted', 'in_progress', 'on_the_way', 'arrived'];
+        const bookingsQuery = query(
+          collection(db, 'bookings'),
+          where('clientId', '==', user.uid),
+          where('providerId', '==', providerId)
+        );
+        const snap = await getDocs(bookingsQuery);
+        
+        let foundActiveBooking: { id: string } | null = null;
+        snap.forEach((docSnap) => {
+          const status = (docSnap.data().status || '').toLowerCase();
+          if (activeStatuses.includes(status)) {
+            foundActiveBooking = { id: docSnap.id };
+          }
+        });
+        
+        if (foundActiveBooking) {
+          setHasActiveBooking(true);
+          setActiveBookingId(foundActiveBooking.id);
+        } else {
+          setHasActiveBooking(false);
+          setActiveBookingId(null);
+        }
+      } catch (e) {
+        console.log('Error checking active booking:', e);
+      }
+    };
+    
+    checkActiveBooking();
+  }, [providerId, user?.uid]);
 
   const fetchProvider = async () => {
     try {
@@ -544,12 +583,21 @@ export default function ProviderDetailsPage() {
         {/* Bottom Action Bar */}
         <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-200 p-4 z-50">
           <div className="max-w-3xl mx-auto">
-            <Link
-              href={`/client/book?providerId=${provider.id}`}
-              className="block w-full py-4 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-2xl font-bold text-center text-lg shadow-lg shadow-green-200 hover:shadow-xl transition-all"
-            >
-              Contact Us
-            </Link>
+            {hasActiveBooking ? (
+              <Link
+                href={`/client/bookings/${activeBookingId}`}
+                className="block w-full py-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl font-bold text-center text-lg shadow-lg shadow-blue-200 hover:shadow-xl transition-all"
+              >
+                View Booking
+              </Link>
+            ) : (
+              <Link
+                href={`/client/book?providerId=${provider.id}`}
+                className="block w-full py-4 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-2xl font-bold text-center text-lg shadow-lg shadow-green-200 hover:shadow-xl transition-all"
+              >
+                Contact Us
+              </Link>
+            )}
           </div>
         </div>
 

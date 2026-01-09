@@ -977,6 +977,12 @@ router.post('/auto-refund/:bookingId', async (req, res) => {
 
     console.log(`Processing auto-refund for booking ${bookingId}: ₱${refundAmount}`);
 
+    // PayMongo only accepts these valid refund reasons: requested_by_customer, duplicate, fraudulent, others
+    // Map custom reasons to valid PayMongo reasons and store original in notes
+    const validPaymongoReasons = ['requested_by_customer', 'duplicate', 'fraudulent', 'others'];
+    const paymongoReason = validPaymongoReasons.includes(reason) ? reason : 'requested_by_customer';
+    const originalReason = reason || 'Booking cancelled';
+
     // Process refund via PayMongo
     const refundResponse = await axios.post(
       `${PAYMONGO_API}/refunds`,
@@ -985,8 +991,8 @@ router.post('/auto-refund/:bookingId', async (req, res) => {
           attributes: {
             amount: Math.round(refundAmount * 100), // Convert to centavos
             payment_id: paymentId,
-            reason: reason || 'requested_by_customer',
-            notes: `Auto-refund for cancelled booking. Cancelled by: ${cancelledBy || 'system'}`,
+            reason: paymongoReason,
+            notes: `Auto-refund for cancelled booking. Reason: ${originalReason}. Cancelled by: ${cancelledBy || 'system'}`,
           },
         },
       },
@@ -1003,6 +1009,7 @@ router.post('/auto-refund/:bookingId', async (req, res) => {
       refundAmount: refund.attributes.amount / 100,
       refundStatus: refund.attributes.status,
       paymentStatus: 'refunded',
+      cancelReason: originalReason,
     });
 
     // Update payment record

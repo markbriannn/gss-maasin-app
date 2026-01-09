@@ -513,10 +513,12 @@ const ClientHomeScreen = ({navigation}) => {
     isSelectingRef.current = true;
     
     try {
-      // If provider has active booking, always show modal with booking details
+      // If provider has active booking, show modal with booking details
       if (activeBookings[provider.id]) {
         setSelectedProvider(provider);
         setShowProviderModal(true);
+        // Reset the ref before returning
+        setTimeout(() => { isSelectingRef.current = false; }, 100);
         return;
       }
       
@@ -526,6 +528,8 @@ const ClientHomeScreen = ({navigation}) => {
         setSelectedProvider(null);
         setRouteCoordinates([]);
         setShowProviderModal(false);
+        // Reset the ref before returning
+        setTimeout(() => { isSelectingRef.current = false; }, 100);
         return;
       }
       
@@ -892,7 +896,14 @@ const ClientHomeScreen = ({navigation}) => {
             {/* Check if there's an active booking with this provider */}
             {activeBookings[selectedProvider?.id] ? (
               <>
-                <View style={styles.bookingStatusCard}>
+                <TouchableOpacity 
+                  style={styles.bookingStatusCard}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setShowProviderModal(false);
+                    setSelectedProvider(null);
+                    navigation.navigate('JobDetails', { jobId: activeBookings[selectedProvider.id].id });
+                  }}>
                   {/* Left side - Status info */}
                   <View style={{flex: 1}}>
                     <Text style={styles.bookingStatusTitle}>
@@ -932,24 +943,25 @@ const ClientHomeScreen = ({navigation}) => {
                           ? 'Provider will respond shortly...'
                           : 'Admin will review your booking shortly...'}
                       </Text>
-                      <TouchableOpacity 
-                        style={{flexDirection: 'row', alignItems: 'center'}}
-                        onPress={() => navigation.navigate('JobDetails', { jobId: activeBookings[selectedProvider.id].id })}>
+                      <View style={{flexDirection: 'row', alignItems: 'center'}}>
                         <Text style={{fontSize: 13, color: '#6B7280'}}>Tap for details</Text>
                         <Icon name="chevron-forward" size={16} color="#6B7280" />
-                      </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
                   
-                  {/* Right side - Provider photo (clickable) */}
+                  {/* Right side - Provider photo (clickable for profile) */}
                   <TouchableOpacity 
                     style={{marginLeft: 12}}
                     onPress={() => {
                       setShowProviderModal(false);
-                      navigation.navigate('ProviderProfile', {
-                        providerId: selectedProvider?.id,
-                        provider: selectedProvider,
-                      });
+                      // Use setTimeout to let modal close smoothly before navigating
+                      setTimeout(() => {
+                        navigation.navigate('ProviderProfile', {
+                          providerId: selectedProvider?.id,
+                          provider: selectedProvider,
+                        });
+                      }, 150);
                     }}>
                     <View style={styles.providerPhotoCircle}>
                       {selectedProvider?.profilePhoto ? (
@@ -964,7 +976,7 @@ const ClientHomeScreen = ({navigation}) => {
                       )}
                     </View>
                   </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
 
                 {/* Service Location */}
                 <View style={styles.modalLocationCard}>

@@ -8,7 +8,7 @@ import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import {
   ArrowLeft, Bell, CheckCircle, Car, MapPin, Wrench, CreditCard, DollarSign, Trophy, Tag, Briefcase,
-  UserPlus, FileText, CheckCheck, Sparkles, Filter, Clock
+  UserPlus, FileText, CheckCheck, Sparkles, Filter, Clock, XCircle, MessageCircle
 } from 'lucide-react';
 
 interface Notification {
@@ -29,6 +29,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   'checkmark-circle': CheckCircle, 'car': Car, 'location': MapPin, 'construct': Wrench,
   'checkmark-done': CheckCircle, 'card': CreditCard, 'cash': DollarSign, 'trophy': Trophy,
   'pricetag': Tag, 'briefcase': Briefcase, 'person-add': UserPlus, 'document-text': FileText,
+  'close-circle': XCircle, 'chatbubble': MessageCircle, 'notifications': Bell,
 };
 
 // Role-based gradient configs
@@ -137,6 +138,8 @@ export default function NotificationsPage() {
             'pending_payment': { icon: 'card', iconColor: '#3B82F6', title: 'Awaiting Payment', message: `Waiting for payment from ${data.clientName || 'client'}` },
             'payment_received': { icon: 'cash', iconColor: '#10B981', title: 'Payment Received!', message: `₱${(data.providerPrice || data.totalAmount || 0).toLocaleString()} received for ${data.serviceCategory || 'service'}` },
             'completed': { icon: 'trophy', iconColor: '#10B981', title: 'Job Completed!', message: `${data.serviceCategory || 'Service'} completed successfully` },
+            'cancelled': { icon: 'close-circle', iconColor: '#EF4444', title: 'Job Cancelled', message: `${data.clientName || 'Client'} cancelled the ${data.serviceCategory || 'service'} job${data.cancelReason ? `: ${data.cancelReason}` : ''}` },
+            'rejected': { icon: 'close-circle', iconColor: '#EF4444', title: 'Job Rejected', message: `${data.serviceCategory || 'Service'} job was rejected` },
           };
           const config = statusConfig[status];
           if (config) notificationsList.push({ id: notifId, type: 'my_job', ...config, time: formatTime(data.updatedAt || data.createdAt), read: currentReadIds.has(notifId), jobId: docSnap.id });
@@ -158,10 +161,46 @@ export default function NotificationsPage() {
             'payment_received': { icon: 'cash', iconColor: '#10B981', title: 'Payment Sent', message: `Your payment is being processed` },
             'counter_offer': { icon: 'pricetag', iconColor: '#EC4899', title: 'Counter Offer Received!', message: `Provider offers ₱${(data.counterOfferPrice || 0).toLocaleString()} - Tap to respond`, urgent: true },
             'completed': { icon: 'checkmark-circle', iconColor: '#10B981', title: 'Job Completed', message: `Your ${data.serviceCategory || 'service'} has been completed` },
+            'cancelled': { icon: 'close-circle', iconColor: '#EF4444', title: 'Job Cancelled', message: `Your ${data.serviceCategory || 'service'} request was cancelled${data.cancelReason ? `: ${data.cancelReason}` : ''}` },
+            'rejected': { icon: 'close-circle', iconColor: '#EF4444', title: 'Job Rejected', message: `Your ${data.serviceCategory || 'service'} request was rejected` },
           };
           const config = statusConfig[status];
           if (config) notificationsList.push({ id: notifId, type: status === 'counter_offer' ? 'counter_offer' : 'job', ...config, time: formatTime(data.updatedAt || data.createdAt), read: currentReadIds.has(notifId), jobId: docSnap.id });
         });
+      }
+
+      // Also fetch from notifications collection for custom notifications
+      try {
+        const notificationsQuery = query(collection(db, 'notifications'), where('targetUserId', '==', user.uid));
+        const notificationsSnapshot = await getDocs(notificationsQuery);
+        notificationsSnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const notifId = docSnap.id;
+          
+          const typeConfig: Record<string, { icon: string; iconColor: string }> = {
+            'job_cancelled': { icon: 'close-circle', iconColor: '#EF4444' },
+            'job_accepted': { icon: 'checkmark-circle', iconColor: '#10B981' },
+            'job_completed': { icon: 'trophy', iconColor: '#10B981' },
+            'new_message': { icon: 'chatbubble', iconColor: '#3B82F6' },
+            'payment_received': { icon: 'cash', iconColor: '#10B981' },
+          };
+          
+          const config = typeConfig[data.type] || { icon: 'notifications', iconColor: '#6B7280' };
+          
+          notificationsList.push({
+            id: notifId,
+            type: data.type || 'notification',
+            icon: config.icon,
+            iconColor: config.iconColor,
+            title: data.title || 'Notification',
+            message: data.message || '',
+            time: formatTime(data.createdAt),
+            read: data.read || currentReadIds.has(notifId),
+            jobId: data.jobId,
+          });
+        });
+      } catch (e) {
+        console.log('Notifications collection query error:', e);
       }
 
       notificationsList.sort((a, b) => { if (a.urgent && !b.urgent) return -1; if (!a.urgent && b.urgent) return 1; return 0; });

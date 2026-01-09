@@ -350,6 +350,8 @@ const NotificationsScreen = ({navigation}) => {
               'pending_payment': { icon: 'card', iconColor: '#3B82F6', title: 'Awaiting Payment', message: `Waiting for payment from ${data.clientName || 'client'}` },
               'payment_received': { icon: 'cash', iconColor: '#10B981', title: 'Payment Received!', message: `₱${(data.providerPrice || data.totalAmount || 0).toLocaleString()} received for ${data.serviceCategory || 'service'}` },
               'completed': { icon: 'trophy', iconColor: '#10B981', title: 'Job Completed!', message: `${data.serviceCategory || 'Service'} completed successfully` },
+              'cancelled': { icon: 'close-circle', iconColor: '#EF4444', title: 'Job Cancelled', message: `${data.clientName || 'Client'} cancelled the ${data.serviceCategory || 'service'} job${data.cancelReason ? `: ${data.cancelReason}` : ''}` },
+              'rejected': { icon: 'close-circle', iconColor: '#EF4444', title: 'Job Rejected', message: `${data.serviceCategory || 'Service'} job was rejected` },
             };
             
             const config = statusConfig[status];
@@ -395,6 +397,8 @@ const NotificationsScreen = ({navigation}) => {
             'payment_received': { icon: 'cash', iconColor: '#10B981', title: 'Payment Sent', message: `Your payment is being processed` },
             'counter_offer': { icon: 'pricetag', iconColor: '#EC4899', title: 'Counter Offer Received!', message: `Provider offers ₱${(data.counterOfferPrice || 0).toLocaleString()} - Tap to respond`, urgent: true },
             'completed': { icon: 'checkmark-circle', iconColor: '#10B981', title: 'Job Completed', message: `Your ${data.serviceCategory || 'service'} has been completed` },
+            'cancelled': { icon: 'close-circle', iconColor: '#EF4444', title: 'Job Cancelled', message: `Your ${data.serviceCategory || 'service'} request was cancelled${data.cancelReason ? `: ${data.cancelReason}` : ''}` },
+            'rejected': { icon: 'close-circle', iconColor: '#EF4444', title: 'Job Rejected', message: `Your ${data.serviceCategory || 'service'} request was rejected` },
           };
           
           const config = statusConfig[status];
@@ -414,6 +418,54 @@ const NotificationsScreen = ({navigation}) => {
           }
         });
       }
+
+      // Also fetch from notifications collection for custom notifications
+      try {
+        const notificationsQuery = query(
+          collection(db, 'notifications'),
+          where('targetUserId', '==', user.uid)
+        );
+        const notificationsSnapshot = await getDocs(notificationsQuery);
+        notificationsSnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const notifId = docSnap.id;
+          
+          // Skip if already deleted
+          if (currentDeletedIds.has(notifId)) return;
+          
+          // Map notification type to icon
+          const typeConfig = {
+            'job_cancelled': { icon: 'close-circle', iconColor: '#EF4444' },
+            'job_accepted': { icon: 'checkmark-circle', iconColor: '#10B981' },
+            'job_completed': { icon: 'trophy', iconColor: '#10B981' },
+            'new_message': { icon: 'chatbubble', iconColor: '#3B82F6' },
+            'payment_received': { icon: 'cash', iconColor: '#10B981' },
+          };
+          
+          const config = typeConfig[data.type] || { icon: 'notifications', iconColor: '#6B7280' };
+          
+          notificationsList.push({
+            id: notifId,
+            type: data.type || 'notification',
+            icon: config.icon,
+            iconColor: config.iconColor,
+            title: data.title || 'Notification',
+            message: data.message || '',
+            time: formatTime(data.createdAt),
+            read: data.read || currentReadIds.has(notifId),
+            jobId: data.jobId,
+          });
+        });
+      } catch (e) {
+        console.log('[NotificationsScreen] Notifications collection query error:', e.message);
+      }
+
+      // Sort by time (most recent first)
+      notificationsList.sort((a, b) => {
+        const timeA = a.time === 'Just now' ? 0 : parseInt(a.time) || 999;
+        const timeB = b.time === 'Just now' ? 0 : parseInt(b.time) || 999;
+        return timeA - timeB;
+      });
 
       setNotifications(notificationsList);
     } catch (error) {

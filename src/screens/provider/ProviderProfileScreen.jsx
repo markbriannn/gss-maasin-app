@@ -73,6 +73,8 @@ const ProviderProfileScreen = ({navigation, route}) => {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [gamificationData, setGamificationData] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [hasActiveBooking, setHasActiveBooking] = useState(false);
+  const [activeBookingId, setActiveBookingId] = useState(null);
   // Use providerId from params, or passedProvider.id, or fallback to current user (for provider viewing own profile)
   const fallbackProviderId = providerId || passedProvider?.id || user?.uid;
   const viewingSelf = provider?.id && user?.uid && provider.id === user.uid;
@@ -121,6 +123,42 @@ const ProviderProfileScreen = ({navigation, route}) => {
     fetchProviderStats(targetProviderId);
     fetchGamificationData(targetProviderId);
   }, [provider?.id, fallbackProviderId]);
+
+  // Check for active booking with this provider
+  useEffect(() => {
+    const checkActiveBooking = async () => {
+      const targetProviderId = provider?.id || fallbackProviderId;
+      if (!targetProviderId || !user?.uid) return;
+      
+      try {
+        // Check for active bookings (pending, confirmed, in_progress, etc.)
+        const activeStatuses = ['pending', 'confirmed', 'accepted', 'in_progress', 'on_the_way', 'arrived'];
+        const q = query(
+          collection(db, 'bookings'),
+          where('clientId', '==', user.uid),
+          where('providerId', '==', targetProviderId)
+        );
+        const snap = await getDocs(q);
+        
+        const activeBooking = snap.docs.find(d => {
+          const status = d.data().status?.toLowerCase();
+          return activeStatuses.includes(status);
+        });
+        
+        if (activeBooking) {
+          setHasActiveBooking(true);
+          setActiveBookingId(activeBooking.id);
+        } else {
+          setHasActiveBooking(false);
+          setActiveBookingId(null);
+        }
+      } catch (e) {
+        console.log('Error checking active booking:', e);
+      }
+    };
+    
+    checkActiveBooking();
+  }, [provider?.id, fallbackProviderId, user?.uid]);
 
   const fetchGamificationData = async (pid) => {
     if (!pid) return;
@@ -642,6 +680,13 @@ const ProviderProfileScreen = ({navigation, route}) => {
                 <Icon name="ban" size={18} color="#FFFFFF" style={{marginRight: 6}} />
                 <Text style={styles.hireButtonText}>Provider Suspended</Text>
               </View>
+            ) : hasActiveBooking ? (
+              <TouchableOpacity 
+                style={[styles.hireButton, {backgroundColor: '#3B82F6', flexDirection: 'row', justifyContent: 'center'}]}
+                onPress={() => navigation.navigate('JobDetails', { jobId: activeBookingId })}>
+                <Icon name="document-text" size={18} color="#FFFFFF" style={{marginRight: 6}} />
+                <Text style={styles.hireButtonText}>View Booking</Text>
+              </TouchableOpacity>
             ) : (
               <TouchableOpacity 
                 style={styles.hireButton}
