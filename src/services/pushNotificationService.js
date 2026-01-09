@@ -48,9 +48,15 @@ class PushNotificationService {
   }
 
   // Get FCM token for this device
-  async getToken(retryCount = 0) {
+  async getToken() {
     try {
-      const token = await messaging().getToken();
+      // Add timeout to prevent blocking - 3 seconds max
+      const tokenPromise = messaging().getToken();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('FCM_TIMEOUT')), 3000)
+      );
+      
+      const token = await Promise.race([tokenPromise, timeoutPromise]);
       console.log('FCM Token obtained successfully');
       
       // Store locally
@@ -58,23 +64,16 @@ class PushNotificationService {
       
       return token;
     } catch (error) {
-      // Handle SERVICE_NOT_AVAILABLE gracefully - common on emulators without Google Play
+      // Handle all FCM errors gracefully - don't block login
       const errorMessage = error?.message || '';
-      if (errorMessage.includes('SERVICE_NOT_AVAILABLE') || errorMessage.includes('UNAVAILABLE')) {
-        // Only log once, not on retries
-        if (retryCount === 0) {
-          console.log('FCM: Google Play Services not available. Push notifications disabled.');
-        }
-        // Retry up to 2 times with delay (service might become available)
-        if (retryCount < 2) {
-          await new Promise(resolve => setTimeout(resolve, 3000));
-          return this.getToken(retryCount + 1);
-        }
+      if (errorMessage.includes('SERVICE_NOT_AVAILABLE') || 
+          errorMessage.includes('UNAVAILABLE') ||
+          errorMessage.includes('FCM_TIMEOUT')) {
+        console.log('FCM: Push notifications unavailable or timed out');
         return null;
       }
       
-      // Log other errors normally
-      console.warn('FCM token error:', error?.code || error?.message || 'Unknown error');
+      console.log('FCM token error (non-blocking):', error?.code || error?.message || 'Unknown');
       return null;
     }
   }

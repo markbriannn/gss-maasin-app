@@ -14,53 +14,52 @@ export const PushNotificationProvider = ({children}) => {
   const [fcmToken, setFcmToken] = useState(null);
   const navigationRef = useRef(null);
 
-  // Initialize push notifications when user logs in
+  // Initialize push notifications when user logs in (non-blocking)
   useEffect(() => {
     if (isAuthenticated && user?.uid) {
-      initializePushNotifications();
+      // Run in background - don't block the UI
+      initializePushNotifications().catch(err => {
+        console.log('Push notification init skipped:', err?.message);
+      });
     }
   }, [isAuthenticated, user?.uid]);
 
   const initializePushNotifications = async () => {
     try {
-      // Request permission
+      // Request permission (quick operation)
       const granted = await pushNotificationService.requestPermission();
       setPermissionGranted(granted);
 
-      if (granted) {
-        // Get and save token
-        const token = await pushNotificationService.getToken();
-        setFcmToken(token);
-        
-        // Only proceed with FCM setup if token was obtained
-        if (token) {
-          // Save to user's Firestore document
-          await pushNotificationService.saveTokenToUser(user.uid);
+      if (!granted) return;
 
-          // Listen for token refresh
-          const unsubscribeTokenRefresh = pushNotificationService.onTokenRefresh(user.uid);
-
-          // Handle notification tap from background
-          pushNotificationService.onNotificationOpenedApp(handleNotificationTap);
-
-          // Check if app was opened from notification
-          const initialNotification = await pushNotificationService.getInitialNotification();
-          if (initialNotification) {
-            // Small delay to ensure navigation is ready
-            setTimeout(() => handleNotificationTap(initialNotification), 1000);
-          }
-
-          return () => {
-            unsubscribeTokenRefresh();
-          };
-        } else {
-          // FCM not available (emulator without Google Play Services)
-          console.log('Push notifications unavailable - app will use in-app notifications only');
-        }
+      // Get token with timeout - don't block if slow
+      const token = await pushNotificationService.getToken();
+      setFcmToken(token);
+      
+      if (!token) {
+        console.log('Push notifications unavailable - using in-app notifications only');
+        return;
       }
+
+      // Save token to Firestore in background (don't await)
+      pushNotificationService.saveTokenToUser(user.uid).catch(() => {});
+
+      // Set up listeners
+      const unsubscribeTokenRefresh = pushNotificationService.onTokenRefresh(user.uid);
+      pushNotificationService.onNotificationOpenedApp(handleNotificationTap);
+
+      // Check initial notification
+      const initialNotification = await pushNotificationService.getInitialNotification();
+      if (initialNotification) {
+        setTimeout(() => handleNotificationTap(initialNotification), 1000);
+      }
+
+      return () => {
+        unsubscribeTokenRefresh();
+      };
     } catch (error) {
-      // Silently handle - push notifications are optional
-      console.log('Push notifications setup skipped:', error?.message || 'Unknown error');
+      // Silent fail - push notifications are optional
+      console.log('Push setup skipped:', error?.message);
     }
   };
 

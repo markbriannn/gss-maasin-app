@@ -130,41 +130,37 @@ class NotificationService {
         return null;
       }
 
+      // First check if we have a cached token
       let fcmToken = await AsyncStorage.getItem(FCM_TOKEN_KEY);
       
-      if (!fcmToken) {
-        // Add timeout to prevent hanging
-        const tokenPromise = messaging().getToken();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('FCM token timeout')), 10000)
-        );
-        
-        try {
-          fcmToken = await Promise.race([tokenPromise, timeoutPromise]);
-          if (fcmToken) {
-            await AsyncStorage.setItem(FCM_TOKEN_KEY, fcmToken);
-          }
-        } catch (tokenError) {
-          // Handle specific FCM errors gracefully
-          if (tokenError.message?.includes('SERVICE_NOT_AVAILABLE') || 
-              tokenError.message?.includes('timeout')) {
-            console.log('[FCM] Google Play Services unavailable - push notifications disabled');
-            return null;
-          }
-          throw tokenError;
+      if (fcmToken) {
+        this.fcmToken = fcmToken;
+        console.log('[FCM] Using cached token');
+        return fcmToken;
+      }
+      
+      // Get new token with short timeout (3 seconds) to not block login
+      const tokenPromise = messaging().getToken();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('FCM token timeout')), 3000)
+      );
+      
+      try {
+        fcmToken = await Promise.race([tokenPromise, timeoutPromise]);
+        if (fcmToken) {
+          await AsyncStorage.setItem(FCM_TOKEN_KEY, fcmToken);
         }
+      } catch (tokenError) {
+        // Handle FCM errors gracefully - don't block login
+        console.log('[FCM] Token fetch skipped:', tokenError.message);
+        return null;
       }
       
       this.fcmToken = fcmToken;
       console.log('[FCM] Token obtained successfully');
       return fcmToken;
     } catch (error) {
-      // Don't log as error if it's just unavailable services
-      if (error.message?.includes('SERVICE_NOT_AVAILABLE')) {
-        console.log('[FCM] Push notifications unavailable on this device');
-      } else {
-        console.log('[FCM] Token error (non-critical):', error.message);
-      }
+      console.log('[FCM] Token error (non-blocking):', error.message);
       return null;
     }
   }
