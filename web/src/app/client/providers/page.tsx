@@ -9,7 +9,7 @@ import ClientLayout from '@/components/layouts/ClientLayout';
 import Image from 'next/image';
 import { 
   Search, Star, MapPin, CheckCircle, Zap, Droplets, Hammer, Sparkles, 
-  Grid3X3, Heart, MessageCircle, Clock, Award, TrendingUp,
+  Grid3X3, Heart, Clock, Award, TrendingUp,
   ChevronDown, X, Flame, Crown, ArrowRight, Shield, Users,
   Eye, Navigation, Wifi, WifiOff, SlidersHorizontal, LayoutGrid, List,
   BadgeCheck, Timer, Verified
@@ -841,13 +841,6 @@ export default function ProvidersPage() {
 
                     {/* Hover Quick Actions */}
                     <div className={`absolute bottom-28 left-5 right-5 flex gap-2 transition-all duration-300 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); router.push(`/chat/new?providerId=${provider.id}`); }}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white/95 backdrop-blur-sm rounded-xl text-gray-700 font-medium hover:bg-white transition-colors shadow-lg border border-gray-100"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                        <span>Message</span>
-                      </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); setQuickViewProvider(provider); }}
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white/95 backdrop-blur-sm rounded-xl text-gray-700 font-medium hover:bg-white transition-colors shadow-lg border border-gray-100"
