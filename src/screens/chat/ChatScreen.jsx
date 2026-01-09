@@ -34,7 +34,6 @@ import {
 import {attemptMessage} from '../../utils/rateLimiter';
 import {db} from '../../config/firebase';
 import {doc, getDoc, updateDoc} from 'firebase/firestore';
-import {doc, getDoc} from 'firebase/firestore';
 
 const ChatScreen = ({route, navigation}) => {
   const {user} = useAuth();

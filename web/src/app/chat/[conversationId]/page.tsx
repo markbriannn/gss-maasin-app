@@ -361,7 +361,6 @@ export default function ChatPage() {
               console.log('[Chat] Skipping invalid conversation:', docSnap.id, '- missing participant');
             }
           });
-          });
 
           // Use exact match if found, otherwise use fallback
           if (existingConvId) {
