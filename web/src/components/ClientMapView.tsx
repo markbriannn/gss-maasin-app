@@ -213,20 +213,30 @@ export default function ClientMapView({ providers, userLocation, center, onProvi
       {/* Provider markers */}
       {providers.map((provider) => {
         if (!provider.latitude || !provider.longitude) return null;
+        const isSelected = selectedProviderId === provider.id;
         
         return (
           <Marker
             key={provider.id}
             position={[provider.latitude, provider.longitude]}
             icon={providerIcons[provider.id]}
+            zIndexOffset={isSelected ? 1000 : 0}
             eventHandlers={{
-              click: () => onProviderClick(provider.id),
+              click: (e) => {
+                // Prevent popup from interfering
+                e.originalEvent.stopPropagation();
+                onProviderClick(provider.id);
+              },
             }}
           >
-            <Popup>
-              <div className="text-center">
+            <Popup closeOnClick={true} autoClose={true}>
+              <div 
+                className="text-center cursor-pointer min-w-[120px]"
+                onClick={() => onProviderClick(provider.id)}
+              >
                 <p className="font-semibold">{provider.firstName} {provider.lastName}</p>
                 <p className="text-sm text-gray-500">{provider.serviceCategory}</p>
+                <p className="text-xs text-emerald-600 mt-1 font-medium">Tap to select</p>
               </div>
             </Popup>
           </Marker>

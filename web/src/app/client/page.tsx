@@ -390,6 +390,13 @@ export default function ClientDashboard() {
   };
 
   const handleProviderSelectFromList = (provider: Provider) => {
+    // If clicking the same provider, deselect (toggle off)
+    if (selectedProvider?.id === provider.id) {
+      setSelectedProvider(null);
+      setActiveBooking(null);
+      return;
+    }
+    
     setSelectedProvider(provider);
     if (provider.latitude && provider.longitude) {
       setMapCenter({ lat: provider.latitude, lng: provider.longitude });

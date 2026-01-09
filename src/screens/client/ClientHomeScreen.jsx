@@ -583,20 +583,29 @@ const ClientHomeScreen = ({navigation}) => {
                 identifier={p.id}
                 coordinate={{latitude: p.latitude, longitude: p.longitude}}
                 onPress={() => handleSelectProvider(p, true)}
-                tracksViewChanges={false}>
-                <View style={[styles.marker, isSelected && styles.markerSelected]}>
-                  {p.profilePhoto ? (
-                    <Image 
-                      source={{uri: p.profilePhoto}} 
-                      style={styles.markerImg}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <Text style={styles.markerInitial}>
-                      {p.name?.charAt(0)?.toUpperCase() || 'P'}
-                    </Text>
-                  )}
-                </View>
+                tracksViewChanges={false}
+                stopPropagation={true}
+                zIndex={isSelected ? 999 : 1}
+                anchor={{x: 0.5, y: 0.5}}>
+                <TouchableOpacity 
+                  activeOpacity={0.8}
+                  onPress={() => handleSelectProvider(p, true)}
+                  hitSlop={{top: 15, bottom: 15, left: 15, right: 15}}
+                  style={{padding: 5}}>
+                  <View style={[styles.marker, isSelected && styles.markerSelected]}>
+                    {p.profilePhoto ? (
+                      <Image 
+                        source={{uri: p.profilePhoto}} 
+                        style={styles.markerImg}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Text style={styles.markerInitial}>
+                        {p.name?.charAt(0)?.toUpperCase() || 'P'}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
               </Marker>
             );
           })}
