@@ -45,7 +45,11 @@ export const getOrCreateConversation = async (
 
     snapshot.forEach((doc) => {
       const data = doc.data();
-      if (data.participants.includes(userId2)) {
+      // IMPORTANT: Verify BOTH participants are in the array to ensure conversation is valid
+      const hasUser1 = data.participants?.includes(userId1);
+      const hasUser2 = data.participants?.includes(userId2);
+      
+      if (hasUser1 && hasUser2) {
         // Priority 1: Exact match with jobId (if specified)
         if (jobId && data.jobId === jobId) {
           existingConversation = {id: doc.id, ...data};

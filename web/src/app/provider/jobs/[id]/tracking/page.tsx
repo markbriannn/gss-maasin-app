@@ -329,7 +329,7 @@ export default function ProviderTrackingPage() {
           )}
 
           <button
-            onClick={() => router.push(`/chat/${job.clientId}_${user?.uid}`)}
+            onClick={() => router.push(`/chat/new?recipientId=${job.clientId}&jobId=${jobId}`)}
             className="w-full border border-green-500 text-green-500 py-3 rounded-lg hover:bg-green-50"
           >
             💬 Message Client

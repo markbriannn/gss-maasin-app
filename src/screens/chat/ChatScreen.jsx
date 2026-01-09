@@ -33,6 +33,7 @@ import {
 } from '../../services/messageService';
 import {attemptMessage} from '../../utils/rateLimiter';
 import {db} from '../../config/firebase';
+import {doc, getDoc, updateDoc} from 'firebase/firestore';
 import {doc, getDoc} from 'firebase/firestore';
 
 const ChatScreen = ({route, navigation}) => {
@@ -179,6 +180,28 @@ const ChatScreen = ({route, navigation}) => {
     const initConversation = async () => {
       try {
         if (existingConversationId) {
+          // FIX: Check if current user is in participants, if not add them
+          try {
+            const convDoc = await getDoc(doc(db, 'conversations', existingConversationId));
+            if (convDoc.exists()) {
+              const convData = convDoc.data();
+              const participants = convData.participants || [];
+              
+              if (!participants.includes(user?.uid) && user?.uid) {
+                console.log('[Chat Mobile] FIXING broken conversation - adding current user to participants');
+                console.log('[Chat Mobile] Old participants:', participants);
+                const newParticipants = [...participants, user.uid];
+                console.log('[Chat Mobile] New participants:', newParticipants);
+                await updateDoc(doc(db, 'conversations', existingConversationId), {
+                  participants: newParticipants,
+                  [`unreadCount.${user.uid}`]: 0,
+                });
+              }
+            }
+          } catch (fixError) {
+            console.log('[Chat Mobile] Error fixing conversation:', fixError);
+          }
+          
           setConversationId(existingConversationId);
           setLoading(false);
           return;

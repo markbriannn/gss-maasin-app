@@ -439,7 +439,7 @@ export default function BookingsPage() {
                             <span>Call Provider</span>
                           </button>
                           <button
-                            onClick={(e) => { e.stopPropagation(); router.push(`/chat/${job.providerId}`); }}
+                            onClick={(e) => { e.stopPropagation(); router.push(`/chat/new?recipientId=${job.providerId}&jobId=${job.id}`); }}
                             className="flex-1 flex items-center justify-center gap-2 py-3 bg-gray-50 rounded-xl text-gray-700 font-semibold hover:bg-gray-100 transition-colors"
                           >
                             <MessageCircle className="w-5 h-5" />

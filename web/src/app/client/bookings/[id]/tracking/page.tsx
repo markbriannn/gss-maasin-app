@@ -265,7 +265,7 @@ export default function JobTrackingPage() {
               Call
             </a>
             <button
-              onClick={() => router.push(`/chat/${job.id}`)}
+              onClick={() => router.push(`/chat/new?recipientId=${job.providerId}&jobId=${job.id}`)}
               className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

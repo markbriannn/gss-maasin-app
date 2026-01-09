@@ -269,40 +269,8 @@ export default function ProviderJobDetailsPage() {
 
   const handleStartChat = async (clientId: string) => {
     if (!user?.uid || !clientId) return;
-    try {
-      // Check if conversation already exists
-      const conversationsQuery = query(
-        collection(db, 'conversations'),
-        where('participants', 'array-contains', user.uid)
-      );
-      const snapshot = await getDocs(conversationsQuery);
-      let existingConversationId: string | null = null;
-      
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        if (data.participants?.includes(clientId)) {
-          existingConversationId = docSnap.id;
-        }
-      });
-
-      if (existingConversationId) {
-        router.push(`/chat/${existingConversationId}`);
-      } else {
-        // Create new conversation
-        const newConversation = await addDoc(collection(db, 'conversations'), {
-          participants: [user.uid, clientId],
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          lastMessage: '',
-          lastMessageTime: serverTimestamp(),
-          jobId: jobId,
-        });
-        router.push(`/chat/${newConversation.id}`);
-      }
-    } catch (error) {
-      console.error('Error starting chat:', error);
-      alert('Failed to start chat');
-    }
+    // Use the new chat URL format that properly finds or creates conversations
+    router.push(`/chat/new?recipientId=${clientId}&jobId=${jobId}`);
   };
   
   const handleMarkDone = async () => {

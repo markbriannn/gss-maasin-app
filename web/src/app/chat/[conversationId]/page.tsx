@@ -236,7 +236,21 @@ export default function ChatPage() {
           const convDoc = await getDoc(doc(db, 'conversations', conversationIdParam));
           if (convDoc.exists()) {
             const convData = convDoc.data();
-            const otherUserId = convData.participants?.find((p: string) => p !== user.uid);
+            const participants = convData.participants || [];
+            
+            // FIX: If current user is not in participants, add them (fixes broken conversations)
+            if (!participants.includes(user.uid)) {
+              console.log('[Chat] FIXING broken conversation - adding current user to participants');
+              console.log('[Chat] Old participants:', participants);
+              const newParticipants = [...participants, user.uid];
+              console.log('[Chat] New participants:', newParticipants);
+              await updateDoc(doc(db, 'conversations', conversationIdParam), {
+                participants: newParticipants,
+                [`unreadCount.${user.uid}`]: 0,
+              });
+            }
+            
+            const otherUserId = participants.find((p: string) => p !== user.uid);
             if (otherUserId) {
               const userDoc = await getDoc(doc(db, 'users', otherUserId));
               if (userDoc.exists()) {
@@ -314,13 +328,25 @@ export default function ChatPage() {
           let existingConvId: string | null = null;
           let fallbackConvId: string | null = null;
           
-          console.log('[Chat] Looking for existing conversation with:', actualRecipientId, 'jobId:', jobId);
+          console.log('[Chat] Current user ID:', user.uid);
+          console.log('[Chat] Looking for existing conversation with recipient:', actualRecipientId, 'jobId:', jobId);
           console.log('[Chat] Found', convSnapshot.docs.length, 'conversations for user');
           
           convSnapshot.forEach((docSnap) => {
             const data = docSnap.data();
-            if (data.participants?.includes(actualRecipientId)) {
-              console.log('[Chat] Found conversation:', docSnap.id, 'jobId:', data.jobId);
+            // IMPORTANT: Verify BOTH participants are in the array to ensure conversation is valid
+            const hasCurrentUser = data.participants?.includes(user.uid);
+            const hasRecipient = data.participants?.includes(actualRecipientId);
+            
+            console.log('[Chat] Checking conversation:', docSnap.id, {
+              participants: data.participants,
+              hasCurrentUser,
+              hasRecipient,
+              jobId: data.jobId
+            });
+            
+            if (hasCurrentUser && hasRecipient) {
+              console.log('[Chat] Found valid conversation:', docSnap.id);
               // Priority 1: Match by jobId if specified
               if (jobId && data.jobId === jobId) {
                 console.log('[Chat] Exact jobId match found:', docSnap.id);
@@ -331,7 +357,10 @@ export default function ChatPage() {
               if (!fallbackConvId) {
                 fallbackConvId = docSnap.id;
               }
+            } else {
+              console.log('[Chat] Skipping invalid conversation:', docSnap.id, '- missing participant');
             }
+          });
           });
 
           // Use exact match if found, otherwise use fallback
@@ -442,10 +471,15 @@ export default function ChatPage() {
       if (!convId) {
         const actualRecipientId = recipient?.id || resolvedRecipientIdRef.current;
         if (!actualRecipientId) {
-          console.error('[Chat] No recipient ID available');
+          console.error('[Chat] No recipient ID available - recipient:', recipient, 'ref:', resolvedRecipientIdRef.current);
           throw new Error('No recipient ID');
         }
-        console.log('[Chat] Creating new conversation between', user.uid, 'and', actualRecipientId);
+        console.log('[Chat] Creating new conversation:');
+        console.log('[Chat] - Current user (sender):', user.uid);
+        console.log('[Chat] - Recipient ID:', actualRecipientId);
+        console.log('[Chat] - Job ID:', jobId);
+        console.log('[Chat] - Participants array will be:', [user.uid, actualRecipientId]);
+        
         const convRef = await addDoc(collection(db, 'conversations'), {
           participants: [user.uid, actualRecipientId],
           createdAt: serverTimestamp(),
@@ -460,7 +494,7 @@ export default function ChatPage() {
           },
         });
         convId = convRef.id;
-        console.log('[Chat] Created new conversation:', convId);
+        console.log('[Chat] Created new conversation with ID:', convId);
         setConversationId(convId);
       }
 
