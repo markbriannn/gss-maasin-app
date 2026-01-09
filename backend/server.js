@@ -34,6 +34,78 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Directions API endpoint - uses Google Directions API
+app.get('/api/directions', async (req, res) => {
+  try {
+    const { originLat, originLng, destLat, destLng } = req.query;
+    
+    if (!originLat || !originLng || !destLat || !destLng) {
+      return res.status(400).json({ error: 'Missing coordinates' });
+    }
+    
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyBpGzpP1vVxZBIsw6gzkUPPDABSl8FktL4';
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${originLat},${originLng}&destination=${destLat},${destLng}&key=${apiKey}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.status === 'OK' && data.routes?.[0]?.overview_polyline?.points) {
+      // Decode polyline
+      const encoded = data.routes[0].overview_polyline.points;
+      const points = [];
+      let index = 0, lat = 0, lng = 0;
+      
+      while (index < encoded.length) {
+        let b, shift = 0, result = 0;
+        do {
+          b = encoded.charCodeAt(index++) - 63;
+          result |= (b & 0x1f) << shift;
+          shift += 5;
+        } while (b >= 0x20);
+        const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lat += dlat;
+        
+        shift = 0;
+        result = 0;
+        do {
+          b = encoded.charCodeAt(index++) - 63;
+          result |= (b & 0x1f) << shift;
+          shift += 5;
+        } while (b >= 0x20);
+        const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lng += dlng;
+        
+        points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
+      }
+      
+      return res.json({ 
+        success: true, 
+        coordinates: points,
+        duration: data.routes[0].legs?.[0]?.duration?.text,
+        distance: data.routes[0].legs?.[0]?.distance?.text
+      });
+    }
+    
+    // Fallback to straight line
+    res.json({ 
+      success: true, 
+      coordinates: [
+        { latitude: parseFloat(originLat), longitude: parseFloat(originLng) },
+        { latitude: parseFloat(destLat), longitude: parseFloat(destLng) }
+      ]
+    });
+  } catch (error) {
+    console.error('Directions API error:', error);
+    res.json({ 
+      success: true, 
+      coordinates: [
+        { latitude: parseFloat(req.query.originLat), longitude: parseFloat(req.query.originLng) },
+        { latitude: parseFloat(req.query.destLat), longitude: parseFloat(req.query.destLng) }
+      ]
+    });
+  }
+});
+
 // Payment redirect pages (for GCash/Maya after payment)
 app.get('/payment/success', (req, res) => {
   const { bookingId } = req.query;

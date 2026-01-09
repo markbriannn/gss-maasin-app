@@ -96,7 +96,7 @@ const decodePolyline = (encoded) => {
   return points;
 };
 
-// Fetch directions - use OSRM (works from client-side)
+// Fetch directions - use Google Directions API
 const fetchDirections = async (origin, destination) => {
   // Validate inputs
   if (!origin?.latitude || !origin?.longitude || 
@@ -105,33 +105,115 @@ const fetchDirections = async (origin, destination) => {
   }
 
   try {
-    // Use OSRM - it's free and works from client-side
-    const url = `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}?overview=full&geometries=geojson`;
+    // Try Google Directions API directly
+    const apiKey = GOOGLE_MAPS_API_KEY;
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&key=${apiKey}`;
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     
     const response = await fetch(url, { signal: controller.signal });
     clearTimeout(timeoutId);
     
     const data = await response.json();
     
-    if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates) {
-      const points = data.routes[0].geometry.coordinates.map(coord => ({
-        latitude: coord[1],
-        longitude: coord[0],
-      }));
+    if (data.status === 'OK' && data.routes?.[0]?.overview_polyline?.points) {
+      // Decode polyline
+      const encoded = data.routes[0].overview_polyline.points;
+      const points = [];
+      let index = 0, lat = 0, lng = 0;
+      
+      while (index < encoded.length) {
+        let b, shift = 0, result = 0;
+        do {
+          b = encoded.charCodeAt(index++) - 63;
+          result |= (b & 0x1f) << shift;
+          shift += 5;
+        } while (b >= 0x20);
+        const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lat += dlat;
+        
+        shift = 0;
+        result = 0;
+        do {
+          b = encoded.charCodeAt(index++) - 63;
+          result |= (b & 0x1f) << shift;
+          shift += 5;
+        } while (b >= 0x20);
+        const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lng += dlng;
+        
+        points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
+      }
+      
       if (points.length > 1) {
         return points;
       }
     }
   } catch (e) {
-    console.log('OSRM error:', e.message);
+    // Silent fail
   }
 
   // Fallback - return straight line
-  return [origin, destination];
+  return [
+    {latitude: origin.latitude, longitude: origin.longitude},
+    {latitude: destination.latitude, longitude: destination.longitude}
+  ];
 };
+
+// Custom Provider Marker that tracks view changes until image loads
+const ProviderMarker = memo(({provider, isSelected, onPress}) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const isPressingRef = useRef(false);
+  
+  const handlePress = useCallback(() => {
+    // Prevent double-tap crashes
+    if (isPressingRef.current) return;
+    isPressingRef.current = true;
+    
+    onPress(provider, true);
+    
+    // Reset after delay
+    setTimeout(() => {
+      isPressingRef.current = false;
+    }, 500);
+  }, [provider, onPress]);
+  
+  return (
+    <Marker
+      identifier={provider.id}
+      coordinate={{latitude: provider.latitude, longitude: provider.longitude}}
+      onPress={handlePress}
+      tracksViewChanges={!imageLoaded}
+      zIndex={isSelected ? 999 : 1}
+      anchor={{x: 0.5, y: 0.5}}>
+      <View style={{padding: 5}}>
+        <View style={[markerStyles.marker, isSelected && markerStyles.markerSelected]}>
+          {provider.profilePhoto ? (
+            <FastImage 
+              source={{uri: provider.profilePhoto, priority: FastImage.priority.high}} 
+              style={markerStyles.markerImg}
+              resizeMode={FastImage.resizeMode.cover}
+              onLoad={() => setImageLoaded(true)}
+            />
+          ) : (
+            <Text style={markerStyles.markerInitial}>
+              {provider.name?.charAt(0)?.toUpperCase() || 'P'}
+            </Text>
+          )}
+        </View>
+      </View>
+    </Marker>
+  );
+});
+
+// Marker styles (separate to avoid recreation)
+const markerStyles = StyleSheet.create({
+  marker: {width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#00B14F', overflow: 'hidden'},
+  markerSelected: {borderColor: '#00B14F', borderWidth: 4, transform: [{scale: 1.15}]},
+  markerImg: {width: 38, height: 38, borderRadius: 19},
+  markerInitial: {fontSize: 18, fontWeight: '700', color: '#00B14F'},
+});
 
 // Animated Progress Bar Component
 const AnimatedProgressBar = () => {
@@ -226,6 +308,7 @@ const ClientHomeScreen = ({navigation}) => {
   const isSelectingRef = useRef(false); // Prevent double-tap crashes
   
   const [providers, setProviders] = useState([]);
+  const [isLoadingProviders, setIsLoadingProviders] = useState(true); // Loading state
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [activeFilter, setActiveFilter] = useState('recommended');
   const [selectedProvider, setSelectedProvider] = useState(null);
@@ -381,6 +464,7 @@ const ClientHomeScreen = ({navigation}) => {
 
   // Real-time providers
   useEffect(() => {
+    setIsLoadingProviders(true); // Start loading
     const q = query(collection(db, 'users'), where('role', '==', 'PROVIDER'));
     const unsub = onSnapshot(q, (snap) => {
       const list = [];
@@ -418,6 +502,7 @@ const ClientHomeScreen = ({navigation}) => {
       });
       
       setProviders(list);
+      setIsLoadingProviders(false); // Done loading
     });
     return () => unsub();
   }, [selectedCategory, userLocation, activeFilter, refreshKey]);
@@ -450,30 +535,42 @@ const ClientHomeScreen = ({navigation}) => {
       // Always show modal when selecting a provider (from card or marker)
       setShowProviderModal(true);
       
-      // Fit map to show both user and provider
+      // When clicking from map marker, just center on provider (don't zoom out)
+      // When clicking from card, fit to show both user and provider
       if (mapRef.current && provider.latitude && provider.longitude) {
-        const coords = [
-          {
-            latitude: userLocation?.latitude || region.latitude, 
-            longitude: userLocation?.longitude || region.longitude
-          },
-          {
-            latitude: provider.latitude, 
-            longitude: provider.longitude
+        if (fromMarker) {
+          // Just animate to provider location without changing zoom
+          mapRef.current.animateToRegion({
+            latitude: provider.latitude,
+            longitude: provider.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }, 300);
+        } else {
+          // From card - fit to show both user and provider
+          const coords = [
+            {
+              latitude: userLocation?.latitude || region.latitude, 
+              longitude: userLocation?.longitude || region.longitude
+            },
+            {
+              latitude: provider.latitude, 
+              longitude: provider.longitude
+            }
+          ];
+          
+          // Validate coordinates before fitting
+          const validCoords = coords.filter(c => 
+            c.latitude && c.longitude && 
+            !isNaN(c.latitude) && !isNaN(c.longitude)
+          );
+          
+          if (validCoords.length === 2) {
+            mapRef.current.fitToCoordinates(validCoords, {
+              edgePadding: {top: 100, right: 50, bottom: 50, left: 50}, 
+              animated: true
+            });
           }
-        ];
-        
-        // Validate coordinates before fitting
-        const validCoords = coords.filter(c => 
-          c.latitude && c.longitude && 
-          !isNaN(c.latitude) && !isNaN(c.longitude)
-        );
-        
-        if (validCoords.length === 2) {
-          mapRef.current.fitToCoordinates(validCoords, {
-            edgePadding: {top: 100, right: 50, bottom: 50, left: 50}, 
-            animated: true
-          });
         }
       }
       
@@ -578,35 +675,12 @@ const ClientHomeScreen = ({navigation}) => {
             }
             const isSelected = selectedProvider?.id === p.id;
             return (
-              <Marker
+              <ProviderMarker
                 key={p.id}
-                identifier={p.id}
-                coordinate={{latitude: p.latitude, longitude: p.longitude}}
-                onPress={() => handleSelectProvider(p, true)}
-                tracksViewChanges={false}
-                stopPropagation={true}
-                zIndex={isSelected ? 999 : 1}
-                anchor={{x: 0.5, y: 0.5}}>
-                <TouchableOpacity 
-                  activeOpacity={0.8}
-                  onPress={() => handleSelectProvider(p, true)}
-                  hitSlop={{top: 15, bottom: 15, left: 15, right: 15}}
-                  style={{padding: 5}}>
-                  <View style={[styles.marker, isSelected && styles.markerSelected]}>
-                    {p.profilePhoto ? (
-                      <Image 
-                        source={{uri: p.profilePhoto}} 
-                        style={styles.markerImg}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <Text style={styles.markerInitial}>
-                        {p.name?.charAt(0)?.toUpperCase() || 'P'}
-                      </Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              </Marker>
+                provider={p}
+                isSelected={isSelected}
+                onPress={handleSelectProvider}
+              />
             );
           })}
           
@@ -685,9 +759,19 @@ const ClientHomeScreen = ({navigation}) => {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#00B14F']} />}>
           {providers.length === 0 ? (
             <View style={styles.empty}>
-              <Icon name="person-outline" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyTitle}>No providers available</Text>
-              <Text style={styles.emptyText}>Try selecting a different category</Text>
+              {isLoadingProviders ? (
+                <>
+                  <ActivityIndicator size="large" color="#00B14F" />
+                  <Text style={styles.emptyTitle}>Loading providers...</Text>
+                  <Text style={styles.emptyText}>Please wait while we find available providers</Text>
+                </>
+              ) : (
+                <>
+                  <Icon name="person-outline" size={48} color="#D1D5DB" />
+                  <Text style={styles.emptyTitle}>No providers available</Text>
+                  <Text style={styles.emptyText}>Try selecting a different category</Text>
+                </>
+              )}
             </View>
           ) : (
             providers.map((provider) => (
