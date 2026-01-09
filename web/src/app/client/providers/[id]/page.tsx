@@ -120,13 +120,13 @@ export default function ProviderDetailsPage() {
         snap.forEach((docSnap) => {
           const status = (docSnap.data().status || '').toLowerCase();
           if (activeStatuses.includes(status)) {
-            foundActiveBooking = { id: docSnap.id };
+            foundActiveBooking = { id: docSnap.id } as { id: string };
           }
         });
         
-        if (foundActiveBooking) {
+        if (foundActiveBooking !== null) {
           setHasActiveBooking(true);
-          setActiveBookingId(foundActiveBooking.id);
+          setActiveBookingId((foundActiveBooking as { id: string }).id);
         } else {
           setHasActiveBooking(false);
           setActiveBookingId(null);
