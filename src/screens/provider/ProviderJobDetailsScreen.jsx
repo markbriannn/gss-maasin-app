@@ -18,7 +18,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {globalStyles} from '../../css/globalStyles';
 import {jobDetailsStyles as styles} from '../../css/jobDetailsStyles';
 import {db} from '../../config/firebase';
-import {doc, getDoc, updateDoc, serverTimestamp, onSnapshot} from 'firebase/firestore';
+import {doc, getDoc, updateDoc, serverTimestamp, onSnapshot, collection, setDoc} from 'firebase/firestore';
 import {useAuth} from '../../context/AuthContext';
 import {useTheme} from '../../context/ThemeContext';
 import Video from 'react-native-video';
@@ -375,8 +375,9 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               setIsUpdating(true);
               const systemFee = servicePrice * 0.05;
               const totalAmount = servicePrice + systemFee;
+              const bookingId = jobData.id || jobId;
               
-              await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
+              await updateDoc(doc(db, 'bookings', bookingId), {
                 status: 'accepted',
                 providerId: user.uid,
                 providerPrice: servicePrice,
@@ -384,6 +385,28 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                 totalAmount: totalAmount,
                 acceptedAt: serverTimestamp(),
               });
+              
+              // Create Firestore notification for client
+              if (jobData.clientId) {
+                try {
+                  const notifRef = doc(collection(db, 'notifications'));
+                  await setDoc(notifRef, {
+                    id: notifRef.id,
+                    type: 'job_accepted',
+                    title: '🎉 Job Accepted!',
+                    message: `A provider has accepted your ${jobData.serviceCategory || 'service'} request!`,
+                    userId: jobData.clientId,
+                    targetUserId: jobData.clientId,
+                    bookingId: bookingId,
+                    jobId: bookingId,
+                    createdAt: new Date(),
+                    read: false,
+                  });
+                } catch (notifError) {
+                  console.log('Error creating notification:', notifError);
+                }
+              }
+              
               setJobData(prev => ({
                 ...prev, 
                 status: 'accepted',
@@ -393,6 +416,8 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               }));
               // Notify client via push notification
               notificationService.notifyJobAccepted(jobData);
+              // Send push notification to client
+              notificationService.pushJobAccepted?.(jobData.clientId, jobData, user?.firstName || 'Provider');
               // Send SMS notification (async)
               if (jobData.client) {
                 smsEmailService.notifyJobAccepted(jobData, jobData.client, {name: user?.firstName || 'Provider'})
@@ -649,8 +674,9 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           onPress: async () => {
             try {
               setIsUpdating(true);
+              const bookingId = jobData.id || jobId;
               // Update booking status to traveling
-              await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
+              await updateDoc(doc(db, 'bookings', bookingId), {
                 status: 'traveling',
                 travelStartedAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
@@ -658,16 +684,38 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               // Update provider's user document for admin tracking
               if (user?.uid) {
                 await updateDoc(doc(db, 'users', user.uid), {
-                  currentJobId: jobData.id || jobId,
+                  currentJobId: bookingId,
                   jobStatus: 'traveling',
                   updatedAt: serverTimestamp(),
                 });
+              }
+              // Create Firestore notification for client
+              if (jobData.clientId) {
+                try {
+                  const notifRef = doc(collection(db, 'notifications'));
+                  await setDoc(notifRef, {
+                    id: notifRef.id,
+                    type: 'provider_traveling',
+                    title: '🚗 Provider On The Way',
+                    message: `Your provider is traveling to your location for ${jobData.serviceCategory || 'service'}.`,
+                    userId: jobData.clientId,
+                    targetUserId: jobData.clientId,
+                    bookingId: bookingId,
+                    jobId: bookingId,
+                    createdAt: new Date(),
+                    read: false,
+                  });
+                } catch (notifError) {
+                  console.log('Error creating notification:', notifError);
+                }
               }
               setJobData(prev => ({...prev, status: 'traveling'}));
               // Start location tracking for client
               startLocationTracking();
               // Notify client
               notificationService.notifyProviderTraveling?.(jobData);
+              // Send push notification to client
+              notificationService.pushJobStatusUpdate?.(jobData.clientId, jobData, 'traveling');
               Alert.alert('On the way!', 'Client has been notified and can now track your location.');
             } catch (error) {
               console.error('Error starting travel:', error);
@@ -693,9 +741,10 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           onPress: async () => {
             try {
               setIsUpdating(true);
+              const bookingId = jobData.id || jobId;
               // Stop location tracking since we've arrived
               stopLocationTracking();
-              await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
+              await updateDoc(doc(db, 'bookings', bookingId), {
                 status: 'arrived',
                 arrivedAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
@@ -707,8 +756,30 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                   updatedAt: serverTimestamp(),
                 });
               }
+              // Create Firestore notification for client
+              if (jobData.clientId) {
+                try {
+                  const notifRef = doc(collection(db, 'notifications'));
+                  await setDoc(notifRef, {
+                    id: notifRef.id,
+                    type: 'provider_arrived',
+                    title: '📍 Provider Arrived',
+                    message: `Your provider has arrived at your location for ${jobData.serviceCategory || 'service'}.`,
+                    userId: jobData.clientId,
+                    targetUserId: jobData.clientId,
+                    bookingId: bookingId,
+                    jobId: bookingId,
+                    createdAt: new Date(),
+                    read: false,
+                  });
+                } catch (notifError) {
+                  console.log('Error creating notification:', notifError);
+                }
+              }
               setJobData(prev => ({...prev, status: 'arrived'}));
               notificationService.notifyProviderArrived?.(jobData);
+              // Send push notification to client
+              notificationService.pushJobStatusUpdate?.(jobData.clientId, jobData, 'arrived');
               Alert.alert('Arrived', 'Client has been notified of your arrival.');
             } catch (error) {
               console.error('Error marking arrived:', error);
@@ -734,7 +805,8 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           onPress: async () => {
             try {
               setIsUpdating(true);
-              await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
+              const bookingId = jobData.id || jobId;
+              await updateDoc(doc(db, 'bookings', bookingId), {
                 status: 'in_progress',
                 workStartedAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
@@ -745,6 +817,26 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                   jobStatus: 'in_progress',
                   updatedAt: serverTimestamp(),
                 });
+              }
+              // Create Firestore notification for client
+              if (jobData.clientId) {
+                try {
+                  const notifRef = doc(collection(db, 'notifications'));
+                  await setDoc(notifRef, {
+                    id: notifRef.id,
+                    type: 'job_started',
+                    title: '🔧 Work Started',
+                    message: `Your provider has started working on ${jobData.serviceCategory || 'service'}.`,
+                    userId: jobData.clientId,
+                    targetUserId: jobData.clientId,
+                    bookingId: bookingId,
+                    jobId: bookingId,
+                    createdAt: new Date(),
+                    read: false,
+                  });
+                } catch (notifError) {
+                  console.log('Error creating notification:', notifError);
+                }
               }
               setJobData(prev => ({...prev, status: 'in_progress'}));
               // Notify client via push notification
@@ -779,7 +871,8 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           onPress: async () => {
             try {
               setIsUpdating(true);
-              await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
+              const bookingId = jobData.id || jobId;
+              await updateDoc(doc(db, 'bookings', bookingId), {
                 status: 'pending_completion',
                 workCompletedAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
@@ -791,9 +884,31 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                   updatedAt: serverTimestamp(),
                 });
               }
+              // Create Firestore notification for client
+              if (jobData.clientId) {
+                try {
+                  const notifRef = doc(collection(db, 'notifications'));
+                  await setDoc(notifRef, {
+                    id: notifRef.id,
+                    type: 'work_completed',
+                    title: '✅ Work Complete - Please Confirm',
+                    message: `Your provider has completed ${jobData.serviceCategory || 'service'}. Please confirm and proceed to payment.`,
+                    userId: jobData.clientId,
+                    targetUserId: jobData.clientId,
+                    bookingId: bookingId,
+                    jobId: bookingId,
+                    createdAt: new Date(),
+                    read: false,
+                  });
+                } catch (notifError) {
+                  console.log('Error creating notification:', notifError);
+                }
+              }
               setJobData(prev => ({...prev, status: 'pending_completion'}));
               // Notify client to confirm completion
               notificationService.notifyWorkCompleted?.(jobData);
+              // Send push notification
+              notificationService.pushJobStatusUpdate?.(jobData.clientId, jobData, 'pending_completion');
               Alert.alert(
                 'Waiting for Client', 
                 'The client has been notified to confirm the work is complete and proceed to payment.'

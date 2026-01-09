@@ -387,10 +387,12 @@ const JobDetailsScreen = ({navigation, route}) => {
           const notifRef = doc(collection(db, 'notifications'));
           await setDoc(notifRef, {
             id: notifRef.id,
-            type: 'job_cancelled',
+            type: 'booking_cancelled',
             title: '❌ Job Cancelled',
             message: `Client cancelled the ${jobData.serviceCategory || 'service'} job.${reason ? ` Reason: ${reason}` : ''}`,
+            userId: jobData.providerId,
             targetUserId: jobData.providerId,
+            bookingId: jobData.id || jobId,
             jobId: jobData.id || jobId,
             createdAt: new Date(),
             read: false,

@@ -266,6 +266,7 @@ const NotificationsScreen = ({navigation}) => {
             title: 'New Provider Registration',
             message: `${data.firstName || ''} ${data.lastName || ''} applied as ${data.serviceCategory || 'Service Provider'}`,
             time: formatTime(data.createdAt),
+            rawTimestamp: getRawTimestamp(data.createdAt),
             read: currentReadIds.has(notifId),
             providerId: docSnap.id,
           });
@@ -291,6 +292,7 @@ const NotificationsScreen = ({navigation}) => {
                 ? `${data.serviceCategory || 'Service'} - Client offers ₱${(data.offeredPrice || 0).toLocaleString()}`
                 : `${data.serviceCategory || 'Service'} - ${data.title || data.description || 'No description'}`,
               time: formatTime(data.createdAt),
+              rawTimestamp: getRawTimestamp(data.createdAt),
               read: currentReadIds.has(notifId),
               jobId: docSnap.id,
             });
@@ -318,7 +320,8 @@ const NotificationsScreen = ({navigation}) => {
                 message: data.isNegotiable 
                   ? `Client offers ₱${(data.offeredPrice || 0).toLocaleString()} for ${data.serviceCategory || 'service'}`
                   : `${data.clientName || 'Client'} needs ${data.serviceCategory || 'service'}`,
-                time: formatTime(data.createdAt),
+                time: formatTime(data.approvedAt || data.createdAt),
+                rawTimestamp: getRawTimestamp(data.approvedAt || data.createdAt),
                 read: currentReadIds.has(notifId),
                 jobId: docSnap.id,
               });
@@ -364,6 +367,7 @@ const NotificationsScreen = ({navigation}) => {
                 title: config.title,
                 message: config.message,
                 time: formatTime(data.updatedAt || data.createdAt),
+                rawTimestamp: getRawTimestamp(data.updatedAt || data.createdAt),
                 read: currentReadIds.has(notifId),
                 jobId: docSnap.id,
               });
@@ -388,6 +392,7 @@ const NotificationsScreen = ({navigation}) => {
           
           // Define notification content based on status
           const statusConfig = {
+            'pending': { icon: 'time-outline', iconColor: '#F59E0B', title: 'Booking Pending', message: `Your ${data.serviceCategory || 'service'} request is pending approval` },
             'accepted': { icon: 'checkmark-circle', iconColor: '#10B981', title: 'Job Accepted', message: `Your ${data.serviceCategory || 'service'} request has been accepted` },
             'traveling': { icon: 'car', iconColor: '#3B82F6', title: 'Provider On The Way', message: `Provider is traveling to your location` },
             'arrived': { icon: 'location', iconColor: '#10B981', title: 'Provider Arrived', message: `Provider has arrived at your location` },
@@ -411,6 +416,7 @@ const NotificationsScreen = ({navigation}) => {
               title: config.title,
               message: config.message,
               time: formatTime(data.updatedAt || data.createdAt),
+              rawTimestamp: getRawTimestamp(data.updatedAt || data.createdAt),
               read: currentReadIds.has(notifId),
               jobId: docSnap.id,
               urgent: config.urgent || false,
@@ -421,20 +427,33 @@ const NotificationsScreen = ({navigation}) => {
 
       // Also fetch from notifications collection for custom notifications
       try {
+        // Query for targetUserId
         const notificationsQuery = query(
           collection(db, 'notifications'),
           where('targetUserId', '==', user.uid)
         );
         const notificationsSnapshot = await getDocs(notificationsQuery);
-        notificationsSnapshot.forEach((docSnap) => {
+        
+        // Also query for userId (some notifications use this field)
+        const notificationsQuery2 = query(
+          collection(db, 'notifications'),
+          where('userId', '==', user.uid)
+        );
+        const notificationsSnapshot2 = await getDocs(notificationsQuery2);
+        
+        // Combine both snapshots, avoiding duplicates
+        const processedIds = new Set();
+        const processNotification = (docSnap) => {
           const data = docSnap.data();
           const notifId = docSnap.id;
           
-          // Skip if already deleted
-          if (currentDeletedIds.has(notifId)) return;
+          // Skip if already processed or deleted
+          if (processedIds.has(notifId) || currentDeletedIds.has(notifId)) return;
+          processedIds.add(notifId);
           
           // Map notification type to icon
           const typeConfig = {
+            'booking_cancelled': { icon: 'close-circle', iconColor: '#EF4444' },
             'job_cancelled': { icon: 'close-circle', iconColor: '#EF4444' },
             'job_accepted': { icon: 'checkmark-circle', iconColor: '#10B981' },
             'job_completed': { icon: 'trophy', iconColor: '#10B981' },
@@ -452,19 +471,23 @@ const NotificationsScreen = ({navigation}) => {
             title: data.title || 'Notification',
             message: data.message || '',
             time: formatTime(data.createdAt),
+            rawTimestamp: getRawTimestamp(data.createdAt),
             read: data.read || currentReadIds.has(notifId),
-            jobId: data.jobId,
+            jobId: data.bookingId || data.jobId,
           });
-        });
+        };
+        
+        notificationsSnapshot.forEach(processNotification);
+        notificationsSnapshot2.forEach(processNotification);
       } catch (e) {
         console.log('[NotificationsScreen] Notifications collection query error:', e.message);
       }
 
-      // Sort by time (most recent first)
+      // Sort by time (most recent first) using raw timestamp
       notificationsList.sort((a, b) => {
-        const timeA = a.time === 'Just now' ? 0 : parseInt(a.time) || 999;
-        const timeB = b.time === 'Just now' ? 0 : parseInt(b.time) || 999;
-        return timeA - timeB;
+        const timeA = a.rawTimestamp || 0;
+        const timeB = b.rawTimestamp || 0;
+        return timeB - timeA; // Descending order (newest first)
       });
 
       setNotifications(notificationsList);
@@ -491,6 +514,15 @@ const NotificationsScreen = ({navigation}) => {
     if (diffHours < 24) return `${diffHours} hours ago`;
     if (diffDays < 7) return `${diffDays} days ago`;
     return date.toLocaleDateString();
+  };
+
+  // Helper to get raw timestamp for sorting
+  const getRawTimestamp = (timestamp) => {
+    if (!timestamp) return Date.now();
+    if (timestamp.toDate) return timestamp.toDate().getTime();
+    if (timestamp.seconds) return timestamp.seconds * 1000;
+    if (typeof timestamp === 'string') return new Date(timestamp).getTime();
+    return Date.now();
   };
 
   const onRefresh = () => {

@@ -454,10 +454,12 @@ function JobDetailsContent() {
         const notifRef = firestoreDoc(firestoreCollection(db, 'notifications'));
         await setDoc(notifRef, {
           id: notifRef.id,
-          type: 'job_cancelled',
+          type: 'booking_cancelled',
           title: '❌ Job Cancelled',
           message: `Client cancelled the ${job.serviceCategory || 'service'} job.${reason ? ` Reason: ${reason}` : ''}`,
+          userId: job.providerId,
           targetUserId: job.providerId,
+          bookingId: job.id,
           jobId: job.id,
           createdAt: new Date(),
           read: false,

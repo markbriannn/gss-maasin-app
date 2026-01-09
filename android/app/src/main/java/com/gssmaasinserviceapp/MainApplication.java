@@ -1,6 +1,9 @@
 package com.gssmaasinserviceapp;
 
 import android.app.Application;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.os.Build;
 import com.facebook.react.PackageList;
 import com.facebook.react.ReactApplication;
 import com.facebook.react.ReactNativeHost;
@@ -55,6 +58,27 @@ public class MainApplication extends Application implements ReactApplication {
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       // If you opted-in for the New Architecture, we load the native entry point for this app.
       DefaultNewArchitectureEntryPoint.load();
+    }
+    
+    // Create notification channel for FCM (required for Android 8.0+)
+    createNotificationChannel();
+  }
+  
+  private void createNotificationChannel() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      NotificationChannel channel = new NotificationChannel(
+        "gss_notifications",
+        "GSS Notifications",
+        NotificationManager.IMPORTANCE_HIGH
+      );
+      channel.setDescription("Notifications for job updates, messages, and alerts");
+      channel.enableVibration(true);
+      channel.setShowBadge(true);
+      
+      NotificationManager notificationManager = getSystemService(NotificationManager.class);
+      if (notificationManager != null) {
+        notificationManager.createNotificationChannel(channel);
+      }
     }
   }
 }

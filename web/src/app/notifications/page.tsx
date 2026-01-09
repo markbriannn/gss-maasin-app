@@ -19,6 +19,7 @@ interface Notification {
   title: string;
   message: string;
   time: string;
+  rawTimestamp: number;
   read: boolean;
   jobId?: string;
   providerId?: string;
@@ -29,7 +30,8 @@ const ICON_MAP: Record<string, React.ElementType> = {
   'checkmark-circle': CheckCircle, 'car': Car, 'location': MapPin, 'construct': Wrench,
   'checkmark-done': CheckCircle, 'card': CreditCard, 'cash': DollarSign, 'trophy': Trophy,
   'pricetag': Tag, 'briefcase': Briefcase, 'person-add': UserPlus, 'document-text': FileText,
-  'close-circle': XCircle, 'chatbubble': MessageCircle, 'notifications': Bell,
+  'close-circle': XCircle, 'chatbubble': MessageCircle, 'notifications': Bell, 'clock': Clock,
+  'time-outline': Clock,
 };
 
 // Role-based gradient configs
@@ -72,6 +74,15 @@ export default function NotificationsPage() {
     return date.toLocaleDateString();
   };
 
+  // Helper to get raw timestamp for sorting
+  const getRawTimestamp = (timestamp: unknown): number => {
+    if (!timestamp) return Date.now();
+    if ((timestamp as { toDate?: () => Date }).toDate) return (timestamp as { toDate: () => Date }).toDate().getTime();
+    if ((timestamp as { seconds?: number }).seconds) return (timestamp as { seconds: number }).seconds * 1000;
+    if (typeof timestamp === 'string') return new Date(timestamp).getTime();
+    return Date.now();
+  };
+
   const generateNotifications = useCallback(async () => {
     if (!user?.uid) return;
     try {
@@ -89,7 +100,7 @@ export default function NotificationsPage() {
             id: notifId, type: 'provider_approval', icon: 'person-add', iconColor: '#F59E0B',
             title: 'New Provider Registration',
             message: `${data.firstName || ''} ${data.lastName || ''} applied as ${data.serviceCategory || 'Service Provider'}`,
-            time: formatTime(data.createdAt), read: currentReadIds.has(notifId), providerId: docSnap.id,
+            time: formatTime(data.createdAt), rawTimestamp: getRawTimestamp(data.createdAt), read: currentReadIds.has(notifId), providerId: docSnap.id,
           });
         });
 
@@ -103,7 +114,7 @@ export default function NotificationsPage() {
               id: notifId, type: 'job_pending', icon: 'document-text', iconColor: data.isNegotiable ? '#8B5CF6' : '#3B82F6',
               title: data.isNegotiable ? 'Job Request with Offer' : 'New Job Request',
               message: data.isNegotiable ? `${data.serviceCategory || 'Service'} - Client offers ₱${(data.offeredPrice || 0).toLocaleString()}` : `${data.serviceCategory || 'Service'} - ${data.title || data.description || 'No description'}`,
-              time: formatTime(data.createdAt), read: currentReadIds.has(notifId), jobId: docSnap.id,
+              time: formatTime(data.createdAt), rawTimestamp: getRawTimestamp(data.createdAt), read: currentReadIds.has(notifId), jobId: docSnap.id,
             });
           }
         });
@@ -118,7 +129,7 @@ export default function NotificationsPage() {
               id: notifId, type: 'job_request', icon: data.isNegotiable ? 'pricetag' : 'briefcase', iconColor: data.isNegotiable ? '#F59E0B' : '#3B82F6',
               title: data.isNegotiable ? 'New Job with Offer' : 'New Job Available',
               message: data.isNegotiable ? `Client offers ₱${(data.offeredPrice || 0).toLocaleString()} for ${data.serviceCategory || 'service'}` : `${data.clientName || 'Client'} needs ${data.serviceCategory || 'service'}`,
-              time: formatTime(data.createdAt), read: currentReadIds.has(notifId), jobId: docSnap.id,
+              time: formatTime(data.approvedAt || data.createdAt), rawTimestamp: getRawTimestamp(data.approvedAt || data.createdAt), read: currentReadIds.has(notifId), jobId: docSnap.id,
             });
           }
         });
@@ -142,7 +153,7 @@ export default function NotificationsPage() {
             'rejected': { icon: 'close-circle', iconColor: '#EF4444', title: 'Job Rejected', message: `${data.serviceCategory || 'Service'} job was rejected` },
           };
           const config = statusConfig[status];
-          if (config) notificationsList.push({ id: notifId, type: 'my_job', ...config, time: formatTime(data.updatedAt || data.createdAt), read: currentReadIds.has(notifId), jobId: docSnap.id });
+          if (config) notificationsList.push({ id: notifId, type: 'my_job', ...config, time: formatTime(data.updatedAt || data.createdAt), rawTimestamp: getRawTimestamp(data.updatedAt || data.createdAt), read: currentReadIds.has(notifId), jobId: docSnap.id });
         });
       } else {
         const myBookingsQuery = query(collection(db, 'bookings'), where('clientId', '==', user.uid));
@@ -152,6 +163,7 @@ export default function NotificationsPage() {
           const status = data.status;
           const notifId = `${status}_${docSnap.id}`;
           const statusConfig: Record<string, { icon: string; iconColor: string; title: string; message: string; urgent?: boolean }> = {
+            'pending': { icon: 'clock', iconColor: '#F59E0B', title: 'Booking Pending', message: `Your ${data.serviceCategory || 'service'} request is pending approval` },
             'accepted': { icon: 'checkmark-circle', iconColor: '#10B981', title: 'Job Accepted', message: `Your ${data.serviceCategory || 'service'} request has been accepted` },
             'traveling': { icon: 'car', iconColor: '#3B82F6', title: 'Provider On The Way', message: `Provider is traveling to your location` },
             'arrived': { icon: 'location', iconColor: '#10B981', title: 'Provider Arrived', message: `Provider has arrived at your location` },
@@ -165,19 +177,32 @@ export default function NotificationsPage() {
             'rejected': { icon: 'close-circle', iconColor: '#EF4444', title: 'Job Rejected', message: `Your ${data.serviceCategory || 'service'} request was rejected` },
           };
           const config = statusConfig[status];
-          if (config) notificationsList.push({ id: notifId, type: status === 'counter_offer' ? 'counter_offer' : 'job', ...config, time: formatTime(data.updatedAt || data.createdAt), read: currentReadIds.has(notifId), jobId: docSnap.id });
+          if (config) notificationsList.push({ id: notifId, type: status === 'counter_offer' ? 'counter_offer' : 'job', ...config, time: formatTime(data.updatedAt || data.createdAt), rawTimestamp: getRawTimestamp(data.updatedAt || data.createdAt), read: currentReadIds.has(notifId), jobId: docSnap.id });
         });
       }
 
       // Also fetch from notifications collection for custom notifications
       try {
+        // Query for targetUserId
         const notificationsQuery = query(collection(db, 'notifications'), where('targetUserId', '==', user.uid));
         const notificationsSnapshot = await getDocs(notificationsQuery);
-        notificationsSnapshot.forEach((docSnap) => {
+        
+        // Also query for userId (some notifications use this field)
+        const notificationsQuery2 = query(collection(db, 'notifications'), where('userId', '==', user.uid));
+        const notificationsSnapshot2 = await getDocs(notificationsQuery2);
+        
+        // Combine both snapshots, avoiding duplicates
+        const processedIds = new Set<string>();
+        const processNotification = (docSnap: any) => {
           const data = docSnap.data();
           const notifId = docSnap.id;
           
+          // Skip if already processed
+          if (processedIds.has(notifId)) return;
+          processedIds.add(notifId);
+          
           const typeConfig: Record<string, { icon: string; iconColor: string }> = {
+            'booking_cancelled': { icon: 'close-circle', iconColor: '#EF4444' },
             'job_cancelled': { icon: 'close-circle', iconColor: '#EF4444' },
             'job_accepted': { icon: 'checkmark-circle', iconColor: '#10B981' },
             'job_completed': { icon: 'trophy', iconColor: '#10B981' },
@@ -195,15 +220,26 @@ export default function NotificationsPage() {
             title: data.title || 'Notification',
             message: data.message || '',
             time: formatTime(data.createdAt),
+            rawTimestamp: getRawTimestamp(data.createdAt),
             read: data.read || currentReadIds.has(notifId),
-            jobId: data.jobId,
+            jobId: data.bookingId || data.jobId,
           });
-        });
+        };
+        
+        notificationsSnapshot.forEach(processNotification);
+        notificationsSnapshot2.forEach(processNotification);
       } catch (e) {
         console.log('Notifications collection query error:', e);
       }
 
-      notificationsList.sort((a, b) => { if (a.urgent && !b.urgent) return -1; if (!a.urgent && b.urgent) return 1; return 0; });
+      notificationsList.sort((a, b) => { 
+        // Sort by rawTimestamp (newest first), then by urgent flag
+        const timeA = a.rawTimestamp || 0;
+        const timeB = b.rawTimestamp || 0;
+        if (a.urgent && !b.urgent) return -1; 
+        if (!a.urgent && b.urgent) return 1; 
+        return timeB - timeA; // Descending order (newest first)
+      });
       setNotifications(notificationsList);
     } catch (error) {
       console.error('Error generating notifications:', error);

@@ -20,6 +20,11 @@ const sendPushNotification = async (userId, title, body, data = {}) => {
       return {success: false};
     }
     
+    console.log('[Push] Sending notification to user:', userId);
+    console.log('[Push] Title:', title);
+    console.log('[Push] Body:', body);
+    console.log('[Push] API URL:', `${API_URL}/notifications/send`);
+    
     const response = await axios.post(`${API_URL}/notifications/send`, {
       userId,
       title,
@@ -30,11 +35,13 @@ const sendPushNotification = async (userId, title, body, data = {}) => {
       },
     });
     
-    console.log('[Push] Notification sent to user:', userId);
+    console.log('[Push] Backend response:', JSON.stringify(response.data));
+    console.log('[Push] Notification sent successfully to user:', userId);
     return {success: true, messageId: response.data?.messageId};
   } catch (error) {
-    // Non-critical - user may not have FCM token
-    console.log('[Push] Failed to send (non-critical):', error.message);
+    // Log full error for debugging
+    console.log('[Push] FAILED to send notification:', error.message);
+    console.log('[Push] Error response:', error.response?.data || error);
     return {success: false, error: error.message};
   }
 };
@@ -164,20 +171,32 @@ class NotificationService {
 
   async registerDeviceToken(userId) {
     try {
+      console.log('[FCM] Starting device token registration for user:', userId);
       const token = await this.getFCMToken();
+      
       if (token && userId) {
-        await axios.post(`${API_URL}/notifications/register-device`, {
+        console.log('[FCM] Token obtained, length:', token.length);
+        console.log('[FCM] Token preview:', token.substring(0, 30) + '...');
+        console.log('[FCM] Registering with backend:', `${API_URL}/notifications/register-device`);
+        
+        const response = await axios.post(`${API_URL}/notifications/register-device`, {
           userId,
           token,
           platform: Platform.OS,
         });
-        console.log('[FCM] Device token registered for user:', userId);
+        
+        console.log('[FCM] Backend response:', JSON.stringify(response.data));
+        console.log('[FCM] Device token registered successfully for user:', userId);
+        return {success: true, token};
       } else if (!token) {
         console.log('[FCM] No token available - skipping device registration');
+        return {success: false, error: 'No token'};
       }
     } catch (error) {
-      // Non-critical error - app works without push notifications
-      console.log('[FCM] Device registration skipped:', error.message);
+      // Log full error for debugging
+      console.log('[FCM] Device registration FAILED:', error.message);
+      console.log('[FCM] Error details:', error.response?.data || error);
+      return {success: false, error: error.message};
     }
   }
 

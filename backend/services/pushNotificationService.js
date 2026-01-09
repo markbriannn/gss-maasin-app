@@ -12,23 +12,35 @@ const db = getDb();
  */
 const sendToUser = async (userId, notification, data = {}) => {
   try {
+    console.log('[FCM Backend] Sending notification to user:', userId);
+    console.log('[FCM Backend] Notification:', JSON.stringify(notification));
+    
     // Get user's FCM token from Firestore
     const userDoc = await db.collection('users').doc(userId).get();
     
     if (!userDoc.exists) {
-      console.log(`User ${userId} not found`);
+      console.log(`[FCM Backend] User ${userId} not found in Firestore`);
       return { success: false, error: 'User not found' };
     }
 
     const userData = userDoc.data();
     const fcmToken = userData.fcmToken;
+    const platform = userData.fcmPlatform || 'android';
+
+    console.log('[FCM Backend] User found:', userData.email || userData.name || 'unknown');
+    console.log('[FCM Backend] FCM token exists:', !!fcmToken);
+    console.log('[FCM Backend] Platform:', platform);
+    
+    if (fcmToken) {
+      console.log('[FCM Backend] Token preview:', fcmToken.substring(0, 30) + '...');
+    }
 
     if (!fcmToken) {
-      console.log(`No FCM token for user ${userId}`);
+      console.log(`[FCM Backend] No FCM token for user ${userId}`);
       return { success: false, error: 'No FCM token' };
     }
 
-    // Send notification
+    // Build message based on platform
     const message = {
       token: fcmToken,
       notification: {
@@ -36,27 +48,51 @@ const sendToUser = async (userId, notification, data = {}) => {
         body: notification.body,
       },
       data: {
-        ...data,
-        click_action: 'FLUTTER_NOTIFICATION_CLICK', // For handling tap
+        ...Object.fromEntries(
+          Object.entries(data).map(([k, v]) => [k, String(v)])
+        ),
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
       },
-      android: {
+    };
+
+    // Add platform-specific options
+    if (platform === 'web') {
+      message.webpush = {
+        notification: {
+          title: notification.title,
+          body: notification.body,
+          icon: '/next.svg',
+          badge: '/next.svg',
+          requireInteraction: true,
+        },
+        fcmOptions: {
+          link: getNotificationLink(data.type, data),
+        },
+      };
+    } else {
+      // Android/iOS
+      message.android = {
         priority: 'high',
         notification: {
           sound: 'default',
           channelId: 'gss_notifications',
         },
-      },
-    };
+      };
+    }
 
+    console.log('[FCM Backend] Sending message via Firebase Admin SDK...');
     const response = await getMessaging().send(message);
-    console.log('Push notification sent:', response);
+    console.log('[FCM Backend] SUCCESS! Message ID:', response);
     return { success: true, messageId: response };
   } catch (error) {
-    console.error('Error sending push notification:', error);
+    console.error('[FCM Backend] ERROR sending push notification:', error.message);
+    console.error('[FCM Backend] Error code:', error.code);
+    console.error('[FCM Backend] Full error:', error);
     
     // Handle invalid token
     if (error.code === 'messaging/invalid-registration-token' ||
         error.code === 'messaging/registration-token-not-registered') {
+      console.log('[FCM Backend] Removing invalid token from user:', userId);
       // Remove invalid token from user
       await db.collection('users').doc(userId).update({
         fcmToken: null,
@@ -66,6 +102,29 @@ const sendToUser = async (userId, notification, data = {}) => {
     return { success: false, error: error.message };
   }
 };
+
+// Helper to get notification link for web
+function getNotificationLink(type, data) {
+  const baseUrl = process.env.WEB_APP_URL || 'https://gss-maasin-app.vercel.app';
+  
+  switch (type) {
+    case 'new_job':
+    case 'job_approved':
+      return data.jobId ? `${baseUrl}/provider/jobs/${data.jobId}` : `${baseUrl}/provider/jobs`;
+    case 'booking_accepted':
+    case 'job_update':
+    case 'counter_offer':
+    case 'job_started':
+    case 'job_completed':
+      return data.jobId ? `${baseUrl}/client/bookings/${data.jobId}` : `${baseUrl}/client/bookings`;
+    case 'new_message':
+      return data.conversationId ? `${baseUrl}/chat/${data.conversationId}` : `${baseUrl}/messages`;
+    case 'provider_approved':
+      return `${baseUrl}/provider`;
+    default:
+      return `${baseUrl}/notifications`;
+  }
+}
 
 
 /**
@@ -89,15 +148,21 @@ const sendToMultipleUsers = async (userIds, notification, data = {}) => {
  */
 const registerDeviceToken = async (userId, token, platform = 'android') => {
   try {
+    console.log('[FCM Backend] Registering device token for user:', userId);
+    console.log('[FCM Backend] Platform:', platform);
+    console.log('[FCM Backend] Token preview:', token.substring(0, 30) + '...');
+    
     await db.collection('users').doc(userId).update({
       fcmToken: token,
       fcmPlatform: platform,
       fcmUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
-    console.log(`FCM token registered for user ${userId}`);
+    
+    console.log(`[FCM Backend] Token registered successfully for user ${userId}`);
     return { success: true };
   } catch (error) {
-    console.error('Error registering FCM token:', error);
+    console.error('[FCM Backend] Error registering FCM token:', error.message);
+    console.error('[FCM Backend] Full error:', error);
     return { success: false, error: error.message };
   }
 };

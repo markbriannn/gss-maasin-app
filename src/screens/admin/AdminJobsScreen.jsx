@@ -23,6 +23,7 @@ import {
   doc,
   updateDoc,
   getDoc,
+  setDoc,
 } from 'firebase/firestore';
 import {db} from '../../config/firebase';
 import smsEmailService from '../../services/smsEmailService';
@@ -349,6 +350,27 @@ const AdminJobsScreen = ({navigation, route}) => {
               isNegotiable: job.isNegotiable,
             });
             if (success) {
+              // Create Firestore notification for client
+              if (job.clientId) {
+                try {
+                  const notifRef = doc(collection(db, 'notifications'));
+                  await setDoc(notifRef, {
+                    id: notifRef.id,
+                    type: 'job_approved',
+                    title: '✅ Booking Approved',
+                    message: `Your ${job.category || 'service'} request has been approved and sent to providers.`,
+                    userId: job.clientId,
+                    targetUserId: job.clientId,
+                    bookingId: job.id,
+                    jobId: job.id,
+                    createdAt: new Date(),
+                    read: false,
+                  });
+                } catch (notifError) {
+                  console.log('Error creating client notification:', notifError);
+                }
+              }
+              
               setShowDetailModal(false);
               Alert.alert(
                 'Job Approved', 
@@ -424,6 +446,27 @@ const AdminJobsScreen = ({navigation, route}) => {
               adminRejected: true,
             });
             if (success) {
+              // Create Firestore notification for client
+              if (job.clientId) {
+                try {
+                  const notifRef = doc(collection(db, 'notifications'));
+                  await setDoc(notifRef, {
+                    id: notifRef.id,
+                    type: 'job_rejected',
+                    title: '❌ Booking Rejected',
+                    message: `Your ${job.category || 'service'} request was not approved. Please try again or contact support.`,
+                    userId: job.clientId,
+                    targetUserId: job.clientId,
+                    bookingId: job.id,
+                    jobId: job.id,
+                    createdAt: new Date(),
+                    read: false,
+                  });
+                } catch (notifError) {
+                  console.log('Error creating client notification:', notifError);
+                }
+              }
+              
               setShowDetailModal(false);
               Alert.alert('Done', 'Job request has been rejected. Client will be notified.');
               

@@ -14,9 +14,9 @@ import App from './App';
 // Handle background/quit state notifications
 // This MUST be outside of any component and called before AppRegistry
 messaging().setBackgroundMessageHandler(async remoteMessage => {
-  console.log('[FCM] Background message received:', remoteMessage);
-  // The notification will be shown automatically by FCM
-  // This handler is for any additional processing you want to do
+  console.log('[FCM] Background message received:', JSON.stringify(remoteMessage));
+  // FCM will automatically display the notification if it has a 'notification' payload
+  // No additional handling needed - the notification will show in the system tray
 });
 
 AppRegistry.registerComponent(appName, () => App);

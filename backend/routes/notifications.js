@@ -29,7 +29,13 @@ router.post('/send', async (req, res) => {
   try {
     const { userId, title, body, data } = req.body;
 
+    console.log('[Notification Route] /send called');
+    console.log('[Notification Route] userId:', userId);
+    console.log('[Notification Route] title:', title);
+    console.log('[Notification Route] body:', body);
+
     if (!userId || !title || !body) {
+      console.log('[Notification Route] Missing required fields');
       return res.status(400).json({ 
         success: false, 
         error: 'userId, title, and body are required' 
@@ -37,9 +43,10 @@ router.post('/send', async (req, res) => {
     }
 
     const result = await pushService.sendToUser(userId, { title, body }, data || {});
+    console.log('[Notification Route] Result:', JSON.stringify(result));
     res.json(result);
   } catch (error) {
-    console.error('Error sending notification:', error);
+    console.error('[Notification Route] Error sending notification:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -154,7 +161,13 @@ router.post('/register-device', async (req, res) => {
   try {
     const { userId, token, platform } = req.body;
 
+    console.log('[Notification Route] /register-device called');
+    console.log('[Notification Route] userId:', userId);
+    console.log('[Notification Route] platform:', platform);
+    console.log('[Notification Route] token exists:', !!token);
+
     if (!userId || !token) {
+      console.log('[Notification Route] Missing required fields');
       return res.status(400).json({ 
         success: false, 
         error: 'userId and token are required' 
@@ -162,9 +175,10 @@ router.post('/register-device', async (req, res) => {
     }
 
     const result = await pushService.registerDeviceToken(userId, token, platform);
+    console.log('[Notification Route] Registration result:', JSON.stringify(result));
     res.json(result);
   } catch (error) {
-    console.error('Error registering device:', error);
+    console.error('[Notification Route] Error registering device:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

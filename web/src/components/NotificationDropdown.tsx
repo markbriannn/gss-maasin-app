@@ -71,6 +71,10 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string; color?:
   'document-text': FileText,
   briefcase: Briefcase,
   pricetag: Tag,
+  'close-circle': AlertCircle,
+  clock: Clock,
+  chatbubble: MessageCircle,
+  notifications: Bell,
   default: Bell,
 };
 
@@ -244,7 +248,7 @@ export default function NotificationDropdown({
               message: data.isNegotiable 
                 ? `Client offers ₱${(data.offeredPrice || 0).toLocaleString()} for ${data.serviceCategory || 'service'}`
                 : `${data.clientName || 'Client'} needs ${data.serviceCategory || 'service'}`,
-              createdAt: data.createdAt?.toDate?.() || new Date(),
+              createdAt: data.approvedAt?.toDate?.() || data.createdAt?.toDate?.() || new Date(),
               read: readIds.has(notifId),
               jobId: docSnap.id,
             });
@@ -271,6 +275,7 @@ export default function NotificationDropdown({
             'pending_payment': { icon: 'card', iconColor: '#3B82F6', title: 'Awaiting Payment', message: `Waiting for payment from ${data.clientName || 'client'}` },
             'payment_received': { icon: 'cash', iconColor: '#10B981', title: 'Payment Received!', message: `₱${(data.providerPrice || data.totalAmount || 0).toLocaleString()} received for ${data.serviceCategory || 'service'}` },
             'completed': { icon: 'trophy', iconColor: '#10B981', title: 'Job Completed!', message: `${data.serviceCategory || 'Service'} completed successfully` },
+            'cancelled': { icon: 'close-circle', iconColor: '#EF4444', title: 'Job Cancelled', message: `${data.clientName || 'Client'} cancelled the ${data.serviceCategory || 'service'} job` },
           };
           
           const config = statusConfig[status];
@@ -301,6 +306,7 @@ export default function NotificationDropdown({
           const notifId = `${status}_${docSnap.id}`;
           
           const statusConfig: Record<string, { icon: string; iconColor: string; title: string; message: string; urgent?: boolean }> = {
+            'pending': { icon: 'clock', iconColor: '#F59E0B', title: 'Booking Pending', message: `Your ${data.serviceCategory || 'service'} request is pending approval` },
             'accepted': { icon: 'checkmark-circle', iconColor: '#10B981', title: 'Job Accepted', message: `Your ${data.serviceCategory || 'service'} request has been accepted` },
             'traveling': { icon: 'car', iconColor: '#3B82F6', title: 'Provider On The Way', message: `Provider is traveling to your location` },
             'arrived': { icon: 'location', iconColor: '#10B981', title: 'Provider Arrived', message: `Provider has arrived at your location` },
@@ -310,6 +316,8 @@ export default function NotificationDropdown({
             'payment_received': { icon: 'cash', iconColor: '#10B981', title: 'Payment Sent', message: `Your payment is being processed` },
             'counter_offer': { icon: 'pricetag', iconColor: '#EC4899', title: 'Counter Offer Received!', message: `Provider offers ₱${(data.counterOfferPrice || 0).toLocaleString()} - Tap to respond`, urgent: true },
             'completed': { icon: 'checkmark-circle', iconColor: '#10B981', title: 'Job Completed', message: `Your ${data.serviceCategory || 'service'} has been completed` },
+            'cancelled': { icon: 'close-circle', iconColor: '#EF4444', title: 'Job Cancelled', message: `Your ${data.serviceCategory || 'service'} request was cancelled` },
+            'rejected': { icon: 'close-circle', iconColor: '#EF4444', title: 'Job Rejected', message: `Your ${data.serviceCategory || 'service'} request was rejected` },
           };
           
           const config = statusConfig[status];
@@ -328,6 +336,64 @@ export default function NotificationDropdown({
             });
           }
         });
+      }
+
+      // Also fetch from notifications collection for custom notifications
+      try {
+        const notificationsQuery = query(
+          collection(db, 'notifications'),
+          where('targetUserId', '==', user.uid)
+        );
+        const notificationsSnapshot = await getDocs(notificationsQuery);
+        
+        const notificationsQuery2 = query(
+          collection(db, 'notifications'),
+          where('userId', '==', user.uid)
+        );
+        const notificationsSnapshot2 = await getDocs(notificationsQuery2);
+        
+        const processedIds = new Set<string>();
+        const processNotification = (docSnap: any) => {
+          const data = docSnap.data();
+          const notifId = docSnap.id;
+          
+          if (processedIds.has(notifId)) return;
+          processedIds.add(notifId);
+          
+          const typeConfig: Record<string, { icon: string; iconColor: string }> = {
+            'booking_cancelled': { icon: 'close-circle', iconColor: '#EF4444' },
+            'job_cancelled': { icon: 'close-circle', iconColor: '#EF4444' },
+            'job_accepted': { icon: 'checkmark-circle', iconColor: '#10B981' },
+            'job_completed': { icon: 'trophy', iconColor: '#10B981' },
+            'new_message': { icon: 'chatbubble', iconColor: '#3B82F6' },
+            'payment_received': { icon: 'cash', iconColor: '#10B981' },
+            'job_approved': { icon: 'checkmark-circle', iconColor: '#10B981' },
+            'job_rejected': { icon: 'close-circle', iconColor: '#EF4444' },
+            'provider_traveling': { icon: 'car', iconColor: '#3B82F6' },
+            'provider_arrived': { icon: 'location', iconColor: '#10B981' },
+            'job_started': { icon: 'construct', iconColor: '#8B5CF6' },
+            'work_completed': { icon: 'checkmark-done', iconColor: '#F59E0B' },
+          };
+          
+          const config = typeConfig[data.type] || { icon: 'notifications', iconColor: '#6B7280' };
+          
+          notificationsList.push({
+            id: notifId,
+            type: data.type || 'notification',
+            icon: config.icon,
+            iconColor: config.iconColor,
+            title: data.title || 'Notification',
+            message: data.message || '',
+            createdAt: data.createdAt?.toDate?.() || new Date(),
+            read: data.read || readIds.has(notifId),
+            jobId: data.bookingId || data.jobId,
+          });
+        };
+        
+        notificationsSnapshot.forEach(processNotification);
+        notificationsSnapshot2.forEach(processNotification);
+      } catch (e) {
+        console.log('Notifications collection query error:', e);
       }
 
       // Sort by date (newest first)

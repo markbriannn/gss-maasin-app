@@ -1206,6 +1206,7 @@ const ClientHomeScreen = ({navigation}) => {
                     // Create notification for provider
                     await setDoc(doc(collection(db, 'notifications')), {
                       userId: selectedProvider.id,
+                      targetUserId: selectedProvider.id,
                       type: 'booking_cancelled',
                       title: 'Booking Cancelled',
                       message: `Client cancelled the booking. Reason: ${finalReason}`,

@@ -177,11 +177,11 @@ export const NotificationProvider = ({children}) => {
           setUnreadCount(bookingsCount + unreadNotificationsCount);
         };
         
-        // Query 1: Bookings with updates
+        // Query 1: Bookings with updates (including cancelled)
         const bookingsQuery = query(
           collection(db, 'bookings'),
           where('clientId', '==', user.uid),
-          where('status', 'in', ['accepted', 'in_progress', 'traveling', 'arrived', 'pending_completion', 'pending_payment', 'counter_offer', 'payment_received', 'completed'])
+          where('status', 'in', ['accepted', 'in_progress', 'traveling', 'arrived', 'pending_completion', 'pending_payment', 'counter_offer', 'payment_received', 'completed', 'cancelled', 'rejected'])
         );
         
         const unsubBookings = onSnapshot(
@@ -211,7 +211,7 @@ export const NotificationProvider = ({children}) => {
         );
         unsubscribersRef.current.push(unsubBookings);
         
-        // Query 2: Unread notifications for this client
+        // Query 2: Unread notifications for this client (targetUserId)
         const notificationsQuery = query(
           collection(db, 'notifications'),
           where('targetUserId', '==', user.uid),
@@ -222,12 +222,33 @@ export const NotificationProvider = ({children}) => {
           notificationsQuery,
           (snapshot) => {
             unreadNotificationsCount = snapshot.docs.length;
-            console.log('[Notifications] Client unread notifications:', unreadNotificationsCount);
+            console.log('[Notifications] Client unread notifications (targetUserId):', unreadNotificationsCount);
             updateClientCount();
           },
           handleError
         );
         unsubscribersRef.current.push(unsubNotifications);
+        
+        // Query 3: Unread notifications for this client (userId field)
+        const notificationsQuery2 = query(
+          collection(db, 'notifications'),
+          where('userId', '==', user.uid),
+          where('read', '==', false)
+        );
+        
+        const unsubNotifications2 = onSnapshot(
+          notificationsQuery2,
+          (snapshot) => {
+            // Add to count (avoiding duplicates handled by Firestore)
+            const additionalCount = snapshot.docs.length;
+            console.log('[Notifications] Client unread notifications (userId):', additionalCount);
+            // Note: This may double count if both fields exist, but that's rare
+            unreadNotificationsCount += additionalCount;
+            updateClientCount();
+          },
+          handleError
+        );
+        unsubscribersRef.current.push(unsubNotifications2);
       } else if (normalizedRole === 'PROVIDER') {
         // Provider: count available jobs + own job status updates
         let availableJobsCount = 0;
@@ -367,7 +388,10 @@ export const NotificationProvider = ({children}) => {
 
   const initializeNotifications = async () => {
     try {
+      console.log('[NotificationContext] Initializing notifications for user:', user?.uid || user?.id);
+      
       const hasPermission = await notificationService.requestPermission();
+      console.log('[NotificationContext] Permission granted:', hasPermission);
       
       // Set up navigation callback for VIEW button in notifications
       notificationService.setNavigationCallback((data) => {
@@ -377,19 +401,24 @@ export const NotificationProvider = ({children}) => {
       if (hasPermission) {
         // Register device token - this may fail on emulators without Google Play Services
         // but that's okay, the app will still work without push notifications
-        await notificationService.registerDeviceToken(user.id || user.uid);
+        console.log('[NotificationContext] Registering device token...');
+        const registrationResult = await notificationService.registerDeviceToken(user.id || user.uid);
+        console.log('[NotificationContext] Token registration result:', registrationResult);
         
         try {
           notificationService.onNotificationReceived((remoteMessage) => {
+            console.log('[NotificationContext] Notification received in foreground');
             handleNotificationReceived(remoteMessage);
           });
           
           notificationService.onNotificationOpened((remoteMessage) => {
+            console.log('[NotificationContext] Notification opened');
             handleNotificationOpened(remoteMessage);
           });
           
           notificationService.onTokenRefresh((token) => {
-            console.log('[FCM] Token refreshed');
+            console.log('[FCM] Token refreshed, re-registering...');
+            notificationService.registerDeviceToken(user.id || user.uid);
           });
           
           subscribeToUserTopics();
@@ -400,7 +429,7 @@ export const NotificationProvider = ({children}) => {
       }
     } catch (error) {
       // Non-critical - app works without push notifications
-      console.log('[Notifications] Init skipped:', error.message);
+      console.log('[Notifications] Init error:', error.message);
     }
   };
 
