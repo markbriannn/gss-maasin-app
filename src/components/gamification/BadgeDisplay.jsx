@@ -58,24 +58,26 @@ export const BadgeList = ({badges = [], maxDisplay = 4, size = 'small', onViewAl
   if (badges.length === 0) return null;
 
   return (
-    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+    <View style={{flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8}}>
       {displayBadges.map((badge, index) => (
-        <Badge key={badge.id || index} badge={badge} size={size} showName={false} />
+        <View key={badge.id || index} style={{flexDirection: 'row', alignItems: 'center', backgroundColor: badge.color + '15', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: badge.color + '30'}}>
+          <Icon name={badge.icon} size={14} color={badge.color} />
+          <Text style={{fontSize: 11, color: badge.color, fontWeight: '600', marginLeft: 4}}>{badge.name}</Text>
+        </View>
       ))}
       {remaining > 0 && (
         <TouchableOpacity 
           onPress={onViewAll}
           style={{
-            width: 28,
-            height: 28,
-            borderRadius: 14,
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+            borderRadius: 20,
             backgroundColor: isDark ? theme.colors.border : '#E5E7EB',
             justifyContent: 'center',
             alignItems: 'center',
-            marginLeft: 4,
           }}>
-          <Text style={{fontSize: 10, color: isDark ? theme.colors.text : '#374151', fontWeight: '600'}}>
-            +{remaining}
+          <Text style={{fontSize: 11, color: isDark ? theme.colors.text : '#374151', fontWeight: '600'}}>
+            +{remaining} more
           </Text>
         </TouchableOpacity>
       )}

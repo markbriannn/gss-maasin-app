@@ -39,6 +39,13 @@ export const authService = {
     const token = await credential.user.getIdToken();
     const profile = await getProfile(credential.user.uid);
     
+    console.log('[authService] ========================================');
+    console.log('[authService] Login successful');
+    console.log('[authService] Firebase Auth UID:', credential.user.uid);
+    console.log('[authService] Firebase Auth email:', credential.user.email);
+    console.log('[authService] Firestore profile:', JSON.stringify(profile, null, 2));
+    console.log('[authService] ========================================');
+    
     // Block providers whose account is still pending approval
     if (profile?.status === 'pending') {
       throw new Error('Your provider account is pending admin approval.');

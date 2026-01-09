@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ProviderLayout from '@/components/layouts/ProviderLayout';
 import Image from 'next/image';
@@ -40,9 +40,79 @@ export default function ProviderMessagesPage() {
   useEffect(() => {
     if (!user?.uid) return;
 
+    console.log('[ProviderMessages Web] ========================================');
+    console.log('[ProviderMessages Web] User UID:', user.uid);
+    console.log('[ProviderMessages Web] User email:', user.email);
+    console.log('[ProviderMessages Web] User role:', user.role);
+    console.log('[ProviderMessages Web] ========================================');
+
+    // SCAN AND FIX broken conversations first
+    const scanAndFixConversations = async () => {
+      try {
+        console.log('[ProviderMessages Web] Scanning ALL conversations to fix broken ones for user:', user.uid);
+        const allConvsQuery = query(collection(db, 'conversations'));
+        const { getDocs } = await import('firebase/firestore');
+        const allConvsSnapshot = await getDocs(allConvsQuery);
+        
+        for (const docSnap of allConvsSnapshot.docs) {
+          const data = docSnap.data();
+          const participants = data.participants || [];
+          
+          // Skip if user is already in participants
+          if (participants.includes(user.uid)) continue;
+          
+          // Check if this conversation should include this user
+          let shouldFix = false;
+          
+          // Check unreadCount
+          if (data.unreadCount && data.unreadCount[user.uid] !== undefined) {
+            shouldFix = true;
+          }
+          
+          // Check messages
+          if (!shouldFix) {
+            try {
+              const messagesQuery = query(collection(db, 'conversations', docSnap.id, 'messages'));
+              const messagesSnapshot = await getDocs(messagesQuery);
+              for (const msgDoc of messagesSnapshot.docs) {
+                if (msgDoc.data().senderId === user.uid) {
+                  shouldFix = true;
+                  break;
+                }
+              }
+            } catch {}
+          }
+          
+          if (shouldFix) {
+            console.log('[ProviderMessages Web] FIXING conversation:', docSnap.id);
+            await updateDoc(doc(db, 'conversations', docSnap.id), {
+              participants: [...participants, user.uid],
+            });
+          }
+        }
+      } catch (e) {
+        console.error('[ProviderMessages Web] Error scanning conversations:', e);
+      }
+    };
+    
+    scanAndFixConversations();
+
     const q = query(collection(db, 'conversations'), where('participants', 'array-contains', user.uid));
 
+    console.log('[ProviderMessages Web] Setting up onSnapshot listener for user:', user.uid);
+
     const unsubscribe = onSnapshot(q, async (snapshot) => {
+      console.log('[ProviderMessages Web] ========================================');
+      console.log('[ProviderMessages Web] onSnapshot triggered');
+      console.log('[ProviderMessages Web] Number of docs:', snapshot.docs.length);
+      snapshot.docs.forEach((docSnap, index) => {
+        const data = docSnap.data();
+        console.log(`[ProviderMessages Web] Conv ${index + 1}: ${docSnap.id}`);
+        console.log(`[ProviderMessages Web]   participants:`, data.participants);
+        console.log(`[ProviderMessages Web]   lastMessage:`, data.lastMessage?.substring(0, 30));
+      });
+      console.log('[ProviderMessages Web] ========================================');
+      
       const conversationPromises = snapshot.docs.map(async (docSnap) => {
         const data = docSnap.data();
         if (data.deleted?.[user.uid]) return null;
@@ -111,7 +181,10 @@ export default function ProviderMessagesPage() {
     if (!user?.uid) return;
     if (!confirm('Delete this conversation?')) return;
     try {
-      await updateDoc(doc(db, 'conversations', conversationId), { [`deleted.${user.uid}`]: true });
+      await updateDoc(doc(db, 'conversations', conversationId), { 
+        [`deleted.${user.uid}`]: true,
+        [`deletedAt.${user.uid}`]: serverTimestamp()
+      });
       setMenuOpen(null);
     } catch {}
   };
@@ -251,7 +324,7 @@ export default function ProviderMessagesPage() {
               {filteredConversations.map((conversation) => {
                 const roleBadge = getRoleBadge(conversation.otherUser.role);
                 return (
-                  <div key={conversation.id} className={`relative group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all overflow-hidden border ${conversation.unreadCount > 0 ? 'border-blue-200 bg-gradient-to-r from-blue-50/50 to-white' : 'border-gray-100'}`}>
+                  <div key={conversation.id} className={`relative group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all border ${conversation.unreadCount > 0 ? 'border-blue-200 bg-gradient-to-r from-blue-50/50 to-white' : 'border-gray-100'}`}>
                     <div className="p-4 flex items-center gap-4">
                       <div className="relative cursor-pointer" onClick={() => router.push(`/chat/${conversation.id}`)}>
                         {conversation.otherUser.profilePhoto ? (

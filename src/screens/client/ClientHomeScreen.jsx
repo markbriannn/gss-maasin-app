@@ -906,14 +906,38 @@ const ClientHomeScreen = ({navigation}) => {
                   {/* Left side - Status info */}
                   <View style={{flex: 1}}>
                     <Text style={styles.bookingStatusTitle}>
-                      {activeBookings[selectedProvider.id].adminApproved 
-                        ? 'Awaiting Provider Confirmation'
-                        : 'Awaiting Admin Confirmation'}
+                      {(() => {
+                        const booking = activeBookings[selectedProvider.id];
+                        const status = booking.status;
+                        if (!booking.adminApproved) return 'Awaiting Admin Confirmation';
+                        if (status === 'pending') return 'Awaiting Provider Confirmation';
+                        if (status === 'accepted') return 'Provider Accepted';
+                        if (status === 'traveling') return 'Provider On The Way';
+                        if (status === 'arrived') return 'Provider Has Arrived';
+                        if (status === 'in_progress') return 'Work In Progress';
+                        if (status === 'pending_completion') return 'Awaiting Your Confirmation';
+                        if (status === 'pending_payment') return 'Awaiting Payment';
+                        if (status === 'payment_received') return 'Payment Received';
+                        if (status === 'completed') return 'Job Completed';
+                        return 'Awaiting Provider Confirmation';
+                      })()}
                     </Text>
                     <Text style={styles.bookingStatusSubtitle}>
-                      {activeBookings[selectedProvider.id].adminApproved 
-                        ? 'Waiting for provider to accept'
-                        : 'Your booking is being reviewed'}
+                      {(() => {
+                        const booking = activeBookings[selectedProvider.id];
+                        const status = booking.status;
+                        if (!booking.adminApproved) return 'Your booking is being reviewed';
+                        if (status === 'pending') return 'Waiting for provider to accept';
+                        if (status === 'accepted') return 'Provider will start traveling soon';
+                        if (status === 'traveling') return 'Provider is on the way to you';
+                        if (status === 'arrived') return 'Provider has arrived at your location';
+                        if (status === 'in_progress') return 'Provider is working on your job';
+                        if (status === 'pending_completion') return 'Please confirm the work is done';
+                        if (status === 'pending_payment') return 'Please complete the payment';
+                        if (status === 'payment_received') return 'Waiting for provider confirmation';
+                        if (status === 'completed') return 'Thank you for using our service';
+                        return 'Waiting for provider to accept';
+                      })()}
                     </Text>
                     
                     {/* Provider name and service with star rating */}
@@ -932,15 +956,24 @@ const ClientHomeScreen = ({navigation}) => {
                       </Text>
                     </View>
                     
-                    {/* Animated Progress bar */}
-                    <AnimatedProgressBar />
+                    {/* Animated Progress bar - only show for pending statuses */}
+                    {['pending', 'accepted'].includes(activeBookings[selectedProvider.id].status) && !activeBookings[selectedProvider.id].adminApproved === false && (
+                      <AnimatedProgressBar />
+                    )}
                     
                     {/* Bottom row */}
                     <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12}}>
                       <Text style={{fontSize: 13, color: '#9CA3AF', fontStyle: 'italic'}}>
-                        {activeBookings[selectedProvider.id].adminApproved 
-                          ? 'Provider will respond shortly...'
-                          : 'Admin will review your booking shortly...'}
+                        {(() => {
+                          const booking = activeBookings[selectedProvider.id];
+                          const status = booking.status;
+                          if (!booking.adminApproved) return 'Admin will review shortly...';
+                          if (status === 'pending') return 'Provider will respond shortly...';
+                          if (status === 'traveling') return 'Track provider location';
+                          if (status === 'arrived') return 'Provider is ready to start';
+                          if (status === 'in_progress') return 'Work is being done';
+                          return 'Tap for details';
+                        })()}
                       </Text>
                       <View style={{flexDirection: 'row', alignItems: 'center'}}>
                         <Text style={{fontSize: 13, color: '#6B7280'}}>Tap for details</Text>

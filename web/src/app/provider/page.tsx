@@ -43,12 +43,12 @@ const getGreeting = () => {
   return 'Good evening';
 };
 
+// Tier thresholds must match mobile (src/utils/gamification.js)
 const TIERS = [
   { name: 'Bronze', minPoints: 0, color: '#CD7F32', gradient: 'from-amber-600 to-amber-800', icon: '🥉' },
-  { name: 'Silver', minPoints: 500, color: '#9CA3AF', gradient: 'from-gray-400 to-gray-600', icon: '🥈' },
-  { name: 'Gold', minPoints: 1000, color: '#F59E0B', gradient: 'from-yellow-400 to-amber-500', icon: '🥇' },
-  { name: 'Platinum', minPoints: 2500, color: '#06B6D4', gradient: 'from-cyan-400 to-blue-500', icon: '💠' },
-  { name: 'Diamond', minPoints: 5000, color: '#8B5CF6', gradient: 'from-purple-400 to-pink-500', icon: '💎' },
+  { name: 'Silver', minPoints: 1000, color: '#C0C0C0', gradient: 'from-gray-400 to-gray-600', icon: '🥈' },
+  { name: 'Gold', minPoints: 3000, color: '#FFD700', gradient: 'from-yellow-400 to-amber-500', icon: '🥇' },
+  { name: 'Platinum', minPoints: 7500, color: '#E5E4E2', gradient: 'from-cyan-400 to-blue-500', icon: '💠' },
 ];
 
 const getTierInfo = (points: number) => {

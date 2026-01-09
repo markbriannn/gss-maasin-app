@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 import { 
   Bell, MessageSquare, Briefcase, CheckCircle, 
   Star, CreditCard, X, ChevronRight, Sparkles
@@ -26,51 +25,28 @@ export default function ToastNotification() {
   const { user } = useAuth();
   const router = useRouter();
   const [toasts, setToasts] = useState<Toast[]>([]);
+  // Track shown toasts to prevent duplicates - use ref to persist across renders
+  const shownToastIds = useRef(new Set<string>());
 
-  const addToast = useCallback((toastData: Omit<Toast, 'id'>) => {
+  const addToast = useCallback((toastData: Omit<Toast, 'id'>, uniqueKey?: string) => {
+    // Prevent duplicate toasts using unique key
+    if (uniqueKey && shownToastIds.current.has(uniqueKey)) {
+      return;
+    }
+    if (uniqueKey) {
+      shownToastIds.current.add(uniqueKey);
+      // Clean up after 60 seconds
+      setTimeout(() => shownToastIds.current.delete(uniqueKey), 60000);
+    }
+
     const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     setToasts(prev => [...prev, { ...toastData, id }]);
-    
-    // Also show using sonner for better visibility
-    const toastType = toastData.color === 'red' ? 'error' : 
-                      toastData.color === 'amber' ? 'warning' : 
-                      toastData.color === 'emerald' ? 'success' : 'info';
-    
-    if (toastType === 'success') {
-      toast.success(toastData.title, {
-        description: toastData.message,
-        action: toastData.link ? {
-          label: 'View',
-          onClick: () => router.push(toastData.link!),
-        } : undefined,
-      });
-    } else if (toastType === 'error') {
-      toast.error(toastData.title, {
-        description: toastData.message,
-      });
-    } else if (toastType === 'warning') {
-      toast.warning(toastData.title, {
-        description: toastData.message,
-        action: toastData.link ? {
-          label: 'View',
-          onClick: () => router.push(toastData.link!),
-        } : undefined,
-      });
-    } else {
-      toast.info(toastData.title, {
-        description: toastData.message,
-        action: toastData.link ? {
-          label: 'View',
-          onClick: () => router.push(toastData.link!),
-        } : undefined,
-      });
-    }
     
     // Auto remove custom toast after 5 seconds
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 5000);
-  }, [router]);
+  }, []);
 
   const removeToast = (id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
@@ -108,8 +84,8 @@ export default function ToastNotification() {
           
           // Only show if it's a new notification (within last 30 seconds)
           if (new Date().getTime() - createdAt.getTime() < 30000) {
-            const toast = getToastFromNotification(data);
-            if (toast) addToast(toast);
+            const toastData = getToastFromNotification(data);
+            if (toastData) addToast(toastData, `notif_${change.doc.id}`);
           }
         }
       });
@@ -135,8 +111,8 @@ export default function ToastNotification() {
             const createdAt = data.createdAt?.toDate() || new Date();
             
             if (new Date().getTime() - createdAt.getTime() < 30000) {
-              const toast = getToastFromNotification(data);
-              if (toast) addToast(toast);
+              const toastData = getToastFromNotification(data);
+              if (toastData) addToast(toastData, `notif_${change.doc.id}`);
             }
           }
         });
@@ -193,7 +169,7 @@ export default function ToastNotification() {
             timestamp: new Date(),
             link: `/provider/jobs/${docId}`,
             color: 'emerald',
-          });
+          }, `provider_pending_${docId}`);
         }
 
         // Admin approved the booking - show toast to provider
@@ -206,7 +182,7 @@ export default function ToastNotification() {
             timestamp: new Date(),
             link: `/provider/jobs/${docId}`,
             color: 'emerald',
-          });
+          }, `provider_approved_${docId}`);
         }
 
         // Client contacted - new message or status change
@@ -227,7 +203,7 @@ export default function ToastNotification() {
               timestamp: new Date(),
               link: `/provider/jobs/${docId}`,
               color: 'emerald',
-            });
+            }, `provider_completed_${docId}`);
           }
         }
       });
@@ -248,8 +224,17 @@ export default function ToastNotification() {
     );
 
     let isFirstLoad = true;
+    // Track last message timestamps to prevent duplicate toasts
+    const lastMessageTimes = new Map<string, number>();
+    
     const unsubscribe = onSnapshot(conversationsQuery, (snapshot) => {
       if (isFirstLoad) {
+        // Record initial message times
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          const lastTime = data.lastMessageTime?.toDate?.()?.getTime() || data.updatedAt?.toDate?.()?.getTime() || 0;
+          lastMessageTimes.set(doc.id, lastTime);
+        });
         isFirstLoad = false;
         return;
       }
@@ -257,18 +242,22 @@ export default function ToastNotification() {
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'modified') {
           const data = change.doc.data();
+          const docId = change.doc.id;
           const unreadCount = data.unreadCount?.[user.uid] || 0;
+          const currentTime = data.lastMessageTime?.toDate?.()?.getTime() || data.updatedAt?.toDate?.()?.getTime() || 0;
+          const previousTime = lastMessageTimes.get(docId) || 0;
           
-          // Only show toast if there's a new unread message and it's not from current user
-          if (unreadCount > 0 && data.lastSenderId !== user.uid) {
+          // Only show toast if there's a new unread message, it's not from current user, and it's actually new
+          if (unreadCount > 0 && data.lastSenderId !== user.uid && currentTime > previousTime) {
+            lastMessageTimes.set(docId, currentTime);
             addToast({
               type: 'message',
               title: 'New Message 💬',
               message: data.lastMessage?.slice(0, 50) + (data.lastMessage?.length > 50 ? '...' : '') || 'You have a new message',
               timestamp: new Date(),
-              link: `/chat/${change.doc.id}`,
+              link: `/chat/${docId}`,
               color: 'blue',
-            });
+            }, `msg_${docId}_${currentTime}`);
           }
         }
       });
@@ -316,7 +305,7 @@ export default function ToastNotification() {
             timestamp: new Date(),
             link: `/admin/jobs/${docId}`,
             color: 'amber',
-          });
+          }, `admin_new_${docId}`);
         }
       });
     }, (error) => {
@@ -360,17 +349,19 @@ export default function ToastNotification() {
           const data = change.doc.data();
           const docId = change.doc.id;
           const status = data.status;
-          const toastKey = `${status}_${docId}`;
+          const statusKey = `${status}_${docId}`;
           
           // Skip if we've already shown this toast
-          if (shownToasts.has(toastKey)) return;
+          if (shownToasts.has(statusKey)) return;
           
-          let toast: Omit<Toast, 'id'> | null = null;
+          let toastData: Omit<Toast, 'id'> | null = null;
+          let uniqueKey: string | undefined;
           
           // Admin approved the booking
           if (data.adminApproved && !shownToasts.has(`approved_${docId}`)) {
             shownToasts.add(`approved_${docId}`);
-            toast = {
+            uniqueKey = `client_approved_${docId}`;
+            toastData = {
               type: 'job',
               title: 'Booking Approved! ✅',
               message: `Your booking for ${data.serviceCategory || 'service'} has been approved by admin`,
@@ -379,8 +370,9 @@ export default function ToastNotification() {
               color: 'emerald',
             };
           } else if (status === 'accepted') {
-            shownToasts.add(toastKey);
-            toast = {
+            shownToasts.add(statusKey);
+            uniqueKey = `client_accepted_${docId}`;
+            toastData = {
               type: 'job',
               title: 'Booking Accepted! ✅',
               message: `${data.providerName || 'Provider'} accepted your booking`,
@@ -389,8 +381,9 @@ export default function ToastNotification() {
               color: 'emerald',
             };
           } else if (status === 'traveling') {
-            shownToasts.add(toastKey);
-            toast = {
+            shownToasts.add(statusKey);
+            uniqueKey = `client_traveling_${docId}`;
+            toastData = {
               type: 'job',
               title: 'Provider On The Way! 🚗',
               message: `${data.providerName || 'Provider'} is traveling to your location`,
@@ -399,8 +392,9 @@ export default function ToastNotification() {
               color: 'blue',
             };
           } else if (status === 'arrived') {
-            shownToasts.add(toastKey);
-            toast = {
+            shownToasts.add(statusKey);
+            uniqueKey = `client_arrived_${docId}`;
+            toastData = {
               type: 'job',
               title: 'Provider Arrived! 📍',
               message: `${data.providerName || 'Provider'} has arrived at your location`,
@@ -409,8 +403,9 @@ export default function ToastNotification() {
               color: 'emerald',
             };
           } else if (status === 'in_progress') {
-            shownToasts.add(toastKey);
-            toast = {
+            shownToasts.add(statusKey);
+            uniqueKey = `client_inprogress_${docId}`;
+            toastData = {
               type: 'job',
               title: 'Service Started 🚀',
               message: `${data.providerName || 'Provider'} has started working on your job`,
@@ -419,8 +414,9 @@ export default function ToastNotification() {
               color: 'blue',
             };
           } else if (status === 'completed' || status === 'pending_completion') {
-            shownToasts.add(toastKey);
-            toast = {
+            shownToasts.add(statusKey);
+            uniqueKey = `client_completed_${docId}`;
+            toastData = {
               type: 'job',
               title: 'Service Completed! 🎉',
               message: `Your ${data.serviceCategory || 'service'} has been completed`,
@@ -429,8 +425,9 @@ export default function ToastNotification() {
               color: 'emerald',
             };
           } else if (status === 'rejected' || status === 'cancelled') {
-            shownToasts.add(toastKey);
-            toast = {
+            shownToasts.add(statusKey);
+            uniqueKey = `client_${status}_${docId}`;
+            toastData = {
               type: 'job',
               title: 'Booking Update',
               message: `Your booking was ${status}`,
@@ -440,7 +437,7 @@ export default function ToastNotification() {
             };
           }
           
-          if (toast) addToast(toast);
+          if (toastData) addToast(toastData, uniqueKey);
         }
       });
     }, (error) => {

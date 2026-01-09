@@ -559,9 +559,19 @@ const EditProfileScreen = ({navigation}) => {
                 longitude: formData.longitude,
               }}
               draggable
-              onDragEnd={(e) => {
+              onDragEnd={async (e) => {
                 const {latitude, longitude} = e.nativeEvent.coordinate;
                 setFormData(prev => ({...prev, latitude, longitude}));
+                // Reverse geocode to get address
+                const addressData = await getAddressFromCoordinates(latitude, longitude);
+                if (addressData) {
+                  setFormData(prev => ({
+                    ...prev,
+                    barangay: addressData.barangay || prev.barangay,
+                    streetAddress: addressData.streetAddress || prev.streetAddress,
+                    houseNumber: addressData.houseNumber || prev.houseNumber,
+                  }));
+                }
               }}>
               <Icon name="location" size={40} color="#00B14F" />
             </Marker>

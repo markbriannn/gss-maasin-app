@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/layouts/AdminLayout';
 import Image from 'next/image';
@@ -111,7 +111,10 @@ export default function AdminMessagesPage() {
     if (!user?.uid) return;
     if (!confirm('Delete this conversation?')) return;
     try {
-      await updateDoc(doc(db, 'conversations', conversationId), { [`deleted.${user.uid}`]: true });
+      await updateDoc(doc(db, 'conversations', conversationId), { 
+        [`deleted.${user.uid}`]: true,
+        [`deletedAt.${user.uid}`]: serverTimestamp()
+      });
       setMenuOpen(null);
     } catch {}
   };
@@ -274,7 +277,7 @@ export default function AdminMessagesPage() {
               {filteredConversations.map((conversation) => {
                 const roleBadge = getRoleBadge(conversation.otherUser.role);
                 return (
-                  <div key={conversation.id} className={`relative group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all overflow-hidden border ${conversation.unreadCount > 0 ? 'border-purple-200 bg-gradient-to-r from-purple-50/50 to-white' : 'border-gray-100'}`}>
+                  <div key={conversation.id} className={`relative group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all border ${conversation.unreadCount > 0 ? 'border-purple-200 bg-gradient-to-r from-purple-50/50 to-white' : 'border-gray-100'}`}>
                     <div className="p-4 flex items-center gap-4">
                       <div className="relative cursor-pointer" onClick={() => router.push(`/chat/${conversation.id}`)}>
                         {conversation.otherUser.profilePhoto ? (

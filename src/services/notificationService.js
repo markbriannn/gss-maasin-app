@@ -252,6 +252,29 @@ class NotificationService {
     ]);
   }
 
+  // Show local notification with callback when dismissed
+  showLocalNotificationWithCallback(title, body, data = {}, onDismiss = null) {
+    Alert.alert(title, body, [
+      {
+        text: 'View',
+        onPress: () => {
+          console.log('Notification action:', data);
+          if (onDismiss) onDismiss();
+          if (this.navigationCallback) {
+            this.navigationCallback(data);
+          }
+        },
+      },
+      {
+        text: 'Dismiss',
+        style: 'cancel',
+        onPress: () => {
+          if (onDismiss) onDismiss();
+        },
+      },
+    ]);
+  }
+
   // Set navigation callback for handling VIEW button taps
   setNavigationCallback(callback) {
     this.navigationCallback = callback;

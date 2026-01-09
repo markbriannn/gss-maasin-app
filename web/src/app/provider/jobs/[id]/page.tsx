@@ -614,15 +614,19 @@ export default function ProviderJobDetailsPage() {
           {/* Job Details */}
           <div className="bg-white rounded-2xl p-5 shadow-lg shadow-gray-200/50 mb-4 border border-gray-100">
             <div className="space-y-4">
-              <div className="flex items-start gap-4">
-                <div className="p-2.5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl">
-                  <Calendar className="w-5 h-5 text-blue-600" />
+              {(job.scheduledDate || job.scheduledTime) && (
+                <div className="flex items-start gap-4">
+                  <div className="p-2.5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 font-medium">Schedule</p>
+                    <p className="font-semibold text-gray-900">
+                      {job.scheduledDate}{job.scheduledDate && job.scheduledTime ? ' at ' : ''}{job.scheduledTime}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500 font-medium">Schedule</p>
-                  <p className="font-semibold text-gray-900">{job.scheduledDate} at {job.scheduledTime}</p>
-                </div>
-              </div>
+              )}
               <div className="flex items-start gap-4">
                 <div className="p-2.5 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl">
                   <MapPin className="w-5 h-5 text-purple-600" />
@@ -632,7 +636,7 @@ export default function ProviderJobDetailsPage() {
                   <p className="font-semibold text-gray-900">{job.clientAddress || job.address || 'Maasin City'}</p>
                 </div>
               </div>
-              {job.description && (
+              {job.description && job.description !== 'See attached photos/videos' && (
                 <div className="pt-3 border-t border-gray-100">
                   <p className="text-sm text-gray-500 font-medium mb-2">Description</p>
                   <p className="text-gray-700 bg-gray-50 rounded-xl p-3">{job.description}</p>

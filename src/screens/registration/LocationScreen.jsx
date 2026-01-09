@@ -232,6 +232,7 @@ const LocationScreen = ({navigation, route}) => {
           ...prev,
           barangay: addressData?.barangay || prev.barangay,
           streetAddress: addressData?.streetAddress || prev.streetAddress,
+          houseNumber: addressData?.houseNumber || prev.houseNumber,
         }));
       }
     } finally {
@@ -264,6 +265,7 @@ const LocationScreen = ({navigation, route}) => {
           ...prev,
           barangay: addressData?.barangay || prev.barangay,
           streetAddress: addressData?.streetAddress || prev.streetAddress,
+          houseNumber: addressData?.houseNumber || prev.houseNumber,
         }));
       }
     } finally {

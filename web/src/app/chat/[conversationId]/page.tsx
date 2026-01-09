@@ -236,22 +236,65 @@ export default function ChatPage() {
           const convDoc = await getDoc(doc(db, 'conversations', conversationIdParam));
           if (convDoc.exists()) {
             const convData = convDoc.data();
-            const participants = convData.participants || [];
+            let participants = convData.participants || [];
+            
+            console.log('[Chat] Existing conversation participants:', participants);
             
             // FIX: If current user is not in participants, add them (fixes broken conversations)
             if (!participants.includes(user.uid)) {
               console.log('[Chat] FIXING broken conversation - adding current user to participants');
-              console.log('[Chat] Old participants:', participants);
-              const newParticipants = [...participants, user.uid];
-              console.log('[Chat] New participants:', newParticipants);
+              participants = [...participants, user.uid];
               await updateDoc(doc(db, 'conversations', conversationIdParam), {
-                participants: newParticipants,
+                participants: participants,
                 [`unreadCount.${user.uid}`]: 0,
               });
             }
             
-            const otherUserId = participants.find((p: string) => p !== user.uid);
+            // Find the other user - first try from participants
+            let otherUserId = participants.find((p: string) => p !== user.uid);
+            
+            // If no other user found in participants, check messages to find who else is involved
+            if (!otherUserId) {
+              console.log('[Chat] No other user in participants, checking messages...');
+              const messagesQuery = query(
+                collection(db, 'conversations', conversationIdParam, 'messages'),
+                orderBy('timestamp', 'desc')
+              );
+              const messagesSnapshot = await getDocs(messagesQuery);
+              
+              for (const msgDoc of messagesSnapshot.docs) {
+                const msgData = msgDoc.data();
+                if (msgData.senderId && msgData.senderId !== user.uid) {
+                  otherUserId = msgData.senderId;
+                  console.log('[Chat] Found other user from messages:', otherUserId);
+                  // FIX: Add this user to participants
+                  participants = [...participants, otherUserId];
+                  await updateDoc(doc(db, 'conversations', conversationIdParam), {
+                    participants: participants,
+                  });
+                  break;
+                }
+              }
+              
+              // Also check unreadCount keys
+              if (!otherUserId && convData.unreadCount) {
+                const unreadKeys = Object.keys(convData.unreadCount);
+                otherUserId = unreadKeys.find(k => k !== user.uid);
+                if (otherUserId) {
+                  console.log('[Chat] Found other user from unreadCount:', otherUserId);
+                  // FIX: Add this user to participants
+                  if (!participants.includes(otherUserId)) {
+                    participants = [...participants, otherUserId];
+                    await updateDoc(doc(db, 'conversations', conversationIdParam), {
+                      participants: participants,
+                    });
+                  }
+                }
+              }
+            }
+            
             if (otherUserId) {
+              resolvedRecipientIdRef.current = otherUserId;
               const userDoc = await getDoc(doc(db, 'users', otherUserId));
               if (userDoc.exists()) {
                 const userData = userDoc.data();
@@ -261,6 +304,12 @@ export default function ChatPage() {
                   name: isAdmin ? 'GSS Support' : (`${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.displayName || 'User'),
                   photo: userData.profilePhoto,
                   role: isAdmin ? 'Support Team' : userData.role,
+                });
+              } else {
+                setRecipient({
+                  id: otherUserId,
+                  name: 'User',
+                  role: 'CLIENT',
                 });
               }
             }
@@ -389,27 +438,60 @@ export default function ChatPage() {
   useEffect(() => {
     if (!conversationId || !user?.uid) return;
 
+    // First get the conversation to check deletedAt timestamp
+    const getDeletedAt = async () => {
+      try {
+        const convDoc = await getDoc(doc(db, 'conversations', conversationId));
+        if (convDoc.exists()) {
+          const convData = convDoc.data();
+          return convData.deletedAt?.[user.uid]?.toDate?.() || null;
+        }
+      } catch {
+        return null;
+      }
+      return null;
+    };
+
     // Immediately reset unread count when opening the chat
     updateDoc(doc(db, 'conversations', conversationId), {
       [`unreadCount.${user.uid}`]: 0,
     }).catch(() => {});
+
+    let userDeletedAt: Date | null = null;
+    
+    getDeletedAt().then((deletedAt) => {
+      userDeletedAt = deletedAt;
+    });
 
     const messagesQuery = query(
       collection(db, 'conversations', conversationId, 'messages'),
       orderBy('timestamp', 'asc')
     );
 
-    const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+    const unsubscribe = onSnapshot(messagesQuery, async (snapshot) => {
+      // Re-fetch deletedAt in case it changed
+      const convDoc = await getDoc(doc(db, 'conversations', conversationId));
+      const convData = convDoc.data();
+      userDeletedAt = convData?.deletedAt?.[user.uid]?.toDate?.() || null;
+      
       const msgs: Message[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
+        const msgTime = data.timestamp?.toDate() || data.createdAt?.toDate() || new Date();
+        
+        // Filter out messages that were sent before user deleted the conversation
+        // Only show messages sent AFTER the user deleted (if they deleted)
+        if (userDeletedAt && msgTime < userDeletedAt) {
+          return; // Skip this message - it's from before user deleted
+        }
+        
         msgs.push({
           id: docSnap.id,
           text: data.text || '',
           senderId: data.senderId,
           senderName: data.senderName || 'User',
           imageUrl: data.imageUrl,
-          createdAt: data.timestamp?.toDate() || data.createdAt?.toDate() || new Date(),
+          createdAt: msgTime,
           read: data.read || false,
           reactions: data.reactions || [],
         });
@@ -479,8 +561,17 @@ export default function ChatPage() {
         console.log('[Chat] - Job ID:', jobId);
         console.log('[Chat] - Participants array will be:', [user.uid, actualRecipientId]);
         
+        // CRITICAL: Ensure both IDs are valid strings
+        if (typeof user.uid !== 'string' || typeof actualRecipientId !== 'string') {
+          console.error('[Chat] Invalid user IDs:', { senderType: typeof user.uid, recipientType: typeof actualRecipientId });
+          throw new Error('Invalid user IDs');
+        }
+        
+        const participantsArray = [user.uid, actualRecipientId];
+        console.log('[Chat] Final participants array:', participantsArray);
+        
         const convRef = await addDoc(collection(db, 'conversations'), {
-          participants: [user.uid, actualRecipientId],
+          participants: participantsArray,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           lastMessage: imageUrl ? '📷 Image' : messageText,
@@ -494,7 +585,37 @@ export default function ChatPage() {
         });
         convId = convRef.id;
         console.log('[Chat] Created new conversation with ID:', convId);
+        
+        // VERIFY the conversation was created correctly
+        const verifyDoc = await getDoc(doc(db, 'conversations', convId));
+        if (verifyDoc.exists()) {
+          const verifyData = verifyDoc.data();
+          console.log('[Chat] VERIFICATION - Saved participants:', verifyData.participants);
+          if (!verifyData.participants?.includes(actualRecipientId)) {
+            console.error('[Chat] CRITICAL: Recipient not in participants! Fixing...');
+            await updateDoc(doc(db, 'conversations', convId), {
+              participants: [user.uid, actualRecipientId],
+            });
+          }
+        }
+        
         setConversationId(convId);
+      } else {
+        // EXISTING conversation - verify recipient is in participants
+        const actualRecipientId = recipient?.id || resolvedRecipientIdRef.current;
+        if (actualRecipientId) {
+          const convDoc = await getDoc(doc(db, 'conversations', convId));
+          if (convDoc.exists()) {
+            const convData = convDoc.data();
+            const participants = convData.participants || [];
+            if (!participants.includes(actualRecipientId)) {
+              console.log('[Chat] FIXING existing conversation - adding recipient to participants');
+              await updateDoc(doc(db, 'conversations', convId), {
+                participants: [...participants, actualRecipientId],
+              });
+            }
+          }
+        }
       }
 
       if (!convId) {
@@ -553,13 +674,23 @@ export default function ChatPage() {
         }
       });
 
-      await updateDoc(doc(db, 'conversations', convId), {
+      // Build update object - clear deleted flag for recipients so conversation reappears in their inbox
+      const updateData: Record<string, unknown> = {
         lastMessage: imageUrl ? '📷 Image' : messageText,
         lastMessageTime: serverTimestamp(),
         lastSenderId: user.uid,
         updatedAt: serverTimestamp(),
         unreadCount,
+      };
+      
+      // Clear deleted flag for all other participants (so conversation shows in their inbox again)
+      convData?.participants?.forEach((participantId: string) => {
+        if (participantId !== user.uid) {
+          updateData[`deleted.${participantId}`] = false;
+        }
       });
+
+      await updateDoc(doc(db, 'conversations', convId), updateData);
 
       // Send FCM push notification to recipient
       const notifyRecipientId = recipient?.id || resolvedRecipientIdRef.current;

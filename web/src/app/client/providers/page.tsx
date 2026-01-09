@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { collection, query, where, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ClientLayout from '@/components/layouts/ClientLayout';
 import Image from 'next/image';
@@ -98,8 +98,11 @@ export default function ProvidersPage() {
   }, [isLoading, isAuthenticated, router]);
 
   useEffect(() => {
-    fetchProviders();
+    const unsubscribe = fetchProviders();
     loadFavorites();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [user]);
 
   const loadFavorites = async () => {
@@ -127,10 +130,11 @@ export default function ProvidersPage() {
     } catch (e) { console.error(e); }
   };
 
-  const fetchProviders = async () => {
-    try {
-      const providersQuery = query(collection(db, 'users'), where('role', '==', 'PROVIDER'));
-      const snapshot = await getDocs(providersQuery);
+  // Real-time listener for providers
+  const fetchProviders = () => {
+    const providersQuery = query(collection(db, 'users'), where('role', '==', 'PROVIDER'));
+    
+    const unsubscribe = onSnapshot(providersQuery, (snapshot) => {
       const list: Provider[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
@@ -141,10 +145,10 @@ export default function ProvidersPage() {
             lastName: data.lastName || '',
             serviceCategory: data.serviceCategory || '',
             rating: data.rating || data.averageRating || 0,
-            reviewCount: data.reviewCount || 0,
+            reviewCount: data.reviewCount || data.totalReviews || 0,
             profilePhoto: data.profilePhoto,
             isOnline: data.isOnline || false,
-            completedJobs: data.completedJobs || 0,
+            completedJobs: data.completedJobs || data.jobsCompleted || 0,
             barangay: data.barangay || '',
             fixedPrice: data.fixedPrice || 0,
             hourlyRate: data.hourlyRate || 0,
@@ -152,7 +156,7 @@ export default function ProvidersPage() {
             providerStatus: data.providerStatus || data.status,
             bio: data.bio || '',
             experience: data.experience || '',
-            responseTime: data.responseTime || Math.floor(Math.random() * 15) + 1,
+            responseTime: data.responseTime || data.avgResponseTime || data.averageResponseTime || 5,
             latitude: data.latitude,
             longitude: data.longitude,
             lastActive: data.lastActive?.toDate?.() || new Date(),
@@ -166,11 +170,13 @@ export default function ProvidersPage() {
       // Set featured provider (highest rated online)
       const featured = list.filter(p => p.isOnline).sort((a, b) => b.rating - a.rating)[0];
       if (featured) setFeaturedProvider(featured);
-    } catch (error) {
-      console.error('Error fetching providers:', error);
-    } finally {
       setLoadingData(false);
-    }
+    }, (error) => {
+      console.error('Error fetching providers:', error);
+      setLoadingData(false);
+    });
+
+    return unsubscribe;
   };
 
   // Calculate distance

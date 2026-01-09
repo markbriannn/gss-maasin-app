@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ClientLayout from '@/components/layouts/ClientLayout';
 import dynamic from 'next/dynamic';
@@ -62,9 +62,12 @@ function SelectProviderContent() {
 
   useEffect(() => {
     if (serviceCategory) {
-      fetchProviders();
+      const unsubscribe = fetchProviders();
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
     }
-  }, [serviceCategory]);
+  }, [serviceCategory, clientLat, clientLng]);
 
   useEffect(() => {
     applyFilter();
@@ -92,16 +95,16 @@ function SelectProviderContent() {
     return `${hours}h ${remainingMins}m`;
   };
 
-  const fetchProviders = async () => {
-    try {
-      const providersQuery = query(
-        collection(db, 'users'),
-        where('role', '==', 'PROVIDER'),
-        where('serviceCategory', '==', serviceCategory),
-        where('status', '==', 'approved')
-      );
+  // Real-time listener for providers
+  const fetchProviders = () => {
+    const providersQuery = query(
+      collection(db, 'users'),
+      where('role', '==', 'PROVIDER'),
+      where('serviceCategory', '==', serviceCategory),
+      where('status', '==', 'approved')
+    );
 
-      const snapshot = await getDocs(providersQuery);
+    const unsubscribe = onSnapshot(providersQuery, (snapshot) => {
       const providersList: Provider[] = [];
 
       snapshot.forEach((doc) => {
@@ -119,8 +122,8 @@ function SelectProviderContent() {
           serviceCategory: data.serviceCategory || '',
           profilePhoto: data.profilePhoto,
           rating: data.rating || data.averageRating || 0,
-          reviewCount: data.reviewCount || 0,
-          completedJobs: data.completedJobs || 0,
+          reviewCount: data.reviewCount || data.totalReviews || 0,
+          completedJobs: data.completedJobs || data.jobsCompleted || 0,
           fixedPrice: data.fixedPrice || data.hourlyRate || 0,
           priceType: data.priceType || 'per_job',
           distance: distance,
@@ -129,16 +132,18 @@ function SelectProviderContent() {
           latitude: data.latitude,
           longitude: data.longitude,
           tier: data.tier || 'bronze',
-          responseTime: data.responseTime || 5,
+          responseTime: data.responseTime || data.avgResponseTime || data.averageResponseTime || 5,
         });
       });
 
       setProviders(providersList);
-    } catch (error) {
-      console.error('Error fetching providers:', error);
-    } finally {
       setLoading(false);
-    }
+    }, (error) => {
+      console.error('Error fetching providers:', error);
+      setLoading(false);
+    });
+
+    return unsubscribe;
   };
 
   const applyFilter = () => {

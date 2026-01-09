@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import {
   deleteConversation,
   archiveConversation,
   unarchiveConversation,
+  scanAndFixBrokenConversations,
 } from '../../services/messageService';
 
 const ProviderMessagesScreen = ({navigation}) => {
@@ -33,9 +34,29 @@ const ProviderMessagesScreen = ({navigation}) => {
   const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
-    if (!user?.uid) return;
+    console.log('[ProviderMessages] ========================================');
+    console.log('[ProviderMessages] useEffect triggered');
+    console.log('[ProviderMessages] user object:', JSON.stringify(user, null, 2));
+    console.log('[ProviderMessages] user?.uid:', user?.uid);
+    console.log('[ProviderMessages] typeof user?.uid:', typeof user?.uid);
+    console.log('[ProviderMessages] ========================================');
+    
+    if (!user?.uid) {
+      console.log('[ProviderMessages] No user.uid, returning early');
+      return;
+    }
+
+    console.log('[ProviderMessages] Starting subscription with uid:', user.uid);
+
+    // First, scan and fix any broken conversations
+    scanAndFixBrokenConversations(user.uid).then((fixedCount) => {
+      if (fixedCount > 0) {
+        console.log('[ProviderMessages] Fixed', fixedCount, 'broken conversations');
+      }
+    });
 
     const unsubscribe = subscribeToConversations(user.uid, (updatedConversations) => {
+      console.log('[ProviderMessages] Received', updatedConversations.length, 'conversations from subscription');
       // Filter out deleted conversations
       const nonDeleted = updatedConversations.filter((c) => !c.deleted?.[user.uid]);
       // Separate active and archived
@@ -50,8 +71,15 @@ const ProviderMessagesScreen = ({navigation}) => {
     return () => unsubscribe();
   }, [user?.uid]);
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
+    // Scan and fix broken conversations on refresh
+    if (user?.uid) {
+      const fixedCount = await scanAndFixBrokenConversations(user.uid);
+      if (fixedCount > 0) {
+        console.log('[ProviderMessages] Fixed', fixedCount, 'broken conversations on refresh');
+      }
+    }
     setTimeout(() => setRefreshing(false), 1000);
   };
 
@@ -76,16 +104,19 @@ const ProviderMessagesScreen = ({navigation}) => {
     );
   };
 
-  const handleArchive = async (conversationId) => {
+  const handleArchive = async (conversationId, swipeableRef) => {
     try {
+      // Close swipeable first for smooth animation
+      swipeableRef?.current?.close();
       await archiveConversation(conversationId, user.uid);
     } catch (error) {
       Alert.alert('Error', 'Failed to archive conversation');
     }
   };
 
-  const handleUnarchive = async (conversationId) => {
+  const handleUnarchive = async (conversationId, swipeableRef) => {
     try {
+      swipeableRef?.current?.close();
       await unarchiveConversation(conversationId, user.uid);
     } catch (error) {
       Alert.alert('Error', 'Failed to unarchive conversation');
@@ -129,51 +160,79 @@ const ProviderMessagesScreen = ({navigation}) => {
     }
   };
 
-  const renderRightActions = (progress, dragX, conversationId, isArchived = false) => {
-    const translateX = dragX.interpolate({
-      inputRange: [-160, 0],
-      outputRange: [0, 160],
+  const renderRightActions = (progress, dragX, conversationId, isArchived = false, swipeableRef) => {
+    // Scale animation for buttons
+    const scale = dragX.interpolate({
+      inputRange: [-160, -80, 0],
+      outputRange: [1, 0.9, 0.8],
+      extrapolate: 'clamp',
+    });
+    
+    // Opacity animation
+    const opacity = dragX.interpolate({
+      inputRange: [-160, -40, 0],
+      outputRange: [1, 0.8, 0],
       extrapolate: 'clamp',
     });
 
     return (
-      <Animated.View style={{flexDirection: 'row', transform: [{translateX}]}}>
-        <TouchableOpacity
-          style={{
-            backgroundColor: isArchived ? '#10B981' : '#F59E0B',
-            justifyContent: 'center',
-            alignItems: 'center',
-            width: 80,
-          }}
-          onPress={() =>
-            isArchived ? handleUnarchive(conversationId) : handleArchive(conversationId)
-          }>
-          <Icon name={isArchived ? 'arrow-undo' : 'archive'} size={24} color="#FFFFFF" />
-          <Text style={{color: '#FFFFFF', fontSize: 12, marginTop: 4}}>
-            {isArchived ? 'Restore' : 'Archive'}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={{
-            backgroundColor: '#EF4444',
-            justifyContent: 'center',
-            alignItems: 'center',
-            width: 80,
-          }}
-          onPress={() => handleDelete(conversationId)}>
-          <Icon name="trash" size={24} color="#FFFFFF" />
-          <Text style={{color: '#FFFFFF', fontSize: 12, marginTop: 4}}>Delete</Text>
-        </TouchableOpacity>
+      <Animated.View style={{flexDirection: 'row', opacity}}>
+        <Animated.View style={{transform: [{scale}]}}>
+          <TouchableOpacity
+            style={{
+              backgroundColor: isArchived ? '#10B981' : '#F59E0B',
+              justifyContent: 'center',
+              alignItems: 'center',
+              width: 80,
+              height: '100%',
+            }}
+            onPress={() =>
+              isArchived ? handleUnarchive(conversationId, swipeableRef) : handleArchive(conversationId, swipeableRef)
+            }>
+            <Icon name={isArchived ? 'arrow-undo' : 'archive'} size={24} color="#FFFFFF" />
+            <Text style={{color: '#FFFFFF', fontSize: 12, marginTop: 4}}>
+              {isArchived ? 'Restore' : 'Archive'}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+        <Animated.View style={{transform: [{scale}]}}>
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#EF4444',
+              justifyContent: 'center',
+              alignItems: 'center',
+              width: 80,
+              height: '100%',
+            }}
+            onPress={() => handleDelete(conversationId)}>
+            <Icon name="trash" size={24} color="#FFFFFF" />
+            <Text style={{color: '#FFFFFF', fontSize: 12, marginTop: 4}}>Delete</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </Animated.View>
     );
   };
 
-  const renderConversation = ({item: conversation, isArchived = false}) => (
-    <Swipeable
-      renderRightActions={(progress, dragX) =>
-        renderRightActions(progress, dragX, conversation.id, isArchived)
-      }
-      overshootRight={false}>
+  // Store refs for swipeables
+  const swipeableRefs = useRef({});
+
+  const renderConversation = ({item: conversation, isArchived = false}) => {
+    // Create or get ref for this conversation
+    if (!swipeableRefs.current[conversation.id]) {
+      swipeableRefs.current[conversation.id] = React.createRef();
+    }
+    const swipeableRef = swipeableRefs.current[conversation.id];
+    
+    return (
+      <Swipeable
+        ref={swipeableRef}
+        renderRightActions={(progress, dragX) =>
+          renderRightActions(progress, dragX, conversation.id, isArchived, swipeableRef)
+        }
+        friction={2}
+        rightThreshold={40}
+        overshootRight={false}
+        overshootFriction={8}>
       <TouchableOpacity
         style={{
           flexDirection: 'row',
@@ -337,7 +396,8 @@ const ProviderMessagesScreen = ({navigation}) => {
         </View>
       </TouchableOpacity>
     </Swipeable>
-  );
+    );
+  };
 
   if (loading) {
     return (

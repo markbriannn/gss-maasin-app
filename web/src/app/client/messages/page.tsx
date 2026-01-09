@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { collection, query, where, onSnapshot, doc, updateDoc, deleteField, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteField, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ClientLayout from '@/components/layouts/ClientLayout';
 import Image from 'next/image';
@@ -45,16 +45,87 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!user?.uid) {
+      console.log('[ClientMessages Web] No user.uid, setting loadingData to false');
       setLoadingData(false);
       return;
     }
+
+    console.log('[ClientMessages Web] ========================================');
+    console.log('[ClientMessages Web] User UID:', user.uid);
+    console.log('[ClientMessages Web] User email:', user.email);
+    console.log('[ClientMessages Web] User role:', user.role);
+    console.log('[ClientMessages Web] ========================================');
+
+    // SCAN AND FIX broken conversations first
+    const scanAndFixConversations = async () => {
+      try {
+        console.log('[ClientMessages Web] Scanning ALL conversations to fix broken ones for user:', user.uid);
+        const allConvsQuery = query(collection(db, 'conversations'));
+        const { getDocs } = await import('firebase/firestore');
+        const allConvsSnapshot = await getDocs(allConvsQuery);
+        
+        for (const docSnap of allConvsSnapshot.docs) {
+          const data = docSnap.data();
+          const participants = data.participants || [];
+          
+          // Skip if user is already in participants
+          if (participants.includes(user.uid)) continue;
+          
+          // Check if this conversation should include this user
+          let shouldFix = false;
+          
+          // Check unreadCount
+          if (data.unreadCount && data.unreadCount[user.uid] !== undefined) {
+            shouldFix = true;
+          }
+          
+          // Check messages
+          if (!shouldFix) {
+            try {
+              const messagesQuery = query(collection(db, 'conversations', docSnap.id, 'messages'));
+              const messagesSnapshot = await getDocs(messagesQuery);
+              for (const msgDoc of messagesSnapshot.docs) {
+                if (msgDoc.data().senderId === user.uid) {
+                  shouldFix = true;
+                  break;
+                }
+              }
+            } catch {}
+          }
+          
+          if (shouldFix) {
+            console.log('[ClientMessages Web] FIXING conversation:', docSnap.id);
+            await updateDoc(doc(db, 'conversations', docSnap.id), {
+              participants: [...participants, user.uid],
+            });
+          }
+        }
+      } catch (e) {
+        console.error('[ClientMessages Web] Error scanning conversations:', e);
+      }
+    };
+    
+    scanAndFixConversations();
 
     const conversationsQuery = query(
       collection(db, 'conversations'),
       where('participants', 'array-contains', user.uid)
     );
 
+    console.log('[ClientMessages Web] Setting up onSnapshot listener for user:', user.uid);
+
     const unsubscribe = onSnapshot(conversationsQuery, async (snapshot) => {
+      console.log('[ClientMessages Web] ========================================');
+      console.log('[ClientMessages Web] onSnapshot triggered');
+      console.log('[ClientMessages Web] Number of docs:', snapshot.docs.length);
+      snapshot.docs.forEach((docSnap, index) => {
+        const data = docSnap.data();
+        console.log(`[ClientMessages Web] Conv ${index + 1}: ${docSnap.id}`);
+        console.log(`[ClientMessages Web]   participants:`, data.participants);
+        console.log(`[ClientMessages Web]   lastMessage:`, data.lastMessage?.substring(0, 30));
+      });
+      console.log('[ClientMessages Web] ========================================');
+      
       const conversationPromises = snapshot.docs.map(async (docSnap) => {
         const data = docSnap.data();
         if (data.deleted?.[user.uid]) return null;
@@ -160,7 +231,10 @@ export default function MessagesPage() {
     if (!user?.uid) return;
     if (!confirm('Delete this conversation?')) return;
     try {
-      await updateDoc(doc(db, 'conversations', conversationId), { [`deleted.${user.uid}`]: true });
+      await updateDoc(doc(db, 'conversations', conversationId), { 
+        [`deleted.${user.uid}`]: true,
+        [`deletedAt.${user.uid}`]: serverTimestamp()
+      });
       setMenuOpen(null);
     } catch (error) {
       console.error('Error deleting:', error);
@@ -306,7 +380,7 @@ export default function MessagesPage() {
               {filteredConversations.map((conversation) => {
                 const roleBadge = getRoleBadge(conversation.otherUser?.role);
                 return (
-                  <div key={conversation.id} className={`relative group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all overflow-hidden border ${conversation.unreadCount > 0 ? 'border-emerald-200 bg-gradient-to-r from-emerald-50/50 to-white' : 'border-gray-100'}`}>
+                  <div key={conversation.id} className={`relative group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all border ${conversation.unreadCount > 0 ? 'border-emerald-200 bg-gradient-to-r from-emerald-50/50 to-white' : 'border-gray-100'}`}>
                     <div className="p-4 flex items-center gap-4">
                       <div className="relative cursor-pointer" onClick={() => router.push(`/chat/${conversation.id}`)}>
                         {conversation.otherUser?.profilePhoto ? (

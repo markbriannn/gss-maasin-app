@@ -158,6 +158,7 @@ const BookServiceScreen = ({navigation, route}) => {
         ...prev,
         barangay: geocodedAddress?.barangay || prev.barangay,
         streetAddress: geocodedAddress?.streetAddress || prev.streetAddress,
+        houseNumber: geocodedAddress?.houseNumber || prev.houseNumber,
       }));
     } finally {
       setIsGeocoding(false);
@@ -175,6 +176,7 @@ const BookServiceScreen = ({navigation, route}) => {
         ...prev,
         barangay: geocodedAddress?.barangay || prev.barangay,
         streetAddress: geocodedAddress?.streetAddress || prev.streetAddress,
+        houseNumber: geocodedAddress?.houseNumber || prev.houseNumber,
       }));
     } finally {
       setIsGeocoding(false);

@@ -631,15 +631,19 @@ export default function AdminJobsPage() {
 
                 {/* Schedule & Location */}
                 <div className="space-y-3 mb-6">
-                  <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
-                    <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center">
-                      <Calendar className="w-5 h-5 text-violet-600" />
+                  {(selectedJob.scheduledDate || selectedJob.scheduledTime) && (
+                    <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+                      <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center">
+                        <Calendar className="w-5 h-5 text-violet-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Schedule</p>
+                        <p className="font-semibold text-gray-900">
+                          {selectedJob.scheduledDate}{selectedJob.scheduledDate && selectedJob.scheduledTime ? ' at ' : ''}{selectedJob.scheduledTime}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Schedule</p>
-                      <p className="font-semibold text-gray-900">{selectedJob.scheduledDate} at {selectedJob.scheduledTime}</p>
-                    </div>
-                  </div>
+                  )}
                   <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
                     <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                       <MapPin className="w-5 h-5 text-blue-600" />

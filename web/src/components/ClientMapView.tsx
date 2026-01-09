@@ -127,6 +127,13 @@ async function fetchRoute(
 export default function ClientMapView({ providers, userLocation, center, onProviderClick, selectedProviderId }: ClientMapViewProps) {
   const [routeCoordinates, setRouteCoordinates] = useState<[number, number][] | null>(null);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Ensure component is mounted before rendering map
+  useEffect(() => {
+    setIsMounted(true);
+    return () => setIsMounted(false);
+  }, []);
   
   // Memoize provider icons
   const providerIcons = useMemo(() => {
@@ -169,6 +176,15 @@ export default function ClientMapView({ providers, userLocation, center, onProvi
       setIsLoadingRoute(false);
     });
   }, [userLocation, selectedProvider]);
+
+  // Don't render map until component is mounted
+  if (!isMounted) {
+    return (
+      <div style={{ height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6' }}>
+        <div className="animate-pulse text-gray-400">Loading map...</div>
+      </div>
+    );
+  }
 
   return (
     <MapContainer

@@ -33,6 +33,18 @@ export const getOrCreateConversation = async (
   recipientRole = null,
 ) => {
   try {
+    console.log('[getOrCreateConversation] Called with:');
+    console.log('[getOrCreateConversation] - userId1 (sender):', userId1);
+    console.log('[getOrCreateConversation] - userId2 (recipient):', userId2);
+    console.log('[getOrCreateConversation] - jobId:', jobId);
+    console.log('[getOrCreateConversation] - recipientRole:', recipientRole);
+
+    // Validate inputs
+    if (!userId1 || !userId2) {
+      console.error('[getOrCreateConversation] ERROR: Missing user IDs!', {userId1, userId2});
+      throw new Error('Both user IDs are required');
+    }
+
     // Check if conversation already exists
     const conversationsRef = collection(db, CONVERSATIONS_COLLECTION);
 
@@ -43,39 +55,50 @@ export const getOrCreateConversation = async (
     let existingConversation = null;
     let fallbackConversation = null; // For backwards compatibility
 
-    snapshot.forEach((doc) => {
-      const data = doc.data();
+    console.log('[getOrCreateConversation] Found', snapshot.docs.length, 'conversations containing userId1');
+
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
       // IMPORTANT: Verify BOTH participants are in the array to ensure conversation is valid
       const hasUser1 = data.participants?.includes(userId1);
       const hasUser2 = data.participants?.includes(userId2);
       
+      console.log('[getOrCreateConversation] Checking conv:', docSnap.id, {
+        participants: data.participants,
+        hasUser1,
+        hasUser2,
+        jobId: data.jobId
+      });
+      
       if (hasUser1 && hasUser2) {
         // Priority 1: Exact match with jobId (if specified)
         if (jobId && data.jobId === jobId) {
-          existingConversation = {id: doc.id, ...data};
+          existingConversation = {id: docSnap.id, ...data};
           return;
         }
 
         // Priority 2: Match by recipientRole (if specified and no jobId)
         if (!jobId && recipientRole && data.recipientRole === recipientRole) {
-          existingConversation = {id: doc.id, ...data};
+          existingConversation = {id: docSnap.id, ...data};
           return;
         }
 
         // Priority 3: Any existing conversation between these users (fallback)
         // This handles old conversations without recipientRole
         if (!existingConversation && !fallbackConversation) {
-          fallbackConversation = {id: doc.id, ...data};
+          fallbackConversation = {id: docSnap.id, ...data};
         }
       }
     });
 
     // Use exact match if found, otherwise use fallback
     if (existingConversation) {
+      console.log('[getOrCreateConversation] Using existing conversation:', existingConversation.id);
       return existingConversation;
     }
 
     if (fallbackConversation) {
+      console.log('[getOrCreateConversation] Using fallback conversation:', fallbackConversation.id);
       // Update old conversation with recipientRole if not set
       if (recipientRole && !fallbackConversation.recipientRole) {
         const convRef = doc(db, CONVERSATIONS_COLLECTION, fallbackConversation.id);
@@ -86,6 +109,7 @@ export const getOrCreateConversation = async (
     }
 
     // Create new conversation
+    console.log('[getOrCreateConversation] Creating NEW conversation with participants:', [userId1, userId2]);
     const newConversation = {
       participants: [userId1, userId2],
       jobId: jobId,
@@ -101,6 +125,8 @@ export const getOrCreateConversation = async (
     };
 
     const docRef = await addDoc(conversationsRef, newConversation);
+    console.log('[getOrCreateConversation] Created conversation with ID:', docRef.id);
+    console.log('[getOrCreateConversation] Participants saved:', [userId1, userId2]);
     return {id: docRef.id, ...newConversation};
   } catch (error) {
     console.error('Error getting/creating conversation:', error);
@@ -156,14 +182,24 @@ export const sendMessage = async (
         }
       });
 
-      await updateDoc(conversationRef, {
+      // Build update object - clear deleted flag for recipients so conversation reappears in their inbox
+      const updateData = {
         lastMessage: text,
         lastMessageTime: serverTimestamp(),
         lastSenderId: senderId,
         lastSenderName: senderName,
         updatedAt: serverTimestamp(),
         unreadCount,
+      };
+      
+      // Clear deleted flag for all other participants (so conversation shows in their inbox again)
+      conversationData.participants.forEach((participantId) => {
+        if (participantId !== senderId) {
+          updateData[`deleted.${participantId}`] = false;
+        }
       });
+
+      await updateDoc(conversationRef, updateData);
 
       // Send push notification to other participants
       conversationData.participants.forEach((participantId) => {
@@ -249,8 +285,12 @@ export const getUserConversations = async (userId) => {
 
 /**
  * Subscribe to messages in a conversation (real-time)
+ * Filters out messages sent before the user deleted the conversation
+ * @param {string} conversationId - The conversation ID
+ * @param {function} callback - Callback function to receive messages
+ * @param {string} userId - Optional user ID to filter messages based on deletedAt
  */
-export const subscribeToMessages = (conversationId, callback) => {
+export const subscribeToMessages = (conversationId, callback, userId = null) => {
   try {
     const messagesRef = collection(
       db,
@@ -260,14 +300,49 @@ export const subscribeToMessages = (conversationId, callback) => {
     );
     const q = query(messagesRef, orderBy('timestamp', 'asc'));
 
+    // First get the conversation to check deletedAt timestamp
+    let userDeletedAt = null;
+    
+    if (userId) {
+      getDoc(doc(db, CONVERSATIONS_COLLECTION, conversationId)).then((convSnap) => {
+        if (convSnap.exists()) {
+          const convData = convSnap.data();
+          userDeletedAt = convData.deletedAt?.[userId]?.toDate?.() || null;
+        }
+      }).catch(() => {});
+    }
+
     return onSnapshot(
       q,
-      (snapshot) => {
-        const messages = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          timestamp: doc.data().timestamp?.toDate?.() || new Date(),
-        }));
+      async (snapshot) => {
+        // Re-fetch deletedAt in case it changed
+        if (userId) {
+          try {
+            const convSnap = await getDoc(doc(db, CONVERSATIONS_COLLECTION, conversationId));
+            if (convSnap.exists()) {
+              const convData = convSnap.data();
+              userDeletedAt = convData.deletedAt?.[userId]?.toDate?.() || null;
+            }
+          } catch {}
+        }
+        
+        const messages = [];
+        snapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data();
+          const msgTime = data.timestamp?.toDate?.() || new Date();
+          
+          // Filter out messages sent before user deleted the conversation
+          if (userId && userDeletedAt && msgTime < userDeletedAt) {
+            return; // Skip this message
+          }
+          
+          messages.push({
+            id: docSnap.id,
+            ...data,
+            timestamp: msgTime,
+          });
+        });
+        
         callback(messages);
       },
       (error) => {
@@ -289,16 +364,56 @@ export const subscribeToMessages = (conversationId, callback) => {
  */
 export const subscribeToConversations = (userId, callback) => {
   try {
+    console.log('[MessageService] ========================================');
+    console.log('[MessageService] SUBSCRIBING TO CONVERSATIONS');
+    console.log('[MessageService] User ID:', userId);
+    console.log('[MessageService] User ID type:', typeof userId);
+    console.log('[MessageService] User ID length:', userId?.length);
+    console.log('[MessageService] ========================================');
+    
+    if (!userId || typeof userId !== 'string') {
+      console.error('[MessageService] INVALID USER ID! Cannot subscribe.');
+      callback([]);
+      return () => {};
+    }
+    
     const conversationsRef = collection(db, CONVERSATIONS_COLLECTION);
     const q = query(conversationsRef, where('participants', 'array-contains', userId));
+
+    // ALSO do a one-time fetch to compare with real-time listener
+    getDocs(q).then((snapshot) => {
+      console.log('[MessageService] ONE-TIME FETCH RESULT:');
+      console.log('[MessageService] Found', snapshot.docs.length, 'conversations via getDocs');
+      snapshot.docs.forEach((docSnap, index) => {
+        const data = docSnap.data();
+        console.log(`[MessageService] [getDocs] Conv ${index + 1}: ${docSnap.id}, participants:`, data.participants);
+      });
+    }).catch((err) => {
+      console.error('[MessageService] getDocs ERROR:', err);
+    });
 
     return onSnapshot(
       q,
       async (snapshot) => {
+        console.log('[MessageService] ========================================');
+        console.log('[MessageService] SNAPSHOT RECEIVED');
+        console.log('[MessageService] User ID used in query:', userId);
+        console.log('[MessageService] Number of conversations found:', snapshot.docs.length);
+        
+        // Log ALL conversation IDs and their participants
+        snapshot.docs.forEach((docSnap, index) => {
+          const data = docSnap.data();
+          console.log(`[MessageService] Conv ${index + 1}: ${docSnap.id}`);
+          console.log(`[MessageService]   - participants:`, data.participants);
+          console.log(`[MessageService]   - lastMessage:`, data.lastMessage?.substring(0, 30));
+        });
+        console.log('[MessageService] ========================================');
+        
         const conversations = [];
 
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data();
+          console.log('[MessageService] Conversation:', docSnap.id, 'participants:', data.participants);
 
           // Get the other participant's info
           const otherUserId = data.participants.find((id) => id !== userId);
@@ -517,6 +632,7 @@ export const subscribeToTypingStatus = (conversationId, currentUserId, callback)
 
 /**
  * Delete a conversation for a specific user (soft delete - marks as deleted for that user)
+ * Also stores the timestamp so we can hide messages before this time
  * @param {string} conversationId - The conversation ID
  * @param {string} userId - The user ID who is deleting
  */
@@ -528,9 +644,12 @@ export const deleteConversation = async (conversationId, userId) => {
     if (conversationSnap.exists()) {
       const data = conversationSnap.data();
       const deleted = data.deleted || {};
+      const deletedAt = data.deletedAt || {};
+      
       deleted[userId] = true;
+      deletedAt[userId] = serverTimestamp(); // Store when user deleted
 
-      await updateDoc(conversationRef, {deleted});
+      await updateDoc(conversationRef, {deleted, deletedAt});
     }
   } catch (error) {
     console.error('Error deleting conversation:', error);
@@ -626,5 +745,94 @@ export const toggleReaction = async (conversationId, messageId, userId, userName
   } catch (error) {
     console.error('Error toggling reaction:', error);
     throw error;
+  }
+};
+
+
+/**
+ * Scan and fix broken conversations where a user should be a participant but isn't
+ * This can happen when conversations were created with incorrect participant arrays
+ * @param {string} userId - The user ID to check and fix conversations for
+ */
+export const scanAndFixBrokenConversations = async (userId) => {
+  try {
+    console.log('[MessageService] Scanning ALL conversations to fix broken ones for user:', userId);
+    
+    // Get ALL conversations (not just ones containing this user)
+    const conversationsRef = collection(db, CONVERSATIONS_COLLECTION);
+    const allConversationsSnapshot = await getDocs(conversationsRef);
+    
+    console.log('[MessageService] Total conversations in database:', allConversationsSnapshot.docs.length);
+    
+    let fixedCount = 0;
+    
+    for (const docSnap of allConversationsSnapshot.docs) {
+      const data = docSnap.data();
+      const participants = data.participants || [];
+      
+      console.log('[MessageService] Checking conversation:', docSnap.id, 'participants:', participants);
+      
+      // Skip if user is already in participants
+      if (participants.includes(userId)) {
+        continue;
+      }
+      
+      // Check if this conversation should include this user:
+      // 1. Check messages subcollection for messages from/to this user
+      // 2. Check unreadCount for this user
+      // 3. Check if lastSenderId matches (user sent a message)
+      
+      let userShouldBeParticipant = false;
+      let reason = '';
+      
+      // Check unreadCount
+      if (data.unreadCount && data.unreadCount[userId] !== undefined) {
+        userShouldBeParticipant = true;
+        reason = 'unreadCount contains userId';
+      }
+      
+      // Check messages subcollection
+      if (!userShouldBeParticipant) {
+        try {
+          const messagesRef = collection(db, CONVERSATIONS_COLLECTION, docSnap.id, MESSAGES_COLLECTION);
+          const messagesSnapshot = await getDocs(messagesRef);
+          
+          for (const msgDoc of messagesSnapshot.docs) {
+            const msgData = msgDoc.data();
+            if (msgData.senderId === userId) {
+              userShouldBeParticipant = true;
+              reason = 'user sent a message in this conversation';
+              break;
+            }
+          }
+        } catch (e) {
+          console.log('[MessageService] Error checking messages:', e);
+        }
+      }
+      
+      if (userShouldBeParticipant) {
+        console.log('[MessageService] FIXING broken conversation:', docSnap.id);
+        console.log('[MessageService] Reason:', reason);
+        console.log('[MessageService] Old participants:', participants);
+        const newParticipants = [...participants, userId];
+        console.log('[MessageService] New participants:', newParticipants);
+        
+        try {
+          await updateDoc(doc(db, CONVERSATIONS_COLLECTION, docSnap.id), {
+            participants: newParticipants,
+          });
+          fixedCount++;
+          console.log('[MessageService] Successfully fixed conversation:', docSnap.id);
+        } catch (updateError) {
+          console.error('[MessageService] Error updating conversation:', updateError);
+        }
+      }
+    }
+    
+    console.log('[MessageService] Fixed', fixedCount, 'broken conversations for user:', userId);
+    return fixedCount;
+  } catch (error) {
+    console.error('[MessageService] Error scanning/fixing conversations:', error);
+    return 0;
   }
 };

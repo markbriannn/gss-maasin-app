@@ -135,30 +135,44 @@ export default function EditProfilePage() {
         const { latitude: lat, longitude: lng } = position.coords;
         setLatitude(lat);
         setLongitude(lng);
-        try {
-          const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-          const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`);
-          const data = await response.json();
-          if (data.results?.length > 0) {
-            let detectedBarangay = '', detectedStreet = '', detectedHouseNumber = '';
-            for (const result of data.results) {
-              for (const component of result.address_components) {
-                if (component.types.includes('street_number')) detectedHouseNumber = detectedHouseNumber || component.long_name;
-                if (component.types.includes('route')) detectedStreet = detectedStreet || component.long_name;
-                const matchedBarangay = MAASIN_BARANGAYS.find((b) => component.long_name.toLowerCase().includes(b.toLowerCase()));
-                if (matchedBarangay) detectedBarangay = matchedBarangay;
-              }
-            }
-            if (detectedBarangay) setBarangay(detectedBarangay);
-            if (detectedStreet) setStreetAddress(detectedStreet);
-            if (detectedHouseNumber) setHouseNumber(detectedHouseNumber);
-          }
-        } catch {}
+        await reverseGeocode(lat, lng);
         setLoadingLocation(false);
       },
       () => { alert('Could not get location'); setLoadingLocation(false); },
       { enableHighAccuracy: true }
     );
+  };
+
+  // Reverse geocode coordinates to get address details
+  const reverseGeocode = async (lat: number, lng: number) => {
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+      const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`);
+      const data = await response.json();
+      if (data.results?.length > 0) {
+        let detectedBarangay = '', detectedStreet = '', detectedHouseNumber = '';
+        for (const result of data.results) {
+          for (const component of result.address_components) {
+            if (component.types.includes('street_number')) detectedHouseNumber = detectedHouseNumber || component.long_name;
+            if (component.types.includes('route')) detectedStreet = detectedStreet || component.long_name;
+            const matchedBarangay = MAASIN_BARANGAYS.find((b) => component.long_name.toLowerCase().includes(b.toLowerCase()));
+            if (matchedBarangay) detectedBarangay = matchedBarangay;
+          }
+        }
+        if (detectedBarangay) setBarangay(detectedBarangay);
+        if (detectedStreet && !detectedStreet.toLowerCase().includes('unnamed')) setStreetAddress(detectedStreet);
+        if (detectedHouseNumber) setHouseNumber(detectedHouseNumber);
+      }
+    } catch (error) {
+      console.log('Reverse geocoding error:', error);
+    }
+  };
+
+  // Handle map marker drag - update coordinates and reverse geocode
+  const handleLocationChange = async (lat: number, lng: number) => {
+    setLatitude(lat);
+    setLongitude(lng);
+    await reverseGeocode(lat, lng);
   };
 
   const handleSave = async () => {
@@ -381,7 +395,7 @@ export default function EditProfilePage() {
           </button>
 
           <div className="mb-4 rounded-2xl overflow-hidden border border-gray-200">
-            <InteractiveMap latitude={latitude} longitude={longitude} onLocationChange={(lat, lng) => { setLatitude(lat); setLongitude(lng); }} />
+            <InteractiveMap latitude={latitude} longitude={longitude} onLocationChange={handleLocationChange} />
           </div>
 
           <div className="space-y-4">

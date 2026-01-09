@@ -36,6 +36,13 @@ export const AuthProvider = ({children}) => {
 
   const setSession = async (token, userData) => {
     const role = (userData?.role || 'CLIENT').toUpperCase();
+    console.log('[AuthContext] ========================================');
+    console.log('[AuthContext] setSession called');
+    console.log('[AuthContext] userData:', JSON.stringify(userData, null, 2));
+    console.log('[AuthContext] userData.uid:', userData?.uid);
+    console.log('[AuthContext] role:', role);
+    console.log('[AuthContext] ========================================');
+    
     await AsyncStorage.setItem('authToken', token);
     await AsyncStorage.setItem('userData', JSON.stringify({...userData, role}));
     await AsyncStorage.setItem('userRole', role);
@@ -52,14 +59,28 @@ export const AuthProvider = ({children}) => {
       const userDataRaw = await AsyncStorage.getItem('userData');
       const storedRole = await AsyncStorage.getItem('userRole');
 
+      console.log('[AuthContext] ========================================');
+      console.log('[AuthContext] checkAuthStatus called');
+      console.log('[AuthContext] token exists:', !!token);
+      console.log('[AuthContext] userDataRaw:', userDataRaw);
+      console.log('[AuthContext] storedRole:', storedRole);
+      
       if (token && userDataRaw) {
         const parsed = JSON.parse(userDataRaw);
         const role = (storedRole || parsed?.role || 'CLIENT').toUpperCase();
+
+        console.log('[AuthContext] parsed user:', JSON.stringify(parsed, null, 2));
+        console.log('[AuthContext] parsed.uid:', parsed?.uid);
+        console.log('[AuthContext] final role:', role);
+        console.log('[AuthContext] ========================================');
 
         setAuthToken(token);
         setUser({...parsed, role});
         setUserRole(role);
         setIsAuthenticated(true);
+      } else {
+        console.log('[AuthContext] No token or userData found');
+        console.log('[AuthContext] ========================================');
       }
     } catch (error) {
       console.error('Error checking auth status:', error);

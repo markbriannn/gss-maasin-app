@@ -23,6 +23,18 @@ import {
 
 // Get or create gamification data for a user
 export const getGamificationData = async (userId, role = 'CLIENT') => {
+  // Default data to return when offline or on error
+  const defaultData = {
+    id: userId,
+    points: 0,
+    role: role.toUpperCase(),
+    stats: role.toUpperCase() === 'PROVIDER' 
+      ? { completedJobs: 0, rating: 0, reviewCount: 0, totalEarnings: 0 }
+      : { completedBookings: 0, reviewsGiven: 0, totalSpent: 0 },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
   try {
     const docRef = doc(db, 'gamification', userId);
     const docSnap = await getDoc(docRef);
@@ -32,21 +44,24 @@ export const getGamificationData = async (userId, role = 'CLIENT') => {
     }
 
     // Create default gamification data
-    const defaultData = {
-      points: 0,
-      role: role.toUpperCase(),
-      stats: role.toUpperCase() === 'PROVIDER' 
-        ? { completedJobs: 0, rating: 0, reviewCount: 0, totalEarnings: 0 }
-        : { completedBookings: 0, reviewsGiven: 0, totalSpent: 0 },
+    const dataToSave = {
+      ...defaultData,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
+    delete dataToSave.id;
 
-    await setDoc(docRef, defaultData);
-    return { id: userId, ...defaultData };
+    await setDoc(docRef, dataToSave);
+    return { id: userId, ...dataToSave };
   } catch (error) {
+    // Handle offline error gracefully - return default data instead of null
+    if (error.message?.includes('offline') || error.code === 'unavailable') {
+      console.log('[Gamification] Client offline, returning default data');
+      return defaultData;
+    }
     console.error('Error getting gamification data:', error);
-    return null;
+    // Return default data instead of null to prevent UI crashes
+    return defaultData;
   }
 };
 
@@ -204,7 +219,12 @@ export const getProviderLeaderboard = async (limitCount = 10) => {
     leaderboard.sort((a, b) => b.points - a.points);
     return leaderboard.slice(0, limitCount);
   } catch (error) {
-    console.error('Error getting provider leaderboard:', error);
+    // Handle offline error gracefully
+    if (error.message?.includes('offline') || error.code === 'unavailable') {
+      console.log('[Gamification] Client offline, returning empty leaderboard');
+    } else {
+      console.error('Error getting provider leaderboard:', error);
+    }
     return [];
   }
 };
@@ -255,7 +275,12 @@ export const getClientLeaderboard = async (limitCount = 10) => {
     allClients.sort((a, b) => b.points - a.points);
     return allClients.slice(0, limitCount);
   } catch (error) {
-    console.error('Error getting client leaderboard:', error);
+    // Handle offline error gracefully
+    if (error.message?.includes('offline') || error.code === 'unavailable') {
+      console.log('[Gamification] Client offline, returning empty leaderboard');
+    } else {
+      console.error('Error getting client leaderboard:', error);
+    }
     return [];
   }
 };
@@ -266,7 +291,7 @@ export const getClientLeaderboard = async (limitCount = 10) => {
 export const getUserTierAndBadges = async (userId, role = 'CLIENT') => {
   try {
     const data = await getGamificationData(userId, role);
-    if (!data) return null;
+    // data will never be null now, always returns default data
 
     const isProvider = role.toUpperCase() === 'PROVIDER';
     const tier = isProvider 
@@ -284,7 +309,14 @@ export const getUserTierAndBadges = async (userId, role = 'CLIENT') => {
     };
   } catch (error) {
     console.error('Error getting tier and badges:', error);
-    return null;
+    // Return default tier/badges instead of null
+    const isProvider = role.toUpperCase() === 'PROVIDER';
+    return {
+      points: 0,
+      tier: isProvider ? getProviderTier(0) : getClientTier(0),
+      badges: [],
+      stats: {},
+    };
   }
 };
 

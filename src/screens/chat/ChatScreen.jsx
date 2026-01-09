@@ -236,8 +236,9 @@ const ChatScreen = ({route, navigation}) => {
 
   // Subscribe to messages
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId || !user?.uid) return;
 
+    // Pass user.uid to filter messages based on deletedAt timestamp
     const unsubscribe = subscribeToMessages(conversationId, async (updatedMessages) => {
       setMessages(updatedMessages);
       
@@ -261,7 +262,7 @@ const ChatScreen = ({route, navigation}) => {
       if (user?.uid) {
         markConversationAsRead(conversationId, user.uid);
       }
-    });
+    }, user.uid); // Pass userId to filter messages after deletedAt
 
     return () => unsubscribe();
   }, [conversationId, user?.uid, fetchSenderName, senderNamesCache]);

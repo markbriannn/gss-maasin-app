@@ -16,7 +16,7 @@ export const SyncManager = {
       const queue = await getSyncQueue();
       
       if (queue.length === 0) {
-        console.log('No pending operations to sync');
+        // Don't log when there's nothing to sync - reduces log spam
         return { success: true, synced: 0 };
       }
 

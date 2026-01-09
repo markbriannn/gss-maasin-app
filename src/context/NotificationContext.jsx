@@ -12,7 +12,9 @@ const READ_NOTIFICATIONS_KEY = '@read_notifications';
 const shownPopupIds = new Set();
 // Track last notification timestamp to prevent rapid duplicates
 let lastNotificationTime = 0;
-const MIN_NOTIFICATION_INTERVAL = 2000; // 2 seconds minimum between same notifications
+const MIN_NOTIFICATION_INTERVAL = 3000; // 3 seconds minimum between notifications
+// Track if a notification alert is currently showing
+let isAlertShowing = false;
 
 // Global navigation ref for notification handling
 let globalNavigationRef = null;
@@ -520,15 +522,6 @@ export const NotificationProvider = ({children}) => {
       return; // Completely block - don't show popup, don't add to list
     }
     
-    // Generate unique ID for this notification to prevent duplicates
-    const notifUniqueId = `${notificationData.type || 'unknown'}_${notificationData.jobId || notificationData.providerId || ''}_${remoteMessage.messageId || Date.now()}`;
-    
-    // Skip if we've already shown this notification popup
-    if (shownPopupIds.has(notifUniqueId)) {
-      console.log('[Notifications] Skipping duplicate notification:', notifUniqueId);
-      return;
-    }
-    
     // Also check if this is a notification the admin just triggered (don't show to admin)
     // Admin shouldn't see the suspension notification they just sent
     if (notificationData.type === 'account_suspended' && normalizedRole === 'ADMIN') {
@@ -536,7 +529,24 @@ export const NotificationProvider = ({children}) => {
       return;
     }
     
-    // Prevent rapid duplicate notifications (within 2 seconds)
+    // Prevent showing notification if an alert is already showing
+    if (isAlertShowing) {
+      console.log('[Notifications] Alert already showing, skipping');
+      return;
+    }
+    
+    // Generate unique ID for this notification to prevent duplicates
+    // Use a combination of type, jobId/providerId, and a content hash
+    const contentKey = `${title}_${body}`.substring(0, 50);
+    const notifUniqueId = `${notificationData.type || 'unknown'}_${notificationData.jobId || notificationData.providerId || ''}_${contentKey}`;
+    
+    // Skip if we've already shown this notification popup
+    if (shownPopupIds.has(notifUniqueId)) {
+      console.log('[Notifications] Skipping duplicate notification:', notifUniqueId);
+      return;
+    }
+    
+    // Prevent rapid duplicate notifications (within 3 seconds)
     const now = Date.now();
     if (now - lastNotificationTime < MIN_NOTIFICATION_INTERVAL) {
       console.log('[Notifications] Blocking rapid duplicate notification');
@@ -552,8 +562,20 @@ export const NotificationProvider = ({children}) => {
       shownPopupIds.delete(notifUniqueId);
     }, 5 * 60 * 1000);
     
+    // Mark alert as showing
+    isAlertShowing = true;
+    
     // Show local notification popup for valid notifications
-    notificationService.showLocalNotification(title, body, notificationData);
+    // Use a custom callback to reset the alert flag when dismissed
+    notificationService.showLocalNotificationWithCallback(
+      title, 
+      body, 
+      notificationData,
+      () => {
+        // Reset alert flag when dismissed
+        isAlertShowing = false;
+      }
+    );
     
     const newNotification = {
       id: Date.now().toString(),

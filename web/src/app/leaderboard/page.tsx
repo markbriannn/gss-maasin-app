@@ -19,20 +19,19 @@ interface LeaderboardEntry {
   tier: { name: string; color: string; minPoints: number; gradient: string };
 }
 
+// Tier thresholds must match mobile (src/utils/gamification.js)
 const PROVIDER_TIERS = [
   { name: 'Bronze', minPoints: 0, color: 'bg-amber-600', gradient: 'from-amber-500 to-amber-700' },
-  { name: 'Silver', minPoints: 100, color: 'bg-gray-400', gradient: 'from-gray-400 to-gray-600' },
-  { name: 'Gold', minPoints: 300, color: 'bg-yellow-500', gradient: 'from-yellow-400 to-amber-500' },
-  { name: 'Platinum', minPoints: 600, color: 'bg-cyan-400', gradient: 'from-cyan-400 to-blue-500' },
-  { name: 'Diamond', minPoints: 1000, color: 'bg-purple-500', gradient: 'from-purple-400 to-pink-500' },
+  { name: 'Silver', minPoints: 1000, color: 'bg-gray-400', gradient: 'from-gray-400 to-gray-600' },
+  { name: 'Gold', minPoints: 3000, color: 'bg-yellow-500', gradient: 'from-yellow-400 to-amber-500' },
+  { name: 'Platinum', minPoints: 7500, color: 'bg-cyan-400', gradient: 'from-cyan-400 to-blue-500' },
 ];
 
+// Client tier thresholds must match mobile (src/utils/gamification.js)
 const CLIENT_TIERS = [
-  { name: 'New', minPoints: 0, color: 'bg-gray-400', gradient: 'from-gray-400 to-gray-600' },
-  { name: 'Regular', minPoints: 50, color: 'bg-blue-500', gradient: 'from-blue-400 to-blue-600' },
-  { name: 'Loyal', minPoints: 150, color: 'bg-green-500', gradient: 'from-green-400 to-emerald-600' },
-  { name: 'VIP', minPoints: 300, color: 'bg-purple-500', gradient: 'from-purple-400 to-purple-600' },
-  { name: 'Elite', minPoints: 500, color: 'bg-yellow-500', gradient: 'from-yellow-400 to-amber-500' },
+  { name: 'Regular', minPoints: 0, color: 'bg-gray-400', gradient: 'from-gray-400 to-gray-600' },
+  { name: 'VIP', minPoints: 500, color: 'bg-blue-500', gradient: 'from-blue-400 to-blue-600' },
+  { name: 'Premium', minPoints: 1500, color: 'bg-yellow-500', gradient: 'from-yellow-400 to-amber-500' },
 ];
 
 function getTier(points: number, isProvider: boolean) {

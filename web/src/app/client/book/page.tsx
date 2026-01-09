@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { doc, getDoc, addDoc, collection, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, addDoc, collection, serverTimestamp, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { sendBookingConfirmation } from '@/lib/email';
 import { createPaymentSource, PaymentMethod } from '@/lib/paymongo';
@@ -90,18 +90,18 @@ function BookServiceContent() {
     if (!authLoading && !user) router.push('/login');
   }, [authLoading, user, router]);
 
+  // Real-time listener for provider data
   useEffect(() => {
-    if (providerId) fetchProvider();
-    else setLoading(false);
-  }, [providerId]);
+    if (!providerId) {
+      setLoading(false);
+      return;
+    }
 
-  const fetchProvider = async () => {
-    try {
-      const providerDoc = await getDoc(doc(db, 'users', providerId!));
-      if (providerDoc.exists()) {
-        const data = providerDoc.data();
+    const unsubscribe = onSnapshot(doc(db, 'users', providerId), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
         setProvider({
-          id: providerDoc.id,
+          id: docSnap.id,
           firstName: data.firstName || '',
           lastName: data.lastName || '',
           serviceCategory: data.serviceCategory || '',
@@ -110,18 +110,17 @@ function BookServiceContent() {
           hourlyRate: data.hourlyRate || data.rate || 0,
           priceType: data.priceType || 'per_job',
           rating: data.rating || data.averageRating || 0,
-          reviewCount: data.reviewCount || 0,
-          completedJobs: data.completedJobs || 0,
+          reviewCount: data.reviewCount || data.totalReviews || 0,
+          completedJobs: data.completedJobs || data.jobsCompleted || 0,
           isOnline: data.isOnline || false,
-          responseTime: data.responseTime || 5,
+          responseTime: data.responseTime || data.avgResponseTime || data.averageResponseTime || 5,
         });
       }
-    } catch (error) {
-      console.error('Error fetching provider:', error);
-    } finally {
       setLoading(false);
-    }
-  };
+    });
+
+    return () => unsubscribe();
+  }, [providerId]);
 
   const getPrice = () => provider?.fixedPrice || provider?.hourlyRate || 0;
   const getSystemFee = () => getPrice() * 0.05;

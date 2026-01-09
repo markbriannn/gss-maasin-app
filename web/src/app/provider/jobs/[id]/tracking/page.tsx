@@ -110,12 +110,27 @@ export default function ProviderTrackingPage() {
           }
         },
         (error) => {
-          console.error("Error getting location:", error);
+          // Handle geolocation errors gracefully
+          let errorMessage = 'Unable to get your location';
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = 'Location permission denied. Please enable location access in your browser settings.';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = 'Location information unavailable.';
+              break;
+            case error.TIMEOUT:
+              errorMessage = 'Location request timed out.';
+              break;
+          }
+          console.warn('Geolocation error:', errorMessage);
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
       );
 
       return () => navigator.geolocation.clearWatch(watchId);
+    } else {
+      console.warn('Geolocation is not supported by this browser');
     }
   }, [jobId, user]);
 
