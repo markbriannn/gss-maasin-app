@@ -1,4 +1,4 @@
-import { collection, query, where, onSnapshot, updateDoc, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, updateDoc, doc, writeBatch, setDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -144,12 +144,14 @@ export const markMessageAsRead = async (messageId) => {
 /**
  * Create a notification in Firestore
  */
-export const createNotification = async (jobId, type, message, targetUserId = null) => {
+export const createNotification = async (jobId, type, message, targetUserId = null, title = null) => {
   try {
     const notifRef = doc(collection(db, 'notifications'));
-    await updateDoc(notifRef, {
+    await setDoc(notifRef, {
+      id: notifRef.id,
       jobId,
       type,
+      title: title || type,
       message,
       targetUserId,
       createdAt: new Date(),

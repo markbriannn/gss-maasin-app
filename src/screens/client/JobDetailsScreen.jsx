@@ -17,7 +17,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {globalStyles} from '../../css/globalStyles';
 import {jobDetailsStyles as styles} from '../../css/jobDetailsStyles';
 import {db} from '../../config/firebase';
-import {doc, getDoc, updateDoc, serverTimestamp, onSnapshot} from 'firebase/firestore';
+import {doc, getDoc, updateDoc, serverTimestamp, onSnapshot, collection, setDoc} from 'firebase/firestore';
 import notificationService from '../../services/notificationService';
 import paymentService from '../../services/paymentService';
 import {useAuth} from '../../context/AuthContext';
@@ -381,6 +381,23 @@ const JobDetailsScreen = ({navigation, route}) => {
       // Notify provider about cancellation
       if (jobData.providerId) {
         notificationService.notifyJobCancelled(jobData, 'client', reason);
+        
+        // Create Firestore notification for provider
+        try {
+          const notifRef = doc(collection(db, 'notifications'));
+          await setDoc(notifRef, {
+            id: notifRef.id,
+            type: 'job_cancelled',
+            title: '❌ Job Cancelled',
+            message: `Client cancelled the ${jobData.serviceCategory || 'service'} job.${reason ? ` Reason: ${reason}` : ''}`,
+            targetUserId: jobData.providerId,
+            jobId: jobData.id || jobId,
+            createdAt: new Date(),
+            read: false,
+          });
+        } catch (notifError) {
+          console.error('Error creating notification:', notifError);
+        }
       }
       setShowCancelModal(false);
       navigation.goBack();

@@ -41,6 +41,10 @@ interface JobData {
   serviceCategory: string;
   description?: string;
   address?: string;
+  streetAddress?: string;
+  houseNumber?: string;
+  barangay?: string;
+  landmark?: string;
   price?: number;
   totalAmount?: number;
   finalAmount?: number;
@@ -265,7 +269,8 @@ function JobDetailsContent() {
 
   const calculateTotal = useCallback(() => {
     if (!job) return 0;
-    const basePrice = job.providerPrice || job.fixedPrice || job.totalAmount || job.price || 0;
+    // Use totalAmount if available (already includes system fee), otherwise calculate
+    const basePrice = job.totalAmount || ((job.providerPrice || job.fixedPrice || job.price || 0) + (job.systemFee || 0));
     const approvedCharges = (job.additionalCharges || [])
       .filter(c => c.status === 'approved')
       .reduce((sum, c) => sum + (c.total || c.amount || 0), 0);
@@ -427,7 +432,7 @@ function JobDetailsContent() {
   };
 
   const handleCancelJob = async () => {
-    if (!job) return;
+    if (!job || !user) return;
     const reason = selectedCancelReason === 'Other' ? cancelReason : selectedCancelReason;
     if (!reason) {
       alert('Please select or enter a reason');
@@ -442,12 +447,29 @@ function JobDetailsContent() {
         cancelReason: reason,
         cancelledBy: 'client',
       });
+      
+      // Create notification for provider
+      if (job.providerId) {
+        const { collection: firestoreCollection, doc: firestoreDoc, setDoc } = await import('firebase/firestore');
+        const notifRef = firestoreDoc(firestoreCollection(db, 'notifications'));
+        await setDoc(notifRef, {
+          id: notifRef.id,
+          type: 'job_cancelled',
+          title: '❌ Job Cancelled',
+          message: `Client cancelled the ${job.serviceCategory || 'service'} job.${reason ? ` Reason: ${reason}` : ''}`,
+          targetUserId: job.providerId,
+          jobId: job.id,
+          createdAt: new Date(),
+          read: false,
+        });
+      }
+      
       setShowCancelModal(false);
-      alert('Booking cancelled');
-      router.back();
+      showAlert('success', 'Cancelled', 'Your booking has been cancelled.');
+      setTimeout(() => router.push('/client/bookings'), 1500);
     } catch (error) {
       console.error('Error cancelling:', error);
-      alert('Failed to cancel booking');
+      showAlert('error', 'Error', 'Failed to cancel booking. Please try again.');
     } finally {
       setUpdating(false);
     }
@@ -601,13 +623,17 @@ function JobDetailsContent() {
       <div className="max-w-2xl mx-auto px-4 py-6">
         {/* Payment Callback Message */}
         {paymentMessage && (
-          <div className={`flex items-center gap-3 px-4 py-3 rounded-xl mb-4 ${
-            paymentMessage.type === 'success' ? 'bg-green-100' : 'bg-red-100'
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl mb-4 shadow-sm ${
+            paymentMessage.type === 'success' ? 'bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200' : 'bg-gradient-to-r from-red-50 to-rose-50 border border-red-200'
           }`}>
             {paymentMessage.type === 'success' ? (
-              <CheckCircle className="w-5 h-5 text-green-600" />
+              <div className="p-2 bg-green-100 rounded-full">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+              </div>
             ) : (
-              <AlertCircle className="w-5 h-5 text-red-600" />
+              <div className="p-2 bg-red-100 rounded-full">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+              </div>
             )}
             <span className={`font-medium ${
               paymentMessage.type === 'success' ? 'text-green-700' : 'text-red-700'
@@ -619,101 +645,126 @@ function JobDetailsContent() {
 
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-full">
-            <ArrowLeft className="w-5 h-5" />
+          <button onClick={() => router.back()} className="p-2.5 hover:bg-gray-100 rounded-xl transition-colors">
+            <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
           <h1 className="text-xl font-bold text-gray-900">Job Details</h1>
         </div>
 
-        {/* Status Banner */}
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl mb-4 ${statusConfig.bgColor}`}>
-          <div className={`w-2.5 h-2.5 rounded-full ${statusConfig.color.replace('text-', 'bg-')}`} />
-          <span className={`font-semibold ${statusConfig.color}`}>{statusConfig.label}</span>
+        {/* Status Banner - Enhanced */}
+        <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl mb-5 shadow-sm border ${
+          job.status === 'pending' ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200' :
+          job.status === 'completed' ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' :
+          job.status === 'cancelled' ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-200' :
+          `${statusConfig.bgColor} border-transparent`
+        }`}>
+          <div className={`w-3 h-3 rounded-full animate-pulse ${statusConfig.color.replace('text-', 'bg-')}`} />
+          <span className={`font-bold text-base ${statusConfig.color}`}>{statusConfig.label}</span>
         </div>
 
         {/* Provider Traveling/Arrived Banner - Prominent tracking CTA */}
         {(job.status === 'traveling' || job.status === 'arrived') && (
           <Link
             href={`/client/bookings/${job.id}/tracking`}
-            className={`flex items-center gap-4 p-4 rounded-xl mb-4 ${
-              job.status === 'traveling' ? 'bg-blue-500' : 'bg-emerald-500'
+            className={`flex items-center gap-4 p-5 rounded-2xl mb-5 shadow-lg transition-transform hover:scale-[1.02] ${
+              job.status === 'traveling' ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gradient-to-r from-emerald-500 to-emerald-600'
             }`}
           >
-            <div className="p-2.5 bg-white/20 rounded-xl">
+            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
               {job.status === 'traveling' ? (
-                <Navigation className="w-6 h-6 text-white" />
+                <Navigation className="w-7 h-7 text-white" />
               ) : (
-                <CheckCircle className="w-6 h-6 text-white" />
+                <CheckCircle className="w-7 h-7 text-white" />
               )}
             </div>
             <div className="flex-1">
-              <p className="font-bold text-white">
+              <p className="font-bold text-white text-lg">
                 {job.status === 'traveling' ? 'Provider is on the way!' : 'Provider has arrived!'}
               </p>
-              <p className="text-sm text-white/90">Tap to track their location in real-time</p>
+              <p className="text-sm text-white/90 mt-0.5">Tap to track their location in real-time</p>
             </div>
             <ChevronRight className="w-6 h-6 text-white" />
           </Link>
         )}
 
-        {/* Admin Review Banner */}
+        {/* Admin Review Banner - Enhanced */}
         {!job.adminApproved && (job.status === 'pending' || job.status === 'pending_negotiation') && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 flex items-start gap-3">
-            <Clock className="w-5 h-5 text-blue-500 mt-0.5" />
-            <div>
-              <p className="font-semibold text-blue-800 text-sm">Under Admin Review</p>
-              <p className="text-blue-600 text-sm">
-                Your request is being reviewed by our team. We'll notify you once it's sent to the provider.
-              </p>
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-5 mb-5 shadow-sm">
+            <div className="flex items-start gap-4">
+              <div className="p-2.5 bg-blue-100 rounded-xl">
+                <Clock className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-blue-800">Under Admin Review</p>
+                <p className="text-blue-600 text-sm mt-1 leading-relaxed">
+                  Your request is being reviewed by our team. We'll notify you once it's sent to the provider.
+                </p>
+              </div>
             </div>
           </div>
         )}
 
         {/* Approved Banner - Sent to Provider */}
         {job.adminApproved && job.status === 'pending' && (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4 flex items-start gap-3">
-            <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
-            <div>
-              <p className="font-semibold text-green-800 text-sm">Sent to Provider</p>
-              <p className="text-green-600 text-sm">
-                Your request has been approved and sent to the provider. Waiting for their response.
-              </p>
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-5 mb-5 shadow-sm">
+            <div className="flex items-start gap-4">
+              <div className="p-2.5 bg-green-100 rounded-xl">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-green-800">Sent to Provider</p>
+                <p className="text-green-600 text-sm mt-1 leading-relaxed">
+                  Your request has been approved and sent to the provider. Waiting for their response.
+                </p>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Job Info Section */}
-        <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
-          <h2 className="text-lg font-bold text-gray-900 mb-2">{job.title || job.serviceCategory}</h2>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 rounded-full">
-            <Tag className="w-3.5 h-3.5 text-[#00B14F]" />
-            <span className="text-sm font-medium text-[#00B14F]">{job.serviceCategory}</span>
+        {/* Service Request Section - Enhanced */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Service Request</h3>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2.5 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl">
+              <Tag className="w-5 h-5 text-[#00B14F]" />
+            </div>
+            <span className="text-lg font-bold text-gray-900">{job.serviceCategory}</span>
           </div>
           {job.description && (
-            <p className="text-gray-600 mt-3">{job.description}</p>
+            <p className="text-gray-600 leading-relaxed">{job.description}</p>
+          )}
+          {!job.description && (
+            <p className="text-gray-400 italic text-sm">See attached photos/videos</p>
           )}
         </div>
 
-        {/* Provider Info */}
+        {/* Provider Info - Enhanced */}
         {(job.provider || job.providerId) && (
-          <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
-            <h3 className="font-semibold text-gray-900 mb-3">Service Provider</h3>
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Service Provider</h3>
             <div className="flex items-center gap-4">
-              {providerPhoto ? (
-                <img src={providerPhoto} alt="" className="w-14 h-14 rounded-full object-cover" />
-              ) : (
-                <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
-                  <User className="w-6 h-6 text-gray-400" />
-                </div>
-              )}
+              <div className="relative">
+                {providerPhoto ? (
+                  <img src={providerPhoto} alt="" className="w-16 h-16 rounded-2xl object-cover ring-2 ring-gray-100" />
+                ) : (
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                    <User className="w-7 h-7 text-gray-400" />
+                  </div>
+                )}
+                {/* Online indicator */}
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white" />
+              </div>
               <div className="flex-1">
-                <p className="font-semibold text-gray-900">{providerName}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <Star className={`w-4 h-4 ${providerRating > 0 ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`} />
-                  <span className="text-sm text-gray-600">
-                    {providerRating > 0 || providerReviewCount > 0
-                      ? `${providerRating.toFixed(1)} (${providerReviewCount} ${providerReviewCount === 1 ? 'review' : 'reviews'})`
-                      : 'New Provider'}
+                <p className="font-bold text-gray-900 text-lg">{providerName}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg">
+                    <Star className={`w-4 h-4 ${providerRating > 0 ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`} />
+                    <span className="text-sm font-semibold text-amber-700">
+                      {providerRating > 0 ? providerRating.toFixed(1) : '0.0'}
+                    </span>
+                  </div>
+                  <span className="text-sm text-gray-500">
+                    ({providerReviewCount} {providerReviewCount === 1 ? 'review' : 'reviews'})
                   </span>
                 </div>
                 {/* Provider Tier Badge */}
@@ -723,7 +774,7 @@ function JobDetailsContent() {
                       const tierDisplay = providerTier ? getTierDisplayFromName(providerTier) : (providerPoints > 0 ? getTierInfo(providerPoints) : null);
                       if (!tierDisplay) return null;
                       return (
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${tierDisplay.color} text-white`}>
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${tierDisplay.color} text-white shadow-sm`}>
                           {tierDisplay.name}
                         </span>
                       );
@@ -735,12 +786,12 @@ function JobDetailsContent() {
 
             {/* Contact Buttons - Only show after admin approval */}
             {job.adminApproved ? (
-              <div className="mt-4">
+              <div className="mt-5">
                 <div className="flex gap-3">
                   {providerPhone && (
                     <a
                       href={`tel:${providerPhone}`}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 bg-green-50 text-[#00B14F] rounded-xl font-semibold hover:bg-green-100"
+                      className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-green-50 to-emerald-50 text-[#00B14F] rounded-xl font-semibold hover:from-green-100 hover:to-emerald-100 transition-all border border-green-200"
                     >
                       <Phone className="w-5 h-5" />
                       Call
@@ -748,7 +799,7 @@ function JobDetailsContent() {
                   )}
                   <Link
                     href={`/chat/new?recipientId=${job.providerId}&jobId=${job.id}`}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-green-50 text-[#00B14F] rounded-xl font-semibold hover:bg-green-100"
+                    className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-green-50 to-emerald-50 text-[#00B14F] rounded-xl font-semibold hover:from-green-100 hover:to-emerald-100 transition-all border border-green-200"
                   >
                     <MessageCircle className="w-5 h-5" />
                     Message
@@ -758,7 +809,7 @@ function JobDetailsContent() {
                 {(job.status === 'traveling' || job.status === 'arrived') && (
                   <Link
                     href={`/client/bookings/${job.id}/tracking`}
-                    className="mt-3 w-full flex items-center justify-center gap-2 py-3 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600"
+                    className="mt-3 w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md"
                   >
                     <MapPin className="w-5 h-5" />
                     {job.status === 'traveling' ? 'Track Provider Location' : 'View Provider Location'}
@@ -766,9 +817,11 @@ function JobDetailsContent() {
                 )}
               </div>
             ) : (
-              <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-3">
-                <Clock className="w-5 h-5 text-amber-500" />
-                <p className="text-sm text-amber-700">
+              <div className="mt-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+                <div className="p-2 bg-amber-100 rounded-lg">
+                  <Clock className="w-5 h-5 text-amber-600" />
+                </div>
+                <p className="text-sm text-amber-700 font-medium">
                   Contact options will be available once admin approves your request.
                 </p>
               </div>
@@ -776,40 +829,51 @@ function JobDetailsContent() {
           </div>
         )}
 
-        {/* Location */}
-        {job.address && (
-          <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
-            <div className="flex items-start gap-3">
-              <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
-              <div>
-                <p className="text-sm text-gray-500">Location</p>
-                <p className="font-medium text-gray-900">{job.address}</p>
+        {/* Location - Enhanced */}
+        {(job.address || job.barangay) && (
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
+            <div className="flex items-start gap-4">
+              <div className="p-2.5 bg-gradient-to-br from-red-50 to-rose-100 rounded-xl">
+                <MapPin className="w-5 h-5 text-red-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Location</p>
+                <p className="font-semibold text-gray-900 mt-1">
+                  {job.address || (
+                    `${job.houseNumber ? job.houseNumber + ', ' : ''}${job.streetAddress ? job.streetAddress + ', ' : ''}${job.barangay ? 'Brgy. ' + job.barangay + ', ' : ''}Maasin City`
+                  )}
+                </p>
+                {job.landmark && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    <span className="font-medium">Landmark:</span> {job.landmark}
+                  </p>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* Media Files - Horizontal Scroll */}
+        {/* Media Files - Enhanced */}
         {job.mediaFiles && job.mediaFiles.length > 0 && (
-          <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
-            <h3 className="font-semibold text-gray-900 mb-3">Attached Media</h3>
-            <div className="flex gap-3 overflow-x-auto pb-2">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Attached Media</h3>
+            <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
               {job.mediaFiles.map((file, idx) => {
                 const imageUrl = typeof file === 'string' ? file : (file?.url || file?.uri);
                 const isVideo = typeof file === 'object' && file?.isVideo;
                 if (!imageUrl) return null;
                 return (
-                  <div key={idx} className="relative flex-shrink-0">
+                  <div key={idx} className="relative flex-shrink-0 group">
                     <img
                       src={imageUrl}
                       alt={`Media ${idx + 1}`}
-                      className="w-24 h-24 object-cover rounded-lg cursor-pointer hover:opacity-90"
+                      className="w-28 h-28 object-cover rounded-xl cursor-pointer hover:opacity-90 transition-all ring-2 ring-gray-100 group-hover:ring-[#00B14F]"
                       onClick={() => setSelectedImage(imageUrl)}
                     />
                     {isVideo && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg">
-                        <div className="w-10 h-10 bg-white/80 rounded-full flex items-center justify-center">
-                          <div className="w-0 h-0 border-l-[12px] border-l-gray-800 border-y-[8px] border-y-transparent ml-1" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl">
+                        <div className="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg">
+                          <div className="w-0 h-0 border-l-[14px] border-l-gray-800 border-y-[9px] border-y-transparent ml-1" />
                         </div>
                       </div>
                     )}
@@ -820,28 +884,34 @@ function JobDetailsContent() {
           </div>
         )}
 
-        {/* Payment Status - Escrow System */}
-        <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
-          <h3 className="font-semibold text-gray-900 mb-3">Payment Status</h3>
-          <div className={`rounded-xl p-4 border ${
-            job.paymentStatus === 'held' ? 'bg-emerald-50 border-emerald-200' : 
-            job.paymentStatus === 'released' ? 'bg-blue-50 border-blue-200' :
-            job.isPaidUpfront ? 'bg-green-50 border-green-200' : 
-            'bg-amber-50 border-amber-200'
+        {/* Payment Status - Enhanced */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Payment Status</h3>
+          <div className={`rounded-xl p-5 border-2 ${
+            job.paymentStatus === 'held' ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-300' : 
+            job.paymentStatus === 'released' ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300' :
+            job.isPaidUpfront ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300' : 
+            'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300'
           }`}>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {job.paymentStatus === 'held' ? (
-                  <CheckCircle className="w-6 h-6 text-emerald-600" />
-                ) : job.paymentStatus === 'released' ? (
-                  <Banknote className="w-6 h-6 text-blue-600" />
-                ) : job.isPaidUpfront ? (
-                  <CreditCard className="w-6 h-6 text-green-600" />
-                ) : (
-                  <Clock className="w-6 h-6 text-amber-600" />
-                )}
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-xl ${
+                  job.paymentStatus === 'held' ? 'bg-emerald-100' : 
+                  job.paymentStatus === 'released' ? 'bg-blue-100' :
+                  job.isPaidUpfront ? 'bg-green-100' : 'bg-amber-100'
+                }`}>
+                  {job.paymentStatus === 'held' ? (
+                    <CheckCircle className="w-6 h-6 text-emerald-600" />
+                  ) : job.paymentStatus === 'released' ? (
+                    <Banknote className="w-6 h-6 text-blue-600" />
+                  ) : job.isPaidUpfront ? (
+                    <CreditCard className="w-6 h-6 text-green-600" />
+                  ) : (
+                    <Clock className="w-6 h-6 text-amber-600" />
+                  )}
+                </div>
                 <div>
-                  <p className={`font-bold ${
+                  <p className={`font-bold text-base ${
                     job.paymentStatus === 'held' ? 'text-emerald-700' : 
                     job.paymentStatus === 'released' ? 'text-blue-700' :
                     job.isPaidUpfront ? 'text-green-700' : 'text-amber-700'
@@ -852,7 +922,7 @@ function JobDetailsContent() {
                      job.status === 'awaiting_payment' ? 'Awaiting Payment' :
                      job.paymentPreference === 'pay_first' ? 'PAID' : 'Pay Later'}
                   </p>
-                  <p className={`text-sm ${
+                  <p className={`text-sm mt-0.5 ${
                     job.paymentStatus === 'held' ? 'text-emerald-600' : 
                     job.paymentStatus === 'released' ? 'text-blue-600' :
                     job.isPaidUpfront ? 'text-green-600' : 'text-amber-600'
@@ -866,128 +936,132 @@ function JobDetailsContent() {
                 </div>
               </div>
               {(job.isPaidUpfront || job.paymentStatus === 'held') && (
-                <span className="px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-lg">
+                <span className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs font-bold rounded-xl shadow-sm">
                   {job.paymentStatus === 'held' ? 'SECURED' : 'PAID'}
                 </span>
               )}
             </div>
             {job.paymentMethod && (
-              <p className="text-sm text-gray-500 mt-2">
-                Payment method: {job.paymentMethod === 'gcash' ? 'GCash' : job.paymentMethod === 'maya' ? 'Maya' : job.paymentMethod}
+              <p className="text-sm text-gray-500 mt-3 pt-3 border-t border-gray-200">
+                Payment method: <span className="font-medium">{job.paymentMethod === 'gcash' ? 'GCash' : job.paymentMethod === 'maya' ? 'Maya' : job.paymentMethod}</span>
               </p>
             )}
           </div>
         </div>
 
-        {/* Price Breakdown */}
-        <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
-          <h3 className="font-semibold text-gray-900 mb-3">Price Breakdown</h3>
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-3">
+        {/* Price Breakdown - Enhanced */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Price Breakdown</h3>
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-5 space-y-4">
             {/* Negotiation info */}
             {job.isNegotiable && (
-              <div className="text-sm text-gray-500 pb-3 border-b border-green-200">
+              <div className="text-sm text-gray-500 pb-4 border-b border-green-200">
                 <p>Provider's Fixed Price: {formatCurrency(job.providerFixedPrice || 0)}</p>
                 <p>Your Offer: {formatCurrency(job.offeredPrice || 0)}</p>
               </div>
             )}
 
-            <div className="flex justify-between">
-              <span className="text-gray-600">Service Price</span>
-              <span className="font-semibold text-gray-900">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 font-medium">Service Price</span>
+              <span className="font-bold text-gray-900 text-lg">
                 {formatCurrency(job.providerPrice || job.offeredPrice || job.price || 0)}
               </span>
             </div>
 
             {/* Discount */}
             {job.hasDiscount && (job.discountAmount || 0) > 0 && (
-              <div className="bg-green-100 rounded-lg p-3">
+              <div className="bg-gradient-to-r from-green-100 to-emerald-100 rounded-xl p-4 -mx-1">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
-                    <Tag className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-semibold text-green-700">Provider Discount</span>
+                    <div className="p-1.5 bg-green-200 rounded-lg">
+                      <Tag className="w-4 h-4 text-green-700" />
+                    </div>
+                    <span className="text-sm font-bold text-green-800">Provider Discount</span>
                   </div>
-                  <span className="font-bold text-green-600">-{formatCurrency(job.discountAmount || 0)}</span>
+                  <span className="font-bold text-green-600 text-lg">-{formatCurrency(job.discountAmount || 0)}</span>
                 </div>
                 {job.discountReason && (
-                  <p className="text-sm text-green-600 mt-1 italic">"{job.discountReason}"</p>
+                  <p className="text-sm text-green-700 mt-2 italic pl-8">"{job.discountReason}"</p>
                 )}
               </div>
             )}
 
-            <div className="flex justify-between">
-              <span className="text-gray-600">System Fee (5%)</span>
-              <span className="font-semibold text-gray-900">{formatCurrency(job.systemFee || 0)}</span>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 font-medium">System Fee (5%)</span>
+              <span className="font-semibold text-gray-700">{formatCurrency(job.systemFee || 0)}</span>
             </div>
 
             {/* Additional Charges */}
             {job.additionalCharges && job.additionalCharges.length > 0 && (
-              <div className="pt-3 border-t border-green-200">
-                <p className="font-semibold text-gray-700 mb-2">Additional Charges</p>
+              <div className="pt-4 border-t border-green-200">
+                <p className="font-bold text-gray-800 mb-3">Additional Charges</p>
                 {job.additionalCharges.map((charge, index) => (
-                  <div key={charge.id || index} className="mb-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 truncate flex-1">{charge.reason || charge.description}</span>
-                      <span className="text-sm font-medium text-gray-900 ml-2">+{formatCurrency(charge.total || charge.amount)}</span>
+                  <div key={charge.id || index} className="mb-3 bg-white/60 rounded-xl p-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-700 truncate flex-1 font-medium">{charge.reason || charge.description}</span>
+                      <span className="text-sm font-bold text-gray-900 ml-2">+{formatCurrency(charge.total || charge.amount)}</span>
                     </div>
                     {charge.status === 'pending' && (
-                      <div className="flex gap-2 mt-2">
+                      <div className="flex gap-2 mt-3">
                         <button
                           onClick={() => handleRejectCharge(charge.id)}
-                          className="flex-1 py-2 bg-red-100 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-200"
+                          className="flex-1 py-2.5 bg-red-100 text-red-600 rounded-xl text-sm font-bold hover:bg-red-200 transition-colors"
                         >
                           Reject
                         </button>
                         <button
                           onClick={() => handleApproveCharge(charge.id)}
-                          className="flex-1 py-2 bg-green-100 text-green-600 rounded-lg text-sm font-semibold hover:bg-green-200"
+                          className="flex-1 py-2.5 bg-green-100 text-green-600 rounded-xl text-sm font-bold hover:bg-green-200 transition-colors"
                         >
                           Approve
                         </button>
                       </div>
                     )}
                     {charge.status === 'approved' && (
-                      <p className="text-xs text-green-600 mt-1">✓ Approved</p>
+                      <p className="text-xs text-green-600 mt-2 font-semibold">✓ Approved</p>
                     )}
                     {charge.status === 'rejected' && (
-                      <p className="text-xs text-red-600 mt-1">✗ Rejected</p>
+                      <p className="text-xs text-red-600 mt-2 font-semibold">✗ Rejected</p>
                     )}
                   </div>
                 ))}
               </div>
             )}
 
-            <div className="pt-3 border-t border-green-200 flex justify-between">
-              <span className="font-bold text-gray-900">Total Amount</span>
-              <span className="text-xl font-bold text-[#00B14F]">{formatCurrency(calculateTotal())}</span>
+            <div className="pt-4 border-t-2 border-green-300 flex justify-between items-center">
+              <span className="font-bold text-gray-900 text-lg">Total Amount</span>
+              <span className="text-2xl font-black text-[#00B14F]">{formatCurrency(calculateTotal())}</span>
             </div>
           </div>
         </div>
 
-        {/* Counter Offer Section */}
+        {/* Counter Offer Section - Enhanced */}
         {job.status === 'counter_offer' && (
-          <div className="bg-purple-50 border border-purple-300 rounded-xl p-4 mb-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Tag className="w-5 h-5 text-purple-600" />
-              <span className="font-bold text-purple-800">Provider's Counter Offer</span>
+          <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-300 rounded-2xl p-5 mb-4 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-purple-100 rounded-xl">
+                <Tag className="w-5 h-5 text-purple-600" />
+              </div>
+              <span className="font-bold text-purple-800 text-lg">Provider's Counter Offer</span>
             </div>
-            <p className="text-3xl font-bold text-purple-600">{formatCurrency(job.counterOfferPrice || 0)}</p>
-            <p className="text-sm text-gray-500 mt-1">
-              Total with fee: {formatCurrency((job.counterOfferPrice || 0) * 1.05)}
+            <p className="text-4xl font-black text-purple-600">{formatCurrency(job.counterOfferPrice || 0)}</p>
+            <p className="text-sm text-gray-500 mt-2">
+              Total with fee: <span className="font-semibold">{formatCurrency((job.counterOfferPrice || 0) * 1.05)}</span>
             </p>
             {job.counterOfferNote && (
-              <p className="text-purple-700 mt-2 italic">"{job.counterOfferNote}"</p>
+              <p className="text-purple-700 mt-3 italic bg-purple-100/50 p-3 rounded-xl">"{job.counterOfferNote}"</p>
             )}
-            <div className="flex gap-3 mt-4">
+            <div className="flex gap-3 mt-5">
               <button
                 onClick={() => setShowNewOfferModal(true)}
-                className="flex-1 py-3 bg-white border-2 border-purple-500 text-purple-600 rounded-xl font-semibold hover:bg-purple-50"
+                className="flex-1 py-3.5 bg-white border-2 border-purple-400 text-purple-600 rounded-xl font-bold hover:bg-purple-50 transition-colors"
               >
                 Make New Offer
               </button>
               <button
                 onClick={handleAcceptCounterOffer}
                 disabled={updating}
-                className="flex-1 py-3 bg-purple-500 text-white rounded-xl font-semibold hover:bg-purple-600 disabled:opacity-50"
+                className="flex-1 py-3.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl font-bold hover:from-purple-600 hover:to-purple-700 disabled:opacity-50 transition-all shadow-md"
               >
                 Accept
               </button>
@@ -995,19 +1069,21 @@ function JobDetailsContent() {
           </div>
         )}
 
-        {/* Review Prompt - Completed but not reviewed */}
+        {/* Review Prompt - Enhanced */}
         {(job.status === 'completed' || job.status === 'payment_received') && !job.reviewed && (
-          <div className="bg-amber-50 border border-amber-300 rounded-xl p-5 mb-4">
-            <div className="flex items-center gap-3 mb-3">
-              <Star className="w-7 h-7 text-amber-500" />
-              <span className="text-lg font-bold text-amber-800">How was your experience?</span>
+          <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-6 mb-4 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-amber-100 rounded-xl">
+                <Star className="w-7 h-7 text-amber-500" />
+              </div>
+              <span className="text-xl font-bold text-amber-800">How was your experience?</span>
             </div>
-            <p className="text-amber-700 mb-4">
+            <p className="text-amber-700 mb-5 leading-relaxed">
               Your feedback helps other clients and rewards great providers. Take a moment to share your experience!
             </p>
             <Link
               href={`/client/bookings/${job.id}/review`}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600"
+              className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold hover:from-amber-600 hover:to-orange-600 transition-all shadow-md"
             >
               <Star className="w-5 h-5" />
               Leave a Review
@@ -1015,38 +1091,46 @@ function JobDetailsContent() {
           </div>
         )}
 
-        {/* Review Submitted Badge */}
+        {/* Review Submitted Badge - Enhanced */}
         {(job.status === 'completed' || job.status === 'payment_received') && job.reviewed && (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4 flex items-center gap-3">
-            <CheckCircle className="w-6 h-6 text-green-500" />
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-5 mb-4 flex items-center gap-4 shadow-sm">
+            <div className="p-3 bg-green-100 rounded-xl">
+              <CheckCircle className="w-6 h-6 text-green-500" />
+            </div>
             <div className="flex-1">
-              <p className="font-semibold text-green-700">Review Submitted</p>
-              <div className="flex items-center gap-1 mt-1">
+              <p className="font-bold text-green-700 text-lg">Review Submitted</p>
+              <div className="flex items-center gap-1 mt-2">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star
                     key={star}
-                    className={`w-4 h-4 ${star <= (job.reviewRating || 0) ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`}
+                    className={`w-5 h-5 ${star <= (job.reviewRating || 0) ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`}
                   />
                 ))}
-                <span className="text-sm text-green-600 ml-2">Thank you for your feedback!</span>
+                <span className="text-sm text-green-600 ml-2 font-medium">Thank you for your feedback!</span>
               </div>
             </div>
           </div>
         )}
 
-        {/* Job ID & Created */}
-        <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
-          <p className="text-sm text-gray-500">Job ID: {job.id}</p>
-          <p className="text-sm text-gray-400">Created: {job.createdAt}</p>
+        {/* Job ID & Created - Enhanced */}
+        <div className="bg-gray-50 rounded-2xl p-4 mb-4 border border-gray-200">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-500">Job ID</span>
+            <span className="font-mono text-gray-700 bg-white px-2 py-1 rounded-lg text-xs">{job.id}</span>
+          </div>
+          <div className="flex justify-between items-center text-sm mt-2">
+            <span className="text-gray-500">Created</span>
+            <span className="text-gray-700 font-medium">{job.createdAt}</span>
+          </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="space-y-3">
+        {/* Action Buttons - Enhanced */}
+        <div className="space-y-4">
           {/* Cancel Button - for pending statuses */}
           {canCancel && (
             <button
               onClick={() => setShowCancelModal(true)}
-              className="w-full py-3 border border-red-300 text-red-600 rounded-xl font-semibold hover:bg-red-50"
+              className="w-full py-3.5 border-2 border-red-300 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors"
             >
               Cancel Request
             </button>
@@ -1056,17 +1140,19 @@ function JobDetailsContent() {
           {job.paymentPreference === 'pay_first' && !job.isPaidUpfront && 
            ['accepted', 'traveling', 'arrived'].includes(job.status) && (
             <div className="space-y-4">
-              <div className="bg-amber-50 border-2 border-amber-400 rounded-xl p-4 text-center">
-                <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
-                <p className="text-lg font-bold text-amber-800">Payment Required First</p>
-                <p className="text-2xl font-bold text-amber-600 mt-2">{formatCurrency(calculateTotal())}</p>
-                <p className="text-sm text-amber-700 mt-2">
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-400 rounded-2xl p-5 text-center">
+                <div className="p-3 bg-amber-100 rounded-xl inline-block mb-3">
+                  <AlertCircle className="w-8 h-8 text-amber-500" />
+                </div>
+                <p className="text-xl font-bold text-amber-800">Payment Required First</p>
+                <p className="text-3xl font-black text-amber-600 mt-3">{formatCurrency(calculateTotal())}</p>
+                <p className="text-sm text-amber-700 mt-3 leading-relaxed">
                   Payment is required before the provider can start working.
                 </p>
               </div>
               <button
                 onClick={() => setShowPaymentModal(true)}
-                className="w-full py-4 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 flex items-center justify-center gap-2"
+                className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold hover:from-amber-600 hover:to-orange-600 flex items-center justify-center gap-2 shadow-lg transition-all"
               >
                 <CreditCard className="w-5 h-5" />
                 Pay Now (Before Service)
@@ -1077,11 +1163,13 @@ function JobDetailsContent() {
           {/* PAY FIRST - Already paid, waiting for work */}
           {job.paymentPreference === 'pay_first' && job.isPaidUpfront && 
            ['accepted', 'traveling', 'arrived', 'in_progress'].includes(job.status) && (
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-              <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
-              <p className="font-bold text-green-700">Payment Complete</p>
-              <p className="text-green-600">{formatCurrency(job.upfrontPaidAmount || job.totalAmount || 0)} paid</p>
-              <p className="text-sm text-green-600 mt-2">
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-5 text-center">
+              <div className="p-3 bg-green-100 rounded-xl inline-block mb-3">
+                <CheckCircle className="w-8 h-8 text-green-500" />
+              </div>
+              <p className="font-bold text-green-700 text-lg">Payment Complete</p>
+              <p className="text-green-600 font-semibold mt-1">{formatCurrency(job.upfrontPaidAmount || job.totalAmount || 0)} paid</p>
+              <p className="text-sm text-green-600 mt-3 leading-relaxed">
                 Provider can now proceed with the work. You'll be notified when complete.
               </p>
             </div>
@@ -1092,18 +1180,22 @@ function JobDetailsContent() {
             <div className="space-y-4">
               {/* Show different message based on payment status */}
               {job.paymentPreference === 'pay_first' && job.isPaidUpfront ? (
-                <div className="bg-green-50 rounded-xl p-4 text-center">
-                  <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                  <p className="font-semibold text-green-800">Provider Marked Work Complete</p>
-                  <p className="text-sm text-green-700 mt-1">
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-5 text-center border-2 border-green-200">
+                  <div className="p-3 bg-green-100 rounded-xl inline-block mb-3">
+                    <CheckCircle className="w-8 h-8 text-green-500" />
+                  </div>
+                  <p className="font-bold text-green-800 text-lg">Provider Marked Work Complete</p>
+                  <p className="text-sm text-green-700 mt-2 leading-relaxed">
                     Payment already done! Please confirm if you're satisfied with the work.
                   </p>
                 </div>
               ) : (
-                <div className="bg-amber-50 rounded-xl p-4 text-center">
-                  <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
-                  <p className="font-semibold text-amber-800">Provider Marked Work Complete</p>
-                  <p className="text-sm text-amber-700 mt-1">
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl p-5 text-center border-2 border-amber-200">
+                  <div className="p-3 bg-amber-100 rounded-xl inline-block mb-3">
+                    <AlertCircle className="w-8 h-8 text-amber-500" />
+                  </div>
+                  <p className="font-bold text-amber-800 text-lg">Provider Marked Work Complete</p>
+                  <p className="text-sm text-amber-700 mt-2 leading-relaxed">
                     Please confirm if you're satisfied with the work to proceed to payment.
                   </p>
                 </div>
@@ -1111,28 +1203,30 @@ function JobDetailsContent() {
 
               {/* Pending additional charges warning */}
               {pendingCharges.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <AlertCircle className="w-5 h-5 text-red-500" />
-                    <span className="font-semibold text-red-800">Additional Charges Pending</span>
+                <div className="bg-gradient-to-r from-red-50 to-rose-50 border-2 border-red-200 rounded-2xl p-5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-red-100 rounded-xl">
+                      <AlertCircle className="w-5 h-5 text-red-500" />
+                    </div>
+                    <span className="font-bold text-red-800">Additional Charges Pending</span>
                   </div>
-                  <p className="text-sm text-red-600 mb-3">
+                  <p className="text-sm text-red-600 mb-4 leading-relaxed">
                     Please review and approve or reject additional charges before confirming completion.
                   </p>
                   {pendingCharges.map((charge) => (
-                    <div key={charge.id} className="bg-white rounded-lg p-3 mb-2">
-                      <p className="text-gray-700">{charge.reason || charge.description}</p>
-                      <p className="font-bold text-red-600">+{formatCurrency(charge.total || charge.amount)}</p>
-                      <div className="flex gap-2 mt-2">
+                    <div key={charge.id} className="bg-white rounded-xl p-4 mb-3 shadow-sm">
+                      <p className="text-gray-700 font-medium">{charge.reason || charge.description}</p>
+                      <p className="font-bold text-red-600 text-lg mt-1">+{formatCurrency(charge.total || charge.amount)}</p>
+                      <div className="flex gap-2 mt-3">
                         <button
                           onClick={() => handleRejectCharge(charge.id)}
-                          className="flex-1 py-2 bg-red-100 text-red-600 rounded-lg text-sm font-semibold"
+                          className="flex-1 py-2.5 bg-red-100 text-red-600 rounded-xl text-sm font-bold hover:bg-red-200 transition-colors"
                         >
                           Reject
                         </button>
                         <button
                           onClick={() => handleApproveCharge(charge.id)}
-                          className="flex-1 py-2 bg-green-100 text-green-600 rounded-lg text-sm font-semibold"
+                          className="flex-1 py-2.5 bg-green-100 text-green-600 rounded-xl text-sm font-bold hover:bg-green-200 transition-colors"
                         >
                           Approve
                         </button>
@@ -1145,10 +1239,10 @@ function JobDetailsContent() {
               <button
                 onClick={handleConfirmCompletion}
                 disabled={updating || job.hasAdditionalPending}
-                className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 ${
+                className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg ${
                   job.hasAdditionalPending 
                     ? 'bg-gray-400 text-white cursor-not-allowed' 
-                    : 'bg-green-500 text-white hover:bg-green-600'
+                    : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600'
                 }`}
               >
                 {updating ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
@@ -1164,14 +1258,16 @@ function JobDetailsContent() {
           {/* Pending Payment - Pay Button */}
           {job.status === 'pending_payment' && (
             <div className="space-y-4">
-              <div className="bg-blue-50 rounded-xl p-4 text-center">
-                <CreditCard className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-                <p className="font-semibold text-blue-800">
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-5 text-center border-2 border-blue-200">
+                <div className="p-3 bg-blue-100 rounded-xl inline-block mb-3">
+                  <CreditCard className="w-8 h-8 text-blue-500" />
+                </div>
+                <p className="font-bold text-blue-800 text-lg">
                   {job.paymentPreference === 'pay_first' && job.isPaidUpfront 
                     ? 'Additional Payment Required' 
                     : 'Payment Required'}
                 </p>
-                <p className="text-2xl font-bold text-blue-700 mt-2">
+                <p className="text-3xl font-black text-blue-700 mt-3">
                   {formatCurrency((() => {
                     const baseAmount = job.totalAmount || job.price || 0;
                     const additionalTotal = (job.additionalCharges || [])
@@ -1184,11 +1280,11 @@ function JobDetailsContent() {
                   })())}
                 </p>
                 {job.paymentPreference === 'pay_first' && job.isPaidUpfront && (
-                  <p className="text-sm text-blue-500 mt-1">
+                  <p className="text-sm text-blue-500 mt-2">
                     (Original {formatCurrency(job.upfrontPaidAmount || job.totalAmount || 0)} already paid)
                   </p>
                 )}
-                <p className="text-sm text-blue-600 mt-2">
+                <p className="text-sm text-blue-600 mt-3 leading-relaxed">
                   {job.paymentPreference === 'pay_first' && job.isPaidUpfront 
                     ? 'Please pay the additional charges to complete this job.'
                     : 'Please pay the provider to complete this job.'}
@@ -1196,7 +1292,7 @@ function JobDetailsContent() {
               </div>
               <button
                 onClick={() => setShowPaymentModal(true)}
-                className="w-full py-4 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 flex items-center justify-center gap-2"
+                className="w-full py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-bold hover:from-blue-600 hover:to-blue-700 flex items-center justify-center gap-2 shadow-lg transition-all"
               >
                 <Wallet className="w-5 h-5" />
                 Pay Now
