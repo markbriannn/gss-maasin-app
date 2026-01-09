@@ -285,7 +285,7 @@ const notifyJobStatusUpdate = async (clientId, jobData, status) => {
 /**
  * Notify user of new message
  */
-const notifyNewMessage = async (recipientId, senderName, messagePreview, conversationId) => {
+const notifyNewMessage = async (recipientId, senderName, messagePreview, conversationId, senderId = null) => {
   return sendToUser(recipientId, {
     title: `💬 ${senderName}`,
     body: messagePreview.length > 50 ? messagePreview.substring(0, 50) + '...' : messagePreview,
@@ -293,6 +293,7 @@ const notifyNewMessage = async (recipientId, senderName, messagePreview, convers
     type: 'new_message',
     conversationId,
     senderName,
+    senderId: senderId || '',
   });
 };
 

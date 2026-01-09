@@ -175,10 +175,34 @@ export default function ChatPage() {
         } else {
           // Remove any existing reaction from this user and add new one
           reactions = reactions.filter(r => r.userId !== user.uid);
+          
+          // Get user name for reaction
+          let reactionUserName = 'User';
+          const isAdmin = user.role?.toUpperCase() === 'ADMIN';
+          if (isAdmin) {
+            reactionUserName = 'GSS Support';
+          } else {
+            const contextName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+            if (contextName) {
+              reactionUserName = contextName;
+            } else {
+              // Fetch from Firestore
+              try {
+                const userDoc = await getDoc(doc(db, 'users', user.uid));
+                if (userDoc.exists()) {
+                  const userData = userDoc.data();
+                  reactionUserName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || user.email?.split('@')[0] || 'User';
+                }
+              } catch {
+                reactionUserName = user.email?.split('@')[0] || 'User';
+              }
+            }
+          }
+          
           reactions.push({
             emoji,
             userId: user.uid,
-            userName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User',
+            userName: reactionUserName,
           });
         }
         
@@ -216,11 +240,12 @@ export default function ChatPage() {
               const userDoc = await getDoc(doc(db, 'users', otherUserId));
               if (userDoc.exists()) {
                 const userData = userDoc.data();
+                const isAdmin = userData.role?.toUpperCase() === 'ADMIN';
                 setRecipient({
                   id: otherUserId,
-                  name: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'User',
+                  name: isAdmin ? 'GSS Support' : (`${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.displayName || 'User'),
                   photo: userData.profilePhoto,
-                  role: userData.role,
+                  role: isAdmin ? 'Support Team' : userData.role,
                 });
               }
             }
@@ -235,11 +260,12 @@ export default function ChatPage() {
           const recipientDoc = await getDoc(doc(db, 'users', recipientId));
           if (recipientDoc.exists()) {
             const recipientData = recipientDoc.data();
+            const isAdmin = recipientData.role?.toUpperCase() === 'ADMIN';
             setRecipient({
               id: recipientId,
-              name: `${recipientData.firstName || ''} ${recipientData.lastName || ''}`.trim() || 'User',
+              name: isAdmin ? 'GSS Support' : (`${recipientData.firstName || ''} ${recipientData.lastName || ''}`.trim() || recipientData.displayName || 'User'),
               photo: recipientData.profilePhoto,
-              role: recipientData.role,
+              role: isAdmin ? 'Support Team' : recipientData.role,
             });
           }
 
@@ -372,11 +398,41 @@ export default function ChatPage() {
         throw new Error('No conversation ID');
       }
 
-      // Add message
+      // Get sender name - ALWAYS fetch from Firestore to ensure we have the correct name
+      let senderName = 'User';
+      const isAdmin = user.role?.toUpperCase() === 'ADMIN';
+      
+      if (isAdmin) {
+        senderName = 'GSS Support';
+      } else {
+        // Always fetch from Firestore to get the most accurate name
+        console.log('[Chat] Fetching name from Firestore for user:', user.uid);
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            console.log('[Chat] Firestore user data:', userData.firstName, userData.lastName, userData.email);
+            const firestoreName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+            senderName = firestoreName || userData.email?.split('@')[0] || user.email?.split('@')[0] || 'User';
+          } else {
+            console.log('[Chat] User doc does not exist, using context');
+            const contextName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+            senderName = contextName || user.email?.split('@')[0] || 'User';
+          }
+        } catch (e) {
+          console.error('[Chat] Error fetching user name:', e);
+          // Fallback to context
+          const contextName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+          senderName = contextName || user.email?.split('@')[0] || 'User';
+        }
+      }
+      
+      console.log('[Chat] Final senderName:', senderName);
+      
       await addDoc(collection(db, 'conversations', convId, 'messages'), {
         text: messageText,
         senderId: user.uid,
-        senderName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User',
+        senderName: senderName,
         imageUrl: imageUrl || null,
         timestamp: serverTimestamp(),
         read: false,
@@ -404,9 +460,8 @@ export default function ChatPage() {
 
       // Send FCM push notification to recipient
       if (recipient?.id) {
-        const senderName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User';
         const messagePreview = imageUrl ? '📷 Image' : messageText;
-        pushNotifications.newMessageToUser(recipient.id, senderName, messagePreview, convId);
+        pushNotifications.newMessageToUser(recipient.id, senderName, messagePreview, convId, user.uid);
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -511,7 +566,9 @@ export default function ChatPage() {
           <div className="flex-1">
             <p className="font-semibold text-gray-900">{recipient?.name || 'Chat'}</p>
             {recipient?.role && (
-              <p className="text-xs text-gray-500 capitalize">{recipient.role.toLowerCase()}</p>
+              <p className="text-xs text-gray-500 capitalize">
+                {recipient.role === 'Support Team' ? 'Support Team' : recipient.role.toLowerCase()}
+              </p>
             )}
           </div>
         </div>

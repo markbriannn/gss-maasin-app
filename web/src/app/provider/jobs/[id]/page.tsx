@@ -42,6 +42,11 @@ interface JobData {
   clientPhone?: string;
   clientPhoto?: string;
   clientAddress?: string;
+  clientPoints?: number;
+  clientTier?: string;
+  clientCompletedBookings?: number;
+  clientReviewsGiven?: number;
+  clientTotalSpent?: number;
   paymentPreference?: string;
   paymentStatus?: string;
   isPaidUpfront?: boolean;
@@ -77,6 +82,49 @@ const CANCEL_REASONS = [
   'Other',
 ];
 
+// Client tier configuration
+const getClientTier = (points: number) => {
+  if (points >= 1500) return { name: 'Premium', color: 'bg-amber-500', textColor: 'text-amber-700' };
+  if (points >= 500) return { name: 'VIP', color: 'bg-blue-500', textColor: 'text-blue-700' };
+  return { name: 'Regular', color: 'bg-gray-400', textColor: 'text-gray-600' };
+};
+
+// Client badge configuration
+const CLIENT_BADGES = {
+  FIRST_BOOKING: { id: 'first_booking', name: 'First Booking', icon: '🎉', color: 'bg-emerald-100 text-emerald-700', requirement: { type: 'bookings', count: 1 } },
+  REPEAT_CUSTOMER: { id: 'repeat_customer', name: 'Repeat Customer', icon: '🔄', color: 'bg-blue-100 text-blue-700', requirement: { type: 'bookings', count: 5 } },
+  LOYAL_CLIENT: { id: 'loyal_client', name: 'Loyal Client', icon: '❤️', color: 'bg-red-100 text-red-700', requirement: { type: 'bookings', count: 20 } },
+  GREAT_REVIEWER: { id: 'great_reviewer', name: 'Great Reviewer', icon: '💬', color: 'bg-purple-100 text-purple-700', requirement: { type: 'reviews', count: 10 } },
+  BIG_SPENDER: { id: 'big_spender', name: 'Big Spender', icon: '💰', color: 'bg-amber-100 text-amber-700', requirement: { type: 'totalSpent', amount: 10000 } },
+};
+
+// Calculate client badges
+const getClientBadges = (stats: { completedBookings?: number; reviewsGiven?: number; totalSpent?: number }) => {
+  const earned: typeof CLIENT_BADGES[keyof typeof CLIENT_BADGES][] = [];
+  const { completedBookings = 0, reviewsGiven = 0, totalSpent = 0 } = stats;
+
+  Object.values(CLIENT_BADGES).forEach(badge => {
+    const req = badge.requirement;
+    let isEarned = false;
+
+    switch (req.type) {
+      case 'bookings':
+        isEarned = completedBookings >= (req as { count: number }).count;
+        break;
+      case 'reviews':
+        isEarned = reviewsGiven >= (req as { count: number }).count;
+        break;
+      case 'totalSpent':
+        isEarned = totalSpent >= (req as { amount: number }).amount;
+        break;
+    }
+
+    if (isEarned) earned.push(badge);
+  });
+
+  return earned;
+};
+
 export default function ProviderJobDetailsPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -110,7 +158,7 @@ export default function ProviderJobDetailsPage() {
         const data = docSnap.data();
         
         // Fetch client info
-        let clientInfo = { name: data.clientName || 'Client', phone: '', photo: '', address: '' };
+        let clientInfo = { name: data.clientName || 'Client', phone: '', photo: '', address: '', points: 0, tier: '', completedBookings: 0, reviewsGiven: 0, totalSpent: 0 };
         if (data.clientId) {
           try {
             const clientDoc = await getDoc(doc(db, 'users', data.clientId));
@@ -127,6 +175,11 @@ export default function ProviderJobDetailsPage() {
                 phone: cData.phone || cData.phoneNumber || '',
                 photo: cData.profilePhoto || '',
                 address: fullAddress,
+                points: cData.points || 0,
+                tier: cData.tier || '',
+                completedBookings: cData.completedBookings || cData.bookingsCompleted || 0,
+                reviewsGiven: cData.reviewsGiven || cData.totalReviews || 0,
+                totalSpent: cData.totalSpent || 0,
               };
             }
           } catch (e) {
@@ -141,6 +194,11 @@ export default function ProviderJobDetailsPage() {
           clientPhone: clientInfo.phone,
           clientPhoto: clientInfo.photo,
           clientAddress: clientInfo.address || data.address,
+          clientPoints: clientInfo.points,
+          clientTier: clientInfo.tier,
+          clientCompletedBookings: clientInfo.completedBookings,
+          clientReviewsGiven: clientInfo.reviewsGiven,
+          clientTotalSpent: clientInfo.totalSpent,
         } as JobData);
       }
       setLoading(false);
@@ -537,7 +595,40 @@ export default function ProviderJobDetailsPage() {
               </div>
               <div className="flex-1">
                 <p className="font-bold text-gray-900 text-lg">{job.clientName}</p>
-                <p className="text-sm text-gray-500">Client</p>
+                {/* Client Tier Badge */}
+                {(job.clientTier || (job.clientPoints && job.clientPoints > 0)) && (
+                  <div className="mt-1">
+                    {(() => {
+                      const tierDisplay = job.clientTier 
+                        ? (job.clientTier.toLowerCase() === 'premium' ? { name: 'Premium', color: 'bg-amber-500' } :
+                           job.clientTier.toLowerCase() === 'vip' ? { name: 'VIP', color: 'bg-blue-500' } :
+                           { name: 'Regular', color: 'bg-gray-400' })
+                        : getClientTier(job.clientPoints || 0);
+                      return (
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${tierDisplay.color} text-white shadow-sm`}>
+                          {tierDisplay.name}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                )}
+                {/* Client Badges */}
+                {(job.clientCompletedBookings || job.clientReviewsGiven || job.clientTotalSpent) ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {getClientBadges({
+                      completedBookings: job.clientCompletedBookings || 0,
+                      reviewsGiven: job.clientReviewsGiven || 0,
+                      totalSpent: job.clientTotalSpent || 0,
+                    }).map(badge => (
+                      <span key={badge.id} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${badge.color}`}>
+                        <span>{badge.icon}</span>
+                        {badge.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 mt-1">New Client</p>
+                )}
               </div>
               <div className="flex gap-2">
                 {job.clientPhone && (

@@ -377,12 +377,12 @@ export const pushNotifications = {
     ),
 
   // Notify about new message
-  newMessageToUser: (userId: string, senderName: string, messagePreview: string, conversationId: string) =>
+  newMessageToUser: (userId: string, senderName: string, messagePreview: string, conversationId: string, senderId?: string) =>
     sendPushToUser(
       userId,
       `💬 ${senderName}`,
       messagePreview.length > 50 ? messagePreview.substring(0, 50) + '...' : messagePreview,
-      { type: 'new_message', conversationId }
+      { type: 'new_message', conversationId, senderName, senderId: senderId || '' }
     ),
 
   // Notify provider about new review

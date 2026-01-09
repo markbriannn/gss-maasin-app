@@ -33,6 +33,8 @@ interface ProviderInfo {
   completedJobs?: number;
   tier?: string;
   points?: number;
+  avgResponseTime?: number;
+  isVerified?: boolean;
 }
 
 interface JobData {
@@ -115,6 +117,48 @@ const getTierInfo = (points: number) => {
   if (points >= 1000) return { name: 'Gold', color: 'bg-yellow-500', textColor: 'text-yellow-700' };
   if (points >= 500) return { name: 'Silver', color: 'bg-gray-300', textColor: 'text-gray-600' };
   return { name: 'Bronze', color: 'bg-amber-600', textColor: 'text-amber-700' };
+};
+
+// Provider badge configuration
+const PROVIDER_BADGES = {
+  FIRST_JOB: { id: 'first_job', name: 'First Job', icon: '✓', color: 'bg-emerald-100 text-emerald-700', requirement: { type: 'jobs', count: 1 } },
+  RISING_STAR: { id: 'rising_star', name: 'Rising Star', icon: '📈', color: 'bg-blue-100 text-blue-700', requirement: { type: 'jobs', count: 10 } },
+  EXPERIENCED: { id: 'experienced', name: 'Experienced Pro', icon: '🏅', color: 'bg-purple-100 text-purple-700', requirement: { type: 'jobs', count: 50 } },
+  MASTER: { id: 'master', name: 'Master Provider', icon: '🏆', color: 'bg-amber-100 text-amber-700', requirement: { type: 'jobs', count: 100 } },
+  TOP_RATED: { id: 'top_rated', name: 'Top Rated', icon: '⭐', color: 'bg-yellow-100 text-yellow-700', requirement: { type: 'rating', minRating: 4.8, minReviews: 20 } },
+  FAST_RESPONDER: { id: 'fast_responder', name: 'Fast Responder', icon: '⚡', color: 'bg-red-100 text-red-700', requirement: { type: 'responseTime', maxMinutes: 5 } },
+  VERIFIED_PRO: { id: 'verified_pro', name: 'Verified Pro', icon: '✅', color: 'bg-green-100 text-green-700', requirement: { type: 'verified', value: true } },
+};
+
+// Calculate provider badges
+const getProviderBadges = (stats: { completedJobs?: number; rating?: number; reviewCount?: number; avgResponseTime?: number; isVerified?: boolean }) => {
+  const earned: typeof PROVIDER_BADGES[keyof typeof PROVIDER_BADGES][] = [];
+  const { completedJobs = 0, rating = 0, reviewCount = 0, avgResponseTime = 999, isVerified = false } = stats;
+
+  Object.values(PROVIDER_BADGES).forEach(badge => {
+    const req = badge.requirement;
+    let isEarned = false;
+
+    switch (req.type) {
+      case 'jobs':
+        isEarned = completedJobs >= (req as { count: number }).count;
+        break;
+      case 'rating':
+        isEarned = rating >= (req as { minRating: number; minReviews: number }).minRating && 
+                   reviewCount >= (req as { minRating: number; minReviews: number }).minReviews;
+        break;
+      case 'responseTime':
+        isEarned = avgResponseTime <= (req as { maxMinutes: number }).maxMinutes;
+        break;
+      case 'verified':
+        isEarned = isVerified === (req as { value: boolean }).value;
+        break;
+    }
+
+    if (isEarned) earned.push(badge);
+  });
+
+  return earned;
 };
 
 export default function JobDetailsPage() {
@@ -260,6 +304,8 @@ function JobDetailsContent() {
             completedJobs,
             tier: pData.tier,
             points: pData.points || 0,
+            avgResponseTime: pData.avgResponseTime || pData.averageResponseTime || 999,
+            isVerified: pData.isVerified || pData.verified || false,
           },
         } : null);
       }
@@ -797,6 +843,23 @@ function JobDetailsContent() {
                         </span>
                       );
                     })()}
+                  </div>
+                )}
+                {/* Provider Badges */}
+                {job.provider && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {getProviderBadges({
+                      completedJobs: job.provider.completedJobs || 0,
+                      rating: job.provider.rating || 0,
+                      reviewCount: job.provider.reviewCount || 0,
+                      avgResponseTime: job.provider.avgResponseTime || 999,
+                      isVerified: job.provider.isVerified || false,
+                    }).map(badge => (
+                      <span key={badge.id} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${badge.color}`}>
+                        <span>{badge.icon}</span>
+                        {badge.name}
+                      </span>
+                    ))}
                   </div>
                 )}
               </div>

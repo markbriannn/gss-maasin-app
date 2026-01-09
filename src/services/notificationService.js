@@ -606,13 +606,15 @@ class NotificationService {
   /**
    * Notify about new message
    */
-  async pushNewMessage(userId, senderName, messagePreview, conversationId) {
+  async pushNewMessage(userId, senderName, messagePreview, conversationId, senderId = null) {
     const title = `💬 ${senderName}`;
     const body = messagePreview.length > 50 ? messagePreview.substring(0, 50) + '...' : messagePreview;
     
     await this.sendPushToUser(userId, title, body, {
       type: 'new_message',
       conversationId,
+      senderName,
+      senderId: senderId || '',
     });
   }
 

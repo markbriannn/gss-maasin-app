@@ -32,6 +32,8 @@ import {
   toggleReaction,
 } from '../../services/messageService';
 import {attemptMessage} from '../../utils/rateLimiter';
+import {db} from '../../config/firebase';
+import {doc, getDoc} from 'firebase/firestore';
 
 const ChatScreen = ({route, navigation}) => {
   const {user} = useAuth();
@@ -49,10 +51,51 @@ const ChatScreen = ({route, navigation}) => {
   const [imagePreview, setImagePreview] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null); // Image to send (preview before sending)
   const [showReactionPicker, setShowReactionPicker] = useState(null); // Message ID for reaction picker
+  const [senderNamesCache, setSenderNamesCache] = useState({}); // Cache for fetched sender names
   const flatListRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   
   const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+
+  // Fetch sender name from Firestore users collection
+  const fetchSenderName = useCallback(async (senderId) => {
+    // Return from cache if available
+    if (senderNamesCache[senderId]) {
+      return senderNamesCache[senderId];
+    }
+    
+    try {
+      const userDoc = await getDoc(doc(db, 'users', senderId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        // Check if admin
+        if (userData.role?.toUpperCase() === 'ADMIN') {
+          setSenderNamesCache(prev => ({...prev, [senderId]: 'GSS Support'}));
+          return 'GSS Support';
+        }
+        // Build name with fallbacks
+        let name = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+        if (!name) {
+          name = userData.displayName || userData.name || userData.email?.split('@')[0] || 'User';
+        }
+        setSenderNamesCache(prev => ({...prev, [senderId]: name}));
+        return name;
+      }
+    } catch (error) {
+      console.log('Error fetching sender name:', error);
+    }
+    return null; // Return null to indicate we should use stored senderName
+  }, [senderNamesCache]);
+
+  // Get display name for a message sender
+  const getSenderDisplayName = useCallback((item) => {
+    // If we have a cached name from Firestore, use it
+    if (senderNamesCache[item.senderId]) {
+      return senderNamesCache[item.senderId];
+    }
+    // Otherwise use stored senderName or fallback
+    return item.senderName || 'User';
+  }, [senderNamesCache]);
 
   // Handle image attachment
   const handleAttachment = () => {
@@ -173,8 +216,25 @@ const ChatScreen = ({route, navigation}) => {
   useEffect(() => {
     if (!conversationId) return;
 
-    const unsubscribe = subscribeToMessages(conversationId, (updatedMessages) => {
+    const unsubscribe = subscribeToMessages(conversationId, async (updatedMessages) => {
       setMessages(updatedMessages);
+      
+      // Fetch real names for messages with "User" as senderName
+      const senderIdsToFetch = new Set();
+      updatedMessages.forEach(msg => {
+        // Fetch name if senderName is "User" or missing, and we don't have it cached
+        if ((!msg.senderName || msg.senderName === 'User') && msg.senderId && !senderNamesCache[msg.senderId]) {
+          senderIdsToFetch.add(msg.senderId);
+        }
+      });
+      
+      // Fetch names for unknown senders
+      if (senderIdsToFetch.size > 0) {
+        for (const senderId of senderIdsToFetch) {
+          fetchSenderName(senderId);
+        }
+      }
+      
       // Mark as read when viewing
       if (user?.uid) {
         markConversationAsRead(conversationId, user.uid);
@@ -182,7 +242,7 @@ const ChatScreen = ({route, navigation}) => {
     });
 
     return () => unsubscribe();
-  }, [conversationId, user?.uid]);
+  }, [conversationId, user?.uid, fetchSenderName, senderNamesCache]);
 
   // Subscribe to typing status
   useEffect(() => {
@@ -343,7 +403,7 @@ const ChatScreen = ({route, navigation}) => {
               marginBottom: 2,
               marginLeft: 4,
             }}>
-            {item.senderName || 'User'}
+            {getSenderDisplayName(item)}
           </Text>
         )}
 

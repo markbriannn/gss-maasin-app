@@ -466,7 +466,8 @@ export const NotificationProvider = ({children}) => {
         if (conversationId) {
           globalNavigationRef.navigate('Chat', {
             conversationId,
-            recipient: {id: senderId, name: senderName},
+            // recipient info is optional - Chat screen will fetch it from the conversation
+            recipient: senderId ? {id: senderId, name: senderName || 'User'} : null,
           });
         }
         break;

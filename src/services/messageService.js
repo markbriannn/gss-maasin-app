@@ -165,7 +165,7 @@ export const sendMessage = async (
       conversationData.participants.forEach((participantId) => {
         if (participantId !== senderId) {
           notificationService
-            .pushNewMessage(participantId, senderName, text, conversationId)
+            .pushNewMessage(participantId, senderName, text, conversationId, senderId)
             .catch(() => {});
         }
       });

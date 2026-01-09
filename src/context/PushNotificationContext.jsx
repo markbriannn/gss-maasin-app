@@ -100,7 +100,8 @@ export const PushNotificationProvider = ({children}) => {
         if (data.conversationId) {
           navigationRef.current?.navigate('Chat', {
             conversationId: data.conversationId,
-            recipient: {id: data.senderId, name: data.senderName},
+            // recipient info is optional - Chat screen will fetch it from the conversation
+            recipient: data.senderId ? {id: data.senderId, name: data.senderName || 'User'} : null,
           });
         }
         break;

@@ -248,7 +248,7 @@ const JobDetailsScreen = ({navigation, route}) => {
             completedJobs,
             rating: providerRating,
             reviewCount: providerReviewCount,
-            responseRate: pData.responseRate || 0,
+            avgResponseTime: pData.avgResponseTime || pData.responseTime || 999,
             isVerified: pData.isVerified || pData.status === 'approved',
           });
           
@@ -1039,6 +1039,14 @@ const JobDetailsScreen = ({navigation, route}) => {
                 )}
               </View>
             </View>
+            
+            {/* Provider Badges */}
+            {jobData.provider?.badges?.length > 0 && (
+              <View style={{marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E5E7EB'}}>
+                <Text style={{fontSize: 12, color: '#6B7280', marginBottom: 6}}>Provider Badges</Text>
+                <BadgeList badges={jobData.provider.badges} maxDisplay={4} size="small" />
+              </View>
+            )}
             
             {/* Contact Buttons - Only show after admin approval */}
             {jobData.adminApproved ? (
