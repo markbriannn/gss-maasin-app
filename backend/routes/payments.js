@@ -517,8 +517,9 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
       const bookingData = bookingDoc.data();
       const providerId = bookingData?.providerId;
       const amountInPesos = amount / 100;
-      const providerShare = amountInPesos * 0.95;
-      const platformCommission = amountInPesos * 0.05;
+      // IMPORTANT: Provider keeps their FULL price - 5% fee is paid by client ON TOP
+      const providerShare = bookingData?.providerPrice || bookingData?.providerFixedPrice || bookingData?.offeredPrice || Math.round(amountInPesos / 1.05);
+      const platformCommission = amountInPesos - providerShare;
 
       // Check if this is a "pay first" upfront payment
       const isPayFirstBooking = bookingData?.paymentPreference === 'pay_first';
@@ -600,8 +601,9 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
       const bookingData = bookingDoc.data();
       const providerId = bookingData?.providerId;
       const amountInPesos = source.attributes.amount / 100;
-      const providerShare = amountInPesos * 0.95;
-      const platformCommission = amountInPesos * 0.05;
+      // IMPORTANT: Provider keeps their FULL price - 5% fee is paid by client ON TOP
+      const providerShare = bookingData?.providerPrice || bookingData?.providerFixedPrice || bookingData?.offeredPrice || Math.round(amountInPesos / 1.05);
+      const platformCommission = amountInPesos - providerShare;
 
       // Check if this is a "pay first" upfront payment
       const isUpfrontPayment = bookingData?.paymentPreference === 'pay_first' && !bookingData?.isPaidUpfront;
@@ -749,8 +751,9 @@ router.post('/webhook', async (req, res) => {
         const bookingData = bookingDoc.data();
         const providerId = bookingData?.providerId;
         const amountInPesos = amount / 100;
-        const providerShare = amountInPesos * 0.95; // 95% to provider
-        const platformCommission = amountInPesos * 0.05; // 5% platform fee
+        // IMPORTANT: Provider keeps their FULL price - 5% fee is paid by client ON TOP
+        const providerShare = bookingData?.providerPrice || bookingData?.providerFixedPrice || bookingData?.offeredPrice || Math.round(amountInPesos / 1.05);
+        const platformCommission = amountInPesos - providerShare;
 
         // Check if this is an escrow payment (awaiting_payment status)
         const isEscrowPayment = bookingData?.status === 'awaiting_payment';
@@ -1062,7 +1065,8 @@ router.post('/auto-refund/:bookingId', async (req, res) => {
       const providerDoc = await providerRef.get();
       if (providerDoc.exists) {
         const providerData = providerDoc.data();
-        const providerShare = refundAmount * 0.95;
+        // IMPORTANT: Provider keeps their FULL price - use providerPrice not 95% of total
+        const providerShare = bookingData.providerPrice || bookingData.providerFixedPrice || bookingData.offeredPrice || Math.round(refundAmount / 1.05);
         const currentBalance = providerData.availableBalance || 0;
         const currentEarnings = providerData.totalEarnings || 0;
         
@@ -1305,9 +1309,13 @@ router.post('/cash-payment', async (req, res) => {
 
     const db = getDb();
 
-    // Calculate provider share (95%) and platform commission (5%)
-    const providerShare = amount * 0.95;
-    const platformCommission = amount * 0.05;
+    // Get booking to find provider's actual price
+    const bookingDoc = await db.collection('bookings').doc(bookingId).get();
+    const bookingData = bookingDoc.exists ? bookingDoc.data() : null;
+
+    // IMPORTANT: Provider keeps their FULL price - 5% fee is paid by client ON TOP
+    const providerShare = bookingData?.providerPrice || bookingData?.providerFixedPrice || bookingData?.offeredPrice || Math.round(amount / 1.05);
+    const platformCommission = amount - providerShare;
 
     await db.collection('payments').add({
       bookingId,
@@ -1691,9 +1699,12 @@ router.post('/release-escrow/:bookingId', async (req, res) => {
     }
 
     const providerId = booking.providerId;
-    const amount = booking.escrowAmount || booking.totalAmount || 0;
-    const providerShare = amount * 0.95;
-    const platformCommission = amount * 0.05;
+    const totalAmount = booking.escrowAmount || booking.totalAmount || 0;
+    
+    // IMPORTANT: Provider keeps their FULL price - 5% fee is paid by client ON TOP
+    // providerPrice is the provider's actual price, totalAmount includes the 5% fee
+    const providerShare = booking.providerPrice || booking.providerFixedPrice || booking.offeredPrice || Math.round(totalAmount / 1.05);
+    const platformCommission = totalAmount - providerShare;
 
     // Update booking status
     await db.collection('bookings').doc(bookingId).update({
@@ -1701,6 +1712,7 @@ router.post('/release-escrow/:bookingId', async (req, res) => {
       paymentStatus: 'released',
       completedAt: new Date(),
       clientConfirmedAt: new Date(),
+      providerEarnings: providerShare,
       updatedAt: new Date(),
     });
 
