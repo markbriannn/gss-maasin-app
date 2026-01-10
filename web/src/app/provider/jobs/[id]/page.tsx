@@ -722,9 +722,15 @@ export default function ProviderJobDetailsPage() {
                   <span className="font-medium">-{formatCurrency(job.discount)}</span>
                 </div>
               )}
-              <div className="border-t border-gray-100 pt-3 flex justify-between items-center">
-                <span className="font-bold text-gray-900">Total</span>
-                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{formatCurrency(calculateTotal())}</span>
+              <div className="border-t border-gray-100 pt-3 space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-500">System Fee (5%)</span>
+                  <span className="text-red-500 font-medium">-{formatCurrency(Math.round(calculateTotal() * 0.05 / 1.05))}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-gray-900">Your Earnings</span>
+                  <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">{formatCurrency(Math.round(calculateTotal() / 1.05))}</span>
+                </div>
               </div>
             </div>
           </div>
