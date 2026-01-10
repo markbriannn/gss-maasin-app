@@ -1,11 +1,45 @@
 // Web Push Notification Service using Firebase Cloud Messaging
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
-import app from './firebase';
+import { collection, doc, setDoc } from 'firebase/firestore';
+import app, { db } from './firebase';
 
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
 
 let messaging: ReturnType<typeof getMessaging> | null = null;
+
+// ========== FIRESTORE NOTIFICATION HELPER ==========
+
+/**
+ * Create a notification document in Firestore (for dropdown display)
+ */
+export async function createFirestoreNotification(
+  userId: string,
+  type: string,
+  title: string,
+  message: string,
+  data: Record<string, string> = {}
+): Promise<void> {
+  try {
+    const notifRef = doc(collection(db, 'notifications'));
+    await setDoc(notifRef, {
+      id: notifRef.id,
+      type,
+      title,
+      message,
+      userId,
+      targetUserId: userId,
+      bookingId: data.jobId || null,
+      jobId: data.jobId || null,
+      createdAt: new Date(),
+      read: false,
+      ...data,
+    });
+    console.log('[Notification] Created Firestore notification for user:', userId);
+  } catch (error) {
+    console.error('[Notification] Error creating Firestore notification:', error);
+  }
+}
 
 // Initialize messaging only on client side and if supported
 async function getMessagingInstance() {
@@ -296,85 +330,76 @@ export const pushNotifications = {
     ),
 
   // Notify client about job approval
-  jobApprovedToClient: (clientId: string, jobId: string, serviceCategory: string) =>
-    sendPushToUser(
-      clientId,
-      '✅ Booking Approved',
-      `Your ${serviceCategory} request has been approved and sent to providers.`,
-      { type: 'job_approved', jobId }
-    ),
+  jobApprovedToClient: async (clientId: string, jobId: string, serviceCategory: string) => {
+    const title = '✅ Booking Approved';
+    const message = `Your ${serviceCategory} request has been approved and sent to providers.`;
+    await createFirestoreNotification(clientId, 'job_approved', title, message, { jobId });
+    return sendPushToUser(clientId, title, message, { type: 'job_approved', jobId });
+  },
 
   // Notify provider about new available job
-  newJobToProvider: (providerId: string, jobId: string, serviceCategory: string) =>
-    sendPushToUser(
-      providerId,
-      '📋 New Job Available',
-      `New ${serviceCategory} job is available for you.`,
-      { type: 'new_job', jobId }
-    ),
+  newJobToProvider: async (providerId: string, jobId: string, serviceCategory: string) => {
+    const title = '📋 New Job Available';
+    const message = `New ${serviceCategory} job is available for you.`;
+    await createFirestoreNotification(providerId, 'new_job', title, message, { jobId });
+    return sendPushToUser(providerId, title, message, { type: 'new_job', jobId });
+  },
 
   // Notify client about job rejection
-  jobRejectedToClient: (clientId: string, jobId: string, serviceCategory: string) =>
-    sendPushToUser(
-      clientId,
-      '❌ Booking Rejected',
-      `Your ${serviceCategory} request was not approved.`,
-      { type: 'job_rejected', jobId }
-    ),
+  jobRejectedToClient: async (clientId: string, jobId: string, serviceCategory: string) => {
+    const title = '❌ Booking Rejected';
+    const message = `Your ${serviceCategory} request was not approved.`;
+    await createFirestoreNotification(clientId, 'job_rejected', title, message, { jobId });
+    return sendPushToUser(clientId, title, message, { type: 'job_rejected', jobId });
+  },
 
   // Notify client about job acceptance
-  jobAcceptedToClient: (clientId: string, jobId: string, providerName: string) =>
-    sendPushToUser(
-      clientId,
-      '🎉 Job Accepted!',
-      `${providerName} has accepted your service request!`,
-      { type: 'job_accepted', jobId }
-    ),
+  jobAcceptedToClient: async (clientId: string, jobId: string, providerName: string) => {
+    const title = '🎉 Job Accepted!';
+    const message = `${providerName} has accepted your service request!`;
+    await createFirestoreNotification(clientId, 'job_accepted', title, message, { jobId });
+    return sendPushToUser(clientId, title, message, { type: 'job_accepted', jobId });
+  },
 
   // Notify client about provider traveling
-  providerTravelingToClient: (clientId: string, jobId: string) =>
-    sendPushToUser(
-      clientId,
-      '🚗 Provider On The Way',
-      'Your provider is traveling to your location.',
-      { type: 'provider_traveling', jobId }
-    ),
+  providerTravelingToClient: async (clientId: string, jobId: string) => {
+    const title = '🚗 Provider On The Way';
+    const message = 'Your provider is traveling to your location.';
+    await createFirestoreNotification(clientId, 'provider_traveling', title, message, { jobId });
+    return sendPushToUser(clientId, title, message, { type: 'provider_traveling', jobId });
+  },
 
   // Notify client about provider arrived
-  providerArrivedToClient: (clientId: string, jobId: string) =>
-    sendPushToUser(
-      clientId,
-      '📍 Provider Arrived',
-      'Your provider has arrived at your location.',
-      { type: 'provider_arrived', jobId }
-    ),
+  providerArrivedToClient: async (clientId: string, jobId: string) => {
+    const title = '📍 Provider Arrived';
+    const message = 'Your provider has arrived at your location.';
+    await createFirestoreNotification(clientId, 'provider_arrived', title, message, { jobId });
+    return sendPushToUser(clientId, title, message, { type: 'provider_arrived', jobId });
+  },
 
   // Notify client about job started
-  jobStartedToClient: (clientId: string, jobId: string, serviceCategory: string) =>
-    sendPushToUser(
-      clientId,
-      '🔧 Work Started',
-      `Your ${serviceCategory} job is now in progress.`,
-      { type: 'job_started', jobId }
-    ),
+  jobStartedToClient: async (clientId: string, jobId: string, serviceCategory: string) => {
+    const title = '🔧 Work Started';
+    const message = `Your ${serviceCategory} job is now in progress.`;
+    await createFirestoreNotification(clientId, 'job_started', title, message, { jobId });
+    return sendPushToUser(clientId, title, message, { type: 'job_started', jobId });
+  },
 
   // Notify client about job completed
-  jobCompletedToClient: (clientId: string, jobId: string, serviceCategory: string) =>
-    sendPushToUser(
-      clientId,
-      '✅ Work Complete',
-      `Your ${serviceCategory} job has been completed. Please confirm and leave a review!`,
-      { type: 'job_completed', jobId }
-    ),
+  jobCompletedToClient: async (clientId: string, jobId: string, serviceCategory: string) => {
+    const title = '✅ Work Complete';
+    const message = `Your ${serviceCategory} job has been completed. Please confirm and leave a review!`;
+    await createFirestoreNotification(clientId, 'work_completed', title, message, { jobId });
+    return sendPushToUser(clientId, title, message, { type: 'job_completed', jobId });
+  },
 
   // Notify about job cancellation
-  jobCancelledToUser: (userId: string, jobId: string, cancelledBy: string) =>
-    sendPushToUser(
-      userId,
-      '❌ Job Cancelled',
-      `The job has been cancelled by ${cancelledBy}.`,
-      { type: 'job_cancelled', jobId }
-    ),
+  jobCancelledToUser: async (userId: string, jobId: string, cancelledBy: string) => {
+    const title = '❌ Job Cancelled';
+    const message = `The job has been cancelled by ${cancelledBy}.`;
+    await createFirestoreNotification(userId, 'job_cancelled', title, message, { jobId });
+    return sendPushToUser(userId, title, message, { type: 'job_cancelled', jobId });
+  },
 
   // Notify about new message
   newMessageToUser: (userId: string, senderName: string, messagePreview: string, conversationId: string, senderId?: string) =>
@@ -386,20 +411,18 @@ export const pushNotifications = {
     ),
 
   // Notify provider about new review
-  newReviewToProvider: (providerId: string, rating: number, reviewerName: string) =>
-    sendPushToUser(
-      providerId,
-      '⭐ New Review!',
-      `${reviewerName} gave you ${rating} star${rating > 1 ? 's' : ''}. Check your profile to see the review.`,
-      { type: 'new_review' }
-    ),
+  newReviewToProvider: async (providerId: string, rating: number, reviewerName: string) => {
+    const title = '⭐ New Review!';
+    const message = `${reviewerName} gave you ${rating} star${rating > 1 ? 's' : ''}. Check your profile to see the review.`;
+    await createFirestoreNotification(providerId, 'new_review', title, message, {});
+    return sendPushToUser(providerId, title, message, { type: 'new_review' });
+  },
 
   // Notify provider about payment received
-  paymentReceivedToProvider: (providerId: string, jobId: string, amount: number) =>
-    sendPushToUser(
-      providerId,
-      '💰 Payment Received!',
-      `You received ₱${amount.toLocaleString()} for your completed job.`,
-      { type: 'payment_received', jobId }
-    ),
+  paymentReceivedToProvider: async (providerId: string, jobId: string, amount: number) => {
+    const title = '💰 Payment Received!';
+    const message = `You received ₱${amount.toLocaleString()} for your completed job.`;
+    await createFirestoreNotification(providerId, 'payment_received', title, message, { jobId });
+    return sendPushToUser(providerId, title, message, { type: 'payment_received', jobId });
+  },
 };

@@ -459,6 +459,7 @@ function JobDetailsContent() {
             amount,
             type: method, // gcash or paymaya
             description: `Payment for ${job.title || job.serviceCategory}`,
+            platform: 'web', // Use web redirect URLs
           }),
         });
         

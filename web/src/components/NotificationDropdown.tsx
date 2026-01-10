@@ -417,6 +417,19 @@ export default function NotificationDropdown({
     // Initial load
     generateNotifications();
 
+    // Listen to notifications collection for this user (real-time updates)
+    const notificationsQuery1 = query(
+      collection(db, 'notifications'),
+      where('targetUserId', '==', user.uid)
+    );
+    unsubscribers.push(onSnapshot(notificationsQuery1, () => generateNotifications()));
+
+    const notificationsQuery2 = query(
+      collection(db, 'notifications'),
+      where('userId', '==', user.uid)
+    );
+    unsubscribers.push(onSnapshot(notificationsQuery2, () => generateNotifications()));
+
     // Set up listeners based on role
     if (userRole === 'ADMIN') {
       const providersQuery = query(
