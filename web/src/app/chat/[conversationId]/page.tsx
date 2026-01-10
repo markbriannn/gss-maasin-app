@@ -86,9 +86,11 @@ export default function ChatPage() {
       clearTimeout(typingTimeoutRef.current);
     }
     
-    // Set typing status
-    if (text.trim() && !isTyping) {
-      setIsTyping(true);
+    // Set typing status - update timestamp on every keystroke for better sync
+    if (text.trim()) {
+      if (!isTyping) {
+        setIsTyping(true);
+      }
       updateDoc(doc(db, 'conversations', conversationId), {
         [`typing.${user.uid}`]: true,
         [`typingTimestamp.${user.uid}`]: serverTimestamp(),
@@ -138,10 +140,12 @@ export default function ChatPage() {
               const timestampDate = typingTimestamp.toDate?.() || new Date(typingTimestamp);
               const now = new Date();
               const diffSeconds = (now.getTime() - timestampDate.getTime()) / 1000;
-              if (diffSeconds < 5) {
+              // Be more lenient - 10 seconds instead of 5, and also accept if timestamp is in the future (clock sync issues)
+              if (diffSeconds < 10 || diffSeconds < 0) {
                 otherTyping = true;
               }
             } else {
+              // No timestamp but typing is true - show indicator
               otherTyping = true;
             }
           }

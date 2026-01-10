@@ -602,16 +602,18 @@ export const subscribeToTypingStatus = (conversationId, currentUserId, callback)
           let otherUserTyping = false;
           for (const [userId, isTyping] of Object.entries(typing)) {
             if (userId !== currentUserId && isTyping) {
-              // Check if typing timestamp is recent (within last 5 seconds)
+              // Check if typing timestamp is recent (within last 10 seconds to account for clock differences)
               const typingTimestamp = data.typingTimestamp?.[userId];
               if (typingTimestamp) {
                 const timestampDate = typingTimestamp.toDate?.() || new Date(typingTimestamp);
                 const now = new Date();
                 const diffSeconds = (now - timestampDate) / 1000;
-                if (diffSeconds < 5) {
+                // Be more lenient - 10 seconds instead of 5, and also accept if timestamp is in the future (clock sync issues)
+                if (diffSeconds < 10 || diffSeconds < 0) {
                   otherUserTyping = true;
                 }
               } else {
+                // No timestamp but typing is true - show indicator
                 otherUserTyping = true;
               }
             }
