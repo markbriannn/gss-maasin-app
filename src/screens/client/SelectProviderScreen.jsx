@@ -147,6 +147,21 @@ const SelectProviderScreen = ({navigation, route}) => {
   };
 
   const handleSelectProvider = (provider) => {
+    // Toggle selection - if already selected, unselect
+    if (selectedProvider?.id === provider.id) {
+      setSelectedProvider(null);
+      // Reset map to client location
+      if (mapRef.current) {
+        mapRef.current.animateToRegion({
+          latitude: clientLat,
+          longitude: clientLng,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
+        }, 300);
+      }
+      return;
+    }
+    
     setSelectedProvider(provider);
     if (mapRef.current && provider.latitude && provider.longitude) {
       mapRef.current.fitToCoordinates(

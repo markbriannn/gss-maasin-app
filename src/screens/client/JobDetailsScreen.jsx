@@ -26,6 +26,8 @@ import {sendPaymentReceipt} from '../../services/emailService';
 import {APP_CONFIG} from '../../config/constants';
 import {getProviderBadges, getProviderTier} from '../../utils/gamification';
 import {BadgeList, TierBadge} from '../../components/gamification';
+import {PremiumModal, ConfirmModal, PaymentModal as PremiumPaymentModal} from '../../components/common';
+import {showInfoModal, showErrorModal, showSuccessModal} from '../../utils/modalManager';
 
 const JobDetailsScreen = ({navigation, route}) => {
   const {job, jobId} = route.params || {};
@@ -82,6 +84,11 @@ const JobDetailsScreen = ({navigation, route}) => {
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
   const appState = useRef(AppState.currentState);
+  
+  // Premium modal states
+  const [premiumModal, setPremiumModal] = useState({visible: false, variant: 'success', title: '', message: ''});
+  const [confirmModal, setConfirmModal] = useState({visible: false, type: 'confirm', title: '', message: '', onConfirm: null});
+  const [showPremiumPayment, setShowPremiumPayment] = useState(false);
 
   // Manual verify payment function
   const handleVerifyPayment = async () => {
@@ -102,11 +109,11 @@ const JobDetailsScreen = ({navigation, route}) => {
         } else {
           setJobData(prev => ({...prev, status: 'payment_received'}));
         }
-        Alert.alert('Payment Successful', 'Your payment has been processed successfully!');
+        setPremiumModal({visible: true, variant: 'success', title: 'Payment Successful! 💰', message: 'Your payment has been processed successfully!'});
       } else if (result.status === 'failed') {
         setPaymentError('Payment failed or expired. Please try again.');
       } else if (result.status === 'pending') {
-        Alert.alert('Payment Pending', 'Your payment is still being processed. Please complete the payment in GCash/Maya app.');
+        setPremiumModal({visible: true, variant: 'warning', title: 'Payment Pending', message: 'Your payment is still being processed. Please complete the payment in GCash/Maya app.'});
       } else if (result.status === 'error') {
         setPaymentError(result.error || 'Could not verify payment. Please try again.');
       }
@@ -144,7 +151,7 @@ const JobDetailsScreen = ({navigation, route}) => {
             } else {
               setJobData(prev => ({...prev, status: 'payment_received'}));
             }
-            Alert.alert('Payment Successful', 'Your payment has been processed successfully!');
+            setPremiumModal({visible: true, variant: 'success', title: 'Payment Successful! 💰', message: 'Your payment has been processed successfully!'});
           } else if (result.status === 'failed') {
             setPaymentError('Payment failed or expired. Please try again.');
           } else if (result.status === 'pending') {
@@ -331,13 +338,13 @@ const JobDetailsScreen = ({navigation, route}) => {
     if (phone) {
       Linking.openURL(`tel:${phone}`);
     } else {
-      Alert.alert('Not Available', 'Provider phone number not available yet. Try messaging instead.');
+      showInfoModal('Not Available', 'Provider phone number not available yet. Try messaging instead.');
     }
   };
 
   const handleMessageProvider = () => {
     if (!jobData?.providerId) {
-      Alert.alert('Not Available', 'No provider assigned to this job yet');
+      showInfoModal('Not Available', 'No provider assigned to this job yet');
       return;
     }
     navigation.navigate('Chat', {
@@ -358,7 +365,7 @@ const JobDetailsScreen = ({navigation, route}) => {
   const submitCancellation = async () => {
     const reason = selectedCancelReason === 'Other' ? cancelReason : selectedCancelReason;
     if (!reason.trim()) {
-      Alert.alert('Required', 'Please select or enter a cancellation reason.');
+      showErrorModal('Required', 'Please select or enter a cancellation reason.');
       return;
     }
 
@@ -382,16 +389,16 @@ const JobDetailsScreen = ({navigation, route}) => {
           });
           const refundResult = await refundResponse.json();
           if (refundResult.refunded) {
-            Alert.alert('Cancelled & Refunded', `Job cancelled. Refund of ₱${refundResult.amount} will be processed to your ${jobData.paymentMethod || 'payment method'}.`);
+            showInfoModal('Cancelled & Refunded', `Job cancelled. Refund of ₱${refundResult.amount} will be processed to your ${jobData.paymentMethod || 'payment method'}.`);
           } else {
-            Alert.alert('Cancelled', 'Job has been cancelled');
+            showInfoModal('Cancelled', 'Job has been cancelled');
           }
         } catch (refundError) {
           console.error('Refund error:', refundError);
-          Alert.alert('Cancelled', 'Job cancelled. Refund will be processed shortly.');
+          showInfoModal('Cancelled', 'Job cancelled. Refund will be processed shortly.');
         }
       } else {
-        Alert.alert('Cancelled', 'Job has been cancelled');
+        showInfoModal('Cancelled', 'Job has been cancelled');
       }
 
       // Notify provider about cancellation
@@ -429,7 +436,7 @@ const JobDetailsScreen = ({navigation, route}) => {
       navigation.goBack();
     } catch (error) {
       console.error('Error cancelling job:', error);
-      Alert.alert('Error', 'Failed to cancel job. Please try again.');
+      showErrorModal('Error', 'Failed to cancel job. Please try again.');
     } finally {
       setIsUpdating(false);
     }
@@ -487,9 +494,9 @@ const JobDetailsScreen = ({navigation, route}) => {
                 
                 if (result.success) {
                   setJobData(prev => ({...prev, status: 'completed', paymentStatus: 'released'}));
-                  Alert.alert('Payment Released! 🎉', `₱${result.providerShare?.toLocaleString() || ''} has been released to the provider. Thank you!`);
+                  showSuccessModal('Payment Released', `₱${result.providerShare?.toLocaleString() || ''} has been released to the provider. Thank you!`);
                 } else {
-                  Alert.alert('Error', result.error || 'Failed to release payment. Please try again.');
+                  showErrorModal('Error', result.error || 'Failed to release payment. Please try again.');
                 }
               } else if (isPayFirstComplete) {
                 // Pay First with no additional charges - go straight to payment_received
@@ -499,7 +506,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                   updatedAt: serverTimestamp(),
                 });
                 setJobData(prev => ({...prev, status: 'payment_received'}));
-                Alert.alert('Completed', 'Job marked as complete. Waiting for provider confirmation.');
+                showSuccessModal('Completed', 'Job marked as complete. Waiting for provider confirmation.');
               } else {
                 // Pay Later OR Pay First with additional charges - need payment
                 await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
@@ -508,11 +515,11 @@ const JobDetailsScreen = ({navigation, route}) => {
                   updatedAt: serverTimestamp(),
                 });
                 setJobData(prev => ({...prev, status: 'pending_payment'}));
-                Alert.alert('Confirmed', 'Please proceed to pay the provider.');
+                showSuccessModal('Confirmed', 'Please proceed to pay the provider.');
               }
             } catch (error) {
               console.error('Error confirming completion:', error);
-              Alert.alert('Error', 'Failed to confirm. Please try again.');
+              showErrorModal('Error', 'Failed to confirm. Please try again.');
             } finally {
               setIsUpdating(false);
             }
@@ -600,7 +607,7 @@ const JobDetailsScreen = ({navigation, route}) => {
             });
             setJobData(prev => ({...prev, isPaidUpfront: true, upfrontPaidAmount: amount}));
             setShowPaymentModal(false);
-            Alert.alert('Payment Complete', 'Thank you! The provider can now start working on your job.');
+            showSuccessModal('Payment Complete', 'Thank you! The provider can now start working on your job.');
           } else if (isPayFirstWithAdditional) {
             // Pay First - paying additional charges only (already paid upfront)
             await updateDoc(doc(db, 'bookings', bookingId), {
@@ -615,7 +622,7 @@ const JobDetailsScreen = ({navigation, route}) => {
             setJobData(prev => ({...prev, status: 'payment_received', additionalChargesPaid: true}));
             notificationService.notifyPaymentReceived?.(jobData);
             setShowPaymentModal(false);
-            Alert.alert('Additional Payment Complete', 'The provider will confirm receipt to complete the job.');
+            showSuccessModal('Additional Payment Complete', 'The provider will confirm receipt to complete the job.');
           } else {
             // Pay Later - full payment after work
             await updateDoc(doc(db, 'bookings', bookingId), {
@@ -627,7 +634,7 @@ const JobDetailsScreen = ({navigation, route}) => {
             setJobData(prev => ({...prev, status: 'payment_received'}));
             notificationService.notifyPaymentReceived?.(jobData);
             setShowPaymentModal(false);
-            Alert.alert('Payment Recorded', 'The provider will confirm receipt of payment to complete the job.');
+            showSuccessModal('Payment Recorded', 'The provider will confirm receipt of payment to complete the job.');
           }
           
           // Send payment receipt email to client via Brevo
@@ -643,7 +650,7 @@ const JobDetailsScreen = ({navigation, route}) => {
           }
         } else {
           setPaymentError(result.error || 'Failed to record payment');
-          Alert.alert('Error', result.error || 'Failed to record payment');
+          showErrorModal('Error', result.error || 'Failed to record payment');
         }
       } else {
         // GCash or Maya - create payment source
@@ -683,13 +690,13 @@ const JobDetailsScreen = ({navigation, route}) => {
           }
         } else {
           setPaymentError(result.error || 'Failed to create payment');
-          Alert.alert('Payment Error', result.error || 'Failed to create payment. Please try again.');
+          showErrorModal('Payment Error', result.error || 'Failed to create payment. Please try again.');
         }
       }
     } catch (error) {
       console.error('Payment error:', error);
       setPaymentError('Payment failed. Please check your connection and try again.');
-      Alert.alert('Error', 'Payment failed. Please check your connection and try again.');
+      showErrorModal('Error', 'Payment failed. Please check your connection and try again.');
     } finally {
       setIsProcessingPayment(false);
       setSelectedPaymentMethod(null);
@@ -738,10 +745,10 @@ const JobDetailsScreen = ({navigation, route}) => {
                 providerPrice: counterPrice,
                 totalAmount: totalAmount,
               }));
-              Alert.alert('Accepted', 'Counter offer accepted. Waiting for provider confirmation.');
+              showSuccessModal('Accepted', 'Counter offer accepted. Waiting for provider confirmation.');
             } catch (error) {
               console.error('Error accepting counter offer:', error);
-              Alert.alert('Error', 'Failed to accept counter offer');
+              showErrorModal('Error', 'Failed to accept counter offer');
             } finally {
               setIsUpdating(false);
             }
@@ -754,7 +761,7 @@ const JobDetailsScreen = ({navigation, route}) => {
   // Make a new counter offer
   const handleNewOffer = async () => {
     if (!newOfferPrice || parseFloat(newOfferPrice) <= 0) {
-      Alert.alert('Error', 'Please enter a valid offer price');
+      showErrorModal('Error', 'Please enter a valid offer price');
       return;
     }
 
@@ -787,10 +794,10 @@ const JobDetailsScreen = ({navigation, route}) => {
       setShowNewOfferModal(false);
       setNewOfferPrice('');
       setNewOfferNote('');
-      Alert.alert('Offer Sent', 'Your new offer has been sent to the provider.');
+      showSuccessModal('Offer Sent', 'Your new offer has been sent to the provider.');
     } catch (error) {
       console.error('Error sending new offer:', error);
-      Alert.alert('Error', 'Failed to send new offer');
+      showErrorModal('Error', 'Failed to send new offer');
     } finally {
       setIsUpdating(false);
     }
@@ -828,10 +835,10 @@ const JobDetailsScreen = ({navigation, route}) => {
                 additionalCharges: updatedCharges,
                 hasAdditionalPending: hasPending,
               }));
-              Alert.alert('Approved', 'Additional charge has been approved.');
+              showSuccessModal('Approved', 'Additional charge has been approved.');
             } catch (error) {
               console.error('Error approving charge:', error);
-              Alert.alert('Error', 'Failed to approve charge');
+              showErrorModal('Error', 'Failed to approve charge');
             } finally {
               setIsUpdating(false);
             }
@@ -870,10 +877,10 @@ const JobDetailsScreen = ({navigation, route}) => {
                 additionalCharges: updatedCharges,
                 hasAdditionalPending: hasPending,
               }));
-              Alert.alert('Rejected', 'Additional charge has been rejected.');
+              showInfoModal('Rejected', 'Additional charge has been rejected.');
             } catch (error) {
               console.error('Error rejecting charge:', error);
-              Alert.alert('Error', 'Failed to reject charge');
+              showErrorModal('Error', 'Failed to reject charge');
             } finally {
               setIsUpdating(false);
             }
@@ -2133,6 +2140,32 @@ const JobDetailsScreen = ({navigation, route}) => {
           </View>
         </View>
       </Modal>
+      
+      {/* Premium Success/Error/Info Modal */}
+      <PremiumModal
+        visible={premiumModal.visible}
+        variant={premiumModal.variant}
+        title={premiumModal.title}
+        message={premiumModal.message}
+        primaryButton={{text: 'OK', onPress: () => setPremiumModal(prev => ({...prev, visible: false}))}}
+        onClose={() => setPremiumModal(prev => ({...prev, visible: false}))}
+        autoClose={premiumModal.variant === 'success'}
+        autoCloseDelay={3000}
+      />
+      
+      {/* Premium Confirm Modal */}
+      <ConfirmModal
+        visible={confirmModal.visible}
+        type={confirmModal.type}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={() => {
+          setConfirmModal(prev => ({...prev, visible: false}));
+          confirmModal.onConfirm?.();
+        }}
+        onCancel={() => setConfirmModal(prev => ({...prev, visible: false}))}
+        isLoading={isUpdating}
+      />
     </SafeAreaView>
   );
 };

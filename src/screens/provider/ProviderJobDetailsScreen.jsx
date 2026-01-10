@@ -28,9 +28,11 @@ import locationService from '../../services/locationService';
 import {sendJobAcceptedEmail, sendPaymentReceipt} from '../../services/emailService';
 import {APP_CONFIG} from '../../config/constants';
 import paymentService from '../../services/paymentService';
+import {showInfoModal, showErrorModal, showSuccessModal} from '../../utils/modalManager';
 import {getClientBadges, getClientTier} from '../../utils/gamification';
 import {BadgeList, TierBadge} from '../../components/gamification';
 import {onBookingCompleted} from '../../services/gamificationService';
+import {PremiumModal, ConfirmModal} from '../../components/common';
 
 const {width: SCREEN_WIDTH, height: SCREEN_HEIGHT} = Dimensions.get('window');
 
@@ -59,6 +61,10 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [selectedCancelReason, setSelectedCancelReason] = useState('');
+  
+  // Premium modal states
+  const [premiumModal, setPremiumModal] = useState({visible: false, variant: 'success', title: '', message: ''});
+  const [confirmModal, setConfirmModal] = useState({visible: false, type: 'confirm', title: '', message: '', onConfirm: null});
 
   const CANCEL_REASONS = [
     'Schedule conflict',
@@ -357,13 +363,13 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
     if (jobData?.client?.phone) {
       Linking.openURL(`tel:${jobData.client.phone}`);
     } else {
-      Alert.alert('Error', 'Client phone number not available');
+      showErrorModal('Error', 'Client phone number not available');
     }
   };
 
   const handleMessageClient = () => {
     if (!jobData?.clientId) {
-      Alert.alert('Not Available', 'Client information not available');
+      showInfoModal('Not Available', 'Client information not available');
       return;
     }
     navigation.navigate('Chat', {
@@ -459,10 +465,10 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                   }).catch(err => console.log('Email notification failed:', err));
                 }
               }
-              Alert.alert('Success', 'Job accepted successfully');
+              setPremiumModal({visible: true, variant: 'success', title: 'Job Accepted! 🎉', message: 'You have successfully accepted this job. The client has been notified.'});
             } catch (error) {
               console.error('Error accepting job:', error);
-              Alert.alert('Error', 'Failed to accept job. Please try again.');
+              showErrorModal('Error', 'Failed to accept job. Please try again.');
             } finally {
               setIsUpdating(false);
             }
@@ -475,11 +481,11 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
   // Handle additional charges request
   const handleRequestAdditional = async () => {
     if (!additionalAmount || parseFloat(additionalAmount) <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      showErrorModal('Error', 'Please enter a valid amount');
       return;
     }
     if (!additionalReason.trim()) {
-      Alert.alert('Error', 'Please provide a reason for the additional charge');
+      showErrorModal('Error', 'Please provide a reason for the additional charge');
       return;
     }
 
@@ -513,10 +519,10 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
       setShowAdditionalModal(false);
       setAdditionalAmount('');
       setAdditionalReason('');
-      Alert.alert('Request Sent', 'The client will be notified to approve the additional charge.');
+      showSuccessModal('Request Sent', 'The client will be notified to approve the additional charge.');
     } catch (error) {
       console.error('Error requesting additional charge:', error);
-      Alert.alert('Error', 'Failed to request additional charge');
+      showErrorModal('Error', 'Failed to request additional charge');
     } finally {
       setIsUpdating(false);
     }
@@ -525,7 +531,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
   // Handle discount offer from provider (for easy jobs)
   const handleOfferDiscount = async () => {
     if (!discountAmount || parseFloat(discountAmount) <= 0) {
-      Alert.alert('Error', 'Please enter a valid discount amount');
+      showErrorModal('Error', 'Please enter a valid discount amount');
       return;
     }
     
@@ -544,7 +550,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
     const discount = parseFloat(discountAmount);
     
     if (discount >= currentPrice) {
-      Alert.alert('Error', 'Discount cannot be equal to or greater than the service price');
+      showErrorModal('Error', 'Discount cannot be equal to or greater than the service price');
       return;
     }
 
@@ -576,10 +582,10 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
       setShowDiscountModal(false);
       setDiscountAmount('');
       setDiscountReason('');
-      Alert.alert('Discount Applied', `You've reduced the price by ₱${discount.toLocaleString()}. The client will pay ₱${newTotal.toLocaleString()}.`);
+      showSuccessModal('Discount Applied', `You've reduced the price by ₱${discount.toLocaleString()}. The client will pay ₱${newTotal.toLocaleString()}.`);
     } catch (error) {
       console.error('Error applying discount:', error);
-      Alert.alert('Error', 'Failed to apply discount');
+      showErrorModal('Error', 'Failed to apply discount');
     } finally {
       setIsUpdating(false);
     }
@@ -592,7 +598,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
   const submitDecline = async () => {
     const reason = selectedCancelReason === 'Other' ? cancelReason : selectedCancelReason;
     if (!reason.trim()) {
-      Alert.alert('Required', 'Please select or enter a reason for declining.');
+      showErrorModal('Required', 'Please select or enter a reason for declining.');
       return;
     }
 
@@ -607,11 +613,11 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
       // Notify client about cancellation
       notificationService.notifyJobCancelled(jobData, 'provider', reason);
       setShowCancelModal(false);
-      Alert.alert('Declined', 'Job has been declined');
+      showInfoModal('Declined', 'Job has been declined');
       navigation.goBack();
     } catch (error) {
       console.error('Error declining job:', error);
-      Alert.alert('Error', 'Failed to decline job. Please try again.');
+      showErrorModal('Error', 'Failed to decline job. Please try again.');
     } finally {
       setIsUpdating(false);
     }
@@ -739,10 +745,10 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               // Send FCM push notification to client
               notificationService.pushJobStatusUpdate(jobData.clientId, jobData, 'traveling')
                 .catch(err => console.log('FCM push failed:', err));
-              Alert.alert('On the way!', 'Client has been notified and can now track your location.');
+              setPremiumModal({visible: true, variant: 'success', title: 'On the way! 🚗', message: 'Client has been notified and can now track your location.'});
             } catch (error) {
               console.error('Error starting travel:', error);
-              Alert.alert('Error', 'Failed to start. Please try again.');
+              setPremiumModal({visible: true, variant: 'error', title: 'Error', message: 'Failed to start. Please try again.'});
             } finally {
               setIsUpdating(false);
             }
@@ -806,10 +812,10 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               // Send FCM push notification to client
               notificationService.pushJobStatusUpdate(jobData.clientId, jobData, 'arrived')
                 .catch(err => console.log('FCM push failed:', err));
-              Alert.alert('Arrived', 'Client has been notified of your arrival.');
+              setPremiumModal({visible: true, variant: 'success', title: 'Arrived! 📍', message: 'Client has been notified of your arrival.'});
             } catch (error) {
               console.error('Error marking arrived:', error);
-              Alert.alert('Error', 'Failed to update. Please try again.');
+              setPremiumModal({visible: true, variant: 'error', title: 'Error', message: 'Failed to update. Please try again.'});
             } finally {
               setIsUpdating(false);
             }
@@ -875,10 +881,10 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                 smsEmailService.notifyJobStarted(jobData, jobData.client)
                   .catch(err => console.log('SMS notification failed:', err));
               }
-              Alert.alert('Started', 'Job is now in progress');
+              setPremiumModal({visible: true, variant: 'success', title: 'Started! 🔧', message: 'Job is now in progress'});
             } catch (error) {
               console.error('Error starting job:', error);
-              Alert.alert('Error', 'Failed to start job. Please try again.');
+              setPremiumModal({visible: true, variant: 'error', title: 'Error', message: 'Failed to start job. Please try again.'});
             } finally {
               setIsUpdating(false);
             }
@@ -945,7 +951,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               );
             } catch (error) {
               console.error('Error marking complete:', error);
-              Alert.alert('Error', 'Failed to update. Please try again.');
+              showErrorModal('Error', 'Failed to update. Please try again.');
             } finally {
               setIsUpdating(false);
             }
@@ -1036,10 +1042,10 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                   }).catch(err => console.log('Payment receipt email failed:', err));
                 }
               }
-              Alert.alert('Job Completed!', 'Payment confirmed. Thank you for your service!');
+              setPremiumModal({visible: true, variant: 'success', title: 'Job Completed! 🎉', message: 'Payment confirmed. Thank you for your service!'});
             } catch (error) {
               console.error('Error confirming payment:', error);
-              Alert.alert('Error', 'Failed to confirm. Please try again.');
+              setPremiumModal({visible: true, variant: 'error', title: 'Error', message: 'Failed to confirm. Please try again.'});
             } finally {
               setIsUpdating(false);
             }
@@ -2399,6 +2405,32 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           </View>
         </View>
       </Modal>
+      
+      {/* Premium Success/Error/Info Modal */}
+      <PremiumModal
+        visible={premiumModal.visible}
+        variant={premiumModal.variant}
+        title={premiumModal.title}
+        message={premiumModal.message}
+        primaryButton={{text: 'OK', onPress: () => setPremiumModal(prev => ({...prev, visible: false}))}}
+        onClose={() => setPremiumModal(prev => ({...prev, visible: false}))}
+        autoClose={premiumModal.variant === 'success'}
+        autoCloseDelay={3000}
+      />
+      
+      {/* Premium Confirm Modal */}
+      <ConfirmModal
+        visible={confirmModal.visible}
+        type={confirmModal.type}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={() => {
+          setConfirmModal(prev => ({...prev, visible: false}));
+          confirmModal.onConfirm?.();
+        }}
+        onCancel={() => setConfirmModal(prev => ({...prev, visible: false}))}
+        isLoading={isUpdating}
+      />
     </SafeAreaView>
   );
 };

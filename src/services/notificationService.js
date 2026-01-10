@@ -3,6 +3,7 @@ import {Platform, Alert} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import {API_BASE_URL} from '@env';
+import {showNotificationModal} from '../utils/modalManager';
 
 const FCM_TOKEN_KEY = '@fcm_token';
 const API_URL = API_BASE_URL || 'http://localhost:3001/api';
@@ -254,25 +255,47 @@ class NotificationService {
 
   // Show local notification with callback when dismissed
   showLocalNotificationWithCallback(title, body, data = {}, onDismiss = null) {
-    Alert.alert(title, body, [
-      {
-        text: 'View',
-        onPress: () => {
-          console.log('Notification action:', data);
-          if (onDismiss) onDismiss();
-          if (this.navigationCallback) {
-            this.navigationCallback(data);
-          }
-        },
+    // Determine notification type based on data
+    let notificationType = 'default';
+    if (data.type) {
+      notificationType = data.type;
+    } else if (title.includes('Accepted') || title.includes('accepted')) {
+      notificationType = 'job_accepted';
+    } else if (title.includes('Cancelled') || title.includes('cancelled')) {
+      notificationType = 'job_cancelled';
+    } else if (title.includes('Traveling') || title.includes('On The Way')) {
+      notificationType = 'provider_traveling';
+    } else if (title.includes('Arrived')) {
+      notificationType = 'provider_arrived';
+    } else if (title.includes('Started') || title.includes('In Progress')) {
+      notificationType = 'job_started';
+    } else if (title.includes('Completed') || title.includes('Complete')) {
+      notificationType = 'job_completed';
+    } else if (title.includes('Payment')) {
+      notificationType = 'payment_received';
+    } else if (title.includes('Message') || title.includes('message')) {
+      notificationType = 'message';
+    } else if (title.includes('Approved')) {
+      notificationType = 'booking_approved';
+    } else if (title.includes('Rejected')) {
+      notificationType = 'booking_rejected';
+    }
+    
+    // Show premium notification modal
+    showNotificationModal(notificationType, title, body, {
+      onPress: () => {
+        if (onDismiss) onDismiss();
+        if (this.navigationCallback) {
+          this.navigationCallback(data);
+        }
       },
-      {
-        text: 'Dismiss',
-        style: 'cancel',
-        onPress: () => {
-          if (onDismiss) onDismiss();
-        },
-      },
-    ]);
+      autoClose: true,
+    });
+    
+    // Call onDismiss after auto-close delay
+    if (onDismiss) {
+      setTimeout(onDismiss, 4500);
+    }
   }
 
   // Set navigation callback for handling VIEW button taps

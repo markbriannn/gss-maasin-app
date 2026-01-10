@@ -13,8 +13,10 @@ import {NetworkProvider} from './src/context/NetworkContext';
 import {PushNotificationProvider} from './src/context/PushNotificationContext';
 import SplashScreen from './src/screens/splash/SplashScreen';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
+import GlobalModalProvider from './src/components/common/GlobalModalProvider';
 import {setBackgroundMessageHandler} from './src/services/pushNotificationService';
 import paymentService from './src/services/paymentService';
+import {showSuccessModal, showErrorModal} from './src/utils/modalManager';
 
 // Create navigation ref for notification handling
 const navigationRef = createNavigationContainerRef();
@@ -126,7 +128,7 @@ const handleDeepLink = async (url, navigationRef) => {
       const result = await paymentService.verifyAndProcessPayment(bookingId);
       
       if (result.success && result.status === 'paid') {
-        Alert.alert('Payment Successful! 🎉', 'Your payment has been processed.');
+        showSuccessModal('Payment Successful! 🎉', 'Your payment has been processed.');
       }
       
       // Navigate to ClientMain - booking details show inline
@@ -135,7 +137,7 @@ const handleDeepLink = async (url, navigationRef) => {
       }
     } else if (path.includes('payment/failed') && bookingId) {
       // Payment failed
-      Alert.alert('Payment Failed', 'Your payment was not completed. Please try again.');
+      showErrorModal('Payment Failed', 'Your payment was not completed. Please try again.');
       
       // Navigate to ClientMain
       if (navigationRef.current?.isReady()) {
@@ -222,18 +224,20 @@ const App = () => {
                 <NotificationProvider>
                   <PushNotificationProvider>
                     <SocketProvider>
-                      {!isLoading && <AppContent />}
-                      {showSplash && (
-                        <Animated.View 
-                          style={[
-                            StyleSheet.absoluteFill, 
-                            {opacity: splashOpacity}
-                          ]}
-                          pointerEvents={isLoading ? 'auto' : 'none'}
-                        >
-                          <SplashScreen />
-                        </Animated.View>
-                      )}
+                      <GlobalModalProvider>
+                        {!isLoading && <AppContent />}
+                        {showSplash && (
+                          <Animated.View 
+                            style={[
+                              StyleSheet.absoluteFill, 
+                              {opacity: splashOpacity}
+                            ]}
+                            pointerEvents={isLoading ? 'auto' : 'none'}
+                          >
+                            <SplashScreen />
+                          </Animated.View>
+                        )}
+                      </GlobalModalProvider>
                     </SocketProvider>
                   </PushNotificationProvider>
                 </NotificationProvider>

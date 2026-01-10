@@ -17,12 +17,14 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MapView, {Marker, Polyline, PROVIDER_GOOGLE} from 'react-native-maps';
 import Icon from 'react-native-vector-icons/Ionicons';
+import LinearGradient from 'react-native-linear-gradient';
 import {SERVICE_CATEGORIES} from '../../config/constants';
 import locationService from '../../services/locationService';
 import {db} from '../../config/firebase';
 import {collection, query, where, onSnapshot, doc, setDoc, deleteDoc, getDocs} from 'firebase/firestore';
 import {useNotifications} from '../../context/NotificationContext';
 import {useAuth} from '../../context/AuthContext';
+import {showInfoModal, showErrorModal} from '../../utils/modalManager';
 import FastImage from 'react-native-fast-image';
 import {GestureDetector, Gesture} from 'react-native-gesture-handler';
 import Animated, {
@@ -32,6 +34,7 @@ import Animated, {
   withRepeat,
   withTiming,
   runOnJS,
+  Easing,
 } from 'react-native-reanimated';
 import {useFocusEffect} from '@react-navigation/native';
 
@@ -216,35 +219,53 @@ const markerStyles = StyleSheet.create({
   markerInitial: {fontSize: 18, fontWeight: '700', color: '#00B14F'},
 });
 
-// Animated Progress Bar Component
+// Animated Progress Bar Component - Professional Shimmer with LinearGradient
 const AnimatedProgressBar = () => {
-  const translateX = useSharedValue(-100);
+  const shimmerValue = useSharedValue(-1);
   
   useEffect(() => {
-    translateX.value = withRepeat(
-      withTiming(200, { duration: 1500 }),
-      -1, // infinite
+    shimmerValue.value = withRepeat(
+      withTiming(2, { 
+        duration: 1500,
+        easing: Easing.inOut(Easing.ease),
+      }),
+      -1,
       false
     );
   }, []);
   
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
+  const shimmerStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: shimmerValue.value * 150 }],
+    };
+  });
   
   return (
-    <View style={{marginTop: 10, height: 4, backgroundColor: '#D1FAE5', borderRadius: 2, overflow: 'hidden'}}>
+    <View style={{
+      marginTop: 12, 
+      height: 4, 
+      borderRadius: 2, 
+      overflow: 'hidden',
+      width: '100%',
+      backgroundColor: '#D1FAE5',
+    }}>
       <Animated.View 
         style={[
           {
-            width: '50%',
-            height: 4,
-            backgroundColor: '#00B14F',
-            borderRadius: 2,
+            position: 'absolute',
+            width: 200,
+            height: '100%',
+            left: -50,
           },
-          animatedStyle
-        ]} 
-      />
+          shimmerStyle
+        ]}>
+        <LinearGradient
+          colors={['#D1FAE5', '#00B14F', '#00B14F', '#D1FAE5']}
+          start={{x: 0, y: 0}}
+          end={{x: 1, y: 0}}
+          style={{flex: 1, borderRadius: 2}}
+        />
+      </Animated.View>
     </View>
   );
 };
@@ -926,7 +947,7 @@ const ClientHomeScreen = ({navigation}) => {
               <>
                 <TouchableOpacity 
                   style={styles.bookingStatusCard}
-                  activeOpacity={0.8}
+                  activeOpacity={0.7}
                   onPress={() => {
                     setShowProviderModal(false);
                     setSelectedProvider(null);
@@ -939,16 +960,16 @@ const ClientHomeScreen = ({navigation}) => {
                         const booking = activeBookings[selectedProvider.id];
                         const status = booking.status;
                         if (!booking.adminApproved) return 'Awaiting Admin Confirmation';
-                        if (status === 'pending') return 'Awaiting Provider Confirmation';
+                        if (status === 'pending') return 'Awaiting Provider';
                         if (status === 'accepted') return 'Provider Accepted';
                         if (status === 'traveling') return 'Provider On The Way';
-                        if (status === 'arrived') return 'Provider Has Arrived';
+                        if (status === 'arrived') return 'Provider Arrived';
                         if (status === 'in_progress') return 'Work In Progress';
-                        if (status === 'pending_completion') return 'Awaiting Your Confirmation';
-                        if (status === 'pending_payment') return 'Awaiting Payment';
+                        if (status === 'pending_completion') return 'Confirm Completion';
+                        if (status === 'pending_payment') return 'Payment Required';
                         if (status === 'payment_received') return 'Payment Received';
-                        if (status === 'completed') return 'Job Completed';
-                        return 'Awaiting Provider Confirmation';
+                        if (status === 'completed') return 'Completed';
+                        return 'Awaiting Provider';
                       })()}
                     </Text>
                     <Text style={styles.bookingStatusSubtitle}>
@@ -956,67 +977,52 @@ const ClientHomeScreen = ({navigation}) => {
                         const booking = activeBookings[selectedProvider.id];
                         const status = booking.status;
                         if (!booking.adminApproved) return 'Your booking is being reviewed';
-                        if (status === 'pending') return 'Waiting for provider to accept';
-                        if (status === 'accepted') return 'Provider will start traveling soon';
-                        if (status === 'traveling') return 'Provider is on the way to you';
-                        if (status === 'arrived') return 'Provider has arrived at your location';
-                        if (status === 'in_progress') return 'Provider is working on your job';
-                        if (status === 'pending_completion') return 'Please confirm the work is done';
-                        if (status === 'pending_payment') return 'Please complete the payment';
-                        if (status === 'payment_received') return 'Waiting for provider confirmation';
-                        if (status === 'completed') return 'Thank you for using our service';
-                        return 'Waiting for provider to accept';
+                        if (status === 'pending') return 'Waiting for provider response';
+                        if (status === 'accepted') return 'Provider will start soon';
+                        if (status === 'traveling') return 'Provider is on the way';
+                        if (status === 'arrived') return 'Provider has arrived';
+                        if (status === 'in_progress') return 'Work is in progress';
+                        if (status === 'pending_completion') return 'Please confirm the work';
+                        if (status === 'pending_payment') return 'Complete your payment';
+                        if (status === 'payment_received') return 'Waiting for confirmation';
+                        if (status === 'completed') return 'Thank you for using GSS';
+                        return 'Waiting for response';
                       })()}
                     </Text>
                     
-                    {/* Provider name and service with star rating */}
-                    <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 16}}>
-                      <Icon name="person" size={18} color="#00B14F" />
-                      <Text style={{fontSize: 15, fontWeight: '700', color: '#1F2937', marginLeft: 8}}>
+                    {/* Provider info row */}
+                    <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 14}}>
+                      <Icon name="person" size={16} color="#6B7280" />
+                      <Text style={{fontSize: 14, fontWeight: '600', color: '#374151', marginLeft: 6}}>
                         {selectedProvider?.name}
                       </Text>
-                      <Text style={{fontSize: 15, color: '#9CA3AF', marginHorizontal: 8}}>•</Text>
-                      <Text style={{fontSize: 15, fontWeight: '500', color: '#374151'}}>
+                      <Text style={{fontSize: 14, color: '#9CA3AF', marginHorizontal: 6}}>•</Text>
+                      <Text style={{fontSize: 14, color: '#6B7280'}}>
                         {selectedProvider?.serviceCategory}
                       </Text>
-                      <Icon name="star" size={14} color="#F59E0B" style={{marginLeft: 8}} />
-                      <Text style={{fontSize: 14, fontWeight: '600', color: '#1F2937', marginLeft: 2}}>
+                      <Icon name="star" size={12} color="#F59E0B" style={{marginLeft: 8}} />
+                      <Text style={{fontSize: 13, fontWeight: '500', color: '#374151', marginLeft: 3}}>
                         {selectedProvider?.rating?.toFixed(1) || '0.0'}
                       </Text>
                     </View>
                     
-                    {/* Animated Progress bar - only show for pending statuses */}
+                    {/* Progress indicator for pending statuses */}
                     {(['pending', 'accepted'].includes(activeBookings[selectedProvider.id].status) || !activeBookings[selectedProvider.id].adminApproved) ? (
                       <AnimatedProgressBar />
                     ) : null}
                     
-                    {/* Bottom row */}
-                    <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12}}>
-                      <Text style={{fontSize: 13, color: '#9CA3AF', fontStyle: 'italic'}}>
-                        {(() => {
-                          const booking = activeBookings[selectedProvider.id];
-                          const status = booking.status;
-                          if (!booking.adminApproved) return 'Admin will review shortly...';
-                          if (status === 'pending') return 'Provider will respond shortly...';
-                          if (status === 'traveling') return 'Track provider location';
-                          if (status === 'arrived') return 'Provider is ready to start';
-                          if (status === 'in_progress') return 'Work is being done';
-                          return 'Tap for details';
-                        })()}
-                      </Text>
-                      <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                        <Text style={{fontSize: 13, color: '#6B7280'}}>Tap for details</Text>
-                        <Icon name="chevron-forward" size={16} color="#6B7280" />
-                      </View>
+                    {/* Tap for details */}
+                    <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 10}}>
+                      <Text style={{fontSize: 13, color: '#9CA3AF'}}>Tap for details</Text>
+                      <Icon name="chevron-forward" size={14} color="#9CA3AF" style={{marginLeft: 2}} />
                     </View>
                   </View>
                   
-                  {/* Right side - Provider photo (clickable for profile) */}
+                  {/* Right side - Provider photo */}
                   <TouchableOpacity 
                     style={{marginLeft: 12}}
                     onPress={() => {
                       setShowProviderModal(false);
-                      // Use setTimeout to let modal close smoothly before navigating
                       setTimeout(() => {
                         navigation.navigate('ProviderProfile', {
                           providerId: selectedProvider?.id,
@@ -1028,11 +1034,11 @@ const ClientHomeScreen = ({navigation}) => {
                       {selectedProvider?.profilePhoto ? (
                         <Image 
                           source={{uri: selectedProvider.profilePhoto}} 
-                          style={{width: 80, height: 80, borderRadius: 40}}
+                          style={{width: 68, height: 68, borderRadius: 34}}
                         />
                       ) : (
-                        <View style={{width: 80, height: 80, borderRadius: 40, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center'}}>
-                          <Icon name="person" size={36} color="#00B14F" />
+                        <View style={{width: 68, height: 68, borderRadius: 34, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center'}}>
+                          <Icon name="person" size={32} color="#9CA3AF" />
                         </View>
                       )}
                     </View>
@@ -1042,20 +1048,18 @@ const ClientHomeScreen = ({navigation}) => {
                 {/* Service Location */}
                 <View style={styles.modalLocationCard}>
                   <View style={styles.modalLocationDot}>
-                    <View style={{width: 10, height: 10, backgroundColor: '#00B14F', borderRadius: 5}} />
+                    <View style={{width: 8, height: 8, backgroundColor: '#00B14F', borderRadius: 4}} />
                   </View>
                   <View style={{flex: 1}}>
-                    <Text style={{fontSize: 12, color: '#9CA3AF'}}>Service Location</Text>
-                    <Text style={{fontSize: 14, fontWeight: '500', color: '#1F2937'}} numberOfLines={2}>
+                    <Text style={{fontSize: 12, color: '#9CA3AF', marginBottom: 2}}>Service Location</Text>
+                    <Text style={{fontSize: 14, fontWeight: '500', color: '#374151'}} numberOfLines={2}>
                       {(() => {
                         const booking = activeBookings[selectedProvider.id];
-                        // Build full address from booking fields
                         let fullAddress = '';
                         if (booking.houseNumber) fullAddress += booking.houseNumber + ', ';
                         if (booking.streetAddress) fullAddress += booking.streetAddress + ', ';
                         if (booking.barangay) fullAddress += 'Brgy. ' + booking.barangay + ', ';
                         fullAddress += 'Maasin City';
-                        // If no address fields, use fallbacks
                         if (!booking.houseNumber && !booking.streetAddress && !booking.barangay) {
                           fullAddress = booking.serviceAddress || booking.location || booking.address || 'Service at your location';
                         }
@@ -1068,17 +1072,17 @@ const ClientHomeScreen = ({navigation}) => {
                 {/* Payment Info */}
                 <View style={styles.modalPaymentCard}>
                   <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <View style={{width: 36, height: 36, borderRadius: 8, backgroundColor: '#ECFDF5', justifyContent: 'center', alignItems: 'center'}}>
-                      <Icon name="wallet-outline" size={20} color="#00B14F" />
+                    <View style={{width: 32, height: 32, borderRadius: 8, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center'}}>
+                      <Icon name="wallet-outline" size={18} color="#6B7280" />
                     </View>
-                    <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginLeft: 10}}>
+                    <Text style={{fontSize: 14, fontWeight: '500', color: '#374151', marginLeft: 10}}>
                       {activeBookings[selectedProvider.id].paymentMethod === 'maya' ? 'Maya' : 'GCash'}
                     </Text>
-                    <View style={{backgroundColor: '#DBEAFE', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginLeft: 10}}>
-                      <Text style={{fontSize: 11, fontWeight: '600', color: '#2563EB'}}>PAID</Text>
+                    <View style={{backgroundColor: '#DCFCE7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, marginLeft: 8}}>
+                      <Text style={{fontSize: 11, fontWeight: '600', color: '#16A34A'}}>PAID</Text>
                     </View>
                   </View>
-                  <Text style={{fontSize: 18, fontWeight: '700', color: '#1F2937'}}>
+                  <Text style={{fontSize: 16, fontWeight: '600', color: '#1F2937'}}>
                     ₱{activeBookings[selectedProvider.id].totalAmount?.toLocaleString() || '0'}
                   </Text>
                 </View>
@@ -1087,7 +1091,7 @@ const ClientHomeScreen = ({navigation}) => {
                 <TouchableOpacity 
                   style={styles.modalCancelBtn}
                   onPress={() => setShowCancelModal(true)}>
-                  <Text style={{fontSize: 14, fontWeight: '600', color: '#EF4444'}}>Cancel Job</Text>
+                  <Text style={{fontSize: 14, fontWeight: '500', color: '#EF4444'}}>Cancel Job</Text>
                 </TouchableOpacity>
               </>
             ) : (
@@ -1155,15 +1159,18 @@ const ClientHomeScreen = ({navigation}) => {
             padding: 20,
             maxHeight: '80%',
           }}>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20}}>
-              <Text style={{fontSize: 18, fontWeight: '700', color: '#1F2937'}}>Cancel Job</Text>
-              <TouchableOpacity onPress={() => setShowCancelModal(false)}>
-                <Icon name="close" size={24} color="#6B7280" />
+            {/* Header */}
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16}}>
+              <Text style={{fontSize: 17, fontWeight: '600', color: '#1F2937'}}>Cancel Job</Text>
+              <TouchableOpacity 
+                onPress={() => setShowCancelModal(false)}
+                style={{padding: 4}}>
+                <Icon name="close" size={22} color="#9CA3AF" />
               </TouchableOpacity>
             </View>
 
-            <Text style={{fontSize: 14, color: '#6B7280', marginBottom: 16}}>
-              Please let us know why you're cancelling this job request.
+            <Text style={{fontSize: 14, color: '#6B7280', marginBottom: 16, lineHeight: 20}}>
+              Please select a reason for cancelling this job.
             </Text>
 
             {CANCEL_REASONS.map((reason) => (
@@ -1172,25 +1179,31 @@ const ClientHomeScreen = ({navigation}) => {
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  backgroundColor: selectedCancelReason === reason ? '#FEE2E2' : '#F9FAFB',
-                  borderRadius: 10,
+                  paddingVertical: 14,
+                  paddingHorizontal: 14,
+                  backgroundColor: selectedCancelReason === reason ? '#FEF2F2' : '#FAFAFA',
+                  borderRadius: 12,
                   marginBottom: 8,
-                  borderWidth: 1,
-                  borderColor: selectedCancelReason === reason ? '#EF4444' : '#E5E7EB',
                 }}
                 onPress={() => setSelectedCancelReason(reason)}>
-                <Icon 
-                  name={selectedCancelReason === reason ? 'radio-button-on' : 'radio-button-off'} 
-                  size={20} 
-                  color={selectedCancelReason === reason ? '#EF4444' : '#9CA3AF'} 
-                />
+                <View style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  borderWidth: 2,
+                  borderColor: selectedCancelReason === reason ? '#EF4444' : '#D1D5DB',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  {selectedCancelReason === reason && (
+                    <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444'}} />
+                  )}
+                </View>
                 <Text style={{
                   marginLeft: 12, 
                   fontSize: 15, 
                   color: selectedCancelReason === reason ? '#DC2626' : '#374151',
-                  fontWeight: selectedCancelReason === reason ? '600' : '400',
+                  fontWeight: selectedCancelReason === reason ? '500' : '400',
                 }}>
                   {reason}
                 </Text>
@@ -1200,25 +1213,24 @@ const ClientHomeScreen = ({navigation}) => {
             {selectedCancelReason === 'Other' && (
               <TextInput
                 style={{
-                  backgroundColor: '#F9FAFB',
+                  backgroundColor: '#FAFAFA',
                   borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: '#E5E7EB',
-                  padding: 12,
+                  padding: 14,
                   fontSize: 14,
                   color: '#1F2937',
                   height: 80,
                   textAlignVertical: 'top',
-                  marginTop: 8,
+                  marginTop: 4,
                 }}
                 placeholder="Please specify your reason..."
+                placeholderTextColor="#9CA3AF"
                 multiline
                 value={cancelReason}
                 onChangeText={setCancelReason}
               />
             )}
 
-            <View style={{flexDirection: 'row', marginTop: 20}}>
+            <View style={{flexDirection: 'row', marginTop: 20, gap: 10}}>
               <TouchableOpacity 
                 style={{
                   flex: 1,
@@ -1226,23 +1238,21 @@ const ClientHomeScreen = ({navigation}) => {
                   borderRadius: 12,
                   paddingVertical: 14,
                   alignItems: 'center',
-                  marginRight: 8,
                 }}
                 onPress={() => {
                   setShowCancelModal(false);
                   setSelectedCancelReason('');
                   setCancelReason('');
                 }}>
-                <Text style={{color: '#6B7280', fontSize: 16, fontWeight: '600'}}>Keep Job</Text>
+                <Text style={{color: '#6B7280', fontSize: 15, fontWeight: '600'}}>Keep Job</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={{
                   flex: 1,
-                  backgroundColor: selectedCancelReason ? '#EF4444' : '#FCA5A5',
+                  backgroundColor: selectedCancelReason ? '#EF4444' : '#FECACA',
                   borderRadius: 12,
                   paddingVertical: 14,
                   alignItems: 'center',
-                  marginLeft: 8,
                 }}
                 onPress={async () => {
                   if (!selectedCancelReason || !selectedProvider || !activeBookings[selectedProvider.id]) return;
@@ -1289,10 +1299,10 @@ const ClientHomeScreen = ({navigation}) => {
                     setShowProviderModal(false);
                     setSelectedCancelReason('');
                     setCancelReason('');
-                    Alert.alert('Cancelled', 'Your booking has been cancelled. Refund will be processed within 5-10 business days.');
+                    showInfoModal('Cancelled', 'Your booking has been cancelled. Refund will be processed within 5-10 business days.');
                   } catch (error) {
                     console.error('Cancel error:', error);
-                    Alert.alert('Error', 'Failed to cancel booking. Please try again.');
+                    showErrorModal('Error', 'Failed to cancel booking. Please try again.');
                   } finally {
                     setIsCancelling(false);
                   }
@@ -1457,25 +1467,25 @@ const styles = StyleSheet.create({
   modalPriceRow: {alignItems: 'center', marginBottom: 20},
   modalPriceLabel: {fontSize: 13, color: '#9CA3AF', marginBottom: 2},
   modalPrice: {fontSize: 28, fontWeight: '700', color: '#1F2937'},
-  modalStatusCard: {flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', borderRadius: 12, padding: 16, width: '100%', marginBottom: 12, marginTop: 8},
-  modalStatusTitle: {fontSize: 15, fontWeight: '700', color: '#1F2937', marginBottom: 2},
+  modalStatusCard: {flexDirection: 'row', alignItems: 'center', backgroundColor: '#FAFAFA', borderRadius: 14, padding: 16, width: '100%', marginBottom: 12, marginTop: 8},
+  modalStatusTitle: {fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 2},
   modalStatusSubtitle: {fontSize: 13, color: '#6B7280'},
-  modalLocationCard: {flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#FFF', borderRadius: 12, padding: 12, width: '100%', marginBottom: 8, borderWidth: 1, borderColor: '#E5E7EB'},
+  modalLocationCard: {flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#FAFAFA', borderRadius: 12, padding: 14, width: '100%', marginBottom: 10},
   modalLocationDot: {width: 20, alignItems: 'center', marginRight: 10, paddingTop: 2},
-  modalPaymentCard: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFF', borderRadius: 12, padding: 12, width: '100%', marginBottom: 12, borderWidth: 1, borderColor: '#E5E7EB'},
-  modalCancelBtn: {alignItems: 'center', paddingVertical: 12, width: '100%'},
+  modalPaymentCard: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FAFAFA', borderRadius: 12, padding: 14, width: '100%', marginBottom: 12},
+  modalCancelBtn: {alignItems: 'center', paddingVertical: 14, width: '100%'},
   modalActions: {flexDirection: 'row', gap: 12, width: '100%'},
-  modalViewBtn: {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, borderWidth: 2, borderColor: '#00B14F', gap: 8},
-  modalViewText: {fontSize: 15, fontWeight: '600', color: '#00B14F'},
+  modalViewBtn: {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, backgroundColor: '#F3F4F6', gap: 8},
+  modalViewText: {fontSize: 15, fontWeight: '600', color: '#374151'},
   modalBookBtn: {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, backgroundColor: '#00B14F', gap: 8},
   modalBookText: {fontSize: 15, fontWeight: '600', color: '#FFF'},
   
-  // Booking Status Card (like BookingStatusScreen)
-  bookingStatusCard: {flexDirection: 'row', backgroundColor: '#F0FDF4', borderRadius: 16, padding: 16, width: '100%', marginBottom: 16},
-  bookingStatusTitle: {fontSize: 18, fontWeight: '700', color: '#1F2937'},
-  bookingStatusSubtitle: {fontSize: 13, color: '#6B7280', marginTop: 2},
-  bookingProviderPhoto: {width: 70, height: 70, borderRadius: 35, borderWidth: 3, borderColor: '#1F2937', overflow: 'hidden'},
-  providerPhotoCircle: {width: 80, height: 80, borderRadius: 40, backgroundColor: '#F0FDF4', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#00B14F'},
+  // Booking Status Card - Clean iOS style
+  bookingStatusCard: {flexDirection: 'row', backgroundColor: '#FAFAFA', borderRadius: 14, padding: 16, width: '100%', marginBottom: 14},
+  bookingStatusTitle: {fontSize: 17, fontWeight: '600', color: '#1F2937', letterSpacing: -0.3},
+  bookingStatusSubtitle: {fontSize: 13, color: '#6B7280', marginTop: 3},
+  bookingProviderPhoto: {width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: '#E5E7EB', overflow: 'hidden'},
+  providerPhotoCircle: {width: 72, height: 72, borderRadius: 36, backgroundColor: '#F3F4F6', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#00B14F'},
   providerPhotoOverlay: {backgroundColor: 'rgba(31, 41, 55, 0.85)', width: '100%', paddingVertical: 6, paddingHorizontal: 8, alignItems: 'center'},
 });
 

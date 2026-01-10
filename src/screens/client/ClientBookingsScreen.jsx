@@ -540,7 +540,7 @@ const ClientBookingsScreen = ({navigation}) => {
             </Text>
             {activeTab === 'PENDING' && (
               <TouchableOpacity
-                onPress={() => navigation.navigate('ClientMain')}
+                onPress={() => navigation.navigate('Home')}
                 style={{
                   marginTop: 24,
                   paddingHorizontal: 24,
