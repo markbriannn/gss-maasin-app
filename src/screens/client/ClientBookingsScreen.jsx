@@ -56,7 +56,8 @@ const ClientBookingsScreen = ({navigation}) => {
 
   useFocusEffect(
     useCallback(() => {
-      setRefreshKey(prev => prev + 1);
+      // Only refresh if we've been away for a while (not just returning from payment)
+      // The onSnapshot listener will handle real-time updates
     }, [])
   );
 
@@ -83,7 +84,9 @@ const ClientBookingsScreen = ({navigation}) => {
         
         const counts = {PENDING: 0, ONGOING: 0, COMPLETED: 0, CANCELLED: 0};
         const allBookings = [];
+        const providerIds = new Set();
 
+        // First pass: collect all provider IDs and count statuses
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data();
           
@@ -92,25 +95,38 @@ const ClientBookingsScreen = ({navigation}) => {
             if (statuses.includes(data.status)) counts[tab]++;
           });
 
-          // Filter by active tab
-          const statuses = STATUS_MAP[activeTab] || ['pending'];
-          if (!statuses.includes(data.status)) continue;
+          if (data.providerId) providerIds.add(data.providerId);
+        }
 
-          let providerInfo = null;
-          if (data.providerId) {
+        // Batch fetch all providers at once
+        const providerMap = new Map();
+        if (providerIds.size > 0) {
+          const providerPromises = Array.from(providerIds).map(async (pid) => {
             try {
-              const providerDoc = await getDoc(doc(db, 'users', data.providerId));
+              const providerDoc = await getDoc(doc(db, 'users', pid));
               if (providerDoc.exists()) {
                 const pd = providerDoc.data();
-                providerInfo = {
+                providerMap.set(pid, {
                   name: `${pd.firstName || ''} ${pd.lastName || ''}`.trim() || 'Provider',
                   phone: pd.phone || pd.phoneNumber || '',
                   rating: pd.rating || pd.averageRating || 0,
                   photo: pd.profilePhoto || null,
-                };
+                });
               }
             } catch (e) {}
-          }
+          });
+          await Promise.all(providerPromises);
+        }
+
+        // Second pass: build bookings with provider info
+        for (const docSnap of snapshot.docs) {
+          const data = docSnap.data();
+
+          // Filter by active tab
+          const statuses = STATUS_MAP[activeTab] || ['pending'];
+          if (!statuses.includes(data.status)) continue;
+
+          const providerInfo = data.providerId ? providerMap.get(data.providerId) : null;
 
           let fullLocation = '';
           if (data.houseNumber) fullLocation += data.houseNumber + ', ';
