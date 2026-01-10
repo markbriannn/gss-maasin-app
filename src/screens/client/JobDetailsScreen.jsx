@@ -1663,7 +1663,14 @@ const JobDetailsScreen = ({navigation, route}) => {
               onPress={handleConfirmCompletion}>
               <Icon name="checkmark-circle" size={20} color="#FFFFFF" />
               <Text style={{color: '#FFFFFF', fontWeight: '600', fontSize: 16, marginLeft: 8}}>
-                {jobData.hasAdditionalPending ? 'Review Additional Charges First' : 'Confirm & Proceed to Pay'}
+                {(() => {
+                  if (jobData.hasAdditionalPending) return 'Review Additional Charges First';
+                  const approvedCharges = jobData.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || c.amount || 0), 0) || 0;
+                  const discount = jobData.discountAmount || jobData.discount || 0;
+                  if (approvedCharges > discount) return 'Confirm & Pay';
+                  if (discount > approvedCharges) return 'Confirm & Get Refund';
+                  return 'Confirm';
+                })()}
               </Text>
             </TouchableOpacity>
           </View>

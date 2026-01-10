@@ -1341,11 +1341,14 @@ function JobDetailsContent() {
                 }`}
               >
                 {updating ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
-                {job.hasAdditionalPending 
-                  ? 'Review Additional Charges First' 
-                  : (job.paymentPreference === 'pay_first' && job.isPaidUpfront 
-                      ? 'Confirm Job Complete' 
-                      : 'Confirm & Proceed to Pay')}
+                {(() => {
+                  if (job.hasAdditionalPending) return 'Review Additional Charges First';
+                  const approvedCharges = (job.additionalCharges || []).filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || c.amount || 0), 0);
+                  const discount = job.discountAmount || job.discount || 0;
+                  if (approvedCharges > discount) return 'Confirm & Pay';
+                  if (discount > approvedCharges) return 'Confirm & Get Refund';
+                  return 'Confirm';
+                })()}
               </button>
             </div>
           )}
