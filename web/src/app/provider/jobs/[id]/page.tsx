@@ -288,13 +288,15 @@ export default function ProviderJobDetailsPage() {
 
   const handleConfirmPayment = async () => {
     if (!job || !user) return;
-    const finalAmount = calculateTotal();
-    const systemFee = finalAmount * 0.05;
-    const providerEarnings = finalAmount - systemFee;
+    const providerAmount = calculateTotal(); // Provider's base amount (without system fee)
+    const systemFee = Math.round(providerAmount * 0.05); // 5% of provider's amount
+    const clientTotal = providerAmount + systemFee; // What client pays
+    const providerEarnings = providerAmount; // Provider keeps their full amount
     
     await updateJobStatus('completed', {
       completedAt: serverTimestamp(),
-      finalAmount,
+      finalAmount: clientTotal,
+      providerPrice: providerAmount,
       systemFee,
       providerEarnings,
       providerConfirmedPaymentAt: serverTimestamp(),
@@ -723,14 +725,11 @@ export default function ProviderJobDetailsPage() {
                 </div>
               )}
               <div className="border-t border-gray-100 pt-3 space-y-2">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-500">System Fee (5%)</span>
-                  <span className="text-red-500 font-medium">-{formatCurrency(Math.round(calculateTotal() * 0.05 / 1.05))}</span>
-                </div>
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-gray-900">Your Earnings</span>
-                  <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">{formatCurrency(Math.round(calculateTotal() / 1.05))}</span>
+                  <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">{formatCurrency(calculateTotal())}</span>
                 </div>
+                <p className="text-xs text-gray-500 text-right">Client pays {formatCurrency(Math.round(calculateTotal() * 1.05))} (includes 5% platform fee)</p>
               </div>
             </div>
           </div>

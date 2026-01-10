@@ -148,10 +148,6 @@ export default function ProviderReceiptPage() {
               <span class="value">+₱${(charge.amount || 0).toLocaleString()}</span>
             </div>
           `).join('') : ''}
-          <div class="row">
-            <span class="label">System Fee (5%)</span>
-            <span class="value fee">-₱${systemFee.toLocaleString()}</span>
-          </div>
         </div>
         
         <div class="total-section">
@@ -159,6 +155,7 @@ export default function ProviderReceiptPage() {
             <span class="label">Your Earnings</span>
             <span class="value">₱${earnings.toLocaleString()}</span>
           </div>
+          <p style="font-size: 12px; color: #6b7280; margin-top: 8px; text-align: center;">Client paid ₱${clientPaid.toLocaleString()} (includes 5% platform fee)</p>
         </div>
         
         <div class="footer">
@@ -186,13 +183,15 @@ export default function ProviderReceiptPage() {
     return <ProviderLayout><div className="text-center py-12"><p className="text-gray-500">Receipt not found</p></div></ProviderLayout>;
   }
 
-  const baseAmount = booking.providerPrice || booking.offeredPrice || booking.totalAmount || booking.price || 0;
+  const baseAmount = booking.providerPrice || booking.offeredPrice || booking.price || 0;
   const additionalCharges = booking.additionalCharges || [];
   const approvedCharges = additionalCharges.filter((c: any) => c.status === 'approved');
   const additionalTotal = approvedCharges.reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
   const subtotal = baseAmount + additionalTotal;
-  const systemFee = booking.systemFee || Math.round(subtotal * 0.05);
-  const earnings = subtotal - systemFee;
+  // Provider keeps their full price - system fee is paid by client on top
+  const earnings = subtotal;
+  // Show what client paid (for reference)
+  const clientPaid = booking.totalAmount || booking.finalAmount || Math.round(subtotal * 1.05);
 
   const getStatusColor = (status: string) => {
     if (['completed', 'payment_received'].includes(status)) return 'bg-green-100 text-green-700';
@@ -253,7 +252,6 @@ export default function ProviderReceiptPage() {
               {approvedCharges.length > 0 && approvedCharges.map((charge: any, idx: number) => (
                 <div key={idx} className="flex justify-between text-sm"><span className="text-gray-500">{charge.reason || 'Additional'}</span><span className="text-gray-700">+₱{(charge.amount || 0).toLocaleString()}</span></div>
               ))}
-              <div className="flex justify-between text-red-600"><span>System Fee (5%)</span><span>-₱{systemFee.toLocaleString()}</span></div>
             </div>
           </div>
 
@@ -262,6 +260,7 @@ export default function ProviderReceiptPage() {
               <span className="text-lg font-semibold text-gray-900">Your Earnings</span>
               <span className="text-2xl font-bold text-green-600">₱{earnings.toLocaleString()}</span>
             </div>
+            <p className="text-xs text-gray-500 mt-2">Client paid ₱{clientPaid.toLocaleString()} (includes 5% platform fee)</p>
           </div>
 
           <div className="p-6 bg-gray-50 text-center border-t border-gray-100">

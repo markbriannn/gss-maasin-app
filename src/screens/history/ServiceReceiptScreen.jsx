@@ -126,12 +126,15 @@ const ServiceReceiptScreen = ({ navigation, route }) => {
   // Use the state otherParty (which is updated in real-time)
   const displayOtherParty = otherParty || booking.otherParty;
 
-  // Calculate amounts
-  const baseAmount = providerPrice || offeredPrice || totalAmount || price || 0;
+  // Calculate amounts - Provider keeps their full price, system fee is paid by client on top
+  const baseAmount = providerPrice || offeredPrice || price || 0;
   const additionalTotal = additionalCharges.reduce((sum, charge) => sum + (charge.amount || 0), 0);
   const subtotal = baseAmount + additionalTotal;
-  const finalSystemFee = isProvider ? systemFee : 0; // Only providers pay system fee
-  const finalTotal = subtotal;
+  // Provider earnings = their full price (no deduction)
+  const providerEarnings = subtotal;
+  // Client total = provider price + 5% system fee
+  const clientTotal = totalAmount || Math.round(subtotal * 1.05);
+  const finalTotal = isProvider ? providerEarnings : clientTotal;
 
   // Format dates
   const formatDate = (timestamp) => {
@@ -188,9 +191,10 @@ Location: ${streetAddress ? `${streetAddress}, ${barangay}` : location || 'N/A'}
 --------------------------
 Service Fee: ₱${baseAmount.toLocaleString()}
 ${additionalCharges.length > 0 ? `Additional Charges: ₱${additionalTotal.toLocaleString()}` : ''}
-${isProvider ? `System Fee (${systemFeePercentage}%): -₱${finalSystemFee.toLocaleString()}` : ''}
+${!isProvider ? `System Fee (${systemFeePercentage}%): ₱${systemFee.toLocaleString()}` : ''}
 --------------------------
-Total: ₱${(isProvider ? subtotal - finalSystemFee : finalTotal).toLocaleString()}
+${isProvider ? 'Your Earnings' : 'Total Paid'}: ₱${finalTotal.toLocaleString()}
+${isProvider ? `\nClient paid ₱${clientTotal.toLocaleString()} (includes 5% platform fee)` : ''}
 
 Thank you for using GSS Maasin!
       `.trim();
@@ -235,8 +239,9 @@ ${streetAddress ? `${streetAddress}, ${barangay}` : location || 'N/A'}
 PAYMENT DETAILS
 ════════════════════════════════════════
 Service Fee:                 ₱${baseAmount.toLocaleString()}
-${additionalCharges.length > 0 ? additionalCharges.map(charge => `${charge.reason || 'Additional'}:${' '.repeat(Math.max(1, 28 - (charge.reason || 'Additional').length))}₱${(charge.amount || 0).toLocaleString()}`).join('\n') + '\n' : ''}${isProvider && systemFee > 0 ? `System Fee (${systemFeePercentage}%):          -₱${systemFee.toLocaleString()}\n` : ''}────────────────────────────────────────
-${isProvider ? 'YOUR EARNINGS' : 'TOTAL PAID'}:              ₱${(isProvider ? subtotal - systemFee : finalTotal).toLocaleString()}
+${additionalCharges.length > 0 ? additionalCharges.map(charge => `${charge.reason || 'Additional'}:${' '.repeat(Math.max(1, 28 - (charge.reason || 'Additional').length))}₱${(charge.amount || 0).toLocaleString()}`).join('\n') + '\n' : ''}${!isProvider && systemFee > 0 ? `System Fee (${systemFeePercentage}%):           ₱${systemFee.toLocaleString()}\n` : ''}────────────────────────────────────────
+${isProvider ? 'YOUR EARNINGS' : 'TOTAL PAID'}:              ₱${finalTotal.toLocaleString()}
+${isProvider ? `\nClient paid ₱${clientTotal.toLocaleString()} (includes 5% platform fee)` : ''}
 ════════════════════════════════════════
 
 ${rating || review ? `
@@ -424,10 +429,11 @@ Thank you for using GSS Maasin!
                 </View>
               )}
 
-              {isProvider && systemFee > 0 && (
+              {/* Show system fee for client only */}
+              {!isProvider && systemFee > 0 && (
                 <View style={styles.priceRow}>
                   <Text style={styles.priceLabel}>System Fee ({systemFeePercentage}%)</Text>
-                  <Text style={[styles.priceValue, { color: '#EF4444' }]}>-₱{systemFee.toLocaleString()}</Text>
+                  <Text style={styles.priceValue}>₱{systemFee.toLocaleString()}</Text>
                 </View>
               )}
 
@@ -436,9 +442,16 @@ Thank you for using GSS Maasin!
                   {isProvider ? 'Your Earnings' : 'Total Paid'}
                 </Text>
                 <Text style={styles.totalValue}>
-                  ₱{(isProvider ? subtotal - systemFee : finalTotal).toLocaleString()}
+                  ₱{finalTotal.toLocaleString()}
                 </Text>
               </View>
+              
+              {/* Show what client paid for provider reference */}
+              {isProvider && (
+                <Text style={{fontSize: 12, color: '#6B7280', textAlign: 'center', marginTop: 8}}>
+                  Client paid ₱{clientTotal.toLocaleString()} (includes 5% platform fee)
+                </Text>
+              )}
             </View>
 
             {/* Review Section (for completed jobs) */}
