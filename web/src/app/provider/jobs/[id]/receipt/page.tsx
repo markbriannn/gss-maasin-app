@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ProviderLayout from '@/components/layouts/ProviderLayout';
 
@@ -16,30 +16,35 @@ export default function ProviderReceiptPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (bookingId) fetchBooking();
-  }, [bookingId]);
+    if (!bookingId) return;
 
-  const fetchBooking = async () => {
-    try {
-      const bookingDoc = await getDoc(doc(db, 'bookings', bookingId));
-      if (bookingDoc.exists()) {
-        const bookingData = bookingDoc.data();
-        const data = { id: bookingDoc.id, ...bookingData };
+    // Real-time listener for booking data
+    const unsubscribe = onSnapshot(doc(db, 'bookings', bookingId), async (docSnap) => {
+      if (docSnap.exists()) {
+        const bookingData = docSnap.data();
+        const data = { id: docSnap.id, ...bookingData };
         setBooking(data);
+        
         if (bookingData.clientId) {
-          const clientDoc = await getDoc(doc(db, 'users', bookingData.clientId));
-          if (clientDoc.exists()) {
-            const c = clientDoc.data();
-            setClient({ id: clientDoc.id, name: `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Client', photo: c.profilePhoto });
+          try {
+            const clientDoc = await getDoc(doc(db, 'users', bookingData.clientId));
+            if (clientDoc.exists()) {
+              const c = clientDoc.data();
+              setClient({ id: clientDoc.id, name: `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Client', photo: c.profilePhoto });
+            }
+          } catch (e) {
+            console.error('Error fetching client:', e);
           }
         }
       }
-    } catch (error) {
-      console.error('Error fetching booking:', error);
-    } finally {
       setLoading(false);
-    }
-  };
+    }, (error) => {
+      console.error('Error fetching booking:', error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [bookingId]);
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'N/A';

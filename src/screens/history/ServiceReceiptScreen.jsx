@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,9 +12,71 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { globalStyles } from '../../css/globalStyles';
 import { receiptStyles as styles } from '../../css/historyStyles';
+import { db } from '../../config/firebase';
+import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 
 const ServiceReceiptScreen = ({ navigation, route }) => {
-  const { booking, isProvider = false } = route.params || {};
+  const { booking: initialBooking, bookingId, isProvider = false } = route.params || {};
+  const [booking, setBooking] = useState(initialBooking || null);
+  const [otherParty, setOtherParty] = useState(initialBooking?.otherParty || null);
+  const [loading, setLoading] = useState(!initialBooking);
+
+  // Real-time listener for booking updates
+  useEffect(() => {
+    const id = bookingId || initialBooking?.id;
+    if (!id) return;
+
+    const unsubscribe = onSnapshot(doc(db, 'bookings', id), async (docSnap) => {
+      if (docSnap.exists()) {
+        const data = { id: docSnap.id, ...docSnap.data() };
+        
+        // Fetch other party info
+        const otherPartyId = isProvider ? data.clientId : data.providerId;
+        if (otherPartyId) {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', otherPartyId));
+            if (userDoc.exists()) {
+              const u = userDoc.data();
+              setOtherParty({
+                id: userDoc.id,
+                name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || (isProvider ? 'Client' : 'Provider'),
+                photo: u.profilePhoto,
+                rating: u.rating || u.averageRating || 0,
+              });
+            }
+          } catch (e) {
+            console.log('Error fetching other party:', e);
+          }
+        }
+
+        setBooking(prev => ({
+          ...prev,
+          ...data,
+          otherParty: otherParty,
+        }));
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [bookingId, initialBooking?.id, isProvider]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Icon name="arrow-back" size={24} color="#1F2937" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Receipt</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: '#6B7280' }}>Loading receipt...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!booking) {
     return (
@@ -33,7 +95,7 @@ const ServiceReceiptScreen = ({ navigation, route }) => {
     );
   }
 
-  // Extract booking data
+  // Extract booking data - use state otherParty instead of booking.otherParty
   const {
     id,
     serviceCategory,
@@ -41,7 +103,6 @@ const ServiceReceiptScreen = ({ navigation, route }) => {
     status,
     createdAt,
     completedAt,
-    otherParty,
     // Pricing
     providerPrice,
     offeredPrice,
@@ -61,6 +122,9 @@ const ServiceReceiptScreen = ({ navigation, route }) => {
     review,
     rating,
   } = booking;
+
+  // Use the state otherParty (which is updated in real-time)
+  const displayOtherParty = otherParty || booking.otherParty;
 
   // Calculate amounts
   const baseAmount = providerPrice || offeredPrice || totalAmount || price || 0;
@@ -117,7 +181,7 @@ Receipt #: ${id?.slice(-8).toUpperCase() || 'N/A'}
 Date: ${formatDate(completedAt || createdAt)}
 
 Service: ${serviceCategory || 'Service'}
-${isProvider ? 'Client' : 'Provider'}: ${otherParty?.name || 'N/A'}
+${isProvider ? 'Client' : 'Provider'}: ${displayOtherParty?.name || 'N/A'}
 
 Location: ${streetAddress ? `${streetAddress}, ${barangay}` : location || 'N/A'}
 
@@ -160,8 +224,8 @@ ${description ? `Description: ${description}\n` : ''}Scheduled: ${scheduledDate 
 ────────────────────────────────────────
 ${isProvider ? 'CLIENT' : 'SERVICE PROVIDER'}
 ────────────────────────────────────────
-Name: ${otherParty?.name || 'Unknown'}
-${!isProvider && otherParty?.rating > 0 ? `Rating: ${'★'.repeat(Math.round(otherParty.rating))}${'☆'.repeat(5 - Math.round(otherParty.rating))} (${otherParty.rating.toFixed(1)})\n` : ''}
+Name: ${displayOtherParty?.name || 'Unknown'}
+${!isProvider && displayOtherParty?.rating > 0 ? `Rating: ${'★'.repeat(Math.round(displayOtherParty.rating))}${'☆'.repeat(5 - Math.round(displayOtherParty.rating))} (${displayOtherParty.rating.toFixed(1)})\n` : ''}
 ────────────────────────────────────────
 SERVICE LOCATION
 ────────────────────────────────────────
@@ -200,10 +264,10 @@ Thank you for using GSS Maasin!
   };
 
   const handleRebook = () => {
-    if (otherParty?.id) {
+    if (displayOtherParty?.id) {
       navigation.navigate('BookService', {
-        providerId: otherParty.id,
-        providerName: otherParty.name,
+        providerId: displayOtherParty.id,
+        providerName: displayOtherParty.name,
         providerService: serviceCategory,
       });
     } else {
@@ -299,25 +363,25 @@ Thank you for using GSS Maasin!
               <Text style={styles.sectionTitle}>{isProvider ? 'Client' : 'Service Provider'}</Text>
               <View style={styles.personCard}>
                 <View style={styles.personAvatar}>
-                  {otherParty?.photo ? (
+                  {displayOtherParty?.photo ? (
                     <Image 
-                      source={{ uri: otherParty.photo }} 
+                      source={{ uri: displayOtherParty.photo }} 
                       style={{ width: 48, height: 48, borderRadius: 24 }} 
                     />
                   ) : (
                     <Text style={styles.personAvatarText}>
-                      {otherParty?.name?.charAt(0).toUpperCase() || '?'}
+                      {displayOtherParty?.name?.charAt(0).toUpperCase() || '?'}
                     </Text>
                   )}
                 </View>
                 <View style={styles.personInfo}>
-                  <Text style={styles.personName}>{otherParty?.name || 'Unknown'}</Text>
+                  <Text style={styles.personName}>{displayOtherParty?.name || 'Unknown'}</Text>
                   <Text style={styles.personRole}>{isProvider ? 'Client' : 'Provider'}</Text>
                 </View>
-                {!isProvider && otherParty?.rating > 0 && (
+                {!isProvider && displayOtherParty?.rating > 0 && (
                   <View style={styles.ratingContainer}>
                     <Icon name="star" size={16} color="#F59E0B" />
-                    <Text style={styles.ratingText}>{otherParty.rating.toFixed(1)}</Text>
+                    <Text style={styles.ratingText}>{displayOtherParty.rating.toFixed(1)}</Text>
                   </View>
                 )}
               </View>

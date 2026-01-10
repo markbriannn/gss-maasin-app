@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ClientLayout from '@/components/layouts/ClientLayout';
 
@@ -17,36 +17,40 @@ export default function ServiceReceiptPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (bookingId) fetchBooking();
-  }, [bookingId]);
+    if (!bookingId) return;
 
-  const fetchBooking = async () => {
-    try {
-      const bookingDoc = await getDoc(doc(db, 'bookings', bookingId));
-      if (bookingDoc.exists()) {
-        const data = { id: bookingDoc.id, ...bookingDoc.data() } as any;
+    // Real-time listener for booking data
+    const unsubscribe = onSnapshot(doc(db, 'bookings', bookingId), async (docSnap) => {
+      if (docSnap.exists()) {
+        const data = { id: docSnap.id, ...docSnap.data() } as any;
         setBooking(data);
 
         // Fetch provider info
-        if ((data as any).providerId) {
-          const providerDoc = await getDoc(doc(db, 'users', data.providerId));
-          if (providerDoc.exists()) {
-            const p = providerDoc.data();
-            setOtherParty({
-              id: providerDoc.id,
-              name: `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Provider',
-              photo: p.profilePhoto,
-              rating: p.rating || p.averageRating || 0,
-            });
+        if (data.providerId) {
+          try {
+            const providerDoc = await getDoc(doc(db, 'users', data.providerId));
+            if (providerDoc.exists()) {
+              const p = providerDoc.data();
+              setOtherParty({
+                id: providerDoc.id,
+                name: `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Provider',
+                photo: p.profilePhoto,
+                rating: p.rating || p.averageRating || 0,
+              });
+            }
+          } catch (e) {
+            console.error('Error fetching provider:', e);
           }
         }
       }
-    } catch (error) {
-      console.error('Error fetching booking:', error);
-    } finally {
       setLoading(false);
-    }
-  };
+    }, (error) => {
+      console.error('Error fetching booking:', error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [bookingId]);
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'N/A';
