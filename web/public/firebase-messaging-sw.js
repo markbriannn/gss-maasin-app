@@ -23,8 +23,8 @@ messaging.onBackgroundMessage((payload) => {
   const notificationTitle = payload.notification?.title || 'GSS Notification';
   const notificationOptions = {
     body: payload.notification?.body || 'You have a new notification',
-    icon: '/next.svg',
-    badge: '/next.svg',
+    icon: '/gss-icon.svg',
+    badge: '/gss-icon.svg',
     tag: payload.data?.type || 'gss-notification',
     data: payload.data,
     requireInteraction: true,

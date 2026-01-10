@@ -5,9 +5,10 @@ import { useAuth } from '@/context/AuthContext';
 import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { 
   Bell, MessageSquare, Briefcase, CheckCircle, 
-  Star, CreditCard, X, ChevronRight, Sparkles
+  Star, CreditCard, X, MapPin, Truck, Play
 } from 'lucide-react';
 
 interface Toast {
@@ -25,24 +26,18 @@ export default function ToastNotification() {
   const { user } = useAuth();
   const router = useRouter();
   const [toasts, setToasts] = useState<Toast[]>([]);
-  // Track shown toasts to prevent duplicates - use ref to persist across renders
   const shownToastIds = useRef(new Set<string>());
 
   const addToast = useCallback((toastData: Omit<Toast, 'id'>, uniqueKey?: string) => {
-    // Prevent duplicate toasts using unique key
-    if (uniqueKey && shownToastIds.current.has(uniqueKey)) {
-      return;
-    }
+    if (uniqueKey && shownToastIds.current.has(uniqueKey)) return;
     if (uniqueKey) {
       shownToastIds.current.add(uniqueKey);
-      // Clean up after 60 seconds
       setTimeout(() => shownToastIds.current.delete(uniqueKey), 60000);
     }
 
     const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     setToasts(prev => [...prev, { ...toastData, id }]);
     
-    // Auto remove custom toast after 5 seconds
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 5000);
@@ -53,17 +48,14 @@ export default function ToastNotification() {
   };
 
   const handleToastClick = (toast: Toast) => {
-    if (toast.link) {
-      router.push(toast.link);
-    }
+    if (toast.link) router.push(toast.link);
     removeToast(toast.id);
   };
 
-  // Listen for new notifications - try both userId and targetUserId fields
+  // Listen for new notifications
   useEffect(() => {
     if (!user?.uid) return;
 
-    // Try with userId first (common field name)
     const notificationsQuery = query(
       collection(db, 'notifications'),
       where('userId', '==', user.uid),
@@ -72,26 +64,20 @@ export default function ToastNotification() {
 
     let isFirstLoad = true;
     const unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
-      if (isFirstLoad) {
-        isFirstLoad = false;
-        return;
-      }
+      if (isFirstLoad) { isFirstLoad = false; return; }
 
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'added') {
           const data = change.doc.data();
           const createdAt = data.createdAt?.toDate() || new Date();
           
-          // Only show if it's a new notification (within last 30 seconds)
           if (new Date().getTime() - createdAt.getTime() < 30000) {
             const toastData = getToastFromNotification(data);
             if (toastData) addToast(toastData, `notif_${change.doc.id}`);
           }
         }
       });
-    }, (error) => {
-      // If userId field doesn't exist, try targetUserId
-      console.log('Trying targetUserId field instead:', error.code);
+    }, () => {
       const fallbackQuery = query(
         collection(db, 'notifications'),
         where('targetUserId', '==', user.uid),
@@ -100,10 +86,7 @@ export default function ToastNotification() {
       
       let fallbackFirstLoad = true;
       onSnapshot(fallbackQuery, (snapshot) => {
-        if (fallbackFirstLoad) {
-          fallbackFirstLoad = false;
-          return;
-        }
+        if (fallbackFirstLoad) { fallbackFirstLoad = false; return; }
 
         snapshot.docChanges().forEach((change) => {
           if (change.type === 'added') {
@@ -116,40 +99,31 @@ export default function ToastNotification() {
             }
           }
         });
-      }, (err) => {
-        console.log('Notifications listener error:', err.code);
       });
     });
 
     return () => unsubscribe();
   }, [user?.uid, addToast]);
 
-  // Listen for new bookings (for providers) - show toast when admin approves
+  // Listen for provider bookings
   useEffect(() => {
     if (!user?.uid || user?.role?.toUpperCase() !== 'PROVIDER') return;
 
-    // Listen to all bookings assigned to this provider
     const bookingsQuery = query(
       collection(db, 'bookings'),
       where('providerId', '==', user.uid),
       limit(20)
     );
 
-    // Track which bookings we've already shown toasts for
     const shownToasts = new Set<string>();
     let isFirstLoad = true;
 
     const unsubscribe = onSnapshot(bookingsQuery, (snapshot) => {
       if (isFirstLoad) {
-        // On first load, just record existing bookings
         snapshot.docs.forEach(doc => {
           const data = doc.data();
-          if (data.adminApproved) {
-            shownToasts.add(`approved_${doc.id}`);
-          }
-          if (data.status === 'pending') {
-            shownToasts.add(`pending_${doc.id}`);
-          }
+          if (data.adminApproved) shownToasts.add(`approved_${doc.id}`);
+          if (data.status === 'pending') shownToasts.add(`pending_${doc.id}`);
         });
         isFirstLoad = false;
         return;
@@ -159,12 +133,11 @@ export default function ToastNotification() {
         const data = change.doc.data();
         const docId = change.doc.id;
 
-        // New booking assigned to provider
         if (change.type === 'added' && data.status === 'pending' && !shownToasts.has(`pending_${docId}`)) {
           shownToasts.add(`pending_${docId}`);
           addToast({
             type: 'booking',
-            title: 'New Booking Request! 🎉',
+            title: 'New Booking Request',
             message: `${data.clientName || 'A client'} requested ${data.serviceCategory || 'a service'}`,
             timestamp: new Date(),
             link: `/provider/jobs/${docId}`,
@@ -172,49 +145,36 @@ export default function ToastNotification() {
           }, `provider_pending_${docId}`);
         }
 
-        // Admin approved the booking - show toast to provider
         if (change.type === 'modified' && data.adminApproved && !shownToasts.has(`approved_${docId}`)) {
           shownToasts.add(`approved_${docId}`);
           addToast({
             type: 'job',
-            title: 'Job Approved! ✅',
-            message: `Admin approved your job for ${data.clientName || 'client'}. You can now contact them.`,
+            title: 'Job Approved',
+            message: `Admin approved your job for ${data.clientName || 'client'}`,
             timestamp: new Date(),
             link: `/provider/jobs/${docId}`,
             color: 'emerald',
           }, `provider_approved_${docId}`);
         }
 
-        // Client contacted - new message or status change
-        if (change.type === 'modified') {
-          const status = data.status;
-          
-          if (status === 'traveling' && !shownToasts.has(`traveling_${docId}`)) {
-            shownToasts.add(`traveling_${docId}`);
-            // Provider started traveling - no toast needed for provider
-          }
-          
-          if (status === 'completed' && !shownToasts.has(`completed_${docId}`)) {
-            shownToasts.add(`completed_${docId}`);
-            addToast({
-              type: 'payment',
-              title: 'Job Completed! 💰',
-              message: `${data.serviceCategory || 'Service'} completed. Payment: ₱${data.totalAmount?.toLocaleString() || data.providerPrice?.toLocaleString() || '0'}`,
-              timestamp: new Date(),
-              link: `/provider/jobs/${docId}`,
-              color: 'emerald',
-            }, `provider_completed_${docId}`);
-          }
+        if (change.type === 'modified' && data.status === 'completed' && !shownToasts.has(`completed_${docId}`)) {
+          shownToasts.add(`completed_${docId}`);
+          addToast({
+            type: 'payment',
+            title: 'Job Completed',
+            message: `Payment: ₱${data.totalAmount?.toLocaleString() || data.providerPrice?.toLocaleString() || '0'}`,
+            timestamp: new Date(),
+            link: `/provider/jobs/${docId}`,
+            color: 'emerald',
+          }, `provider_completed_${docId}`);
         }
       });
-    }, (error) => {
-      console.log('Provider bookings listener error:', error.code);
     });
 
     return () => unsubscribe();
   }, [user?.uid, user?.role, addToast]);
 
-  // Listen for new messages
+  // Listen for messages
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -224,12 +184,10 @@ export default function ToastNotification() {
     );
 
     let isFirstLoad = true;
-    // Track last message timestamps to prevent duplicate toasts
     const lastMessageTimes = new Map<string, number>();
     
     const unsubscribe = onSnapshot(conversationsQuery, (snapshot) => {
       if (isFirstLoad) {
-        // Record initial message times
         snapshot.docs.forEach(doc => {
           const data = doc.data();
           const lastTime = data.lastMessageTime?.toDate?.()?.getTime() || data.updatedAt?.toDate?.()?.getTime() || 0;
@@ -247,12 +205,11 @@ export default function ToastNotification() {
           const currentTime = data.lastMessageTime?.toDate?.()?.getTime() || data.updatedAt?.toDate?.()?.getTime() || 0;
           const previousTime = lastMessageTimes.get(docId) || 0;
           
-          // Only show toast if there's a new unread message, it's not from current user, and it's actually new
           if (unreadCount > 0 && data.lastSenderId !== user.uid && currentTime > previousTime) {
             lastMessageTimes.set(docId, currentTime);
             addToast({
               type: 'message',
-              title: 'New Message 💬',
+              title: 'New Message',
               message: data.lastMessage?.slice(0, 50) + (data.lastMessage?.length > 50 ? '...' : '') || 'You have a new message',
               timestamp: new Date(),
               link: `/chat/${docId}`,
@@ -266,27 +223,22 @@ export default function ToastNotification() {
     return () => unsubscribe();
   }, [user?.uid, addToast]);
 
-  // Listen for new bookings (for ADMIN) - show toast when client submits a new booking
+  // Listen for admin bookings
   useEffect(() => {
     if (!user?.uid || user?.role?.toUpperCase() !== 'ADMIN') return;
 
-    // Listen to all pending bookings that need admin approval
     const bookingsQuery = query(
       collection(db, 'bookings'),
       where('status', 'in', ['pending', 'pending_negotiation']),
       limit(50)
     );
 
-    // Track which bookings we've already shown toasts for
     const shownToasts = new Set<string>();
     let isFirstLoad = true;
 
     const unsubscribe = onSnapshot(bookingsQuery, (snapshot) => {
       if (isFirstLoad) {
-        // On first load, just record existing bookings
-        snapshot.docs.forEach(doc => {
-          shownToasts.add(`new_${doc.id}`);
-        });
+        snapshot.docs.forEach(doc => shownToasts.add(`new_${doc.id}`));
         isFirstLoad = false;
         return;
       }
@@ -295,12 +247,11 @@ export default function ToastNotification() {
         const data = change.doc.data();
         const docId = change.doc.id;
 
-        // New booking submitted by client - needs admin approval
         if (change.type === 'added' && !data.adminApproved && !shownToasts.has(`new_${docId}`)) {
           shownToasts.add(`new_${docId}`);
           addToast({
             type: 'booking',
-            title: 'New Booking Request! 📋',
+            title: 'New Booking Request',
             message: `${data.clientName || 'A client'} submitted a ${data.serviceCategory || 'service'} request`,
             timestamp: new Date(),
             link: `/admin/jobs/${docId}`,
@@ -308,37 +259,30 @@ export default function ToastNotification() {
           }, `admin_new_${docId}`);
         }
       });
-    }, (error) => {
-      console.log('Admin bookings listener error:', error.code);
     });
 
     return () => unsubscribe();
   }, [user?.uid, user?.role, addToast]);
 
-  // Listen for job status changes (for clients) - show toast on status changes
+  // Listen for client bookings
   useEffect(() => {
     if (!user?.uid || user?.role?.toUpperCase() !== 'CLIENT') return;
 
-    // Listen to all bookings for this client
     const bookingsQuery = query(
       collection(db, 'bookings'),
       where('clientId', '==', user.uid),
       limit(20)
     );
 
-    // Track which toasts we've already shown
     const shownToasts = new Set<string>();
     let isFirstLoad = true;
 
     const unsubscribe = onSnapshot(bookingsQuery, (snapshot) => {
       if (isFirstLoad) {
-        // On first load, record existing states
         snapshot.docs.forEach(doc => {
           const data = doc.data();
           shownToasts.add(`${data.status}_${doc.id}`);
-          if (data.adminApproved) {
-            shownToasts.add(`approved_${doc.id}`);
-          }
+          if (data.adminApproved) shownToasts.add(`approved_${doc.id}`);
         });
         isFirstLoad = false;
         return;
@@ -351,20 +295,18 @@ export default function ToastNotification() {
           const status = data.status;
           const statusKey = `${status}_${docId}`;
           
-          // Skip if we've already shown this toast
           if (shownToasts.has(statusKey)) return;
           
           let toastData: Omit<Toast, 'id'> | null = null;
           let uniqueKey: string | undefined;
           
-          // Admin approved the booking
           if (data.adminApproved && !shownToasts.has(`approved_${docId}`)) {
             shownToasts.add(`approved_${docId}`);
             uniqueKey = `client_approved_${docId}`;
             toastData = {
               type: 'job',
-              title: 'Booking Approved! ✅',
-              message: `Your booking for ${data.serviceCategory || 'service'} has been approved by admin`,
+              title: 'Booking Approved',
+              message: `Your ${data.serviceCategory || 'service'} booking has been approved`,
               timestamp: new Date(),
               link: `/client/bookings/${docId}`,
               color: 'emerald',
@@ -374,7 +316,7 @@ export default function ToastNotification() {
             uniqueKey = `client_accepted_${docId}`;
             toastData = {
               type: 'job',
-              title: 'Booking Accepted! ✅',
+              title: 'Booking Accepted',
               message: `${data.providerName || 'Provider'} accepted your booking`,
               timestamp: new Date(),
               link: `/client/bookings/${docId}`,
@@ -385,7 +327,7 @@ export default function ToastNotification() {
             uniqueKey = `client_traveling_${docId}`;
             toastData = {
               type: 'job',
-              title: 'Provider On The Way! 🚗',
+              title: 'Provider On The Way',
               message: `${data.providerName || 'Provider'} is traveling to your location`,
               timestamp: new Date(),
               link: `/client/bookings/${docId}/tracking`,
@@ -396,8 +338,8 @@ export default function ToastNotification() {
             uniqueKey = `client_arrived_${docId}`;
             toastData = {
               type: 'job',
-              title: 'Provider Arrived! 📍',
-              message: `${data.providerName || 'Provider'} has arrived at your location`,
+              title: 'Provider Arrived',
+              message: `${data.providerName || 'Provider'} has arrived`,
               timestamp: new Date(),
               link: `/client/bookings/${docId}`,
               color: 'emerald',
@@ -407,8 +349,8 @@ export default function ToastNotification() {
             uniqueKey = `client_inprogress_${docId}`;
             toastData = {
               type: 'job',
-              title: 'Service Started 🚀',
-              message: `${data.providerName || 'Provider'} has started working on your job`,
+              title: 'Service Started',
+              message: `${data.providerName || 'Provider'} has started working`,
               timestamp: new Date(),
               link: `/client/bookings/${docId}/tracking`,
               color: 'blue',
@@ -418,7 +360,7 @@ export default function ToastNotification() {
             uniqueKey = `client_completed_${docId}`;
             toastData = {
               type: 'job',
-              title: 'Service Completed! 🎉',
+              title: 'Service Completed',
               message: `Your ${data.serviceCategory || 'service'} has been completed`,
               timestamp: new Date(),
               link: `/client/bookings/${docId}/review`,
@@ -440,8 +382,6 @@ export default function ToastNotification() {
           if (toastData) addToast(toastData, uniqueKey);
         }
       });
-    }, (error) => {
-      console.log('Client bookings listener error:', error.code);
     });
 
     return () => unsubscribe();
@@ -480,8 +420,8 @@ export default function ToastNotification() {
     };
   };
 
-  const getIcon = (type: string, color: string) => {
-    const iconClass = `w-5 h-5 text-${color}-500`;
+  const getIcon = (type: string) => {
+    const iconClass = 'w-5 h-5 text-white';
     switch (type) {
       case 'booking':
         return <Briefcase className={iconClass} />;
@@ -498,120 +438,116 @@ export default function ToastNotification() {
     }
   };
 
-  const getColorClasses = (color: string) => {
+  const getIconBg = (color: string) => {
     switch (color) {
-      case 'emerald':
-        return {
-          bg: 'bg-gradient-to-r from-emerald-500 to-green-500',
-          light: 'bg-emerald-50',
-          border: 'border-emerald-200',
-          icon: 'text-emerald-500',
-        };
-      case 'blue':
-        return {
-          bg: 'bg-gradient-to-r from-blue-500 to-indigo-500',
-          light: 'bg-blue-50',
-          border: 'border-blue-200',
-          icon: 'text-blue-500',
-        };
-      case 'amber':
-        return {
-          bg: 'bg-gradient-to-r from-amber-500 to-orange-500',
-          light: 'bg-amber-50',
-          border: 'border-amber-200',
-          icon: 'text-amber-500',
-        };
-      case 'purple':
-        return {
-          bg: 'bg-gradient-to-r from-purple-500 to-pink-500',
-          light: 'bg-purple-50',
-          border: 'border-purple-200',
-          icon: 'text-purple-500',
-        };
-      case 'red':
-        return {
-          bg: 'bg-gradient-to-r from-red-500 to-rose-500',
-          light: 'bg-red-50',
-          border: 'border-red-200',
-          icon: 'text-red-500',
-        };
-      default:
-        return {
-          bg: 'bg-gradient-to-r from-gray-500 to-slate-500',
-          light: 'bg-gray-50',
-          border: 'border-gray-200',
-          icon: 'text-gray-500',
-        };
+      case 'emerald': return 'bg-emerald-500';
+      case 'blue': return 'bg-blue-500';
+      case 'amber': return 'bg-amber-500';
+      case 'purple': return 'bg-purple-500';
+      case 'red': return 'bg-red-500';
+      default: return 'bg-gray-500';
     }
   };
 
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-3 max-w-sm w-full pointer-events-none">
-      {toasts.map((toast, index) => {
-        const colors = getColorClasses(toast.color || 'gray');
-        return (
+    <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-3 max-w-[380px] w-full pointer-events-none">
+      {toasts.map((toast, index) => (
+        <div
+          key={toast.id}
+          className="pointer-events-auto animate-toast-in"
+          style={{ animationDelay: `${index * 50}ms` }}
+        >
+          {/* macOS-style notification card */}
           <div
-            key={toast.id}
-            className={`pointer-events-auto bg-white rounded-2xl shadow-2xl border ${colors.border} overflow-hidden transform transition-all duration-300 animate-slide-in-right cursor-pointer hover:scale-[1.02]`}
             onClick={() => handleToastClick(toast)}
-            style={{ animationDelay: `${index * 100}ms` }}
+            className="group relative bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/20 dark:border-gray-700/50 overflow-hidden cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_12px_40px_rgba(0,0,0,0.16)]"
           >
-            {/* Color bar */}
-            <div className={`h-1 ${colors.bg}`} />
-            
             <div className="p-4">
               <div className="flex items-start gap-3">
-                {/* Icon */}
-                <div className={`w-10 h-10 rounded-xl ${colors.light} flex items-center justify-center flex-shrink-0`}>
-                  {getIcon(toast.type, toast.color || 'gray')}
+                {/* App Icon - macOS style */}
+                <div className="relative flex-shrink-0">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg flex items-center justify-center">
+                    <Image 
+                      src="/gss-icon.svg" 
+                      alt="GSS" 
+                      width={44} 
+                      height={44} 
+                      className="rounded-xl"
+                    />
+                  </div>
+                  {/* Notification type badge */}
+                  <div className={`absolute -bottom-1 -right-1 w-5 h-5 ${getIconBg(toast.color || 'gray')} rounded-full flex items-center justify-center shadow-md border-2 border-white dark:border-gray-900`}>
+                    {getIcon(toast.type)}
+                  </div>
                 </div>
                 
                 {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="font-semibold text-gray-900 text-sm">{toast.title}</h4>
-                    <Sparkles className="w-3 h-3 text-amber-400" />
+                <div className="flex-1 min-w-0 pt-0.5">
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+                      GSS Maasin
+                    </span>
+                    <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                      now
+                    </span>
                   </div>
-                  <p className="text-gray-600 text-sm line-clamp-2">{toast.message}</p>
-                  {toast.link && (
-                    <div className="flex items-center gap-1 mt-2 text-xs font-medium text-gray-400">
-                      <span>Tap to view</span>
-                      <ChevronRight className="w-3 h-3" />
-                    </div>
-                  )}
+                  <h4 className="font-semibold text-gray-900 dark:text-white text-[15px] leading-tight mb-0.5">
+                    {toast.title}
+                  </h4>
+                  <p className="text-gray-600 dark:text-gray-300 text-[13px] leading-snug line-clamp-2">
+                    {toast.message}
+                  </p>
                 </div>
                 
-                {/* Close button */}
+                {/* Close button - appears on hover */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     removeToast(toast.id);
                   }}
-                  className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="absolute top-2 right-2 p-1.5 rounded-full bg-gray-100/80 dark:bg-gray-800/80 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-200 dark:hover:bg-gray-700"
                 >
-                  <X className="w-4 h-4 text-gray-400" />
+                  <X className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
                 </button>
               </div>
             </div>
+            
+            {/* Progress bar for auto-dismiss */}
+            <div className="h-0.5 bg-gray-100 dark:bg-gray-800">
+              <div 
+                className={`h-full ${getIconBg(toast.color || 'gray')} animate-progress`}
+                style={{ animationDuration: '5s' }}
+              />
+            </div>
           </div>
-        );
-      })}
+        </div>
+      ))}
       
       <style jsx global>{`
-        @keyframes slide-in-right {
-          from {
-            transform: translateX(100%);
+        @keyframes toast-in {
+          0% {
+            transform: translateX(100%) scale(0.9);
             opacity: 0;
           }
-          to {
-            transform: translateX(0);
+          100% {
+            transform: translateX(0) scale(1);
             opacity: 1;
           }
         }
-        .animate-slide-in-right {
-          animation: slide-in-right 0.3s ease-out forwards;
+        
+        @keyframes progress {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+        
+        .animate-toast-in {
+          animation: toast-in 0.35s cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
+        }
+        
+        .animate-progress {
+          animation: progress linear forwards;
         }
       `}</style>
     </div>

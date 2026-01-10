@@ -195,8 +195,8 @@ export function showLocalNotification(title: string, body: string, data?: Record
 
   const notification = new Notification(title, {
     body,
-    icon: '/next.svg',
-    badge: '/next.svg',
+    icon: '/gss-icon.svg',
+    badge: '/gss-icon.svg',
     tag: data?.type || 'gss-notification',
     data,
     requireInteraction: true,
