@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, doc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ProviderLayout from '@/components/layouts/ProviderLayout';
 import {
@@ -89,72 +89,54 @@ export default function JobsPage() {
   }, [isLoading, isAuthenticated, user, router]);
 
   useEffect(() => {
-    if (user?.uid) fetchJobs();
-  }, [user, activeTab]);
-
-  const fetchJobs = async () => {
     if (!user?.uid) return;
-    setLoadingData(true);
-    try {
-      const userId = user.uid;
-      const jobsList: Job[] = [];
+    
+    const userId = user.uid;
+    let unsubscribe: () => void;
 
+    const setupListener = () => {
+      setLoadingData(true);
+      
+      // Determine which statuses to listen for based on active tab
+      let statuses: string[];
       if (activeTab === 'available') {
-        // Query jobs assigned to this provider that are pending
-        // Provider can SEE all jobs assigned to them, but can only ACCEPT after admin approves
-        const jobsQuery = query(
-          collection(db, 'bookings'), 
-          where('providerId', '==', userId),
-          where('status', 'in', ['pending', 'pending_negotiation'])
-        );
-        const snapshot = await getDocs(jobsQuery);
+        statuses = ['pending', 'pending_negotiation'];
+      } else if (activeTab === 'my_jobs') {
+        statuses = ['accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion', 'pending_payment', 'payment_received'];
+      } else {
+        statuses = ['completed'];
+      }
+
+      const jobsQuery = query(
+        collection(db, 'bookings'),
+        where('providerId', '==', userId),
+        where('status', 'in', statuses)
+      );
+
+      unsubscribe = onSnapshot(jobsQuery, async (snapshot) => {
+        const jobsList: Job[] = [];
+
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data();
-          // Show all jobs assigned to this provider (not rejected)
-          if (!data.adminRejected) {
-            let clientInfo: ClientInfo = { name: 'Unknown Client', phone: 'N/A', tier: null };
-            if (data.clientId) {
-              try {
-                const clientDoc = await getDoc(doc(db, 'users', data.clientId));
-                if (clientDoc.exists()) {
-                  const cd = clientDoc.data();
-                  clientInfo = { name: `${cd.firstName || ''} ${cd.lastName || ''}`.trim() || 'Client', phone: cd.phone || 'N/A' };
-                }
+          
+          // Skip rejected jobs in available tab
+          if (activeTab === 'available' && data.adminRejected) continue;
+
+          let clientInfo: ClientInfo = { name: 'Unknown Client', phone: 'N/A', tier: null };
+          if (data.clientId) {
+            try {
+              const clientDoc = await getDoc(doc(db, 'users', data.clientId));
+              if (clientDoc.exists()) {
+                const cd = clientDoc.data();
+                clientInfo = { name: `${cd.firstName || ''} ${cd.lastName || ''}`.trim() || 'Client', phone: cd.phone || 'N/A' };
+              }
+              if (activeTab === 'available') {
                 const gamDoc = await getDoc(doc(db, 'gamification', data.clientId));
                 if (gamDoc.exists()) clientInfo.tier = getClientTier(gamDoc.data().points || 0);
-              } catch (e) {}
-            }
-            let fullLocation = '';
-            if (data.houseNumber) fullLocation += data.houseNumber + ', ';
-            if (data.streetAddress) fullLocation += data.streetAddress + ', ';
-            if (data.barangay) fullLocation += 'Brgy. ' + data.barangay + ', ';
-            fullLocation += 'Maasin City';
-            if (!data.streetAddress && !data.barangay) fullLocation = data.location || data.address || 'Not specified';
-
-            jobsList.push({
-              id: docSnap.id, title: data.title || data.serviceTitle || 'Service Request', category: data.category || data.serviceCategory || 'General',
-              status: data.status, client: clientInfo, amount: data.totalAmount || data.amount || data.price || 0, providerPrice: data.providerPrice || data.offeredPrice || 0,
-              scheduledDate: data.scheduledDate || 'TBD', scheduledTime: data.scheduledTime || 'TBD', location: fullLocation, description: data.description || '',
-              createdAt: data.createdAt?.toDate?.() ? formatDateTime(data.createdAt.toDate()) : 'Unknown', createdAtRaw: data.createdAt?.toDate?.() || new Date(0),
-              mediaFiles: data.mediaFiles || [], hasMedia: data.mediaFiles && data.mediaFiles.length > 0, isNegotiable: data.isNegotiable || false,
-              offeredPrice: data.offeredPrice || 0, providerFixedPrice: data.providerFixedPrice || 0, adminApproved: data.adminApproved || false,
-              paymentPreference: 'pay_first', paymentMethod: data.paymentMethod || 'gcash', isPaidUpfront: data.isPaidUpfront || false,
-            });
-          }
-        }
-        jobsList.sort((a, b) => b.createdAtRaw.getTime() - a.createdAtRaw.getTime());
-      } else if (activeTab === 'my_jobs') {
-        const jobsQuery = query(collection(db, 'bookings'), where('providerId', '==', userId), where('status', 'in', ['accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion', 'pending_payment', 'payment_received']));
-        const snapshot = await getDocs(jobsQuery);
-        for (const docSnap of snapshot.docs) {
-          const data = docSnap.data();
-          let clientInfo: ClientInfo = { name: 'Unknown Client', phone: 'N/A' };
-          if (data.clientId) {
-            try {
-              const clientDoc = await getDoc(doc(db, 'users', data.clientId));
-              if (clientDoc.exists()) { const cd = clientDoc.data(); clientInfo = { name: `${cd.firstName || ''} ${cd.lastName || ''}`.trim() || 'Client', phone: cd.phone || 'N/A' }; }
+              }
             } catch (e) {}
           }
+
           let fullLocation = '';
           if (data.houseNumber) fullLocation += data.houseNumber + ', ';
           if (data.streetAddress) fullLocation += data.streetAddress + ', ';
@@ -163,55 +145,58 @@ export default function JobsPage() {
           if (!data.streetAddress && !data.barangay) fullLocation = data.location || data.address || 'Not specified';
 
           jobsList.push({
-            id: docSnap.id, title: data.title || data.serviceTitle || 'Service Request', category: data.category || data.serviceCategory || 'General',
-            status: data.status, client: clientInfo, amount: data.totalAmount || data.providerPrice || data.amount || data.price || 0, providerPrice: data.providerPrice || 0,
-            scheduledDate: data.scheduledDate || 'TBD', scheduledTime: data.scheduledTime || 'TBD', location: fullLocation, description: data.description || '',
-            createdAt: data.createdAt?.toDate?.() ? formatDateTime(data.createdAt.toDate()) : 'Unknown', createdAtRaw: data.createdAt?.toDate?.() || new Date(0),
-            mediaFiles: [], hasMedia: false, isNegotiable: false, offeredPrice: 0, providerFixedPrice: 0, adminApproved: true,
-            paymentPreference: 'pay_first', paymentMethod: data.paymentMethod || 'gcash', isPaidUpfront: data.isPaidUpfront || false,
+            id: docSnap.id,
+            title: data.title || data.serviceTitle || 'Service Request',
+            category: data.category || data.serviceCategory || 'General',
+            status: data.status,
+            client: clientInfo,
+            amount: data.totalAmount || data.providerPrice || data.amount || data.price || 0,
+            providerPrice: data.providerPrice || data.offeredPrice || 0,
+            scheduledDate: data.scheduledDate || 'TBD',
+            scheduledTime: data.scheduledTime || 'TBD',
+            location: fullLocation,
+            description: data.description || '',
+            createdAt: data.createdAt?.toDate?.() ? formatDateTime(data.createdAt.toDate()) : 'Unknown',
+            createdAtRaw: data.createdAt?.toDate?.() || new Date(0),
+            mediaFiles: data.mediaFiles || [],
+            hasMedia: data.mediaFiles && data.mediaFiles.length > 0,
+            isNegotiable: data.isNegotiable || false,
+            offeredPrice: data.offeredPrice || 0,
+            providerFixedPrice: data.providerFixedPrice || 0,
+            adminApproved: data.adminApproved || false,
+            paymentPreference: 'pay_first',
+            paymentMethod: data.paymentMethod || 'gcash',
+            isPaidUpfront: data.isPaidUpfront || false,
+            completedAt: data.completedAt?.toDate?.()?.toLocaleDateString() || '',
+            completedAtRaw: data.completedAt?.toDate?.() || new Date(0),
           });
         }
-        jobsList.sort((a, b) => b.createdAtRaw.getTime() - a.createdAtRaw.getTime());
-      } else {
-        const jobsQuery = query(collection(db, 'bookings'), where('providerId', '==', userId), where('status', '==', 'completed'));
-        const snapshot = await getDocs(jobsQuery);
-        for (const docSnap of snapshot.docs) {
-          const data = docSnap.data();
-          let clientInfo: ClientInfo = { name: 'Unknown Client', phone: 'N/A' };
-          if (data.clientId) {
-            try {
-              const clientDoc = await getDoc(doc(db, 'users', data.clientId));
-              if (clientDoc.exists()) { const cd = clientDoc.data(); clientInfo = { name: `${cd.firstName || ''} ${cd.lastName || ''}`.trim() || 'Client', phone: cd.phone || 'N/A' }; }
-            } catch (e) {}
-          }
-          let fullLocation = '';
-          if (data.houseNumber) fullLocation += data.houseNumber + ', ';
-          if (data.streetAddress) fullLocation += data.streetAddress + ', ';
-          if (data.barangay) fullLocation += 'Brgy. ' + data.barangay + ', ';
-          fullLocation += 'Maasin City';
-          if (!data.streetAddress && !data.barangay) fullLocation = data.location || data.address || 'Not specified';
 
-          jobsList.push({
-            id: docSnap.id, title: data.title || data.serviceTitle || 'Service Request', category: data.category || data.serviceCategory || 'General',
-            status: data.status, client: clientInfo, amount: data.totalAmount || data.providerPrice || data.amount || data.price || 0, providerPrice: data.providerPrice || 0,
-            scheduledDate: data.scheduledDate || 'TBD', scheduledTime: '', location: fullLocation, description: '',
-            createdAt: '', createdAtRaw: new Date(0), mediaFiles: [], hasMedia: false, isNegotiable: false, offeredPrice: 0, providerFixedPrice: 0, adminApproved: true,
-            paymentPreference: 'pay_first', paymentMethod: data.paymentMethod || 'gcash', isPaidUpfront: data.isPaidUpfront || false,
-            completedAt: data.completedAt?.toDate?.()?.toLocaleDateString() || 'Unknown', completedAtRaw: data.completedAt?.toDate?.() || new Date(0),
-          });
+        // Sort by appropriate field
+        if (activeTab === 'completed') {
+          jobsList.sort((a, b) => (b.completedAtRaw?.getTime() || 0) - (a.completedAtRaw?.getTime() || 0));
+        } else {
+          jobsList.sort((a, b) => b.createdAtRaw.getTime() - a.createdAtRaw.getTime());
         }
-        jobsList.sort((a, b) => (b.completedAtRaw?.getTime() || 0) - (a.completedAtRaw?.getTime() || 0));
-      }
-      setJobs(jobsList);
-    } catch (error) {
-      console.error('Error fetching jobs:', error);
-    } finally {
-      setLoadingData(false);
-      setRefreshing(false);
-    }
-  };
 
-  const handleRefresh = () => { setRefreshing(true); fetchJobs(); };
+        setJobs(jobsList);
+        setLoadingData(false);
+        setRefreshing(false);
+      }, (error) => {
+        console.error('Error fetching jobs:', error);
+        setLoadingData(false);
+        setRefreshing(false);
+      });
+    };
+
+    setupListener();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user?.uid, activeTab]);
+
+  const handleRefresh = () => { setRefreshing(true); };
 
   const handleAcceptJob = async (job: Job) => {
     if (!user?.uid) return;
@@ -221,7 +206,7 @@ export default function JobsPage() {
       await updateDoc(doc(db, 'bookings', job.id), { providerId: user.uid, status: 'accepted', acceptedAt: new Date() });
       alert('Job accepted! Go to My Jobs to start traveling.');
       setActiveTab('my_jobs');
-      fetchJobs();
+      // Real-time listener will automatically update the list
     } catch (error) {
       console.error('Error accepting job:', error);
       alert('Failed to accept job');

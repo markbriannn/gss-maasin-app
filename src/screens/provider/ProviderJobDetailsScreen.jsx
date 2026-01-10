@@ -1693,62 +1693,56 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                       marginTop: 12,
                     }} 
                     onPress={() => {
-                      navigation.navigate('Directions', {
-                        destination: {
-                          latitude: jobData.location?.latitude || jobData.latitude,
-                          longitude: jobData.location?.longitude || jobData.longitude,
-                          address: jobData.address || jobData.location?.address,
-                        },
+                      navigation.navigate('ProviderTracking', {
                         jobId: jobData.id || jobId,
+                        job: jobData,
                       });
                     }}>
                     <Icon name="map" size={18} color="#3B82F6" />
-                    <Text style={{color: '#3B82F6', fontWeight: '600', marginLeft: 6}}>View Directions</Text>
+                    <Text style={{color: '#3B82F6', fontWeight: '600', marginLeft: 6}}>Preview Route</Text>
                   </TouchableOpacity>
                 </View>
               )}
 
               {jobData.status === 'traveling' && (
                 <View>
-                  <View style={{
-                    backgroundColor: '#DBEAFE',
-                    padding: 12,
-                    borderRadius: 10,
-                    marginBottom: 12,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                    <Icon name="navigate" size={20} color="#3B82F6" />
-                    <Text style={{fontSize: 14, fontWeight: '600', color: '#1E40AF', marginLeft: 8}}>
-                      Traveling to Client
-                    </Text>
-                  </View>
+                  <TouchableOpacity 
+                    style={{
+                      backgroundColor: '#3B82F6',
+                      padding: 16,
+                      borderRadius: 12,
+                      marginBottom: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}
+                    onPress={() => {
+                      navigation.navigate('ProviderTracking', {
+                        jobId: jobData.id || jobId,
+                        job: jobData,
+                      });
+                    }}>
+                    <View style={{
+                      backgroundColor: 'rgba(255,255,255,0.2)',
+                      padding: 10,
+                      borderRadius: 12,
+                    }}>
+                      <Icon name="navigate" size={24} color="#FFFFFF" />
+                    </View>
+                    <View style={{flex: 1, marginLeft: 12}}>
+                      <Text style={{fontSize: 15, fontWeight: '700', color: '#FFFFFF'}}>
+                        Navigating to Client
+                      </Text>
+                      <Text style={{fontSize: 13, color: 'rgba(255,255,255,0.9)', marginTop: 2}}>
+                        Tap to view map and directions
+                      </Text>
+                    </View>
+                    <Icon name="chevron-forward" size={24} color="#FFFFFF" />
+                  </TouchableOpacity>
                   <TouchableOpacity 
                     style={[styles.actionButton, {backgroundColor: '#10B981'}]} 
                     onPress={handleMarkArrived}>
                     <Icon name="location" size={20} color="#FFFFFF" />
                     <Text style={styles.startButtonText}>I've Arrived</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginTop: 12,
-                    }} 
-                    onPress={() => {
-                      navigation.navigate('Directions', {
-                        destination: {
-                          latitude: jobData.location?.latitude || jobData.latitude,
-                          longitude: jobData.location?.longitude || jobData.longitude,
-                          address: jobData.address || jobData.location?.address,
-                        },
-                        jobId: jobData.id || jobId,
-                      });
-                    }}>
-                    <Icon name="map" size={18} color="#3B82F6" />
-                    <Text style={{color: '#3B82F6', fontWeight: '600', marginLeft: 6}}>View Directions</Text>
                   </TouchableOpacity>
                 </View>
               )}
