@@ -272,6 +272,16 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           clientInfo.longitude = data.longitude;
         }
         
+        // Build full location from booking address fields
+        let fullLocation = '';
+        if (data.houseNumber) fullLocation += data.houseNumber + ', ';
+        if (data.streetAddress) fullLocation += data.streetAddress + ', ';
+        if (data.barangay) fullLocation += 'Brgy. ' + data.barangay + ', ';
+        fullLocation += 'Maasin City';
+        if (!data.houseNumber && !data.streetAddress && !data.barangay) {
+          fullLocation = data.location || data.address || 'Maasin City';
+        }
+
         setJobData({
           ...data,
           id: jobDoc.id,
@@ -293,8 +303,15 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
           // Legacy support
           price: data.providerPrice || (data.totalAmount ? Math.round(data.totalAmount / 1.05) : data.price),
           estimatedPrice: data.estimatedPrice,
+          // Address fields from booking
           address: data.address,
-          location: data.location,
+          location: fullLocation,
+          streetAddress: data.streetAddress || '',
+          houseNumber: data.houseNumber || '',
+          barangay: data.barangay || '',
+          landmark: data.landmark || '',
+          latitude: data.latitude,
+          longitude: data.longitude,
           mediaFiles: data.mediaFiles || [],
           client: clientInfo,
           clientName: data.clientName,

@@ -129,6 +129,16 @@ export default function AdminJobDetailsPage() {
       if (docSnap.exists()) {
         const data = docSnap.data();
 
+        // Build full address from booking address fields
+        let fullAddress = '';
+        if (data.houseNumber) fullAddress += data.houseNumber + ', ';
+        if (data.streetAddress) fullAddress += data.streetAddress + ', ';
+        if (data.barangay) fullAddress += 'Brgy. ' + data.barangay + ', ';
+        fullAddress += 'Maasin City';
+        if (!data.houseNumber && !data.streetAddress && !data.barangay) {
+          fullAddress = data.location || data.address || 'Not specified';
+        }
+
         let clientInfo = { name: data.clientName || "Unknown", phone: "", email: "" };
         if (data.clientId) {
           try {
@@ -178,7 +188,7 @@ export default function AdminJobDetailsPage() {
           finalAmount: data.finalAmount,
           scheduledDate: data.scheduledDate || "TBD",
           scheduledTime: data.scheduledTime || "TBD",
-          address: data.address || data.location || "Not specified",
+          address: fullAddress,
           description: data.description,
           mediaUrls: data.mediaFiles || data.mediaUrls || [],
           adminApproved: data.adminApproved || false,

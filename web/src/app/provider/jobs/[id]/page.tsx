@@ -157,24 +157,29 @@ export default function ProviderJobDetailsPage() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         
+        // Build service location from booking address fields (not client profile)
+        let serviceLocation = '';
+        if (data.houseNumber) serviceLocation += data.houseNumber + ', ';
+        if (data.streetAddress) serviceLocation += data.streetAddress + ', ';
+        if (data.barangay) serviceLocation += 'Brgy. ' + data.barangay + ', ';
+        serviceLocation += 'Maasin City';
+        if (!data.houseNumber && !data.streetAddress && !data.barangay) {
+          serviceLocation = data.location || data.address || 'Maasin City';
+        }
+        
         // Fetch client info
-        let clientInfo = { name: data.clientName || 'Client', phone: '', photo: '', address: '', points: 0, tier: '', completedBookings: 0, reviewsGiven: 0, totalSpent: 0 };
+        let clientInfo = { name: data.clientName || 'Client', phone: '', photo: '', address: serviceLocation, points: 0, tier: '', completedBookings: 0, reviewsGiven: 0, totalSpent: 0 };
         if (data.clientId) {
           try {
             const clientDoc = await getDoc(doc(db, 'users', data.clientId));
             if (clientDoc.exists()) {
               const cData = clientDoc.data();
-              let fullAddress = '';
-              if (cData.houseNumber) fullAddress += cData.houseNumber + ', ';
-              if (cData.streetAddress) fullAddress += cData.streetAddress + ', ';
-              if (cData.barangay) fullAddress += 'Brgy. ' + cData.barangay + ', ';
-              fullAddress += 'Maasin City';
               
               clientInfo = {
                 name: `${cData.firstName || ''} ${cData.lastName || ''}`.trim() || data.clientName,
                 phone: cData.phone || cData.phoneNumber || '',
                 photo: cData.profilePhoto || '',
-                address: fullAddress,
+                address: serviceLocation, // Use booking address, not client profile address
                 points: cData.points || 0,
                 tier: cData.tier || '',
                 completedBookings: cData.completedBookings || cData.bookingsCompleted || 0,

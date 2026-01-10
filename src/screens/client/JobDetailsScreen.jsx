@@ -189,6 +189,16 @@ const JobDetailsScreen = ({navigation, route}) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           
+          // Build full location string from address fields
+          let fullLocation = '';
+          if (data.houseNumber) fullLocation += data.houseNumber + ', ';
+          if (data.streetAddress) fullLocation += data.streetAddress + ', ';
+          if (data.barangay) fullLocation += 'Brgy. ' + data.barangay + ', ';
+          fullLocation += 'Maasin City';
+          if (!data.houseNumber && !data.streetAddress && !data.barangay) {
+            fullLocation = data.location || data.address || 'Maasin City';
+          }
+
           setJobData(prev => ({
             ...prev,
             ...data,
@@ -201,6 +211,12 @@ const JobDetailsScreen = ({navigation, route}) => {
             scheduledTime: formatTimestamp(data.scheduledTime, 'time'),
             price: data.totalAmount || data.price,
             address: data.address,
+            // Address fields
+            streetAddress: data.streetAddress || '',
+            houseNumber: data.houseNumber || '',
+            barangay: data.barangay || '',
+            landmark: data.landmark || '',
+            location: fullLocation,
             mediaFiles: data.mediaFiles || [],
             counterOfferPrice: data.counterOfferPrice,
             counterOfferNote: data.counterOfferNote,
@@ -1011,6 +1027,47 @@ const JobDetailsScreen = ({navigation, route}) => {
             <Text style={styles.description}>{jobData.description}</Text>
           )}
         </View>
+
+        {/* Location Section */}
+        {(jobData.location || jobData.address || jobData.barangay) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Service Location</Text>
+            <View style={{
+              backgroundColor: isDark ? theme.colors.surface : '#F9FAFB',
+              borderRadius: 12,
+              padding: 14,
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+            }}>
+              <View style={{
+                backgroundColor: '#FEE2E2',
+                padding: 10,
+                borderRadius: 10,
+                marginRight: 12,
+              }}>
+                <Icon name="location" size={20} color="#EF4444" />
+              </View>
+              <View style={{flex: 1}}>
+                <Text style={{
+                  fontSize: 15,
+                  fontWeight: '600',
+                  color: isDark ? theme.colors.text : '#1F2937',
+                  marginBottom: 4,
+                }}>
+                  {jobData.location || jobData.address || 'Maasin City'}
+                </Text>
+                {jobData.landmark && (
+                  <Text style={{
+                    fontSize: 13,
+                    color: isDark ? theme.colors.textSecondary : '#6B7280',
+                  }}>
+                    Landmark: {jobData.landmark}
+                  </Text>
+                )}
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Provider Info (show if provider assigned or providerName exists) */}
         {(jobData.provider || jobData.providerName || jobData.providerId) && (
