@@ -533,6 +533,35 @@ const ClientHomeScreen = ({navigation}) => {
       if (activeBookings[provider.id]) {
         setSelectedProvider(provider);
         setShowProviderModal(true);
+        
+        // Still fetch route for active bookings
+        const originLat = userLocation?.latitude || region.latitude;
+        const originLng = userLocation?.longitude || region.longitude;
+        
+        if (originLat && originLng && provider.latitude && provider.longitude) {
+          // Fit map to show both user and provider
+          if (mapRef.current) {
+            const coords = [
+              {latitude: originLat, longitude: originLng},
+              {latitude: provider.latitude, longitude: provider.longitude}
+            ];
+            mapRef.current.fitToCoordinates(coords, {
+              edgePadding: {top: 100, right: 50, bottom: 50, left: 50}, 
+              animated: true
+            });
+          }
+          
+          // Fetch route
+          fetchDirections(
+            {latitude: originLat, longitude: originLng},
+            {latitude: provider.latitude, longitude: provider.longitude}
+          ).then(route => {
+            if (route && route.length > 0) {
+              setRouteCoordinates(route);
+            }
+          }).catch(err => console.log('Route fetch error:', err));
+        }
+        
         // Reset the ref before returning
         setTimeout(() => { isSelectingRef.current = false; }, 100);
         return;
@@ -957,9 +986,9 @@ const ClientHomeScreen = ({navigation}) => {
                     </View>
                     
                     {/* Animated Progress bar - only show for pending statuses */}
-                    {['pending', 'accepted'].includes(activeBookings[selectedProvider.id].status) && !activeBookings[selectedProvider.id].adminApproved === false && (
+                    {(['pending', 'accepted'].includes(activeBookings[selectedProvider.id].status) || !activeBookings[selectedProvider.id].adminApproved) ? (
                       <AnimatedProgressBar />
-                    )}
+                    ) : null}
                     
                     {/* Bottom row */}
                     <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12}}>
@@ -1018,7 +1047,20 @@ const ClientHomeScreen = ({navigation}) => {
                   <View style={{flex: 1}}>
                     <Text style={{fontSize: 12, color: '#9CA3AF'}}>Service Location</Text>
                     <Text style={{fontSize: 14, fontWeight: '500', color: '#1F2937'}} numberOfLines={2}>
-                      {activeBookings[selectedProvider.id].serviceAddress || activeBookings[selectedProvider.id].address || 'Service at your location'}
+                      {(() => {
+                        const booking = activeBookings[selectedProvider.id];
+                        // Build full address from booking fields
+                        let fullAddress = '';
+                        if (booking.houseNumber) fullAddress += booking.houseNumber + ', ';
+                        if (booking.streetAddress) fullAddress += booking.streetAddress + ', ';
+                        if (booking.barangay) fullAddress += 'Brgy. ' + booking.barangay + ', ';
+                        fullAddress += 'Maasin City';
+                        // If no address fields, use fallbacks
+                        if (!booking.houseNumber && !booking.streetAddress && !booking.barangay) {
+                          fullAddress = booking.serviceAddress || booking.location || booking.address || 'Service at your location';
+                        }
+                        return fullAddress;
+                      })()}
                     </Text>
                   </View>
                 </View>

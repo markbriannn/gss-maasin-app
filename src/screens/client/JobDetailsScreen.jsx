@@ -228,8 +228,8 @@ const JobDetailsScreen = ({navigation, route}) => {
             paymentStatus: data.paymentStatus || null, // pending, held, released, refunded
             paymentMethod: data.paymentMethod || 'gcash', // gcash or maya
             escrowAmount: data.escrowAmount || 0,
-            isPaidUpfront: data.isPaidUpfront || false,
-            upfrontPaidAmount: data.upfrontPaidAmount || 0,
+            isPaidUpfront: data.isPaidUpfront || data.paid || false, // Check both fields
+            upfrontPaidAmount: data.upfrontPaidAmount || data.paidAmount || 0,
             additionalCharges: data.additionalCharges || [],
           }));
         }
@@ -931,7 +931,7 @@ const JobDetailsScreen = ({navigation, route}) => {
         </View>
 
         {/* Provider Traveling Banner - Prominent tracking CTA */}
-        {(jobData.status === 'traveling' || jobData.status === 'arrived') && (
+        {(jobData.status === 'traveling' || jobData.status === 'arrived') ? (
           <TouchableOpacity 
             style={{
               backgroundColor: jobData.status === 'traveling' ? '#3B82F6' : '#10B981',
@@ -963,10 +963,9 @@ const JobDetailsScreen = ({navigation, route}) => {
             </View>
             <Icon name="chevron-forward" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-        )}
-
+        ) : null}
         {/* Admin Review Banner - Show when pending and not yet approved */}
-        {!jobData.adminApproved && (jobData.status === 'pending' || jobData.status === 'pending_negotiation') && (
+        {(!jobData.adminApproved && (jobData.status === 'pending' || jobData.status === 'pending_negotiation')) ? (
           <View style={{
             backgroundColor: '#EFF6FF',
             padding: 14,
@@ -988,10 +987,9 @@ const JobDetailsScreen = ({navigation, route}) => {
               </Text>
             </View>
           </View>
-        )}
-
+        ) : null}
         {/* Approved Banner - Show when admin approved and waiting for provider */}
-        {jobData.adminApproved && jobData.status === 'pending' && (
+        {(jobData.adminApproved && jobData.status === 'pending') ? (
           <View style={{
             backgroundColor: '#F0FDF4',
             padding: 14,
@@ -1013,8 +1011,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               </Text>
             </View>
           </View>
-        )}
-
+        ) : null}
         {/* Job Info */}
         <View style={styles.section}>
           <Text style={styles.jobTitle}>{jobData.title || jobData.serviceCategory}</Text>
@@ -1023,13 +1020,12 @@ const JobDetailsScreen = ({navigation, route}) => {
             <Text style={styles.categoryText}>{jobData.serviceCategory}</Text>
           </View>
           
-          {jobData.description && (
+          {jobData.description ? (
             <Text style={styles.description}>{jobData.description}</Text>
-          )}
+          ) : null}
         </View>
-
         {/* Location Section */}
-        {(jobData.location || jobData.address || jobData.barangay) && (
+        {(jobData.location || jobData.address || jobData.barangay) ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Service Location</Text>
             <View style={{
@@ -1056,21 +1052,20 @@ const JobDetailsScreen = ({navigation, route}) => {
                 }}>
                   {jobData.location || jobData.address || 'Maasin City'}
                 </Text>
-                {jobData.landmark && (
+                {jobData.landmark ? (
                   <Text style={{
                     fontSize: 13,
                     color: isDark ? theme.colors.textSecondary : '#6B7280',
                   }}>
-                    Landmark: {jobData.landmark}
+                    {`Landmark: ${jobData.landmark}`}
                   </Text>
-                )}
+                ) : null}
               </View>
             </View>
           </View>
-        )}
-
+        ) : null}
         {/* Provider Info (show if provider assigned or providerName exists) */}
-        {(jobData.provider || jobData.providerName || jobData.providerId) && (
+        {(jobData.provider || jobData.providerName || jobData.providerId) ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Service Provider</Text>
             <View style={styles.personCard}>
@@ -1092,21 +1087,21 @@ const JobDetailsScreen = ({navigation, route}) => {
                   </Text>
                 </View>
                 {/* Provider Tier */}
-                {(jobData.provider?.tier || jobData.provider?.points > 0) && (
+                {(jobData.provider?.tier || jobData.provider?.points > 0) ? (
                   <View style={{marginTop: 4}}>
                     <TierBadge tier={jobData.provider?.tier || getProviderTier(jobData.provider.points)} size="small" />
                   </View>
-                )}
+                ) : null}
               </View>
             </View>
             
             {/* Provider Badges */}
-            {jobData.provider?.badges?.length > 0 && (
+            {jobData.provider?.badges?.length > 0 ? (
               <View style={{marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E5E7EB'}}>
                 <Text style={{fontSize: 12, color: '#6B7280', marginBottom: 6}}>Provider Badges</Text>
                 <BadgeList badges={jobData.provider.badges} maxDisplay={4} size="small" />
               </View>
-            )}
+            ) : null}
             
             {/* Contact Buttons - Only show after admin approval */}
             {jobData.adminApproved ? (
@@ -1122,7 +1117,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                   </TouchableOpacity>
                 </View>
                 {/* Track Provider Button - Show when traveling or arrived */}
-                {(jobData.status === 'traveling' || jobData.status === 'arrived') && (
+                {(jobData.status === 'traveling' || jobData.status === 'arrived') ? (
                   <TouchableOpacity 
                     style={{
                       backgroundColor: '#3B82F6',
@@ -1142,7 +1137,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                       {jobData.status === 'traveling' ? 'Track Provider Location' : 'View Provider Location'}
                     </Text>
                   </TouchableOpacity>
-                )}
+                ) : null}
               </View>
             ) : (
               <View style={{
@@ -1160,29 +1155,27 @@ const JobDetailsScreen = ({navigation, route}) => {
               </View>
             )}
           </View>
-        )}
-
+        ) : null}
         {/* Media Files */}
-        {jobData.mediaFiles && jobData.mediaFiles.length > 0 && (
+        {jobData.mediaFiles && jobData.mediaFiles.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Attached Media</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {jobData.mediaFiles.map((file, index) => (
                 <View key={index} style={styles.mediaItem}>
-                {(file.url || file.uri) && (
-                  <Image source={{uri: file.url || file.uri}} style={styles.mediaImage} />
-                )}
-                  {file.isVideo && (
+                  {(file.url || file.uri) ? (
+                    <Image source={{uri: file.url || file.uri}} style={styles.mediaImage} />
+                  ) : null}
+                  {file.isVideo ? (
                     <View style={styles.videoOverlay}>
                       <Icon name="play-circle" size={30} color="#FFFFFF" />
                     </View>
-                  )}
+                  ) : null}
                 </View>
               ))}
             </ScrollView>
           </View>
-        )}
-
+        ) : null}
         {/* Payment Preference - Always Pay First with GCash/Maya */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Payment Method</Text>
@@ -1209,17 +1202,17 @@ const JobDetailsScreen = ({navigation, route}) => {
                   </Text>
                 </View>
               </View>
-              {jobData.isPaidUpfront && (
+              {jobData.isPaidUpfront ? (
                 <View style={{backgroundColor: '#10B981', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8}}>
                   <Text style={{fontSize: 12, fontWeight: '700', color: '#FFFFFF'}}>PAID</Text>
                 </View>
-              )}
+              ) : null}
             </View>
           </View>
         </View>
 
         {/* Price Info */}
-        {(jobData.price || jobData.estimatedPrice || jobData.totalAmount) && (
+        {(jobData.price || jobData.estimatedPrice || jobData.totalAmount) ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Price Breakdown</Text>
             <View style={{
@@ -1230,7 +1223,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               borderColor: '#BBF7D0',
             }}>
               {/* Show negotiation info */}
-              {jobData.isNegotiable && (
+              {jobData.isNegotiable ? (
                 <View style={{marginBottom: 12}}>
                   <Text style={{fontSize: 12, color: '#6B7280', marginBottom: 4}}>
                     Provider's Fixed Price: ₱{(jobData.providerFixedPrice || 0).toLocaleString()}
@@ -1239,7 +1232,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                     Your Offer: ₱{(jobData.offeredPrice || 0).toLocaleString()}
                   </Text>
                 </View>
-              )}
+              ) : null}
 
               <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
                 <Text style={{fontSize: 14, color: '#4B5563'}}>Service Price</Text>
@@ -1249,7 +1242,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               </View>
 
               {/* Show discount if applied */}
-              {jobData.hasDiscount && jobData.discountAmount > 0 && (
+              {(jobData.hasDiscount && jobData.discountAmount > 0) ? (
                 <View style={{
                   backgroundColor: '#D1FAE5',
                   borderRadius: 8,
@@ -1267,13 +1260,13 @@ const JobDetailsScreen = ({navigation, route}) => {
                       -₱{jobData.discountAmount.toLocaleString()}
                     </Text>
                   </View>
-                  {jobData.discountReason && (
+                  {jobData.discountReason ? (
                     <Text style={{fontSize: 12, color: '#065F46', marginTop: 4, fontStyle: 'italic'}}>
                       "{jobData.discountReason}"
                     </Text>
-                  )}
+                  ) : null}
                 </View>
-              )}
+              ) : null}
 
               <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
                 <Text style={{fontSize: 14, color: '#4B5563'}}>System Fee ({APP_CONFIG.SERVICE_FEE_PERCENTAGE}%)</Text>
@@ -1283,7 +1276,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               </View>
 
               {/* Show additional charges */}
-              {jobData.additionalCharges && jobData.additionalCharges.length > 0 && (
+              {(jobData.additionalCharges && jobData.additionalCharges.length > 0) ? (
                 <View style={{marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#BBF7D0'}}>
                   <Text style={{fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8}}>
                     Additional Charges
@@ -1298,7 +1291,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                           +₱{(charge.total || 0).toLocaleString()}
                         </Text>
                       </View>
-                      {charge.status === 'pending' && (
+                      {charge.status === 'pending' ? (
                         <View style={{flexDirection: 'row', marginTop: 8}}>
                           <TouchableOpacity 
                             style={{
@@ -1324,17 +1317,17 @@ const JobDetailsScreen = ({navigation, route}) => {
                             <Text style={{fontSize: 12, color: '#059669', fontWeight: '600'}}>Approve</Text>
                           </TouchableOpacity>
                         </View>
-                      )}
-                      {charge.status === 'approved' && (
+                      ) : null}
+                      {charge.status === 'approved' ? (
                         <Text style={{fontSize: 11, color: '#059669', marginTop: 2}}>✓ Approved</Text>
-                      )}
-                      {charge.status === 'rejected' && (
+                      ) : null}
+                      {charge.status === 'rejected' ? (
                         <Text style={{fontSize: 11, color: '#DC2626', marginTop: 2}}>✗ Rejected</Text>
-                      )}
+                      ) : null}
                     </View>
                   ))}
                 </View>
-              )}
+              ) : null}
 
               <View style={{
                 paddingTop: 8,
@@ -1354,10 +1347,9 @@ const JobDetailsScreen = ({navigation, route}) => {
               </View>
             </View>
           </View>
-        )}
-
+        ) : null}
         {/* Counter Offer Section */}
-        {jobData.status?.toLowerCase() === 'counter_offer' && (
+        {jobData.status?.toLowerCase() === 'counter_offer' ? (
           <View style={styles.section}>
             <View style={{
               backgroundColor: '#EDE9FE',
@@ -1378,11 +1370,11 @@ const JobDetailsScreen = ({navigation, route}) => {
               <Text style={{fontSize: 13, color: '#6B7280', marginTop: 4}}>
                 Total with fee: ₱{((jobData.counterOfferPrice || 0) * 1.05).toLocaleString()}
               </Text>
-              {jobData.counterOfferNote && (
+              {jobData.counterOfferNote ? (
                 <Text style={{fontSize: 14, color: '#5B21B6', marginTop: 8, fontStyle: 'italic'}}>
                   "{jobData.counterOfferNote}"
                 </Text>
-              )}
+              ) : null}
               
               <View style={{flexDirection: 'row', marginTop: 16}}>
                 <TouchableOpacity 
@@ -1413,10 +1405,9 @@ const JobDetailsScreen = ({navigation, route}) => {
               </View>
             </View>
           </View>
-        )}
-
+        ) : null}
         {/* Review Prompt - Show when job is completed and not yet reviewed */}
-        {jobData.status === 'completed' && !jobData.reviewed && (
+        {(jobData.status === 'completed' && !jobData.reviewed) ? (
           <View style={{
             margin: 16,
             padding: 20,
@@ -1454,10 +1445,9 @@ const JobDetailsScreen = ({navigation, route}) => {
               </Text>
             </TouchableOpacity>
           </View>
-        )}
-
+        ) : null}
         {/* Review Submitted Badge - Show when reviewed */}
-        {jobData.status === 'completed' && jobData.reviewed && (
+        {(jobData.status === 'completed' && jobData.reviewed) ? (
           <View style={{
             margin: 16,
             padding: 16,
@@ -1488,10 +1478,9 @@ const JobDetailsScreen = ({navigation, route}) => {
               </View>
             </View>
           </View>
-        )}
-
+        ) : null}
         {/* View Receipt Button - Show for completed jobs */}
-        {jobData.status === 'completed' && (
+        {jobData.status === 'completed' ? (
           <View style={{marginHorizontal: 16, marginBottom: 16}}>
             <TouchableOpacity 
               style={{
@@ -1538,8 +1527,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               </Text>
             </TouchableOpacity>
           </View>
-        )}
-
+        ) : null}
         {/* Job ID */}
         <View style={styles.section}>
           <Text style={styles.jobId}>Job ID: {jobData.id || jobId || 'N/A'}</Text>
@@ -1547,63 +1535,17 @@ const JobDetailsScreen = ({navigation, route}) => {
             Created: {jobData.createdAt || new Date().toLocaleDateString()}
           </Text>
         </View>
-
         {/* Action Buttons */}
-        {(jobData.status === 'pending' || jobData.status === 'pending_negotiation') && (
+        {(jobData.status === 'pending' || jobData.status === 'pending_negotiation') ? (
           <View style={styles.actionSection}>
             <TouchableOpacity style={styles.cancelButton} onPress={handleCancelJob}>
               <Text style={styles.cancelButtonText}>Cancel Request</Text>
             </TouchableOpacity>
           </View>
-        )}
-
-        {/* PAY FIRST - Client needs to pay before provider starts work */}
-        {jobData.paymentPreference === 'pay_first' && 
-         !jobData.isPaidUpfront && 
-         (jobData.status === 'accepted' || jobData.status === 'traveling' || jobData.status === 'arrived') && (
-          <View style={styles.actionSection}>
-            <View style={{
-              backgroundColor: '#FEF3C7',
-              padding: 16,
-              borderRadius: 12,
-              marginBottom: 16,
-              alignItems: 'center',
-              borderWidth: 2,
-              borderColor: '#F59E0B',
-            }}>
-              <Icon name="alert-circle" size={32} color="#F59E0B" />
-              <Text style={{fontSize: 18, fontWeight: '700', color: '#92400E', marginTop: 8}}>
-                Payment Required First
-              </Text>
-              <Text style={{fontSize: 22, fontWeight: '700', color: '#D97706', marginTop: 8}}>
-                ₱{(jobData?.totalAmount || jobData?.amount || 0).toLocaleString()}
-              </Text>
-              <Text style={{fontSize: 13, color: '#B45309', marginTop: 8, textAlign: 'center'}}>
-                You selected "Pay First". Please pay now so the provider can start working.
-              </Text>
-            </View>
-            <TouchableOpacity 
-              style={{
-                backgroundColor: '#F59E0B',
-                borderRadius: 12,
-                paddingVertical: 16,
-                alignItems: 'center',
-                flexDirection: 'row',
-                justifyContent: 'center',
-              }}
-              onPress={handlePayUpfront}>
-              <Icon name="card" size={20} color="#FFFFFF" />
-              <Text style={{color: '#FFFFFF', fontWeight: '700', fontSize: 16, marginLeft: 8}}>
-                Pay Now (Before Service)
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* PAY FIRST - Already paid, waiting for work */}
-        {jobData.paymentPreference === 'pay_first' && 
-         jobData.isPaidUpfront && 
-         (jobData.status === 'accepted' || jobData.status === 'traveling' || jobData.status === 'arrived' || jobData.status === 'in_progress') && (
+        ) : null}
+        {/* Payment already made during booking - show confirmation */}
+        {(jobData.isPaidUpfront && 
+         (jobData.status === 'accepted' || jobData.status === 'traveling' || jobData.status === 'arrived' || jobData.status === 'in_progress')) ? (
           <View style={styles.actionSection}>
             <View style={{
               backgroundColor: '#D1FAE5',
@@ -1621,14 +1563,19 @@ const JobDetailsScreen = ({navigation, route}) => {
                 ₱{(jobData.upfrontPaidAmount || jobData.totalAmount || 0).toLocaleString()} paid
               </Text>
               <Text style={{fontSize: 13, color: '#059669', marginTop: 8, textAlign: 'center'}}>
-                Provider can now proceed with the work. You'll be notified when complete.
+                {jobData.status === 'in_progress' 
+                  ? 'Provider is working on your job. You\'ll be notified when complete.'
+                  : jobData.status === 'arrived'
+                  ? 'Provider has arrived and will start working soon.'
+                  : jobData.status === 'traveling'
+                  ? 'Provider is on the way to your location.'
+                  : 'Provider has accepted. They will start traveling soon.'}
               </Text>
             </View>
           </View>
-        )}
-
+        ) : null}
         {/* Pending Completion - Client needs to confirm work is done */}
-        {jobData.status === 'pending_completion' && (
+        {jobData.status === 'pending_completion' ? (
           <View style={styles.actionSection}>
             <View style={{
               backgroundColor: '#FEF3C7',
@@ -1645,9 +1592,8 @@ const JobDetailsScreen = ({navigation, route}) => {
                 Please confirm if you're satisfied with the work to proceed to payment.
               </Text>
             </View>
-
             {/* Show pending additional charges that need approval */}
-            {jobData.additionalCharges?.some(c => c.status === 'pending') && (
+            {jobData.additionalCharges?.some(c => c.status === 'pending') ? (
               <View style={{
                 backgroundColor: '#FEE2E2',
                 padding: 16,
@@ -1703,8 +1649,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                   </View>
                 ))}
               </View>
-            )}
-
+            ) : null}
             <TouchableOpacity 
               style={{
                 backgroundColor: jobData.hasAdditionalPending ? '#9CA3AF' : '#10B981',
@@ -1722,13 +1667,12 @@ const JobDetailsScreen = ({navigation, route}) => {
               </Text>
             </TouchableOpacity>
           </View>
-        )}
-
+        ) : null}
         {/* Pending Payment - Client needs to pay */}
-        {jobData.status === 'pending_payment' && (
+        {jobData.status === 'pending_payment' ? (
           <View style={styles.actionSection}>
             {/* Show error banner if payment failed */}
-            {paymentError && (
+            {paymentError ? (
               <View style={{
                 backgroundColor: '#FEE2E2',
                 padding: 14,
@@ -1748,10 +1692,9 @@ const JobDetailsScreen = ({navigation, route}) => {
                   <Icon name="close" size={18} color="#DC2626" />
                 </TouchableOpacity>
               </View>
-            )}
-
+            ) : null}
             {/* Checking payment status indicator */}
-            {isCheckingPayment && (
+            {isCheckingPayment ? (
               <View style={{
                 backgroundColor: '#FEF3C7',
                 padding: 14,
@@ -1765,8 +1708,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                   Checking payment status...
                 </Text>
               </View>
-            )}
-
+            ) : null}
             <View style={{
               backgroundColor: '#DBEAFE',
               padding: 16,
@@ -1791,11 +1733,11 @@ const JobDetailsScreen = ({navigation, route}) => {
                   return baseAmount + additionalTotal;
                 })().toLocaleString()}
               </Text>
-              {jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront && (
+              {(jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront) ? (
                 <Text style={{fontSize: 12, color: '#3B82F6', marginTop: 2}}>
                   (Original ₱{(jobData.upfrontPaidAmount || jobData.totalAmount || 0).toLocaleString()} already paid)
                 </Text>
-              )}
+              ) : null}
               <Text style={{fontSize: 13, color: '#3B82F6', marginTop: 4, textAlign: 'center'}}>
                 {jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront 
                   ? 'Please pay the additional charges to complete this job.'
@@ -1846,10 +1788,9 @@ const JobDetailsScreen = ({navigation, route}) => {
               )}
             </TouchableOpacity>
           </View>
-        )}
-
+        ) : null}
         {/* Payment Received - Waiting for provider confirmation */}
-        {jobData.status === 'payment_received' && (
+        {jobData.status === 'payment_received' ? (
           <View style={styles.actionSection}>
             <View style={{
               backgroundColor: '#D1FAE5',
@@ -1866,8 +1807,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               </Text>
             </View>
           </View>
-        )}
-
+        ) : null}
         <View style={{height: 40}} />
       </ScrollView>
 
@@ -1927,7 +1867,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               </TouchableOpacity>
             ))}
 
-            {selectedCancelReason === 'Other' && (
+            {selectedCancelReason === 'Other' ? (
               <TextInput
                 style={{
                   backgroundColor: '#F9FAFB',
@@ -1946,7 +1886,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                 value={cancelReason}
                 onChangeText={setCancelReason}
               />
-            )}
+            ) : null}
 
             <View style={{flexDirection: 'row', marginTop: 20}}>
               <TouchableOpacity 
@@ -2053,14 +1993,14 @@ const JobDetailsScreen = ({navigation, route}) => {
               onChangeText={setNewOfferNote}
             />
 
-            {newOfferPrice && (
+            {newOfferPrice ? (
               <View style={{backgroundColor: '#F0FDF4', borderRadius: 12, padding: 12, marginBottom: 16}}>
                 <Text style={{fontSize: 13, color: '#6B7280'}}>Your total with fee:</Text>
                 <Text style={{fontSize: 20, fontWeight: '700', color: '#00B14F'}}>
                   ₱{(parseFloat(newOfferPrice || 0) * 1.05).toLocaleString()}
                 </Text>
               </View>
-            )}
+            ) : null}
 
             <TouchableOpacity 
               style={{
