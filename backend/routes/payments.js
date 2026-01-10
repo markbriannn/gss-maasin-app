@@ -521,7 +521,8 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
       const platformCommission = amountInPesos * 0.05;
 
       // Check if this is a "pay first" upfront payment
-      const isUpfrontPayment = bookingData?.paymentPreference === 'pay_first' && !bookingData?.isPaidUpfront;
+      const isPayFirstBooking = bookingData?.paymentPreference === 'pay_first';
+      const isUpfrontPayment = isPayFirstBooking && !bookingData?.isPaidUpfront;
 
       // Update booking status
       const bookingUpdate = {
@@ -533,17 +534,25 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
       };
 
       if (isUpfrontPayment) {
-        // Pay First - mark as paid upfront
+        // Pay First - mark as paid upfront, DON'T change status
         bookingUpdate.isPaidUpfront = true;
         bookingUpdate.upfrontPaidAmount = amountInPesos;
         bookingUpdate.upfrontPaidAt = new Date();
-        // If status is pending_payment (shouldn't happen for pay_first but fix it), set to accepted
-        if (bookingData?.status === 'pending_payment') {
-          bookingUpdate.status = 'accepted';
+        bookingUpdate.paymentStatus = 'held';
+        // Don't change status - keep it as pending for admin approval
+        console.log(`Pay First upfront payment processed for booking ${bookingId}: ₱${amountInPesos}`);
+      } else if (isPayFirstBooking && bookingData?.isPaidUpfront) {
+        // Pay First booking that's already paid - only change status if in payment flow
+        if (bookingData?.status === 'pending_payment' || bookingData?.status === 'pending_completion') {
+          bookingUpdate.status = 'payment_received';
+          console.log(`Additional payment processed for Pay First booking ${bookingId}: ₱${amountInPesos}`);
+        } else {
+          console.log(`Duplicate payment for Pay First booking ${bookingId}, status unchanged: ${bookingData?.status}`);
         }
       } else {
         // Pay Later - mark as payment received
         bookingUpdate.status = 'payment_received';
+        console.log(`Pay Later payment processed for booking ${bookingId}: ₱${amountInPesos}`);
       }
 
       await db.collection('bookings').doc(bookingId).update(bookingUpdate);
@@ -745,8 +754,9 @@ router.post('/webhook', async (req, res) => {
 
         // Check if this is an escrow payment (awaiting_payment status)
         const isEscrowPayment = bookingData?.status === 'awaiting_payment';
-        // Check if this is a "pay first" upfront payment (legacy)
-        const isUpfrontPayment = bookingData?.paymentPreference === 'pay_first' && !bookingData?.isPaidUpfront;
+        // Check if this is a "pay first" upfront payment
+        const isPayFirstBooking = bookingData?.paymentPreference === 'pay_first';
+        const isUpfrontPayment = isPayFirstBooking && !bookingData?.isPaidUpfront;
 
         // Update booking
         const bookingUpdate = {
@@ -766,17 +776,27 @@ router.post('/webhook', async (req, res) => {
           bookingUpdate.status = 'pending'; // Now waiting for admin approval
           console.log(`Escrow payment received for booking ${paymentData.bookingId}: ₱${amountInPesos}`);
         } else if (isUpfrontPayment) {
-          // Pay First (legacy) - mark as paid upfront
+          // Pay First - mark as paid upfront, DON'T change status (keep as pending for admin approval)
           bookingUpdate.isPaidUpfront = true;
           bookingUpdate.upfrontPaidAmount = amountInPesos;
           bookingUpdate.upfrontPaidAt = new Date();
-          // If status is pending_payment (shouldn't happen for pay_first but fix it), set to accepted
-          if (bookingData?.status === 'pending_payment') {
-            bookingUpdate.status = 'accepted';
+          bookingUpdate.paymentStatus = 'held';
+          // Don't change status - keep it as pending for admin approval, then provider accepts
+          console.log(`Pay First upfront payment received for booking ${paymentData.bookingId}: ₱${amountInPesos}, status remains: ${bookingData?.status}`);
+        } else if (isPayFirstBooking && bookingData?.isPaidUpfront) {
+          // Pay First booking that's already paid - this is likely additional charges payment
+          // Only change to payment_received if we're in pending_payment or pending_completion status
+          if (bookingData?.status === 'pending_payment' || bookingData?.status === 'pending_completion') {
+            bookingUpdate.status = 'payment_received';
+            console.log(`Additional payment received for Pay First booking ${paymentData.bookingId}: ₱${amountInPesos}`);
+          } else {
+            // Don't change status for already-paid Pay First bookings in other statuses
+            console.log(`Duplicate/extra payment for Pay First booking ${paymentData.bookingId}, status unchanged: ${bookingData?.status}`);
           }
         } else {
-          // Pay Later - mark as payment received
+          // Pay Later - mark as payment received (this is the final payment after work is done)
           bookingUpdate.status = 'payment_received';
+          console.log(`Pay Later payment received for booking ${paymentData.bookingId}: ₱${amountInPesos}`);
         }
 
         await db.collection('bookings').doc(paymentData.bookingId).update(bookingUpdate);
