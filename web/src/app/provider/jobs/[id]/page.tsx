@@ -235,6 +235,7 @@ export default function ProviderJobDetailsPage() {
   };
 
   const handleAccept = async () => {
+    if (updating) return; // Prevent double-click
     await updateJobStatus('accepted', { acceptedAt: serverTimestamp() });
     // Send FCM push to client
     if (job?.clientId) {
@@ -244,6 +245,7 @@ export default function ProviderJobDetailsPage() {
   };
   
   const handleStartTraveling = async () => {
+    if (updating) return; // Prevent double-click
     await updateJobStatus('traveling', { travelingAt: serverTimestamp() });
     // Send FCM push to client
     if (job?.clientId) {
@@ -252,6 +254,7 @@ export default function ProviderJobDetailsPage() {
   };
   
   const handleArrived = async () => {
+    if (updating) return; // Prevent double-click
     await updateJobStatus('arrived', { arrivedAt: serverTimestamp() });
     // Send FCM push to client
     if (job?.clientId) {
@@ -260,6 +263,7 @@ export default function ProviderJobDetailsPage() {
   };
   
   const handleStartWork = async () => {
+    if (updating) return; // Prevent double-click
     await updateJobStatus('in_progress', { startedAt: serverTimestamp() });
     // Send FCM push to client
     if (job?.clientId) {
@@ -275,6 +279,7 @@ export default function ProviderJobDetailsPage() {
   
   const handleMarkDone = async () => {
     if (!job) return;
+    if (updating) return; // Prevent double-click
     const finalAmount = calculateTotal();
     await updateJobStatus('pending_completion', { 
       markedDoneAt: serverTimestamp(),
@@ -288,6 +293,7 @@ export default function ProviderJobDetailsPage() {
 
   const handleConfirmPayment = async () => {
     if (!job || !user) return;
+    if (updating) return; // Prevent double-click
     const providerAmount = calculateTotal(); // Provider's base amount (without system fee)
     const systemFee = Math.round(providerAmount * 0.05); // 5% of provider's amount
     const clientTotal = providerAmount + systemFee; // What client pays
@@ -332,14 +338,14 @@ export default function ProviderJobDetailsPage() {
         await updateDoc(clientGamificationRef, {
           points: (clientGamDoc.data().points || 0) + 50,
           'stats.completedBookings': (clientGamDoc.data().stats?.completedBookings || 0) + 1,
-          'stats.totalSpent': (clientGamDoc.data().stats?.totalSpent || 0) + finalAmount,
+          'stats.totalSpent': (clientGamDoc.data().stats?.totalSpent || 0) + clientTotal,
           updatedAt: serverTimestamp(),
         });
       } else {
         await setDoc(clientGamificationRef, {
           points: 50,
           role: 'CLIENT',
-          stats: { completedBookings: 1, totalSpent: finalAmount, reviewsGiven: 0 },
+          stats: { completedBookings: 1, totalSpent: clientTotal, reviewsGiven: 0 },
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });

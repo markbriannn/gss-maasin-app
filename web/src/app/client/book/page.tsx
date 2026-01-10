@@ -181,6 +181,7 @@ function BookServiceContent() {
 
   const handleSubmit = async () => {
     if (!provider || !user) return;
+    if (submitting || processingPayment) return; // Prevent double-click
     if (mediaFiles.length === 0) { alert('Please upload at least one photo or video'); return; }
 
     // Check if client already has an active booking with this provider

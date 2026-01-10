@@ -528,6 +528,9 @@ const JobDetailsScreen = ({navigation, route}) => {
 
   // Process payment based on selected method
   const processPayment = async (method) => {
+    // Prevent double-click
+    if (isProcessingPayment || isUpdating) return;
+    
     // Calculate total including approved additional charges
     const baseAmount = jobData?.totalAmount || jobData?.amount || 0;
     const additionalChargesTotal = jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || 0), 0) || 0;

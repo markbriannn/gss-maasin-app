@@ -396,6 +396,7 @@ function JobDetailsContent() {
 
   const handlePayment = async (method: 'gcash' | 'maya' | 'cash') => {
     if (!job || !user) return;
+    if (updating) return; // Prevent double-click
     
     const baseAmount = job.totalAmount || job.price || 0;
     const additionalChargesTotal = (job.additionalCharges || [])

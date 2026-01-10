@@ -361,6 +361,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
   };
 
   const handleAcceptJob = () => {
+    if (isUpdating) return; // Prevent double-click
     const servicePrice = jobData?.providerPrice || jobData?.providerFixedPrice || 0;
     
     Alert.alert(
@@ -371,6 +372,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
         {
           text: 'Accept',
           onPress: async () => {
+            if (isUpdating) return; // Double-check
             try {
               setIsUpdating(true);
               const systemFee = servicePrice * 0.05;
@@ -665,6 +667,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
 
   // Start traveling to client location
   const handleStartTraveling = () => {
+    if (isUpdating) return; // Prevent double-click
     Alert.alert(
       'Start Traveling',
       'Start traveling to the client location? Your location will be shared with the client.',
@@ -673,6 +676,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
         {
           text: 'Start',
           onPress: async () => {
+            if (isUpdating) return; // Double-check
             try {
               setIsUpdating(true);
               const bookingId = jobData.id || jobId;
@@ -733,6 +737,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
 
   // Mark as arrived at client location
   const handleMarkArrived = () => {
+    if (isUpdating) return; // Prevent double-click
     Alert.alert(
       'Arrived',
       'Confirm you have arrived at the client location?',
@@ -741,6 +746,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
         {
           text: 'Confirm',
           onPress: async () => {
+            if (isUpdating) return; // Double-check
             try {
               setIsUpdating(true);
               const bookingId = jobData.id || jobId;

@@ -298,6 +298,9 @@ const BookServiceScreen = ({navigation, route}) => {
   };
 
   const handleSubmit = async () => {
+    // Prevent double-click
+    if (isLoading || processingPayment) return;
+    
     if (!serviceCategory) {
       Alert.alert('Required', 'Please select a service category');
       return;
