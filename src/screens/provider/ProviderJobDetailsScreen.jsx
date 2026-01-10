@@ -1885,6 +1885,72 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                   </TouchableOpacity>
                 </View>
               )}
+
+              {/* Completed - Show receipt button */}
+              {jobData.status === 'completed' && (
+                <View>
+                  <View style={{
+                    backgroundColor: '#D1FAE5',
+                    padding: 16,
+                    borderRadius: 12,
+                    marginBottom: 12,
+                    alignItems: 'center',
+                  }}>
+                    <Icon name="checkmark-circle" size={40} color="#10B981" />
+                    <Text style={{fontSize: 18, fontWeight: '700', color: '#065F46', marginTop: 8}}>
+                      Job Completed!
+                    </Text>
+                    <Text style={{fontSize: 13, color: '#047857', marginTop: 4, textAlign: 'center'}}>
+                      Great work! Your earnings have been recorded.
+                    </Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={{
+                      backgroundColor: '#F3F4F6',
+                      borderRadius: 12,
+                      paddingVertical: 14,
+                      alignItems: 'center',
+                      flexDirection: 'row',
+                      justifyContent: 'center',
+                      borderWidth: 1,
+                      borderColor: '#E5E7EB',
+                    }}
+                    onPress={() => navigation.navigate('ServiceReceipt', {
+                      booking: {
+                        id: jobData.id || jobId,
+                        serviceCategory: jobData.serviceCategory || jobData.title,
+                        description: jobData.description,
+                        status: jobData.status,
+                        createdAt: jobData.createdAt,
+                        completedAt: jobData.completedAt,
+                        otherParty: {
+                          id: jobData.clientId,
+                          name: jobData.client?.name || jobData.clientName,
+                          photo: jobData.client?.photo,
+                        },
+                        providerPrice: jobData.providerPrice,
+                        offeredPrice: jobData.offeredPrice,
+                        totalAmount: jobData.totalAmount || jobData.price,
+                        systemFee: jobData.systemFee || Math.round((jobData.totalAmount || jobData.price || 0) * 0.05),
+                        systemFeePercentage: 5,
+                        additionalCharges: jobData.additionalCharges || [],
+                        streetAddress: jobData.streetAddress,
+                        barangay: jobData.barangay,
+                        location: jobData.location || jobData.address,
+                        scheduledDate: jobData.scheduledDate,
+                        scheduledTime: jobData.scheduledTime,
+                        review: jobData.review,
+                        rating: jobData.reviewRating || jobData.rating,
+                      },
+                      isProvider: true,
+                    })}>
+                    <Icon name="receipt-outline" size={20} color="#374151" />
+                    <Text style={{color: '#374151', fontSize: 16, fontWeight: '600', marginLeft: 8}}>
+                      View Earnings Receipt
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </>
           )}
         </View>

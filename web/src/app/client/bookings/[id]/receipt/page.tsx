@@ -1,17 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/context/AuthContext';
 import ClientLayout from '@/components/layouts/ClientLayout';
 
 export default function ServiceReceiptPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
   const bookingId = params.id as string;
+  const receiptRef = useRef<HTMLDivElement>(null);
 
   const [booking, setBooking] = useState<any>(null);
   const [otherParty, setOtherParty] = useState<any>(null);
@@ -75,6 +74,136 @@ Thank you for using GSS Maasin!
       await navigator.clipboard.writeText(receiptText);
       alert('Receipt copied to clipboard!');
     }
+  };
+
+  const handleDownloadPDF = () => {
+    // Create a new window with just the receipt content for printing
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Please allow popups to download the receipt');
+      return;
+    }
+
+    const receiptHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>GSS Maasin Receipt - ${booking?.id?.slice(-8).toUpperCase()}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; }
+          .header { text-align: center; padding: 30px 0; background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border-radius: 12px 12px 0 0; margin: -40px -40px 0 -40px; padding: 40px; }
+          .logo { width: 60px; height: 60px; background: white; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; }
+          .logo span { font-size: 28px; font-weight: bold; color: #22c55e; }
+          .header h1 { font-size: 24px; margin-bottom: 5px; }
+          .header p { opacity: 0.9; font-size: 14px; }
+          .status { text-align: center; padding: 15px; border-bottom: 1px solid #e5e7eb; }
+          .status span { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 14px; font-weight: 500; background: #dcfce7; color: #166534; }
+          .section { padding: 20px 0; border-bottom: 1px solid #e5e7eb; }
+          .section-title { font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; margin-bottom: 12px; }
+          .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+          .row .label { color: #6b7280; }
+          .row .value { font-weight: 500; color: #1f2937; }
+          .provider { display: flex; align-items: center; gap: 12px; }
+          .provider-avatar { width: 48px; height: 48px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+          .provider-avatar img { width: 100%; height: 100%; object-fit: cover; }
+          .provider-avatar span { font-size: 18px; font-weight: bold; color: #9ca3af; }
+          .provider-info { flex: 1; }
+          .provider-name { font-weight: 500; color: #1f2937; }
+          .provider-role { font-size: 13px; color: #6b7280; }
+          .total-section { background: #f9fafb; padding: 20px; margin: 0 -40px; }
+          .total { display: flex; justify-content: space-between; align-items: center; }
+          .total .label { font-size: 18px; font-weight: 600; color: #1f2937; }
+          .total .value { font-size: 28px; font-weight: bold; color: #22c55e; }
+          .footer { text-align: center; padding: 20px 0; color: #9ca3af; font-size: 12px; }
+          .footer p { margin-bottom: 4px; }
+          @media print {
+            body { padding: 20px; }
+            .header { margin: -20px -20px 0 -20px; padding: 30px; }
+            .total-section { margin: 0 -20px; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo"><span>G</span></div>
+          <h1>GSS Maasin</h1>
+          <p>Service Receipt</p>
+        </div>
+        
+        <div class="status">
+          <span>${booking?.status?.charAt(0).toUpperCase()}${booking?.status?.slice(1) || 'Unknown'}</span>
+        </div>
+        
+        <div class="section">
+          <div class="section-title">Service Details</div>
+          <div class="row">
+            <span class="label">Service</span>
+            <span class="value">${booking?.serviceCategory || 'Service'}</span>
+          </div>
+          <div class="row">
+            <span class="label">Date</span>
+            <span class="value">${booking?.scheduledDate || formatDate(booking?.completedAt || booking?.createdAt)}</span>
+          </div>
+          ${booking?.scheduledTime ? `<div class="row"><span class="label">Time</span><span class="value">${booking.scheduledTime}</span></div>` : ''}
+        </div>
+        
+        <div class="section">
+          <div class="section-title">Service Provider</div>
+          <div class="provider">
+            <div class="provider-avatar">
+              ${otherParty?.photo ? `<img src="${otherParty.photo}" alt="" />` : `<span>${otherParty?.name?.charAt(0) || '?'}</span>`}
+            </div>
+            <div class="provider-info">
+              <div class="provider-name">${otherParty?.name || 'Unknown'}</div>
+              <div class="provider-role">Provider</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="section">
+          <div class="section-title">Service Location</div>
+          <p style="color: #374151;">${booking?.streetAddress ? `${booking.streetAddress}, ${booking.barangay}` : booking?.location || 'N/A'}</p>
+        </div>
+        
+        <div class="section">
+          <div class="section-title">Payment Details</div>
+          <div class="row">
+            <span class="label">Service Fee</span>
+            <span class="value">₱${baseAmount.toLocaleString()}</span>
+          </div>
+          ${approvedCharges.length > 0 ? approvedCharges.map((charge: any) => `
+            <div class="row">
+              <span class="label">${charge.reason || 'Additional'}</span>
+              <span class="value">₱${(charge.amount || 0).toLocaleString()}</span>
+            </div>
+          `).join('') : ''}
+          ${discount > 0 ? `<div class="row"><span class="label" style="color: #22c55e;">Discount</span><span class="value" style="color: #22c55e;">-₱${discount.toLocaleString()}</span></div>` : ''}
+        </div>
+        
+        <div class="total-section">
+          <div class="total">
+            <span class="label">Total Paid</span>
+            <span class="value">₱${finalTotal.toLocaleString()}</span>
+          </div>
+        </div>
+        
+        <div class="footer">
+          <p>Receipt #${booking?.id?.slice(-8).toUpperCase()}</p>
+          <p>Generated on ${new Date().toLocaleDateString()}</p>
+          <p style="margin-top: 10px;">Thank you for using GSS Maasin!</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(receiptHTML);
+    printWindow.document.close();
+    
+    // Wait for content to load then print
+    printWindow.onload = () => {
+      printWindow.print();
+    };
   };
 
   if (loading) {
@@ -278,13 +407,13 @@ Thank you for using GSS Maasin!
         {/* Actions */}
         <div className="mt-6 flex gap-4">
           <button
-            onClick={() => window.print()}
+            onClick={handleDownloadPDF}
             className="flex-1 flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-lg font-medium"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            Download
+            Download PDF
           </button>
           {booking.status === 'completed' && (
             <button

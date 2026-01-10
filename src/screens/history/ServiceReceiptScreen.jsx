@@ -140,21 +140,63 @@ Thank you for using GSS Maasin!
     }
   };
 
-  const handleDownload = () => {
-    Alert.alert(
-      'Download Receipt',
-      'Receipt will be saved as PDF to your device.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Download', 
-          onPress: () => {
-            // In a real app, implement PDF generation here
-            Alert.alert('Success', 'Receipt downloaded successfully!');
-          }
-        },
-      ]
-    );
+  const handleDownload = async () => {
+    // Create a detailed receipt text that can be shared/saved
+    const receiptText = `
+════════════════════════════════════════
+         GSS MAASIN SERVICE RECEIPT
+════════════════════════════════════════
+
+Receipt #: ${id?.slice(-8).toUpperCase() || 'N/A'}
+Date: ${formatDate(completedAt || createdAt)}
+Status: ${status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown'}
+
+────────────────────────────────────────
+SERVICE DETAILS
+────────────────────────────────────────
+Service: ${serviceCategory || 'Service'}
+${description ? `Description: ${description}\n` : ''}Scheduled: ${scheduledDate || formatDate(completedAt || createdAt)}${scheduledTime ? ` at ${scheduledTime}` : ''}
+
+────────────────────────────────────────
+${isProvider ? 'CLIENT' : 'SERVICE PROVIDER'}
+────────────────────────────────────────
+Name: ${otherParty?.name || 'Unknown'}
+${!isProvider && otherParty?.rating > 0 ? `Rating: ${'★'.repeat(Math.round(otherParty.rating))}${'☆'.repeat(5 - Math.round(otherParty.rating))} (${otherParty.rating.toFixed(1)})\n` : ''}
+────────────────────────────────────────
+SERVICE LOCATION
+────────────────────────────────────────
+${streetAddress ? `${streetAddress}, ${barangay}` : location || 'N/A'}
+
+════════════════════════════════════════
+PAYMENT DETAILS
+════════════════════════════════════════
+Service Fee:                 ₱${baseAmount.toLocaleString()}
+${additionalCharges.length > 0 ? additionalCharges.map(charge => `${charge.reason || 'Additional'}:${' '.repeat(Math.max(1, 28 - (charge.reason || 'Additional').length))}₱${(charge.amount || 0).toLocaleString()}`).join('\n') + '\n' : ''}${isProvider && systemFee > 0 ? `System Fee (${systemFeePercentage}%):          -₱${systemFee.toLocaleString()}\n` : ''}────────────────────────────────────────
+${isProvider ? 'YOUR EARNINGS' : 'TOTAL PAID'}:              ₱${(isProvider ? subtotal - systemFee : finalTotal).toLocaleString()}
+════════════════════════════════════════
+
+${rating || review ? `
+────────────────────────────────────────
+${isProvider ? 'CLIENT REVIEW' : 'YOUR REVIEW'}
+────────────────────────────────────────
+${rating ? `Rating: ${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}` : ''}
+${review ? `"${review}"` : 'No written review'}
+` : ''}
+Generated: ${new Date().toLocaleString()}
+
+Thank you for using GSS Maasin!
+════════════════════════════════════════
+    `.trim();
+
+    try {
+      await Share.share({
+        message: receiptText,
+        title: `GSS Receipt ${id?.slice(-8).toUpperCase()}`,
+      });
+    } catch (error) {
+      console.error('Error sharing receipt:', error);
+      Alert.alert('Error', 'Could not share receipt. Please try again.');
+    }
   };
 
   const handleRebook = () => {
@@ -390,8 +432,8 @@ Thank you for using GSS Maasin!
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
         <TouchableOpacity style={styles.downloadButton} onPress={handleDownload}>
-          <Icon name="download-outline" size={20} color="#374151" />
-          <Text style={styles.downloadButtonText}>Download</Text>
+          <Icon name="share-outline" size={20} color="#374151" />
+          <Text style={styles.downloadButtonText}>Share Receipt</Text>
         </TouchableOpacity>
         
         {!isProvider && status === 'completed' && (

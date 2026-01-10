@@ -1430,6 +1430,56 @@ const JobDetailsScreen = ({navigation, route}) => {
           </View>
         )}
 
+        {/* View Receipt Button - Show for completed jobs */}
+        {jobData.status === 'completed' && (
+          <View style={{marginHorizontal: 16, marginBottom: 16}}>
+            <TouchableOpacity 
+              style={{
+                backgroundColor: '#F3F4F6',
+                borderRadius: 12,
+                paddingVertical: 14,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+              }}
+              onPress={() => navigation.navigate('ServiceReceipt', {
+                booking: {
+                  id: jobData.id || jobId,
+                  serviceCategory: jobData.serviceCategory || jobData.title,
+                  description: jobData.description,
+                  status: jobData.status,
+                  createdAt: jobData.createdAt,
+                  completedAt: jobData.completedAt,
+                  otherParty: {
+                    id: jobData.providerId,
+                    name: jobData.provider?.name || jobData.providerName,
+                    photo: jobData.provider?.photo,
+                    rating: jobData.provider?.rating,
+                  },
+                  providerPrice: jobData.providerPrice,
+                  offeredPrice: jobData.offeredPrice,
+                  totalAmount: jobData.totalAmount || jobData.price,
+                  additionalCharges: jobData.additionalCharges || [],
+                  streetAddress: jobData.streetAddress,
+                  barangay: jobData.barangay,
+                  location: jobData.location || jobData.address,
+                  scheduledDate: jobData.scheduledDate,
+                  scheduledTime: jobData.scheduledTime,
+                  review: jobData.review,
+                  rating: jobData.reviewRating || jobData.rating,
+                },
+                isProvider: false,
+              })}>
+              <Icon name="receipt-outline" size={20} color="#374151" />
+              <Text style={{color: '#374151', fontSize: 16, fontWeight: '600', marginLeft: 8}}>
+                View Receipt
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Job ID */}
         <View style={styles.section}>
           <Text style={styles.jobId}>Job ID: {jobData.id || jobId || 'N/A'}</Text>

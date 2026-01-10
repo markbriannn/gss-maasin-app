@@ -1193,6 +1193,19 @@ function JobDetailsContent() {
           </div>
         )}
 
+        {/* View Receipt Button - Show for completed jobs */}
+        {(job.status === 'completed' || job.status === 'payment_received') && (
+          <Link
+            href={`/client/bookings/${job.id}/receipt`}
+            className="w-full flex items-center justify-center gap-2 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl font-semibold mb-4 transition-colors border border-gray-200"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            View Receipt
+          </Link>
+        )}
+
         {/* Job ID & Created - Enhanced */}
         <div className="bg-gray-50 rounded-2xl p-4 mb-4 border border-gray-200">
           <div className="flex justify-between items-center text-sm">

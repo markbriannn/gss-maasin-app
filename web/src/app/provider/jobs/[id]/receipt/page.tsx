@@ -47,6 +47,132 @@ export default function ProviderReceiptPage() {
     return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   };
 
+  const handleDownloadPDF = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Please allow popups to download the receipt');
+      return;
+    }
+
+    const receiptHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>GSS Maasin Earnings Receipt - ${booking?.id?.slice(-8).toUpperCase()}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; }
+          .header { text-align: center; padding: 30px 0; background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border-radius: 12px 12px 0 0; margin: -40px -40px 0 -40px; padding: 40px; }
+          .logo { width: 60px; height: 60px; background: white; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; }
+          .logo span { font-size: 28px; font-weight: bold; color: #22c55e; }
+          .header h1 { font-size: 24px; margin-bottom: 5px; }
+          .header p { opacity: 0.9; font-size: 14px; }
+          .status { text-align: center; padding: 15px; border-bottom: 1px solid #e5e7eb; }
+          .status span { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 14px; font-weight: 500; background: #dcfce7; color: #166534; }
+          .section { padding: 20px 0; border-bottom: 1px solid #e5e7eb; }
+          .section-title { font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; margin-bottom: 12px; }
+          .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+          .row .label { color: #6b7280; }
+          .row .value { font-weight: 500; color: #1f2937; }
+          .client { display: flex; align-items: center; gap: 12px; }
+          .client-avatar { width: 48px; height: 48px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+          .client-avatar img { width: 100%; height: 100%; object-fit: cover; }
+          .client-avatar span { font-size: 18px; font-weight: bold; color: #9ca3af; }
+          .client-info { flex: 1; }
+          .client-name { font-weight: 500; color: #1f2937; }
+          .client-role { font-size: 13px; color: #6b7280; }
+          .total-section { background: #f0fdf4; padding: 20px; margin: 0 -40px; }
+          .total { display: flex; justify-content: space-between; align-items: center; }
+          .total .label { font-size: 18px; font-weight: 600; color: #1f2937; }
+          .total .value { font-size: 28px; font-weight: bold; color: #22c55e; }
+          .footer { text-align: center; padding: 20px 0; color: #9ca3af; font-size: 12px; }
+          .footer p { margin-bottom: 4px; }
+          .fee { color: #ef4444; }
+          @media print {
+            body { padding: 20px; }
+            .header { margin: -20px -20px 0 -20px; padding: 30px; }
+            .total-section { margin: 0 -20px; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo"><span>G</span></div>
+          <h1>GSS Maasin</h1>
+          <p>Earnings Receipt</p>
+        </div>
+        
+        <div class="status">
+          <span>${booking?.status === 'payment_received' ? 'Completed' : booking?.status?.charAt(0).toUpperCase() + booking?.status?.slice(1)}</span>
+        </div>
+        
+        <div class="section">
+          <div class="section-title">Service Details</div>
+          <div class="row">
+            <span class="label">Service</span>
+            <span class="value">${booking?.serviceCategory || 'Service'}</span>
+          </div>
+          <div class="row">
+            <span class="label">Date</span>
+            <span class="value">${booking?.scheduledDate || formatDate(booking?.completedAt || booking?.createdAt)}</span>
+          </div>
+        </div>
+        
+        <div class="section">
+          <div class="section-title">Client</div>
+          <div class="client">
+            <div class="client-avatar">
+              ${client?.photo ? `<img src="${client.photo}" alt="" />` : `<span>${client?.name?.charAt(0) || '?'}</span>`}
+            </div>
+            <div class="client-info">
+              <div class="client-name">${client?.name || 'Unknown'}</div>
+              <div class="client-role">Client</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="section">
+          <div class="section-title">Earnings Breakdown</div>
+          <div class="row">
+            <span class="label">Service Fee</span>
+            <span class="value">₱${baseAmount.toLocaleString()}</span>
+          </div>
+          ${approvedCharges.length > 0 ? approvedCharges.map((charge: any) => `
+            <div class="row">
+              <span class="label">${charge.reason || 'Additional'}</span>
+              <span class="value">+₱${(charge.amount || 0).toLocaleString()}</span>
+            </div>
+          `).join('') : ''}
+          <div class="row">
+            <span class="label">System Fee (5%)</span>
+            <span class="value fee">-₱${systemFee.toLocaleString()}</span>
+          </div>
+        </div>
+        
+        <div class="total-section">
+          <div class="total">
+            <span class="label">Your Earnings</span>
+            <span class="value">₱${earnings.toLocaleString()}</span>
+          </div>
+        </div>
+        
+        <div class="footer">
+          <p>Receipt #${booking?.id?.slice(-8).toUpperCase()}</p>
+          <p>Generated on ${new Date().toLocaleDateString()}</p>
+          <p style="margin-top: 10px;">Thank you for being a GSS Maasin provider!</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(receiptHTML);
+    printWindow.document.close();
+    
+    printWindow.onload = () => {
+      printWindow.print();
+    };
+  };
+
   if (loading) {
     return <ProviderLayout><div className="flex justify-center py-12"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-500"></div></div></ProviderLayout>;
   }
@@ -140,9 +266,9 @@ export default function ProviderReceiptPage() {
         </div>
 
         <div className="mt-6">
-          <button onClick={() => window.print()} className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-lg font-medium">
+          <button onClick={handleDownloadPDF} className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-lg font-medium">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-            Download
+            Download PDF
           </button>
         </div>
       </div>
