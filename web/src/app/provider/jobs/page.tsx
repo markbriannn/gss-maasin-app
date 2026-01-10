@@ -218,8 +218,9 @@ export default function JobsPage() {
     if (!confirm(`Accept "${job.title}" for ₱${job.amount?.toLocaleString() || 0}?`)) return;
     setAccepting(job.id);
     try {
-      await updateDoc(doc(db, 'bookings', job.id), { providerId: user.uid, status: 'in_progress', acceptedAt: new Date() });
-      alert('Job accepted! You can now start working.');
+      await updateDoc(doc(db, 'bookings', job.id), { providerId: user.uid, status: 'accepted', acceptedAt: new Date() });
+      alert('Job accepted! Go to My Jobs to start traveling.');
+      setActiveTab('my_jobs');
       fetchJobs();
     } catch (error) {
       console.error('Error accepting job:', error);
