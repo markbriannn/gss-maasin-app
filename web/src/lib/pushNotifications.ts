@@ -1,4 +1,5 @@
 // Web Push Notification Service using Firebase Cloud Messaging
+// VAPID Key configured for web push notifications
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
 import { collection, doc, setDoc } from 'firebase/firestore';
 import app, { db } from './firebase';
