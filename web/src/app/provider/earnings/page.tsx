@@ -121,8 +121,11 @@ export default function EarningsPage() {
             } catch (e) {}
           }
 
+          // For display purposes, calculate base amount (provider's price before additional charges)
+          const baseAmountForDisplay = data.providerPrice || data.offeredPrice || (data.totalAmount ? data.totalAmount / 1.05 : data.price || 0);
+
           earningsList.push({
-            id: docSnap.id, serviceCategory: data.serviceCategory || 'Service', clientName, amount: providerEarnings, baseAmount: baseAmount / 1.05, additionalCharges: additionalCharges / 1.05,
+            id: docSnap.id, serviceCategory: data.serviceCategory || 'Service', clientName, amount: providerEarnings, baseAmount: baseAmountForDisplay, additionalCharges: additionalCharges,
             date: earnedDate, status: data.status, isPaidUpfront: data.isPaidUpfront || false,
           });
         }
