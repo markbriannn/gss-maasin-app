@@ -6,7 +6,7 @@ import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
-import { Trophy, Crown, Medal, Star, TrendingUp, Users, Zap, ChevronLeft, Sparkles, Target, Award, Flame } from 'lucide-react';
+import { Trophy, Crown, Users, Zap, ChevronLeft, Award, Flame } from 'lucide-react';
 
 interface LeaderboardEntry {
   id: string;

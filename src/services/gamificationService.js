@@ -190,11 +190,10 @@ export const getProviderLeaderboard = async (limitCount = 10) => {
       // Check if provider is approved - be lenient, include if not explicitly rejected
       const status = userData.status?.toLowerCase();
       const providerStatus = userData.providerStatus?.toLowerCase();
-      const isApproved = status === 'approved' || providerStatus === 'approved';
       const isRejected = status === 'rejected' || providerStatus === 'rejected' || status === 'suspended' || providerStatus === 'suspended';
       
-      // Include if approved OR if not explicitly rejected (for providers without status set)
-      if (!isApproved && isRejected) return;
+      // Skip only if explicitly rejected/suspended
+      if (isRejected) return;
       
       const gamData = gamificationMap.get(userDoc.id);
       const points = gamData?.points || userData.points || 0;
@@ -251,11 +250,15 @@ export const getClientLeaderboard = async (limitCount = 10) => {
     
     usersSnapshot.docs.forEach(userDoc => {
       const userData = userDoc.data();
-      // Only include clients (not providers or admins)
-      if (userData.role?.toUpperCase() !== 'CLIENT') return;
+      const role = userData.role?.toUpperCase();
       
+      // Include clients - also include users without role or with 'USER' role
+      // Skip providers and admins
+      if (role === 'PROVIDER' || role === 'ADMIN') return;
+      
+      // Include if role is CLIENT, USER, or not set (default to client)
       const gamData = gamificationMap.get(userDoc.id);
-      const points = gamData?.points || userData.points || 0;
+      const points = gamData?.points || userData.points || userData.loyaltyPoints || 0;
       const stats = gamData?.stats || {};
       
       allClients.push({
