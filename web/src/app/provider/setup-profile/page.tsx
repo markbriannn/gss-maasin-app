@@ -70,17 +70,21 @@ export default function SetupProfilePhoto() {
   };
 
   const handleSkip = async () => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      // If no user, just redirect
+      router.push('/provider');
+      return;
+    }
     
     try {
       await updateDoc(doc(db, 'users', user.uid), {
         profileSetupComplete: true,
       });
-      router.push('/provider');
     } catch (error) {
       console.error('Skip error:', error);
-      router.push('/provider');
+      // Continue to redirect even if update fails
     }
+    router.push('/provider');
   };
 
   if (isLoading) {
