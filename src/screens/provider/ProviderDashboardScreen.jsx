@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,10 @@ import {useJobNotifications, useUserNotifications, useOfflineSupport} from '../.
 import {TierCard} from '../../components/gamification';
 import {getUserTierAndBadges} from '../../services/gamificationService';
 import {APP_CONFIG} from '../../config/constants';
+import locationService from '../../services/locationService';
+
+// Live location update interval (10-15 seconds to save Firestore quota)
+const LIVE_LOCATION_INTERVAL = 12000; // 12 seconds
 
 const getGreeting = () => {
   const hour = new Date().getHours();
@@ -46,10 +50,66 @@ const ProviderDashboardScreen = ({navigation}) => {
   const [gamificationData, setGamificationData] = useState(null);
   const [showMenuModal, setShowMenuModal] = useState(false);
   
+  // Ref for live location interval
+  const liveLocationIntervalRef = useRef(null);
+  
   // Real-time hooks
   const {online, queueOperation} = useOfflineSupport();
   const {jobs: realtimeJobs, loading: jobsLoading} = useJobNotifications(user?.uid, user?.serviceCategory);
   const {notifications, loading: notifLoading} = useUserNotifications(user?.uid);
+
+  // Live location tracking - updates every 12 seconds when online
+  useEffect(() => {
+    const startLiveLocationTracking = () => {
+      // Clear any existing interval
+      if (liveLocationIntervalRef.current) {
+        clearInterval(liveLocationIntervalRef.current);
+        liveLocationIntervalRef.current = null;
+      }
+      
+      if (!isOnline) return;
+      
+      const userId = user?.uid || user?.id;
+      if (!userId) return;
+      
+      console.log('[Provider] Starting live location tracking (every 12s)');
+      
+      // Update location immediately
+      const updateLocation = async () => {
+        try {
+          const location = await locationService.getCurrentLocation();
+          if (location?.latitude && location?.longitude) {
+            await updateDoc(doc(db, 'users', userId), {
+              latitude: location.latitude,
+              longitude: location.longitude,
+              locationUpdatedAt: new Date(),
+              isOnline: true,
+            });
+            console.log('[Provider] Live location updated');
+          }
+        } catch (e) {
+          console.log('[Provider] Live location update failed:', e.message);
+        }
+      };
+      
+      // Update immediately
+      updateLocation();
+      
+      // Then update every 12 seconds
+      liveLocationIntervalRef.current = setInterval(updateLocation, LIVE_LOCATION_INTERVAL);
+    };
+    
+    startLiveLocationTracking();
+    
+    // Cleanup on unmount or when going offline
+    return () => {
+      if (liveLocationIntervalRef.current) {
+        clearInterval(liveLocationIntervalRef.current);
+        liveLocationIntervalRef.current = null;
+        console.log('[Provider] Stopped live location tracking');
+      }
+    };
+  }, [isOnline, user?.uid, user?.id]);
 
   const normalizeRatingValue = (value) => {
     if (typeof value === 'number') {

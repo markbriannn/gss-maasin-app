@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc, onSnapshot } from 'firebase/firestore';
@@ -11,6 +11,9 @@ import {
   Briefcase, Star, Clock, MapPin, User, ChevronRight, Bell, History, Trophy, Wallet,
   RefreshCw, TrendingUp, Calendar, ArrowUpRight, Sparkles
 } from 'lucide-react';
+
+// Live location update interval (10-15 seconds to save Firestore quota)
+const LIVE_LOCATION_INTERVAL = 12000; // 12 seconds
 
 interface Job {
   id: string;
@@ -76,6 +79,63 @@ export default function ProviderDashboard() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [points, setPoints] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Ref for live location interval
+  const liveLocationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Live location tracking - updates every 12 seconds when online
+  useEffect(() => {
+    const startLiveLocationTracking = () => {
+      // Clear any existing interval
+      if (liveLocationIntervalRef.current) {
+        clearInterval(liveLocationIntervalRef.current);
+        liveLocationIntervalRef.current = null;
+      }
+      
+      if (!isOnline || !user?.uid) return;
+      if (!navigator.geolocation) return;
+      
+      console.log('[Provider Web] Starting live location tracking (every 12s)');
+      
+      // Update location function
+      const updateLocation = () => {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            try {
+              await updateDoc(doc(db, 'users', user.uid), {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                locationUpdatedAt: new Date(),
+                isOnline: true,
+              });
+              console.log('[Provider Web] Live location updated');
+            } catch (e) {
+              console.log('[Provider Web] Live location update failed:', e);
+            }
+          },
+          (error) => console.log('[Provider Web] Geolocation error:', error.message),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+        );
+      };
+      
+      // Update immediately
+      updateLocation();
+      
+      // Then update every 12 seconds
+      liveLocationIntervalRef.current = setInterval(updateLocation, LIVE_LOCATION_INTERVAL);
+    };
+    
+    startLiveLocationTracking();
+    
+    // Cleanup on unmount or when going offline
+    return () => {
+      if (liveLocationIntervalRef.current) {
+        clearInterval(liveLocationIntervalRef.current);
+        liveLocationIntervalRef.current = null;
+        console.log('[Provider Web] Stopped live location tracking');
+      }
+    };
+  }, [isOnline, user?.uid]);
 
   useEffect(() => {
     if (!isLoading) {
