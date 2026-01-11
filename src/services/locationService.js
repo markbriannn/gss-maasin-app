@@ -109,6 +109,8 @@ class LocationService {
   }
 
   // Watch Location (continuous tracking)
+  // Optimized: Increased interval and distance filter to reduce callbacks
+  // The tracking screens handle their own throttling for Firestore writes
   watchLocation(callback, errorCallback) {
     this.watchId = Geolocation.watchPosition(
       (position) => {
@@ -129,9 +131,9 @@ class LocationService {
       },
       {
         enableHighAccuracy: true,
-        distanceFilter: 10, // Update every 10 meters
-        interval: 5000, // Update every 5 seconds
-        fastestInterval: 2000,
+        distanceFilter: 15, // Update every 15 meters (was 10)
+        interval: 8000, // Update every 8 seconds (was 5 seconds)
+        fastestInterval: 5000, // Minimum 5 seconds between updates (was 2 seconds)
         forceRequestLocation: true,
         showLocationDialog: true,
       }

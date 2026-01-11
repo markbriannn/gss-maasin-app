@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import ProviderLayout from "@/components/layouts/ProviderLayout";
@@ -13,6 +13,10 @@ import {
   Shield, Star, ExternalLink, Copy, Check
 } from "lucide-react";
 import { pushNotifications } from "@/lib/pushNotifications";
+
+// Optimization constants - reduce Firestore writes to save quota
+const FIRESTORE_UPDATE_INTERVAL = 15000; // Only write to Firestore every 15 seconds
+const MIN_DISTANCE_FOR_UPDATE = 0.02; // Only update if moved at least 20 meters (0.02 km)
 
 // Dynamically import the Leaflet map component (client-side only)
 const DirectionsMapView = dynamic(
@@ -80,6 +84,10 @@ export default function ProviderTrackingPage() {
   const [copied, setCopied] = useState(false);
   const [eta, setEta] = useState<string | null>(null);
   const [distance, setDistance] = useState<string | null>(null);
+  
+  // Refs for throttling Firestore writes
+  const lastFirestoreUpdate = useRef<number>(0);
+  const lastWrittenLocation = useRef<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     if (!jobId) return;
@@ -114,34 +122,73 @@ export default function ProviderTrackingPage() {
     return () => unsubscribe();
   }, [jobId]);
 
-  // Get current location and update
+  // Get current location and update (with throttling to save Firestore quota)
   useEffect(() => {
     if (navigator.geolocation) {
-      const watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const newLocation = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-          setCurrentLocation(newLocation);
+      // Helper function to check if we should write to Firestore
+      const shouldWriteToFirestore = (newLoc: { lat: number; lng: number }) => {
+        const now = Date.now();
+        const timeSinceLastWrite = now - lastFirestoreUpdate.current;
+        
+        // Always write if enough time has passed
+        if (timeSinceLastWrite >= FIRESTORE_UPDATE_INTERVAL) {
+          return true;
+        }
+        
+        // Also write if moved significantly (even if time hasn't passed)
+        if (lastWrittenLocation.current) {
+          const distanceMoved = calculateDistance(
+            lastWrittenLocation.current.lat,
+            lastWrittenLocation.current.lng,
+            newLoc.lat,
+            newLoc.lng
+          );
           
+          if (distanceMoved >= MIN_DISTANCE_FOR_UPDATE && timeSinceLastWrite >= 5000) {
+            return true;
+          }
+        }
+        
+        return false;
+      };
+
+      // Helper function to write location to Firestore
+      const writeLocationToFirestore = async (newLoc: { lat: number; lng: number }) => {
+        try {
           if (jobId) {
             updateDoc(doc(db, "bookings", jobId), {
-              providerLocation: { latitude: newLocation.lat, longitude: newLocation.lng },
+              providerLocation: { latitude: newLoc.lat, longitude: newLoc.lng },
               providerLocationUpdatedAt: new Date(),
             }).catch(console.error);
           }
           
           if (user?.uid) {
             updateDoc(doc(db, "users", user.uid), {
-              latitude: newLocation.lat,
-              longitude: newLocation.lng,
+              latitude: newLoc.lat,
+              longitude: newLoc.lng,
               locationUpdatedAt: new Date(),
               isOnline: true,
             }).catch(console.error);
           }
+          
+          lastFirestoreUpdate.current = Date.now();
+          lastWrittenLocation.current = newLoc;
+        } catch (e) {
+          console.error("Error writing location:", e);
+        }
+      };
 
-          // Calculate ETA
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const newLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          
+          // Always update local state (no Firestore cost - keeps map smooth)
+          setCurrentLocation(newLocation);
+
+          // Calculate ETA (local calculation - no Firestore cost)
           const clientLat = job?.location?.latitude || job?.latitude;
           const clientLng = job?.location?.longitude || job?.longitude;
           if (clientLat && clientLng) {
@@ -149,6 +196,11 @@ export default function ProviderTrackingPage() {
             setDistance(dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`);
             const etaMinutes = Math.round((dist / 30) * 60); // Assuming 30km/h average
             setEta(etaMinutes < 1 ? "< 1 min" : `${etaMinutes} min`);
+          }
+          
+          // Only write to Firestore if throttle conditions are met (saves quota!)
+          if (shouldWriteToFirestore(newLocation)) {
+            writeLocationToFirestore(newLocation);
           }
         },
         (error) => console.warn('Geolocation error:', error.message),

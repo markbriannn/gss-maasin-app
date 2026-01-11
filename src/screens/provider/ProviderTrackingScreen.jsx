@@ -18,6 +18,8 @@ import {useAuth} from '../../context/AuthContext';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBpGzpP1vVxZBIsw6gzkUPPDABSl8FktL4';
 const ANIMATION_DURATION = 1000; // 1 second smooth animation
+const FIRESTORE_UPDATE_INTERVAL = 15000; // Only write to Firestore every 15 seconds (saves quota)
+const MIN_DISTANCE_FOR_UPDATE = 20; // Only update if moved at least 20 meters
 
 const ProviderTrackingScreen = ({navigation, route}) => {
   const {jobId, job} = route.params || {};
@@ -25,6 +27,8 @@ const ProviderTrackingScreen = ({navigation, route}) => {
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const locationWatchId = useRef(null);
+  const lastFirestoreUpdate = useRef(0); // Track last Firestore write time
+  const lastWrittenLocation = useRef(null); // Track last written location
   
   const [isLoading, setIsLoading] = useState(true);
   const [jobData, setJobData] = useState(job || null);
@@ -126,6 +130,62 @@ const ProviderTrackingScreen = ({navigation, route}) => {
 
   // Watch provider's location and update in real-time with smooth animation
   useEffect(() => {
+    // Helper function to check if we should write to Firestore
+    const shouldWriteToFirestore = (newLoc) => {
+      const now = Date.now();
+      const timeSinceLastWrite = now - lastFirestoreUpdate.current;
+      
+      // Always write if enough time has passed
+      if (timeSinceLastWrite >= FIRESTORE_UPDATE_INTERVAL) {
+        return true;
+      }
+      
+      // Also write if moved significantly (even if time hasn't passed)
+      if (lastWrittenLocation.current) {
+        const distanceMoved = locationService.calculateDistance(
+          lastWrittenLocation.current.latitude,
+          lastWrittenLocation.current.longitude,
+          newLoc.latitude,
+          newLoc.longitude
+        ) * 1000; // Convert km to meters
+        
+        if (distanceMoved >= MIN_DISTANCE_FOR_UPDATE && timeSinceLastWrite >= 5000) {
+          return true;
+        }
+      }
+      
+      return false;
+    };
+
+    // Helper function to write location to Firestore
+    const writeLocationToFirestore = async (location) => {
+      const docId = jobId || job?.id;
+      try {
+        if (user?.uid) {
+          await updateDoc(doc(db, 'users', user.uid), {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            lastLocationUpdate: new Date(),
+          });
+        }
+
+        if (docId) {
+          await updateDoc(doc(db, 'bookings', docId), {
+            providerLocation: {
+              latitude: location.latitude,
+              longitude: location.longitude,
+              updatedAt: new Date(),
+            },
+          });
+        }
+        
+        lastFirestoreUpdate.current = Date.now();
+        lastWrittenLocation.current = location;
+      } catch (e) {
+        console.log('Error updating location:', e);
+      }
+    };
+
     const startLocationTracking = async () => {
       try {
         // Get initial location
@@ -144,26 +204,8 @@ const ProviderTrackingScreen = ({navigation, route}) => {
         });
         setProviderLocation(initialLoc);
 
-        // Update provider location in Firestore
-        if (user?.uid) {
-          await updateDoc(doc(db, 'users', user.uid), {
-            latitude: location.latitude,
-            longitude: location.longitude,
-            lastLocationUpdate: new Date(),
-          });
-        }
-
-        // Also update in booking document
-        const docId = jobId || job?.id;
-        if (docId) {
-          await updateDoc(doc(db, 'bookings', docId), {
-            providerLocation: {
-              latitude: location.latitude,
-              longitude: location.longitude,
-              updatedAt: new Date(),
-            },
-          });
-        }
+        // Write initial location to Firestore
+        await writeLocationToFirestore(initialLoc);
       } catch (error) {
         console.log('Error getting location:', error);
         const defaultLoc = locationService.getDefaultLocation();
@@ -187,31 +229,12 @@ const ProviderTrackingScreen = ({navigation, route}) => {
           longitude: location.longitude,
         };
         
-        // Animate marker smoothly to new position
+        // Always animate marker smoothly (local update - no Firestore cost)
         animateMarker(newLoc);
 
-        // Update location in Firestore periodically
-        if (user?.uid) {
-          try {
-            await updateDoc(doc(db, 'users', user.uid), {
-              latitude: location.latitude,
-              longitude: location.longitude,
-              lastLocationUpdate: new Date(),
-            });
-
-            const docId = jobId || job?.id;
-            if (docId) {
-              await updateDoc(doc(db, 'bookings', docId), {
-                providerLocation: {
-                  latitude: location.latitude,
-                  longitude: location.longitude,
-                  updatedAt: new Date(),
-                },
-              });
-            }
-          } catch (e) {
-            console.log('Error updating location:', e);
-          }
+        // Only write to Firestore if throttle conditions are met (saves quota!)
+        if (shouldWriteToFirestore(newLoc)) {
+          await writeLocationToFirestore(newLoc);
         }
       },
       (error) => console.log('Location watch error:', error)
