@@ -78,10 +78,16 @@ export default function SetupProfilePhoto() {
         await updateDoc(doc(db, 'users', user.uid), {
           profileSetupComplete: true,
         });
+        // Small delay to ensure Firestore update propagates
+        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
         console.error('Skip error:', error);
-        // Continue to redirect even if update fails
+        // Store in localStorage as fallback to prevent redirect loop
+        localStorage.setItem('profileSetupSkipped', 'true');
       }
+    } else {
+      // No user, store in localStorage as fallback
+      localStorage.setItem('profileSetupSkipped', 'true');
     }
     
     // Use window.location for more reliable redirect

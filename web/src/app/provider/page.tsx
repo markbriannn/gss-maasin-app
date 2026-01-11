@@ -82,8 +82,12 @@ export default function ProviderDashboard() {
       if (!isAuthenticated) router.push('/login');
       else if (user?.role?.toUpperCase() !== 'PROVIDER') router.push('/');
       // Redirect to profile setup if no profile photo and setup not complete
+      // Also check localStorage fallback for when Firestore update fails
       else if (!user?.profilePhoto && !user?.profileSetupComplete) {
-        router.push('/provider/setup-profile');
+        const skipped = typeof window !== 'undefined' && localStorage.getItem('profileSetupSkipped');
+        if (!skipped) {
+          router.push('/provider/setup-profile');
+        }
       }
     }
   }, [isLoading, isAuthenticated, user, router]);
