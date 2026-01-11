@@ -505,11 +505,12 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
 
       const payment = paymentResponse.data.data;
 
-      // Update payment record
+      // Update payment record - mark as processed to prevent duplicates
       await db.collection('payments').doc(paymentDoc.id).update({
         paymentId: payment.id,
         status: 'paid',
         paidAt: new Date(),
+        balanceUpdated: true, // Flag to prevent duplicate balance updates
       });
 
       // Get booking to find providerId
@@ -558,33 +559,44 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
 
       await db.collection('bookings').doc(bookingId).update(bookingUpdate);
 
-      // Create transaction record
-      await db.collection('transactions').add({
-        bookingId: bookingId,
-        clientId: paymentData.userId,
-        providerId: providerId,
-        type: 'payment',
-        amount: amountInPesos,
-        providerShare: providerShare,
-        platformCommission: platformCommission,
-        paymentId: payment.id,
-        paymentMethod: paymentData.type,
-        status: 'completed',
-        createdAt: new Date(),
-      });
+      // Check if transaction already exists to avoid duplicates
+      const existingTxCheck = await db.collection('transactions')
+        .where('bookingId', '==', bookingId)
+        .where('type', '==', 'payment')
+        .get();
 
-      // Update provider's balance
-      if (providerId) {
-        const providerRef = db.collection('users').doc(providerId);
-        const providerDoc = await providerRef.get();
-        const currentBalance = providerDoc.data()?.availableBalance || 0;
-        const currentEarnings = providerDoc.data()?.totalEarnings || 0;
-        
-        await providerRef.update({
-          availableBalance: currentBalance + providerShare,
-          totalEarnings: currentEarnings + providerShare,
-          updatedAt: new Date(),
+      if (existingTxCheck.empty) {
+        // Create transaction record
+        await db.collection('transactions').add({
+          bookingId: bookingId,
+          clientId: paymentData.userId,
+          providerId: providerId,
+          type: 'payment',
+          amount: amountInPesos,
+          providerShare: providerShare,
+          platformCommission: platformCommission,
+          paymentId: payment.id,
+          paymentMethod: paymentData.type,
+          status: 'completed',
+          createdAt: new Date(),
         });
+
+        // Update provider's balance - only if not already updated
+        if (providerId) {
+          const providerRef = db.collection('users').doc(providerId);
+          const providerDoc = await providerRef.get();
+          const currentBalance = providerDoc.data()?.availableBalance || 0;
+          const currentEarnings = providerDoc.data()?.totalEarnings || 0;
+          
+          await providerRef.update({
+            availableBalance: currentBalance + providerShare,
+            totalEarnings: currentEarnings + providerShare,
+            updatedAt: new Date(),
+          });
+          console.log(`Provider balance updated: +₱${providerShare}`);
+        }
+      } else {
+        console.log(`Transaction already exists for booking ${bookingId}, skipping balance update`);
       }
 
       console.log(`Manual payment processed: ₱${amountInPesos} for booking ${bookingId}`);
@@ -739,6 +751,7 @@ router.post('/webhook', async (req, res) => {
         status: 'paid',
         paidAt: new Date(),
         webhookProcessed: true,
+        balanceUpdated: true, // Flag to prevent duplicate balance updates
       });
 
       // Get payment data for booking update
@@ -746,6 +759,18 @@ router.post('/webhook', async (req, res) => {
       const paymentData = paymentDoc.data();
 
       if (paymentData?.bookingId) {
+        // Check if transaction already exists to avoid duplicates
+        const existingTx = await db.collection('transactions')
+          .where('bookingId', '==', paymentData.bookingId)
+          .where('type', '==', 'payment')
+          .get();
+
+        if (!existingTx.empty) {
+          console.log(`Transaction already exists for booking ${paymentData.bookingId}, skipping webhook processing`);
+          await markEventProcessed(db, eventId, eventType);
+          return res.json({ received: true, skipped: true, reason: 'transaction_exists' });
+        }
+
         // Get booking to find providerId
         const bookingDoc = await db.collection('bookings').doc(paymentData.bookingId).get();
         const bookingData = bookingDoc.data();
@@ -804,8 +829,7 @@ router.post('/webhook', async (req, res) => {
 
         await db.collection('bookings').doc(paymentData.bookingId).update(bookingUpdate);
 
-        // For escrow payments, don't add to provider balance yet - wait until job is completed
-        // Only create transaction record for tracking
+        // Create transaction record (we already checked it doesn't exist above)
         await db.collection('transactions').add({
           bookingId: paymentData.bookingId,
           clientId: paymentData.userId,
@@ -832,6 +856,7 @@ router.post('/webhook', async (req, res) => {
             totalEarnings: currentEarnings + providerShare,
             updatedAt: new Date(),
           });
+          console.log(`Webhook: Provider balance updated: +₱${providerShare}`);
         }
 
         console.log(`Payment processed: ₱${amountInPesos} - Provider: ₱${providerShare}, Platform: ₱${platformCommission}`);
