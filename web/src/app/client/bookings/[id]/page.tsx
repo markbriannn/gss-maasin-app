@@ -186,6 +186,7 @@ function JobDetailsContent() {
   const paymentStatus = searchParams.get('payment');
 
   const [job, setJob] = useState<JobData | null>(null);
+  const [providerInfo, setProviderInfo] = useState<ProviderInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -285,8 +286,8 @@ function JobDetailsContent() {
   useEffect(() => {
     if (!job?.providerId) return;
     
-    // Skip if we already have provider info
-    if (job.provider?.id === job.providerId) return;
+    // Skip if we already have this provider's info
+    if (providerInfo?.id === job.providerId) return;
 
     const fetchProviderInfo = async () => {
       try {
@@ -298,22 +299,19 @@ function JobDetailsContent() {
           const providerReviewCount = pData.reviewCount || pData.totalReviews || 0;
           const completedJobs = pData.completedJobs || pData.jobsCompleted || 0;
           
-          setJob(prev => prev ? {
-            ...prev,
-            provider: {
-              id: providerDoc.id,
-              name: `${pData.firstName || ''} ${pData.lastName || ''}`.trim() || 'Provider',
-              phone: pData.phone || pData.phoneNumber,
-              photo: pData.profilePhoto,
-              rating: providerRating,
-              reviewCount: providerReviewCount,
-              completedJobs,
-              tier: pData.tier,
-              points: pData.points || 0,
-              avgResponseTime: pData.avgResponseTime || pData.averageResponseTime || 999,
-              isVerified: pData.isVerified || pData.verified || false,
-            },
-          } : null);
+          setProviderInfo({
+            id: providerDoc.id,
+            name: `${pData.firstName || ''} ${pData.lastName || ''}`.trim() || 'Provider',
+            phone: pData.phone || pData.phoneNumber,
+            photo: pData.profilePhoto,
+            rating: providerRating,
+            reviewCount: providerReviewCount,
+            completedJobs,
+            tier: pData.tier,
+            points: pData.points || 0,
+            avgResponseTime: pData.avgResponseTime || pData.averageResponseTime || 999,
+            isVerified: pData.isVerified || pData.verified || false,
+          });
         }
       } catch (error) {
         console.error('Error fetching provider info:', error);
@@ -321,7 +319,7 @@ function JobDetailsContent() {
     };
 
     fetchProviderInfo();
-  }, [job?.providerId, job?.provider?.id]);
+  }, [job?.providerId, providerInfo?.id]);
 
   const calculateTotal = useCallback(() => {
     if (!job) return 0;
@@ -673,13 +671,13 @@ function JobDetailsContent() {
   const canCancel = ['pending', 'pending_negotiation', 'counter_offer', 'accepted'].includes(job.status);
   const showConfirmButton = job.status === 'pending_completion';
   const pendingCharges = (job.additionalCharges || []).filter(c => c.status === 'pending');
-  const providerName = job.provider?.name || 'Provider';
-  const providerPhone = job.provider?.phone;
-  const providerPhoto = job.provider?.photo;
-  const providerRating = job.provider?.rating || 0;
-  const providerReviewCount = job.provider?.reviewCount || 0;
-  const providerPoints = job.provider?.points || 0;
-  const providerTier = job.provider?.tier;
+  const providerName = providerInfo?.name || 'Provider';
+  const providerPhone = providerInfo?.phone;
+  const providerPhoto = providerInfo?.photo;
+  const providerRating = providerInfo?.rating || 0;
+  const providerReviewCount = providerInfo?.reviewCount || 0;
+  const providerPoints = providerInfo?.points || 0;
+  const providerTier = providerInfo?.tier;
 
   // Helper to get tier display info from tier name
   const getTierDisplayFromName = (tier?: string) => {
