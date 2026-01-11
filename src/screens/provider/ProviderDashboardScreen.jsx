@@ -65,6 +65,31 @@ const ProviderDashboardScreen = ({navigation}) => {
   useEffect(() => {
     loadDashboardData();
     
+    // Update location when provider opens the app (if they're online)
+    const updateLocationOnLoad = async () => {
+      const userId = user?.uid || user?.id;
+      if (!userId) return;
+      
+      try {
+        const providerDoc = await getDoc(doc(db, 'users', userId));
+        if (providerDoc.exists() && providerDoc.data().isOnline) {
+          // Provider is online, update their location
+          const location = await locationService.getCurrentLocation();
+          if (location?.latitude && location?.longitude) {
+            await updateDoc(doc(db, 'users', userId), {
+              latitude: location.latitude,
+              longitude: location.longitude,
+              locationUpdatedAt: new Date(),
+            });
+            console.log('[Provider] Location updated on app open');
+          }
+        }
+      } catch (e) {
+        console.log('Could not update location on load:', e);
+      }
+    };
+    updateLocationOnLoad();
+    
     // Set up real-time listener for provider's jobs
     const userId = user?.uid || user?.id;
     if (!userId) return;
@@ -361,10 +386,28 @@ const ProviderDashboardScreen = ({navigation}) => {
     try {
       const userId = user?.uid || user?.id;
       if (userId) {
-        await updateDoc(doc(db, 'users', userId), {
+        const updateData = {
           isOnline: value,
           lastOnline: new Date(),
-        });
+        };
+        
+        // When going online, also update current location so clients can see provider on map
+        if (value) {
+          try {
+            const locationService = require('../../services/locationService').default;
+            const location = await locationService.getCurrentLocation();
+            if (location?.latitude && location?.longitude) {
+              updateData.latitude = location.latitude;
+              updateData.longitude = location.longitude;
+              updateData.locationUpdatedAt = new Date();
+            }
+          } catch (locError) {
+            console.log('Could not get location for online status:', locError);
+            // Continue without location update - don't block going online
+          }
+        }
+        
+        await updateDoc(doc(db, 'users', userId), updateData);
       }
     } catch (error) {
       console.error('Error toggling status:', error);

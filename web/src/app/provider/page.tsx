@@ -95,6 +95,36 @@ export default function ProviderDashboard() {
   useEffect(() => {
     if (user?.uid && user?.role?.toUpperCase() === 'PROVIDER') {
       fetchData();
+      
+      // Update location when provider opens the app (if they're online)
+      const updateLocationOnLoad = async () => {
+        try {
+          const providerDoc = await getDoc(doc(db, 'users', user.uid));
+          if (providerDoc.exists() && providerDoc.data().isOnline && navigator.geolocation) {
+            // Provider is online, update their location
+            navigator.geolocation.getCurrentPosition(
+              async (position) => {
+                try {
+                  await updateDoc(doc(db, 'users', user.uid), {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    locationUpdatedAt: new Date(),
+                  });
+                  console.log('[Provider] Location updated on app open');
+                } catch (e) {
+                  console.log('Could not update location:', e);
+                }
+              },
+              (error) => console.log('Geolocation error:', error),
+              { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+            );
+          }
+        } catch (e) {
+          console.log('Could not check online status:', e);
+        }
+      };
+      updateLocationOnLoad();
+      
       const notifQuery = query(collection(db, 'notifications'), where('userId', '==', user.uid), where('read', '==', false));
       const unsubNotif = onSnapshot(notifQuery, (snapshot) => setUnreadCount(snapshot.size));
       return () => unsubNotif();
@@ -182,7 +212,33 @@ export default function ProviderDashboard() {
     const newStatus = !isOnline;
     setIsOnline(newStatus);
     try {
-      if (user?.uid) await updateDoc(doc(db, 'users', user.uid), { isOnline: newStatus, lastOnline: new Date() });
+      if (user?.uid) {
+        const updateData: Record<string, unknown> = { 
+          isOnline: newStatus, 
+          lastOnline: new Date() 
+        };
+        
+        // When going online, also update current location so clients can see provider on map
+        if (newStatus && navigator.geolocation) {
+          try {
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 60000,
+              });
+            });
+            updateData.latitude = position.coords.latitude;
+            updateData.longitude = position.coords.longitude;
+            updateData.locationUpdatedAt = new Date();
+          } catch (locError) {
+            console.log('Could not get location for online status:', locError);
+            // Continue without location update - don't block going online
+          }
+        }
+        
+        await updateDoc(doc(db, 'users', user.uid), updateData);
+      }
     } catch (error) {
       console.error('Error toggling status:', error);
       setIsOnline(!newStatus);
