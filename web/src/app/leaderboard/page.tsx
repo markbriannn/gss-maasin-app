@@ -98,15 +98,20 @@ export default function LeaderboardPage() {
               tier: getTier(points, true),
             });
           }
-        } else if (role === 'CLIENT') {
-          clientsList.push({
-            id: userDoc.id,
-            name: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Client',
-            photo: userData.profilePhoto,
-            points,
-            completedJobs: stats.completedBookings || 0,
-            tier: getTier(points, false),
-          });
+        } else if (role === 'CLIENT' || !role || role === 'USER') {
+          // Include clients - also include users without role or with 'USER' role
+          // Skip admin users
+          if (role !== 'ADMIN') {
+            const clientPoints = points || userData.loyaltyPoints || 0;
+            clientsList.push({
+              id: userDoc.id,
+              name: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Client',
+              photo: userData.profilePhoto,
+              points: clientPoints,
+              completedJobs: stats.completedBookings || userData.completedBookings || userData.totalBookings || 0,
+              tier: getTier(clientPoints, false),
+            });
+          }
         }
       });
 

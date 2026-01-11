@@ -17,7 +17,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {useAuth} from '../../context/AuthContext';
 import {useTheme} from '../../context/ThemeContext';
 import {useNotifications} from '../../context/NotificationContext';
-import {collection, query, where, getDocs, doc, updateDoc, getDoc} from 'firebase/firestore';
+import {collection, query, where, onSnapshot, doc, updateDoc, getDoc} from 'firebase/firestore';
 import {db} from '../../config/firebase';
 import {dashboardStyles} from '../../css/dashboardStyles';
 import {useJobNotifications, useUserNotifications, useOfflineSupport} from '../../hooks/useRealtimeService';
@@ -64,7 +64,95 @@ const ProviderDashboardScreen = ({navigation}) => {
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+    
+    // Set up real-time listener for provider's jobs
+    const userId = user?.uid || user?.id;
+    if (!userId) return;
+    
+    const myJobsQuery = query(
+      collection(db, 'bookings'),
+      where('providerId', '==', userId)
+    );
+    
+    const unsubscribe = onSnapshot(myJobsQuery, (snapshot) => {
+      const myJobs = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
+      
+      // Calculate stats
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      
+      const completedJobs = myJobs.filter(j => j.status === 'completed');
+      const payFirstConfirmedJobs = myJobs.filter(j => 
+        j.status === 'payment_received' && j.isPaidUpfront === true
+      );
+      const activeJobs = myJobs.filter(j => j.status === 'in_progress' || j.status === 'accepted').length;
+      
+      let todayEarnings = 0;
+      let weekEarnings = 0;
+      let jobsToday = 0;
+
+      // Process completed jobs
+      completedJobs.forEach(job => {
+        const approvedAdditionalCharges = job.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
+        
+        let providerEarnings;
+        if (job.providerPrice || job.offeredPrice) {
+          providerEarnings = (job.providerPrice || job.offeredPrice) + approvedAdditionalCharges;
+        } else if (job.totalAmount) {
+          const serviceFeeRate = APP_CONFIG.SERVICE_FEE_PERCENTAGE / 100;
+          providerEarnings = (job.totalAmount / (1 + serviceFeeRate)) + approvedAdditionalCharges;
+        } else {
+          providerEarnings = (job.amount || job.price || 0) + approvedAdditionalCharges;
+        }
+        
+        const completedDate = job.completedAt?.toDate?.() || new Date(job.completedAt);
+        
+        if (completedDate >= today) {
+          todayEarnings += providerEarnings;
+          jobsToday++;
+        }
+        if (completedDate >= weekAgo) {
+          weekEarnings += providerEarnings;
+        }
+      });
+      
+      // Process Pay First jobs
+      payFirstConfirmedJobs.forEach(job => {
+        const approvedAdditionalCharges = job.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
+        
+        let providerEarnings;
+        if (job.providerPrice || job.offeredPrice) {
+          providerEarnings = (job.providerPrice || job.offeredPrice) + approvedAdditionalCharges;
+        } else if (job.totalAmount) {
+          const serviceFeeRate = APP_CONFIG.SERVICE_FEE_PERCENTAGE / 100;
+          providerEarnings = (job.totalAmount / (1 + serviceFeeRate)) + approvedAdditionalCharges;
+        } else {
+          providerEarnings = (job.amount || job.price || 0) + approvedAdditionalCharges;
+        }
+        
+        const confirmedDate = job.clientConfirmedAt?.toDate?.() || job.updatedAt?.toDate?.() || new Date();
+        
+        if (confirmedDate >= today) {
+          todayEarnings += providerEarnings;
+          jobsToday++;
+        }
+        if (confirmedDate >= weekAgo) {
+          weekEarnings += providerEarnings;
+        }
+      });
+
+      setEarnings({today: todayEarnings, week: weekEarnings});
+      setStatistics(prev => ({
+        ...prev,
+        jobsToday,
+        activeJobs,
+      }));
+    });
+    
+    return () => unsubscribe();
+  }, [user]);
 
   // Listen for real-time job notifications
   useEffect(() => {
