@@ -82,10 +82,9 @@ export default function ProviderDashboard() {
       if (!isAuthenticated) router.push('/login');
       else if (user?.role?.toUpperCase() !== 'PROVIDER') router.push('/');
       // Redirect to profile setup if no profile photo and setup not complete
-      // Check URL param to prevent redirect loop after skip
+      // Check sessionStorage to prevent redirect loop after skip
       else if (!user?.profilePhoto && !user?.profileSetupComplete) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const skipped = urlParams.get('skipped') === 'true';
+        const skipped = typeof window !== 'undefined' && sessionStorage.getItem('profileSetupSkipped') === 'true';
         if (!skipped) {
           router.push('/provider/setup-profile');
         }

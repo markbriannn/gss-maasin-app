@@ -73,6 +73,11 @@ export default function SetupProfilePhoto() {
   const handleSkip = async () => {
     setIsSkipping(true);
     
+    // Set sessionStorage FIRST before any async operations
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('profileSetupSkipped', 'true');
+    }
+    
     if (user?.uid) {
       try {
         await updateDoc(doc(db, 'users', user.uid), {
@@ -83,8 +88,8 @@ export default function SetupProfilePhoto() {
       }
     }
     
-    // Redirect with skipped param to prevent bounce back
-    window.location.href = '/provider?skipped=true';
+    // Redirect to provider dashboard
+    window.location.href = '/provider';
   };
 
   if (isLoading) {
