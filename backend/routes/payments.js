@@ -1818,14 +1818,14 @@ router.post('/release-escrow/:bookingId', async (req, res) => {
         await clientGamRef.update({
           points: (data.points || 0) + 50,
           'stats.completedBookings': (data.stats?.completedBookings || 0) + 1,
-          'stats.totalSpent': (data.stats?.totalSpent || 0) + amount,
+          'stats.totalSpent': (data.stats?.totalSpent || 0) + totalAmount,
           updatedAt: new Date(),
         });
       } else {
         await clientGamRef.set({
           points: 50,
           role: 'CLIENT',
-          stats: { completedBookings: 1, totalSpent: amount, reviewsGiven: 0 },
+          stats: { completedBookings: 1, totalSpent: totalAmount, reviewsGiven: 0 },
           createdAt: new Date(),
           updatedAt: new Date(),
         });
@@ -1842,7 +1842,7 @@ router.post('/release-escrow/:bookingId', async (req, res) => {
     res.json({
       success: true,
       message: 'Payment released to provider',
-      amount: amount,
+      amount: totalAmount,
       providerShare: providerShare,
     });
   } catch (error) {
