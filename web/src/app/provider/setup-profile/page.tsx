@@ -14,6 +14,7 @@ export default function SetupProfilePhoto() {
   const [profilePhoto, setProfilePhoto] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSkipping, setIsSkipping] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -70,21 +71,21 @@ export default function SetupProfilePhoto() {
   };
 
   const handleSkip = async () => {
-    if (!user?.uid) {
-      // If no user, just redirect
-      router.push('/provider');
-      return;
+    setIsSkipping(true);
+    
+    if (user?.uid) {
+      try {
+        await updateDoc(doc(db, 'users', user.uid), {
+          profileSetupComplete: true,
+        });
+      } catch (error) {
+        console.error('Skip error:', error);
+        // Continue to redirect even if update fails
+      }
     }
     
-    try {
-      await updateDoc(doc(db, 'users', user.uid), {
-        profileSetupComplete: true,
-      });
-    } catch (error) {
-      console.error('Skip error:', error);
-      // Continue to redirect even if update fails
-    }
-    router.push('/provider');
+    // Use window.location for more reliable redirect
+    window.location.href = '/provider';
   };
 
   if (isLoading) {
@@ -192,9 +193,10 @@ export default function SetupProfilePhoto() {
           
           <button
             onClick={handleSkip}
-            className="w-full text-gray-500 py-3 rounded-xl font-medium hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            disabled={isSkipping}
+            className="w-full text-gray-500 py-3 rounded-xl font-medium hover:text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
           >
-            Skip for now
+            {isSkipping ? 'Redirecting...' : 'Skip for now'}
           </button>
         </div>
       </div>
