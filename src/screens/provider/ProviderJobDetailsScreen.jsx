@@ -1675,7 +1675,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                         Waiting for Client Payment
                       </Text>
                       <Text style={{fontSize: 13, color: '#B45309', marginTop: 4, textAlign: 'center'}}>
-                        Client has paid. You can start traveling once admin approves.
+                        The client needs to pay before you can start traveling.
                       </Text>
                     </View>
                   )}

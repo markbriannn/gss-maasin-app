@@ -810,6 +810,18 @@ export default function ProviderJobDetailsPage() {
               </button>
             )}
 
+            {job.status === 'pending_completion' && (
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6 text-center">
+                <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Clock className="w-8 h-8 text-amber-600" />
+                </div>
+                <h3 className="text-lg font-bold text-amber-800 mb-2">Waiting for Client Confirmation</h3>
+                <p className="text-amber-700 text-sm">
+                  The client needs to confirm the work is complete and proceed to payment.
+                </p>
+              </div>
+            )}
+
             {job.status === 'payment_received' && (
               <button
                 onClick={handleConfirmPayment}
