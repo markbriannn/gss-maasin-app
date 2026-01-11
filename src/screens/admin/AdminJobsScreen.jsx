@@ -19,7 +19,7 @@ import {useTheme} from '../../context/ThemeContext';
 import {
   collection,
   query,
-  getDocs,
+  onSnapshot,
   doc,
   updateDoc,
   getDoc,
@@ -79,34 +79,11 @@ const AdminJobsScreen = ({navigation, route}) => {
   ];
 
   useEffect(() => {
-    fetchJobs();
-  }, []);
-
-  // Auto-open job details if openJobId is passed from notification
-  useEffect(() => {
-    if (openJobId && allJobs.length > 0) {
-      const jobToOpen = allJobs.find(j => j.id === openJobId);
-      if (jobToOpen) {
-        setSelectedJob(jobToOpen);
-        setShowDetailModal(true);
-        // Clear the param so it doesn't re-open on re-render
-        navigation.setParams({ openJobId: undefined });
-      }
-    }
-  }, [openJobId, allJobs]);
-
-  // Filter jobs when filter or search changes
-  useEffect(() => {
-    filterJobs();
-  }, [activeFilter, searchQuery, allJobs]);
-
-  const fetchJobs = async () => {
+    // Set up real-time listener for jobs
     setIsLoading(true);
-    try {
-      // Query all bookings/jobs from Firebase
-      const jobsQuery = query(collection(db, 'bookings'));
-      const snapshot = await getDocs(jobsQuery);
-      
+    const jobsQuery = query(collection(db, 'bookings'));
+    
+    const unsubscribe = onSnapshot(jobsQuery, async (snapshot) => {
       const jobsList = await Promise.all(
         snapshot.docs.map(async (docSnap) => {
           const data = docSnap.data();
@@ -170,10 +147,10 @@ const AdminJobsScreen = ({navigation, route}) => {
             title: data.title || data.serviceTitle || 'Service Request',
             category: data.category || data.serviceCategory || 'General',
             status: data.status || 'pending',
-            client: clientInfo, // Always use fetched client info with proper ID
-            provider: providerInfo, // Always use fetched provider info with proper ID
-            clientId: data.clientId, // Keep original clientId for reference
-            providerId: data.providerId, // Keep original providerId for reference
+            client: clientInfo,
+            provider: providerInfo,
+            clientId: data.clientId,
+            providerId: data.providerId,
             amount: data.totalAmount || data.amount || data.price || 0,
             providerPrice: data.providerPrice || data.offeredPrice || 0,
             systemFee: data.systemFee || 0,
@@ -186,9 +163,7 @@ const AdminJobsScreen = ({navigation, route}) => {
             completedAt: data.completedAt?.toDate?.()?.toLocaleDateString() || null,
             cancelReason: data.cancelReason || null,
             disputeReason: data.disputeReason || null,
-            // Media files from client
             media: data.mediaFiles || data.media || data.photos || [],
-            // Negotiation fields
             isNegotiable: data.isNegotiable || false,
             offeredPrice: data.offeredPrice || 0,
             providerFixedPrice: data.providerFixedPrice || 0,
@@ -196,33 +171,49 @@ const AdminJobsScreen = ({navigation, route}) => {
             priceNote: data.priceNote || '',
             counterOfferNote: data.counterOfferNote || '',
             negotiationHistory: data.negotiationHistory || [],
-            // Additional charges
             additionalCharges: data.additionalCharges || [],
-            // Admin approval status
             adminApproved: data.adminApproved || false,
-            // Payment - Always Pay First with GCash/Maya
             paymentPreference: 'pay_first',
             paymentMethod: data.paymentMethod || 'gcash',
             isPaidUpfront: data.isPaidUpfront || false,
             upfrontPaidAmount: data.upfrontPaidAmount || 0,
-            // Keep raw data
             rawData: data,
           };
         })
       );
 
-      // Sort by newest first (descending by created date)
+      // Sort by newest first
       jobsList.sort((a, b) => b.createdAtRaw - a.createdAtRaw);
 
       setAllJobs(jobsList);
       setJobs(jobsList);
-    } catch (error) {
-      console.error('Error fetching jobs:', error);
-      Alert.alert('Error', 'Failed to load jobs. Please try again.');
-    } finally {
       setIsLoading(false);
+    }, (error) => {
+      console.error('Error listening to jobs:', error);
+      Alert.alert('Error', 'Failed to load jobs. Please try again.');
+      setIsLoading(false);
+    });
+    
+    return () => unsubscribe();
+  }, []);
+
+  // Auto-open job details if openJobId is passed from notification
+  useEffect(() => {
+    if (openJobId && allJobs.length > 0) {
+      const jobToOpen = allJobs.find(j => j.id === openJobId);
+      if (jobToOpen) {
+        setSelectedJob(jobToOpen);
+        setShowDetailModal(true);
+        // Clear the param so it doesn't re-open on re-render
+        navigation.setParams({ openJobId: undefined });
+      }
     }
-  };
+  }, [openJobId, allJobs]);
+
+  // Filter jobs when filter or search changes
+  useEffect(() => {
+    filterJobs();
+  }, [activeFilter, searchQuery, allJobs]);
 
   const filterJobs = () => {
     let filtered = [...allJobs];

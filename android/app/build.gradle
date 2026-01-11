@@ -29,7 +29,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 2
-        versionName "4.1.0"
+        versionName "4.2.0"
         
         // Only build for ARM architectures to avoid x86_64 CMake issues
         ndk {
