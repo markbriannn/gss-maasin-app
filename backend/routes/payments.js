@@ -618,7 +618,8 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
       const platformCommission = amountInPesos - providerShare;
 
       // Check if this is a "pay first" upfront payment
-      const isUpfrontPayment = bookingData?.paymentPreference === 'pay_first' && !bookingData?.isPaidUpfront;
+      const isPayFirstBooking = bookingData?.paymentPreference === 'pay_first';
+      const isUpfrontPayment = isPayFirstBooking && !bookingData?.isPaidUpfront;
 
       // Update booking status
       const bookingUpdate = {
@@ -629,14 +630,30 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
       };
 
       if (isUpfrontPayment) {
+        // Pay First - mark as paid upfront, DON'T change status (keep workflow intact)
         bookingUpdate.isPaidUpfront = true;
         bookingUpdate.upfrontPaidAmount = amountInPesos;
         bookingUpdate.upfrontPaidAt = new Date();
+        bookingUpdate.paymentStatus = 'held';
+        // Only change to 'accepted' if currently in 'pending_payment' status
         if (bookingData?.status === 'pending_payment') {
           bookingUpdate.status = 'accepted';
         }
+        // Otherwise keep current status - don't skip workflow steps!
+        console.log(`Pay First upfront payment synced for booking ${bookingId}: ₱${amountInPesos}, status: ${bookingData?.status}`);
+      } else if (isPayFirstBooking && bookingData?.isPaidUpfront) {
+        // Pay First booking that's already paid - only change status if in payment flow
+        if (bookingData?.status === 'pending_payment' || bookingData?.status === 'pending_completion') {
+          bookingUpdate.status = 'payment_received';
+          console.log(`Additional payment synced for Pay First booking ${bookingId}: ₱${amountInPesos}`);
+        } else {
+          // Don't change status for already-paid Pay First bookings in other statuses
+          console.log(`Duplicate/extra payment for Pay First booking ${bookingId}, status unchanged: ${bookingData?.status}`);
+        }
       } else {
+        // Pay Later - mark as payment received
         bookingUpdate.status = 'payment_received';
+        console.log(`Pay Later payment synced for booking ${bookingId}: ₱${amountInPesos}`);
       }
 
       await db.collection('bookings').doc(bookingId).update(bookingUpdate);
