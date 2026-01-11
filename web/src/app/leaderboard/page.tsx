@@ -132,7 +132,10 @@ export default function LeaderboardPage() {
           const stats = gamDoc.exists() ? (gamDoc.data().stats || {}) : {};
           const list = isProvider ? providersList : clientsList;
           const rank = list.findIndex(e => e.id === user.uid) + 1;
-          setMyStats({ points, tier: getTier(points, isProvider), isProvider, stats, rank: rank > 0 ? rank : null });
+          const totalUsers = list.length;
+          // Calculate percentile (Top X%)
+          const percentile = totalUsers > 0 && rank > 0 ? Math.ceil((rank / totalUsers) * 100) : null;
+          setMyStats({ points, tier: getTier(points, isProvider), isProvider, stats, rank: rank > 0 ? rank : null, totalUsers, percentile });
         }
       }
     } catch (error) {
@@ -188,11 +191,19 @@ export default function LeaderboardPage() {
                       {myStats.tier.name}
                     </span>
                   </div>
+                  {myStats.percentile && (
+                    <p className="text-emerald-400 text-sm font-medium mt-1">
+                      Top {myStats.percentile}% of {myStats.isProvider ? 'providers' : 'clients'}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="text-right">
                 <p className="text-white/60 text-sm">Total Points</p>
                 <p className="text-2xl font-bold text-amber-400">{myStats.points.toLocaleString()}</p>
+                {myStats.totalUsers && (
+                  <p className="text-white/40 text-xs">{myStats.totalUsers} total {myStats.isProvider ? 'providers' : 'clients'}</p>
+                )}
               </div>
             </div>
             {/* Progress to next tier */}

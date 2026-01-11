@@ -22,23 +22,35 @@ const LeaderboardScreen = ({navigation}) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const isProvider = user?.role?.toUpperCase() === 'PROVIDER';
+
   const fetchData = useCallback(async () => {
     try {
       const [providers, clients, stats] = await Promise.all([
-        getProviderLeaderboard(20),
-        getClientLeaderboard(20),
+        getProviderLeaderboard(50), // Get more for accurate percentile
+        getClientLeaderboard(50),
         user?.uid ? getUserTierAndBadges(user.uid, user.role) : null,
       ]);
       setProviderData(providers);
       setClientData(clients);
-      setMyStats(stats);
+      
+      // Calculate rank and percentile for current user
+      if (stats && user?.uid) {
+        const list = isProvider ? providers : clients;
+        const rank = list.findIndex(e => e.id === user.uid) + 1;
+        const totalUsers = list.length;
+        const percentile = totalUsers > 0 && rank > 0 ? Math.ceil((rank / totalUsers) * 100) : null;
+        setMyStats({ ...stats, rank: rank > 0 ? rank : null, totalUsers, percentile });
+      } else {
+        setMyStats(stats);
+      }
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user?.uid, user?.role]);
+  }, [user?.uid, user?.role, isProvider]);
 
   useEffect(() => {
     fetchData();
@@ -48,8 +60,6 @@ const LeaderboardScreen = ({navigation}) => {
     setRefreshing(true);
     fetchData();
   };
-
-  const isProvider = user?.role?.toUpperCase() === 'PROVIDER';
 
   return (
     <SafeAreaView style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]}>
@@ -81,6 +91,28 @@ const LeaderboardScreen = ({navigation}) => {
               Your Progress
             </Text>
             <TierCard points={myStats.points} isProvider={isProvider} />
+            {/* Percentile Info */}
+            {myStats.percentile && (
+              <View style={{
+                marginTop: 12,
+                backgroundColor: isDark ? theme.colors.card : '#F0FDF4',
+                borderRadius: 12,
+                padding: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
+                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <Icon name="trophy" size={20} color="#00B14F" />
+                  <Text style={{marginLeft: 8, fontSize: 14, fontWeight: '600', color: '#00B14F'}}>
+                    Top {myStats.percentile}%
+                  </Text>
+                </View>
+                <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>
+                  Rank #{myStats.rank} of {myStats.totalUsers} {isProvider ? 'providers' : 'clients'}
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
