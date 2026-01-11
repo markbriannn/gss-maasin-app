@@ -97,14 +97,17 @@ const ProviderDashboardScreen = ({navigation}) => {
       completedJobs.forEach(job => {
         const approvedAdditionalCharges = job.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
         
+        // IMPORTANT: providerPrice is the provider's actual price (before 5% fee added to client)
+        // Only divide by 1.05 if we're using totalAmount (which includes the fee)
         let providerEarnings;
         if (job.providerPrice || job.offeredPrice) {
+          // Use provider's actual price directly
           providerEarnings = (job.providerPrice || job.offeredPrice) + approvedAdditionalCharges;
         } else if (job.totalAmount) {
-          const serviceFeeRate = APP_CONFIG.SERVICE_FEE_PERCENTAGE / 100;
-          providerEarnings = (job.totalAmount / (1 + serviceFeeRate)) + approvedAdditionalCharges;
+          // totalAmount includes 5% fee, so remove it
+          providerEarnings = (job.totalAmount / 1.05) + approvedAdditionalCharges;
         } else {
-          providerEarnings = (job.amount || job.price || 0) + approvedAdditionalCharges;
+          providerEarnings = (job.price || job.amount || 0) + approvedAdditionalCharges;
         }
         
         const completedDate = job.completedAt?.toDate?.() || new Date(job.completedAt);
@@ -122,14 +125,17 @@ const ProviderDashboardScreen = ({navigation}) => {
       payFirstConfirmedJobs.forEach(job => {
         const approvedAdditionalCharges = job.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
         
+        // IMPORTANT: providerPrice is the provider's actual price (before 5% fee added to client)
+        // Only divide by 1.05 if we're using totalAmount (which includes the fee)
         let providerEarnings;
         if (job.providerPrice || job.offeredPrice) {
+          // Use provider's actual price directly
           providerEarnings = (job.providerPrice || job.offeredPrice) + approvedAdditionalCharges;
         } else if (job.totalAmount) {
-          const serviceFeeRate = APP_CONFIG.SERVICE_FEE_PERCENTAGE / 100;
-          providerEarnings = (job.totalAmount / (1 + serviceFeeRate)) + approvedAdditionalCharges;
+          // totalAmount includes 5% fee, so remove it
+          providerEarnings = (job.totalAmount / 1.05) + approvedAdditionalCharges;
         } else {
-          providerEarnings = (job.amount || job.price || 0) + approvedAdditionalCharges;
+          providerEarnings = (job.price || job.amount || 0) + approvedAdditionalCharges;
         }
         
         const confirmedDate = job.clientConfirmedAt?.toDate?.() || job.updatedAt?.toDate?.() || new Date();
@@ -239,10 +245,9 @@ const ProviderDashboardScreen = ({navigation}) => {
           providerEarnings = (job.providerPrice || job.offeredPrice) + approvedAdditionalCharges;
         } else if (job.totalAmount) {
           // totalAmount includes 5% fee, so remove it
-          const serviceFeeRate = APP_CONFIG.SERVICE_FEE_PERCENTAGE / 100;
-          providerEarnings = (job.totalAmount / (1 + serviceFeeRate)) + approvedAdditionalCharges;
+          providerEarnings = (job.totalAmount / 1.05) + approvedAdditionalCharges;
         } else {
-          providerEarnings = (job.amount || job.price || 0) + approvedAdditionalCharges;
+          providerEarnings = (job.price || job.amount || 0) + approvedAdditionalCharges;
         }
         
         const completedDate = job.completedAt?.toDate?.() || new Date(job.completedAt);
@@ -267,10 +272,9 @@ const ProviderDashboardScreen = ({navigation}) => {
           providerEarnings = (job.providerPrice || job.offeredPrice) + approvedAdditionalCharges;
         } else if (job.totalAmount) {
           // totalAmount includes 5% fee, so remove it
-          const serviceFeeRate = APP_CONFIG.SERVICE_FEE_PERCENTAGE / 100;
-          providerEarnings = (job.totalAmount / (1 + serviceFeeRate)) + approvedAdditionalCharges;
+          providerEarnings = (job.totalAmount / 1.05) + approvedAdditionalCharges;
         } else {
-          providerEarnings = (job.amount || job.price || 0) + approvedAdditionalCharges;
+          providerEarnings = (job.price || job.amount || 0) + approvedAdditionalCharges;
         }
         
         // Use clientConfirmedAt for Pay First jobs since that's when payment was confirmed

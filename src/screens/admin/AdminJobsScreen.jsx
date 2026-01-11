@@ -93,7 +93,8 @@ const AdminJobsScreen = ({navigation, route}) => {
             id: data.clientId || null, 
             name: data.clientName || 'Unknown Client', 
             phone: 'Not provided', 
-            role: 'CLIENT'
+            role: 'CLIENT',
+            photo: null,
           };
           if (data.clientId) {
             try {
@@ -106,6 +107,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                   name: fetchedName || data.clientName || clientData.email?.split('@')[0] || 'Unknown',
                   phone: clientData.phone || clientData.phoneNumber || 'Not provided',
                   role: 'CLIENT',
+                  photo: clientData.profilePhoto || clientData.photoURL || null,
                 };
               }
             } catch (e) {
@@ -121,6 +123,7 @@ const AdminJobsScreen = ({navigation, route}) => {
             role: 'PROVIDER',
             tier: null,
             points: 0,
+            photo: null,
           };
           if (data.providerId) {
             try {
@@ -135,6 +138,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                   role: 'PROVIDER',
                   tier: providerData.tier || null,
                   points: providerData.points || 0,
+                  photo: providerData.profilePhoto || providerData.photoURL || null,
                 };
               }
             } catch (e) {
@@ -801,8 +805,17 @@ const AdminJobsScreen = ({navigation, route}) => {
               <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
                 <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Client</Text>
                 <View style={adminStyles.modalInfoRow}>
-                  <Icon name="person" size={20} color="#3B82F6" />
-                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.client.name}</Text>
+                  {selectedJob.client.photo ? (
+                    <Image 
+                      source={{uri: selectedJob.client.photo}} 
+                      style={{width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: '#3B82F6'}}
+                    />
+                  ) : (
+                    <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center'}}>
+                      <Icon name="person" size={20} color="#3B82F6" />
+                    </View>
+                  )}
+                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}, {marginLeft: 12}]}>{selectedJob.client.name}</Text>
                 </View>
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="call" size={20} color="#3B82F6" />
@@ -843,8 +856,17 @@ const AdminJobsScreen = ({navigation, route}) => {
               <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
                 <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Provider</Text>
                 <View style={adminStyles.modalInfoRow}>
-                  <Icon name="person" size={20} color="#00B14F" />
-                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.provider.name}</Text>
+                  {selectedJob.provider.photo ? (
+                    <Image 
+                      source={{uri: selectedJob.provider.photo}} 
+                      style={{width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: '#00B14F'}}
+                    />
+                  ) : (
+                    <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center'}}>
+                      <Icon name="person" size={20} color="#00B14F" />
+                    </View>
+                  )}
+                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}, {marginLeft: 12}]}>{selectedJob.provider.name}</Text>
                 </View>
                 {/* Provider Tier Badge */}
                 {(selectedJob.provider?.tier || selectedJob.provider?.points > 0) && (

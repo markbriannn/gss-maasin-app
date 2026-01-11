@@ -15,7 +15,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import {useAuth} from '../../context/AuthContext';
 import {useTheme} from '../../context/ThemeContext';
 import paymentService from '../../services/paymentService';
-import {doc, updateDoc, getDoc} from 'firebase/firestore';
+import {doc, updateDoc, getDoc, collection, query, where, getDocs} from 'firebase/firestore';
 import {db} from '../../config/firebase';
 import {APP_CONFIG} from '../../config/constants';
 
@@ -101,36 +101,72 @@ export const WalletScreen = () => {
         return;
       }
 
-      // Try backend first with timeout, fallback to local calculation
-      try {
-        const balanceResult = await Promise.race([
-          paymentService.getProviderBalance(providerId),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
-        ]);
+      // Calculate earnings directly from bookings (same as web version)
+      const bookingsQuery = query(
+        collection(db, 'bookings'),
+        where('providerId', '==', providerId)
+      );
+      
+      const snapshot = await getDocs(bookingsQuery);
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      let totalEarnings = 0;
+      let thisMonthEarnings = 0;
+      const SYSTEM_FEE_PERCENTAGE = 0.05;
+
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        // Count completed jobs OR pay-first jobs that are confirmed
+        const isCompleted = data.status === 'completed';
+        const isPayFirstConfirmed = data.status === 'payment_received' && data.isPaidUpfront === true;
         
-        if (balanceResult.success) {
-          setEarnings({
-            total: balanceResult.totalEarnings || 0,
-            thisMonth: balanceResult.totalEarnings || 0,
-            available: balanceResult.availableBalance || 0,
-            pending: balanceResult.pendingBalance || 0,
-          });
-          return;
+        if (isCompleted || isPayFirstConfirmed) {
+          // Calculate provider earnings
+          let amount = data.finalAmount;
+          if (!amount) {
+            const baseAmount = data.providerPrice || data.totalAmount || data.price || 0;
+            const approvedCharges = (data.additionalCharges || [])
+              .filter(c => c.status === 'approved')
+              .reduce((sum, c) => sum + (c.total || c.amount || 0), 0);
+            amount = baseAmount + approvedCharges;
+          }
+          
+          // Provider gets full amount (fee is paid by client on top)
+          const systemFee = data.systemFee || (amount * SYSTEM_FEE_PERCENTAGE);
+          const providerEarnings = data.providerEarnings || (amount - systemFee);
+          
+          totalEarnings += providerEarnings;
+          
+          // Check if earned this month
+          const earnedDate = isPayFirstConfirmed 
+            ? (data.clientConfirmedAt?.toDate?.() || new Date())
+            : (data.completedAt?.toDate?.() || new Date());
+          
+          if (earnedDate >= monthStart) {
+            thisMonthEarnings += providerEarnings;
+          }
         }
-      } catch (backendError) {
-        console.log('Backend unavailable, using local calculation:', backendError.message);
+      });
+
+      // Get withdrawn and pending amounts from user document
+      let withdrawn = 0;
+      let pending = 0;
+      try {
+        const userDoc = await getDoc(doc(db, 'users', providerId));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          withdrawn = userData.totalWithdrawn || 0;
+          pending = userData.pendingPayout || 0;
+        }
+      } catch (e) {
+        console.log('Error fetching user data:', e);
       }
 
-      // Fallback to local calculation from Firestore
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const result = await paymentService.calculateEarnings(providerId, startOfMonth, now);
-      
       setEarnings({
-        total: user?.totalEarnings || result.earnings || 0,
-        thisMonth: result.earnings || 0,
-        available: Math.max((user?.totalEarnings || result.earnings || 0) - (user?.pendingPayout || 0), 0),
-        pending: user?.pendingPayout || 0,
+        total: totalEarnings,
+        thisMonth: thisMonthEarnings,
+        available: Math.max(totalEarnings - withdrawn - pending, 0),
+        pending: pending,
       });
     } catch (error) {
       console.error('Error fetching earnings:', error);
