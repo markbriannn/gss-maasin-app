@@ -242,37 +242,37 @@ export default function ProviderJobDetailsPage() {
   const handleAccept = async () => {
     if (updating) return; // Prevent double-click
     await updateJobStatus('accepted', { acceptedAt: serverTimestamp() });
-    // Send FCM push to client
+    // Send FCM push to client (fire and forget - don't block UI)
     if (job?.clientId) {
       const providerName = user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : job.providerName || 'Provider';
-      pushNotifications.jobAcceptedToClient(job.clientId, job.id, providerName);
+      pushNotifications.jobAcceptedToClient(job.clientId, job.id, providerName).catch(console.error);
     }
   };
   
   const handleStartTraveling = async () => {
     if (updating) return; // Prevent double-click
     await updateJobStatus('traveling', { travelingAt: serverTimestamp() });
-    // Send FCM push to client
+    // Send FCM push to client (fire and forget - don't block UI)
     if (job?.clientId) {
-      pushNotifications.providerTravelingToClient(job.clientId, job.id);
+      pushNotifications.providerTravelingToClient(job.clientId, job.id).catch(console.error);
     }
   };
   
   const handleArrived = async () => {
     if (updating) return; // Prevent double-click
     await updateJobStatus('arrived', { arrivedAt: serverTimestamp() });
-    // Send FCM push to client
+    // Send FCM push to client (fire and forget - don't block UI)
     if (job?.clientId) {
-      pushNotifications.providerArrivedToClient(job.clientId, job.id);
+      pushNotifications.providerArrivedToClient(job.clientId, job.id).catch(console.error);
     }
   };
   
   const handleStartWork = async () => {
     if (updating) return; // Prevent double-click
     await updateJobStatus('in_progress', { startedAt: serverTimestamp() });
-    // Send FCM push to client
+    // Send FCM push to client (fire and forget - don't block UI)
     if (job?.clientId) {
-      pushNotifications.jobStartedToClient(job.clientId, job.id, job.serviceCategory || 'Service');
+      pushNotifications.jobStartedToClient(job.clientId, job.id, job.serviceCategory || 'Service').catch(console.error);
     }
   };
 
@@ -290,9 +290,9 @@ export default function ProviderJobDetailsPage() {
       markedDoneAt: serverTimestamp(),
       finalAmount,
     });
-    // Send FCM push to client
+    // Send FCM push to client (fire and forget - don't block UI)
     if (job.clientId) {
-      pushNotifications.jobCompletedToClient(job.clientId, job.id, job.serviceCategory || 'Service');
+      pushNotifications.jobCompletedToClient(job.clientId, job.id, job.serviceCategory || 'Service').catch(console.error);
     }
   };
 
