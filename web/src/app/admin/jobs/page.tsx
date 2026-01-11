@@ -16,6 +16,7 @@ interface ClientInfo {
   name: string;
   phone: string;
   email?: string;
+  photo?: string;
 }
 
 interface ProviderInfo {
@@ -23,6 +24,7 @@ interface ProviderInfo {
   name: string;
   phone: string;
   email?: string;
+  photo?: string;
 }
 
 interface Job {
@@ -136,7 +138,13 @@ export default function AdminJobsPage() {
               const clientDoc = await getDoc(doc(db, 'users', data.clientId));
               if (clientDoc.exists()) {
                 const clientData = clientDoc.data();
-                clientInfo = { id: data.clientId, name: `${clientData.firstName || ''} ${clientData.lastName || ''}`.trim() || 'Unknown', phone: clientData.phone || clientData.phoneNumber || 'Not provided', email: clientData.email };
+                clientInfo = { 
+                  id: data.clientId, 
+                  name: `${clientData.firstName || ''} ${clientData.lastName || ''}`.trim() || 'Unknown', 
+                  phone: clientData.phone || clientData.phoneNumber || 'Not provided', 
+                  email: clientData.email,
+                  photo: clientData.profilePhoto || clientData.photoURL,
+                };
               }
             } catch (e) {}
           }
@@ -147,7 +155,13 @@ export default function AdminJobsPage() {
               const providerDoc = await getDoc(doc(db, 'users', data.providerId));
               if (providerDoc.exists()) {
                 const providerData = providerDoc.data();
-                providerInfo = { id: data.providerId, name: `${providerData.firstName || ''} ${providerData.lastName || ''}`.trim() || 'Unknown', phone: providerData.phone || providerData.phoneNumber || 'Not provided', email: providerData.email };
+                providerInfo = { 
+                  id: data.providerId, 
+                  name: `${providerData.firstName || ''} ${providerData.lastName || ''}`.trim() || 'Unknown', 
+                  phone: providerData.phone || providerData.phoneNumber || 'Not provided', 
+                  email: providerData.email,
+                  photo: providerData.profilePhoto || providerData.photoURL,
+                };
               }
             } catch (e) {}
           }
@@ -461,18 +475,26 @@ export default function AdminJobsPage() {
                         {/* Parties */}
                         <div className="grid grid-cols-2 gap-4 mb-4">
                           <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
-                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                              <User className="w-5 h-5 text-blue-600" />
-                            </div>
+                            {job.client.photo ? (
+                              <img src={job.client.photo} alt="" className="w-10 h-10 rounded-full object-cover" />
+                            ) : (
+                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <User className="w-5 h-5 text-blue-600" />
+                              </div>
+                            )}
                             <div>
                               <p className="text-xs text-gray-500">Client</p>
                               <p className="font-semibold text-gray-900">{job.client.name}</p>
                             </div>
                           </div>
                           <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
-                            <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-                              <Wrench className="w-5 h-5 text-emerald-600" />
-                            </div>
+                            {job.provider.photo ? (
+                              <img src={job.provider.photo} alt="" className="w-10 h-10 rounded-full object-cover" />
+                            ) : (
+                              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                                <Wrench className="w-5 h-5 text-emerald-600" />
+                              </div>
+                            )}
                             <div>
                               <p className="text-xs text-gray-500">Provider</p>
                               <p className="font-semibold text-gray-900">{job.provider.name}</p>
@@ -607,7 +629,19 @@ export default function AdminJobsPage() {
                 <div className="grid md:grid-cols-2 gap-4 mb-6">
                   <div className="bg-gray-50 p-4 rounded-2xl">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      {selectedJob.client.photo ? (
+                        <img 
+                          src={selectedJob.client.photo} 
+                          alt={selectedJob.client.name}
+                          className="w-10 h-10 rounded-full object-cover border-2 border-blue-200"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            target.nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center ${selectedJob.client.photo ? 'hidden' : ''}`}>
                         <User className="w-5 h-5 text-blue-600" />
                       </div>
                       <h4 className="font-bold text-gray-900">Client</h4>
@@ -618,7 +652,19 @@ export default function AdminJobsPage() {
                   </div>
                   <div className="bg-gray-50 p-4 rounded-2xl">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                      {selectedJob.provider.photo ? (
+                        <img 
+                          src={selectedJob.provider.photo} 
+                          alt={selectedJob.provider.name}
+                          className="w-10 h-10 rounded-full object-cover border-2 border-emerald-200"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            target.nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center ${selectedJob.provider.photo ? 'hidden' : ''}`}>
                         <Wrench className="w-5 h-5 text-emerald-600" />
                       </div>
                       <h4 className="font-bold text-gray-900">Provider</h4>
