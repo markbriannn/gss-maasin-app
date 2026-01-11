@@ -141,16 +141,21 @@ const ProviderDashboardScreen = ({navigation}) => {
       // Process completed jobs
       completedJobs.forEach(job => {
         // Calculate the actual provider earnings including discounts and additional charges
-        let finalAmount = job.finalAmount;
-        if (!finalAmount) {
-          const baseAmount = job.providerPrice || job.offeredPrice || job.totalAmount || job.amount || job.price || 0;
-          const approvedAdditionalCharges = job.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
-          finalAmount = baseAmount + approvedAdditionalCharges;
-        }
+        // IMPORTANT: providerPrice is the provider's actual price (before 5% fee added to client)
+        // Only divide by 1.05 if we're using totalAmount (which includes the fee)
+        const approvedAdditionalCharges = job.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
         
-        // Deduct the service fee to show actual provider earnings
-        const serviceFeeRate = APP_CONFIG.SERVICE_FEE_PERCENTAGE / 100;
-        const providerEarnings = finalAmount / (1 + serviceFeeRate); // Remove the fee that was added to client price
+        let providerEarnings;
+        if (job.providerPrice || job.offeredPrice) {
+          // Use provider's actual price directly
+          providerEarnings = (job.providerPrice || job.offeredPrice) + approvedAdditionalCharges;
+        } else if (job.totalAmount) {
+          // totalAmount includes 5% fee, so remove it
+          const serviceFeeRate = APP_CONFIG.SERVICE_FEE_PERCENTAGE / 100;
+          providerEarnings = (job.totalAmount / (1 + serviceFeeRate)) + approvedAdditionalCharges;
+        } else {
+          providerEarnings = (job.amount || job.price || 0) + approvedAdditionalCharges;
+        }
         
         const completedDate = job.completedAt?.toDate?.() || new Date(job.completedAt);
         
@@ -165,13 +170,20 @@ const ProviderDashboardScreen = ({navigation}) => {
       
       // Process Pay First jobs where client confirmed (payment already received)
       payFirstConfirmedJobs.forEach(job => {
-        const baseAmount = job.providerPrice || job.offeredPrice || job.totalAmount || job.amount || job.price || 0;
         const approvedAdditionalCharges = job.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
-        const finalAmount = baseAmount + approvedAdditionalCharges;
         
-        // Deduct the service fee to show actual provider earnings
-        const serviceFeeRate = APP_CONFIG.SERVICE_FEE_PERCENTAGE / 100;
-        const providerEarnings = finalAmount / (1 + serviceFeeRate); // Remove the fee that was added to client price
+        // IMPORTANT: providerPrice is the provider's actual price (before 5% fee added to client)
+        let providerEarnings;
+        if (job.providerPrice || job.offeredPrice) {
+          // Use provider's actual price directly
+          providerEarnings = (job.providerPrice || job.offeredPrice) + approvedAdditionalCharges;
+        } else if (job.totalAmount) {
+          // totalAmount includes 5% fee, so remove it
+          const serviceFeeRate = APP_CONFIG.SERVICE_FEE_PERCENTAGE / 100;
+          providerEarnings = (job.totalAmount / (1 + serviceFeeRate)) + approvedAdditionalCharges;
+        } else {
+          providerEarnings = (job.amount || job.price || 0) + approvedAdditionalCharges;
+        }
         
         // Use clientConfirmedAt for Pay First jobs since that's when payment was confirmed
         const confirmedDate = job.clientConfirmedAt?.toDate?.() || job.updatedAt?.toDate?.() || new Date();

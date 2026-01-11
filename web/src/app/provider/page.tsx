@@ -120,11 +120,21 @@ export default function ProviderDashboard() {
       myJobsSnapshot.forEach((doc) => {
         const data = doc.data();
         if (data.status === 'completed' || (data.status === 'payment_received' && data.isPaidUpfront)) {
-          const baseAmount = data.providerPrice || data.offeredPrice || data.totalAmount || data.price || 0;
           const approvedCharges = data.additionalCharges?.filter((c: { status: string }) => c.status === 'approved').reduce((sum: number, c: { amount: number }) => sum + (c.amount || 0), 0) || 0;
-          const amount = data.finalAmount || (baseAmount + approvedCharges);
-          // Deduct the 5% service fee to show actual provider earnings
-          const providerEarnings = amount / 1.05; // Remove the fee that was added to client price
+          
+          // IMPORTANT: providerPrice is the provider's actual price (before 5% fee added to client)
+          // Only divide by 1.05 if we're using totalAmount (which includes the fee)
+          let providerEarnings: number;
+          if (data.providerPrice || data.offeredPrice) {
+            // Use provider's actual price directly
+            providerEarnings = (data.providerPrice || data.offeredPrice) + approvedCharges;
+          } else if (data.totalAmount) {
+            // totalAmount includes 5% fee, so remove it
+            providerEarnings = (data.totalAmount / 1.05) + approvedCharges;
+          } else {
+            providerEarnings = (data.price || 0) + approvedCharges;
+          }
+          
           totalEarnings += providerEarnings;
           completedJobs++;
           const completedAt = data.completedAt?.toDate?.() || data.clientConfirmedAt?.toDate?.();

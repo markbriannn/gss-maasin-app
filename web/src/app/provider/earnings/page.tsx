@@ -86,11 +86,21 @@ export default function EarningsPage() {
         const isPayFirstConfirmed = data.status === 'payment_received' && data.isPaidUpfront === true;
 
         if (isCompleted || isPayFirstConfirmed) {
-          const baseAmount = data.finalAmount || data.providerPrice || data.totalAmount || 0;
           const additionalCharges = data.approvedAdditionalCharges?.reduce((sum: number, c: { amount: number }) => sum + (c.amount || 0), 0) || 0;
-          const amount = baseAmount + additionalCharges;
-          // Deduct the 5% service fee to show actual provider earnings
-          const providerEarnings = amount / 1.05;
+          
+          // IMPORTANT: providerPrice is the provider's actual price (before 5% fee added to client)
+          // Only divide by 1.05 if we're using totalAmount (which includes the fee)
+          let providerEarnings: number;
+          if (data.providerPrice || data.offeredPrice) {
+            // Use provider's actual price directly
+            providerEarnings = (data.providerPrice || data.offeredPrice) + additionalCharges;
+          } else if (data.totalAmount) {
+            // totalAmount includes 5% fee, so remove it
+            providerEarnings = (data.totalAmount / 1.05) + additionalCharges;
+          } else {
+            providerEarnings = (data.finalAmount || data.price || 0) + additionalCharges;
+          }
+          
           const earnedDate = isPayFirstConfirmed ? data.clientConfirmedAt?.toDate() || data.updatedAt?.toDate() || new Date() : data.completedAt?.toDate() || new Date();
 
           totalEarnings += providerEarnings;
