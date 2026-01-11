@@ -50,6 +50,10 @@ const ProviderDashboardScreen = ({navigation}) => {
   const [gamificationData, setGamificationData] = useState(null);
   const [showMenuModal, setShowMenuModal] = useState(false);
   
+  // Live location status: 'live' = green, 'stale' = yellow, 'off' = hidden
+  const [liveStatus, setLiveStatus] = useState('off');
+  const [lastLocationTime, setLastLocationTime] = useState(null);
+  
   // Ref for live location interval
   const liveLocationIntervalRef = useRef(null);
   
@@ -67,12 +71,16 @@ const ProviderDashboardScreen = ({navigation}) => {
         liveLocationIntervalRef.current = null;
       }
       
-      if (!isOnline) return;
+      if (!isOnline) {
+        setLiveStatus('off');
+        return;
+      }
       
       const userId = user?.uid || user?.id;
       if (!userId) return;
       
       console.log('[Provider] Starting live location tracking (every 12s)');
+      setLiveStatus('stale'); // Start as stale until first successful update
       
       // Update location immediately
       const updateLocation = async () => {
@@ -85,10 +93,15 @@ const ProviderDashboardScreen = ({navigation}) => {
               locationUpdatedAt: new Date(),
               isOnline: true,
             });
+            setLiveStatus('live'); // Green - location is accurate
+            setLastLocationTime(new Date());
             console.log('[Provider] Live location updated');
+          } else {
+            setLiveStatus('stale'); // Yellow - couldn't get location
           }
         } catch (e) {
           console.log('[Provider] Live location update failed:', e.message);
+          setLiveStatus('stale'); // Yellow - error getting location
         }
       };
       
@@ -655,6 +668,34 @@ const ProviderDashboardScreen = ({navigation}) => {
                 </View>
               )}
             </TouchableOpacity>
+            
+            {/* Live Indicator - Shows when online and tracking location */}
+            {isOnline && (
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: liveStatus === 'live' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                borderRadius: 12,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                marginRight: 8,
+              }}>
+                <View style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: liveStatus === 'live' ? '#10B981' : '#F59E0B',
+                  marginRight: 6,
+                }} />
+                <Text style={{
+                  fontSize: 11,
+                  color: liveStatus === 'live' ? '#10B981' : '#F59E0B',
+                  fontWeight: '600',
+                }}>
+                  {liveStatus === 'live' ? 'LIVE' : 'GPS...'}
+                </Text>
+              </View>
+            )}
             
             {/* Online Toggle */}
             <View style={{

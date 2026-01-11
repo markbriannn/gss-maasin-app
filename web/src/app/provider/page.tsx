@@ -80,6 +80,11 @@ export default function ProviderDashboard() {
   const [points, setPoints] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   
+  // Live location status: 'live' = green, 'stale' = yellow, 'off' = hidden
+  const [liveStatus, setLiveStatus] = useState<'live' | 'stale' | 'off'>('off');
+  const [lastLocationUpdate, setLastLocationUpdate] = useState<Date | null>(null);
+  const [currentCoords, setCurrentCoords] = useState<{ lat: number; lng: number } | null>(null);
+  
   // Ref for live location interval
   const liveLocationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -92,28 +97,46 @@ export default function ProviderDashboard() {
         liveLocationIntervalRef.current = null;
       }
       
-      if (!isOnline || !user?.uid) return;
-      if (!navigator.geolocation) return;
+      if (!isOnline || !user?.uid) {
+        setLiveStatus('off');
+        return;
+      }
+      if (!navigator.geolocation) {
+        setLiveStatus('stale');
+        return;
+      }
       
       console.log('[Provider Web] Starting live location tracking (every 12s)');
+      setLiveStatus('stale'); // Start as stale until first successful update
       
       // Update location function
       const updateLocation = () => {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
             try {
+              const coords = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+              };
               await updateDoc(doc(db, 'users', user.uid), {
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
+                latitude: coords.lat,
+                longitude: coords.lng,
                 locationUpdatedAt: new Date(),
                 isOnline: true,
               });
+              setLiveStatus('live'); // Green - location is accurate
+              setLastLocationUpdate(new Date());
+              setCurrentCoords(coords);
               console.log('[Provider Web] Live location updated');
             } catch (e) {
               console.log('[Provider Web] Live location update failed:', e);
+              setLiveStatus('stale'); // Yellow - error updating
             }
           },
-          (error) => console.log('[Provider Web] Geolocation error:', error.message),
+          (error) => {
+            console.log('[Provider Web] Geolocation error:', error.message);
+            setLiveStatus('stale'); // Yellow - couldn't get location
+          },
           { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
         );
       };
@@ -342,13 +365,91 @@ export default function ProviderDashboard() {
                 </div>
               </div>
               
-              <button onClick={handleToggleOnline}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${isOnline ? 'bg-green-500 text-white' : 'bg-white/15 backdrop-blur-sm text-white/80'}`}>
-                <div className={`relative w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-white' : 'bg-gray-400'}`}>
-                  {isOnline && <div className="absolute inset-0 bg-white rounded-full animate-ping" />}
-                </div>
-                <span className="text-sm font-semibold">{isOnline ? 'Online' : 'Offline'}</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Live Indicator with Hover Dropdown - Shows when online and tracking location */}
+                {isOnline && (
+                  <div className="relative group">
+                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-default ${
+                      liveStatus === 'live' 
+                        ? 'bg-emerald-500/20 border border-emerald-500/30' 
+                        : 'bg-amber-500/20 border border-amber-500/30'
+                    }`}>
+                      <div className={`relative w-2 h-2 rounded-full ${
+                        liveStatus === 'live' ? 'bg-emerald-400' : 'bg-amber-400'
+                      }`}>
+                        {liveStatus === 'live' && (
+                          <div className="absolute inset-0 bg-emerald-400 rounded-full animate-ping" />
+                        )}
+                      </div>
+                      <span className={`text-xs font-bold ${
+                        liveStatus === 'live' ? 'text-emerald-400' : 'text-amber-400'
+                      }`}>
+                        {liveStatus === 'live' ? 'LIVE' : 'GPS...'}
+                      </span>
+                    </div>
+                    
+                    {/* Hover Dropdown */}
+                    <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                      <div className="p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className={`w-3 h-3 rounded-full ${liveStatus === 'live' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                          <span className={`font-bold ${liveStatus === 'live' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                            {liveStatus === 'live' ? 'Location Active' : 'Getting Location...'}
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Status</span>
+                            <span className={`font-medium ${liveStatus === 'live' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                              {liveStatus === 'live' ? '✓ Tracking' : '⏳ Waiting'}
+                            </span>
+                          </div>
+                          
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Update Interval</span>
+                            <span className="font-medium text-gray-700">Every 12s</span>
+                          </div>
+                          
+                          {lastLocationUpdate && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Last Update</span>
+                              <span className="font-medium text-gray-700">
+                                {lastLocationUpdate.toLocaleTimeString()}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {currentCoords && (
+                            <div className="pt-2 border-t border-gray-100">
+                              <p className="text-gray-500 text-xs mb-1">Coordinates</p>
+                              <p className="font-mono text-xs text-gray-700">
+                                {currentCoords.lat.toFixed(6)}, {currentCoords.lng.toFixed(6)}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <p className="text-xs text-gray-400">
+                            {liveStatus === 'live' 
+                              ? 'Your location is visible to clients on the map'
+                              : 'Enable location access for accurate tracking'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <button onClick={handleToggleOnline}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${isOnline ? 'bg-green-500 text-white' : 'bg-white/15 backdrop-blur-sm text-white/80'}`}>
+                  <div className={`relative w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-white' : 'bg-gray-400'}`}>
+                    {isOnline && <div className="absolute inset-0 bg-white rounded-full animate-ping" />}
+                  </div>
+                  <span className="text-sm font-semibold">{isOnline ? 'Online' : 'Offline'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Earnings Card */}
