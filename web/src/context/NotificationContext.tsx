@@ -45,6 +45,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     const initializePush = async () => {
       try {
+        // Check if VAPID key is configured
+        if (!process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY) {
+          console.log('[NotificationContext Web] VAPID key not configured, push notifications disabled');
+          return;
+        }
+        
         console.log('[NotificationContext Web] Initializing push for user:', user.uid);
         
         // Request permission if not granted
@@ -60,9 +66,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         // Register device token
         const result = await registerDeviceToken(user.uid);
         setIsRegistered(result.success);
-        console.log('[NotificationContext Web] Registration result:', result);
+        if (result.success) {
+          console.log('[NotificationContext Web] Registration successful');
+        }
       } catch (error) {
-        console.error('[NotificationContext Web] Init error:', error);
+        console.log('[NotificationContext Web] Push init skipped:', error);
       }
     };
 

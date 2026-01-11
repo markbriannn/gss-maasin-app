@@ -100,26 +100,54 @@ export async function getFCMToken(): Promise<string | null> {
     const messagingInstance = await getMessagingInstance();
     if (!messagingInstance) return null;
 
-    // Register service worker
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-    console.log('[FCM Web] Service worker registered:', registration.scope);
+    // Check if VAPID key is configured
+    if (!VAPID_KEY) {
+      console.log('[FCM Web] VAPID key not configured, skipping token registration');
+      return null;
+    }
 
-    // Get token
-    const token = await getToken(messagingInstance, {
+    // Register service worker with error handling
+    let registration;
+    try {
+      registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      console.log('[FCM Web] Service worker registered:', registration.scope);
+    } catch (swError) {
+      console.log('[FCM Web] Service worker registration failed:', swError);
+      return null;
+    }
+
+    // Wait for service worker to be ready
+    await navigator.serviceWorker.ready;
+
+    // Get token with timeout to prevent hanging
+    const tokenPromise = getToken(messagingInstance, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: registration,
     });
+    
+    const timeoutPromise = new Promise<null>((resolve) => {
+      setTimeout(() => {
+        console.log('[FCM Web] Token request timed out');
+        resolve(null);
+      }, 10000); // 10 second timeout
+    });
+
+    const token = await Promise.race([tokenPromise, timeoutPromise]);
 
     if (token) {
       console.log('[FCM Web] Token obtained, length:', token.length);
-      console.log('[FCM Web] Token preview:', token.substring(0, 30) + '...');
       return token;
     } else {
       console.log('[FCM Web] No token available');
       return null;
     }
-  } catch (error) {
-    console.error('[FCM Web] Error getting token:', error);
+  } catch (error: any) {
+    // Gracefully handle common errors without spamming console
+    if (error?.name === 'AbortError' || error?.message?.includes('push service')) {
+      console.log('[FCM Web] Push service not available in this browser/environment');
+    } else {
+      console.log('[FCM Web] Token error:', error?.message || error);
+    }
     return null;
   }
 }
