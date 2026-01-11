@@ -230,10 +230,10 @@ export default function BookingsPage() {
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
-                    className={`relative p-5 rounded-2xl transition-all duration-300 ${
+                    className={`relative p-5 rounded-2xl transition-all duration-300 cursor-pointer ${
                       isActive 
                         ? 'bg-white shadow-2xl shadow-black/10 scale-[1.02]' 
-                        : 'bg-white/15 backdrop-blur-sm hover:bg-white/25'
+                        : 'bg-white/15 backdrop-blur-sm hover:bg-white/25 hover:scale-[1.02]'
                     }`}
                   >
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
