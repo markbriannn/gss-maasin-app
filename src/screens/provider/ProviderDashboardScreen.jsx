@@ -17,7 +17,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {useAuth} from '../../context/AuthContext';
 import {useTheme} from '../../context/ThemeContext';
 import {useNotifications} from '../../context/NotificationContext';
-import {collection, query, where, onSnapshot, doc, updateDoc, getDoc} from 'firebase/firestore';
+import {collection, query, where, onSnapshot, doc, updateDoc, getDoc, getDocs} from 'firebase/firestore';
 import {db} from '../../config/firebase';
 import {dashboardStyles} from '../../css/dashboardStyles';
 import {useJobNotifications, useUserNotifications, useOfflineSupport} from '../../hooks/useRealtimeService';
@@ -713,27 +713,27 @@ const ProviderDashboardScreen = ({navigation}) => {
         <View style={dashboardStyles.sectionHeader}>
           <Text style={[dashboardStyles.sectionTitle, isDark && {color: theme.colors.text}]}>Quick Actions</Text>
         </View>
-        <View style={{flexDirection: 'row', paddingHorizontal: 16, marginBottom: 16}}>
+        <View style={{flexDirection: 'row', paddingHorizontal: 16, marginBottom: 16, gap: 12}}>
           <TouchableOpacity 
             style={{
               flex: 1, 
               flexDirection: 'row',
               alignItems: 'center', 
               backgroundColor: isDark ? theme.colors.card : '#FFFFFF', 
-              padding: 16, 
+              padding: 14, 
               borderRadius: 12,
-              marginRight: 8,
               shadowColor: '#000',
               shadowOffset: {width: 0, height: 2},
               shadowOpacity: 0.05,
               shadowRadius: 4,
               elevation: 2,
+              minHeight: 64,
             }}
             onPress={() => navigation.navigate('ServiceHistory')}>
-            <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: isDark ? '#064E3B' : '#ECFDF5', justifyContent: 'center', alignItems: 'center', marginRight: 12}}>
-              <Icon name="receipt-outline" size={20} color="#00B14F" />
+            <View style={{width: 36, height: 36, borderRadius: 18, backgroundColor: isDark ? '#064E3B' : '#ECFDF5', justifyContent: 'center', alignItems: 'center', marginRight: 10, flexShrink: 0}}>
+              <Icon name="receipt-outline" size={18} color="#00B14F" />
             </View>
-            <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937'}}>Service History</Text>
+            <Text style={{fontSize: 13, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', flexShrink: 1}} numberOfLines={2}>Service History</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={{
@@ -741,38 +741,38 @@ const ProviderDashboardScreen = ({navigation}) => {
               flexDirection: 'row',
               alignItems: 'center', 
               backgroundColor: isDark ? theme.colors.card : '#FFFFFF', 
-              padding: 16, 
+              padding: 14, 
               borderRadius: 12,
-              marginLeft: 8,
               shadowColor: '#000',
               shadowOffset: {width: 0, height: 2},
               shadowOpacity: 0.05,
               shadowRadius: 4,
               elevation: 2,
+              minHeight: 64,
             }}
             onPress={() => navigation.navigate('Notifications')}>
-            <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: isDark ? '#78350F' : '#FEF3C7', justifyContent: 'center', alignItems: 'center', marginRight: 12}}>
-              <Icon name="notifications-outline" size={20} color="#F59E0B" />
+            <View style={{width: 36, height: 36, borderRadius: 18, backgroundColor: isDark ? '#78350F' : '#FEF3C7', justifyContent: 'center', alignItems: 'center', marginRight: 10, flexShrink: 0}}>
+              <Icon name="notifications-outline" size={18} color="#F59E0B" />
               {unreadCount > 0 && (
                 <View style={{
                   position: 'absolute',
                   top: -2,
                   right: -2,
-                  minWidth: 18,
-                  height: 18,
-                  borderRadius: 9,
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: 8,
                   backgroundColor: '#EF4444',
                   justifyContent: 'center',
                   alignItems: 'center',
-                  paddingHorizontal: 4,
+                  paddingHorizontal: 3,
                 }}>
-                  <Text style={{fontSize: 10, fontWeight: '700', color: '#FFFFFF'}}>
+                  <Text style={{fontSize: 9, fontWeight: '700', color: '#FFFFFF'}}>
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </Text>
                 </View>
               )}
             </View>
-            <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937'}}>Notifications</Text>
+            <Text style={{fontSize: 13, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', flexShrink: 1}} numberOfLines={2}>Notifications</Text>
           </TouchableOpacity>
         </View>
 
