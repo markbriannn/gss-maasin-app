@@ -60,7 +60,7 @@ const clientIcon = new L.Icon({
   popupAnchor: [0, -40],
 });
 
-// Component to fit bounds
+// Component to fit bounds and handle marker updates
 function MapController({ providerLocation, clientLocation }: { providerLocation?: { lat: number; lng: number } | null; clientLocation?: { lat: number; lng: number } | null }) {
   const map = useMap();
   const initialized = useRef(false);
@@ -82,15 +82,16 @@ function MapController({ providerLocation, clientLocation }: { providerLocation?
     }
   }, [providerLocation, clientLocation, map]);
 
-  // Update view when provider moves
+  // Update view when provider moves - keep both markers in view
   useEffect(() => {
-    if (providerLocation && initialized.current) {
-      if (clientLocation) {
-        const bounds = L.latLngBounds(
-          [providerLocation.lat, providerLocation.lng],
-          [clientLocation.lat, clientLocation.lng]
-        );
-        map.fitBounds(bounds, { padding: [50, 50], animate: true });
+    if (providerLocation && clientLocation && initialized.current) {
+      const bounds = L.latLngBounds(
+        [providerLocation.lat, providerLocation.lng],
+        [clientLocation.lat, clientLocation.lng]
+      );
+      // Only fit bounds if provider is outside current view
+      if (!map.getBounds().contains([providerLocation.lat, providerLocation.lng])) {
+        map.fitBounds(bounds, { padding: [50, 50], animate: true, duration: 0.5 });
       }
     }
   }, [providerLocation, clientLocation, map]);

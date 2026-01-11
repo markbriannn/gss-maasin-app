@@ -219,7 +219,7 @@ const ProviderTrackingScreen = ({navigation, route}) => {
 
     return () => {
       if (locationWatchId.current) {
-        locationService.clearWatch(locationWatchId.current);
+        locationService.stopWatchingLocation();
       }
     };
   }, [user?.uid, jobId, job?.id]);
