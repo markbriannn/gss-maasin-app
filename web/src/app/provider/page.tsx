@@ -82,9 +82,10 @@ export default function ProviderDashboard() {
       if (!isAuthenticated) router.push('/login');
       else if (user?.role?.toUpperCase() !== 'PROVIDER') router.push('/');
       // Redirect to profile setup if no profile photo and setup not complete
-      // Also check localStorage fallback for when Firestore update fails
+      // Check URL param to prevent redirect loop after skip
       else if (!user?.profilePhoto && !user?.profileSetupComplete) {
-        const skipped = typeof window !== 'undefined' && localStorage.getItem('profileSetupSkipped');
+        const urlParams = new URLSearchParams(window.location.search);
+        const skipped = urlParams.get('skipped') === 'true';
         if (!skipped) {
           router.push('/provider/setup-profile');
         }
