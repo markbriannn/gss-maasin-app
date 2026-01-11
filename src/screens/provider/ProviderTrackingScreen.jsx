@@ -16,7 +16,6 @@ import {doc, onSnapshot, getDoc, updateDoc} from 'firebase/firestore';
 import locationService from '../../services/locationService';
 import {useAuth} from '../../context/AuthContext';
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyBpGzpP1vVxZBIsw6gzkUPPDABSl8FktL4';
 const ANIMATION_DURATION = 1000; // 1 second smooth animation
 const FIRESTORE_UPDATE_INTERVAL = 15000; // Only write to Firestore every 15 seconds (saves quota)
 const MIN_DISTANCE_FOR_UPDATE = 20; // Only update if moved at least 20 meters
@@ -290,30 +289,6 @@ const ProviderTrackingScreen = ({navigation, route}) => {
     const dist = locationService.calculateDistance(origin.latitude, origin.longitude, dest.latitude, dest.longitude);
     setDistance(dist.toFixed(1));
     setDuration(Math.round((dist / 30) * 60));
-  };
-
-  const decodePolyline = (encoded) => {
-    const points = [];
-    let index = 0, lat = 0, lng = 0;
-    while (index < encoded.length) {
-      let b, shift = 0, result = 0;
-      do {
-        b = encoded.charCodeAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      lat += (result & 1 ? ~(result >> 1) : result >> 1);
-      shift = 0;
-      result = 0;
-      do {
-        b = encoded.charCodeAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      lng += (result & 1 ? ~(result >> 1) : result >> 1);
-      points.push({latitude: lat / 1e5, longitude: lng / 1e5});
-    }
-    return points;
   };
 
   const fitMapToMarkers = () => {

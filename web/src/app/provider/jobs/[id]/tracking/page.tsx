@@ -9,7 +9,7 @@ import { doc, updateDoc, onSnapshot, getDoc } from "firebase/firestore";
 import dynamic from "next/dynamic";
 import { 
   Loader2, ArrowLeft, Phone, MessageCircle, Navigation, MapPin, 
-  CheckCircle, Car, Clock, Wrench, User, ChevronRight, Zap,
+  CheckCircle, Car, Wrench, User, ChevronRight, Zap,
   Shield, Star, ExternalLink, Copy, Check
 } from "lucide-react";
 import { pushNotifications } from "@/lib/pushNotifications";
