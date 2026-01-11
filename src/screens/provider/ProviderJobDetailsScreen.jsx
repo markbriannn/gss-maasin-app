@@ -775,41 +775,44 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               const bookingId = jobData.id || jobId;
               // Stop location tracking since we've arrived
               stopLocationTracking();
-              await updateDoc(doc(db, 'bookings', bookingId), {
+              
+              // Optimistic update - update local state immediately
+              setJobData(prev => ({...prev, status: 'arrived'}));
+              
+              // Update Firestore in background
+              updateDoc(doc(db, 'bookings', bookingId), {
                 status: 'arrived',
                 arrivedAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
-              });
-              // Update provider's user document
+              }).catch(err => console.log('Booking update error:', err));
+              
+              // Update provider's user document (fire and forget)
               if (user?.uid) {
-                await updateDoc(doc(db, 'users', user.uid), {
+                updateDoc(doc(db, 'users', user.uid), {
                   jobStatus: 'arrived',
                   updatedAt: serverTimestamp(),
-                });
+                }).catch(err => console.log('User update error:', err));
               }
-              // Create Firestore notification for client
+              
+              // Create Firestore notification for client (fire and forget)
               if (jobData.clientId) {
-                try {
-                  const notifRef = doc(collection(db, 'notifications'));
-                  await setDoc(notifRef, {
-                    id: notifRef.id,
-                    type: 'provider_arrived',
-                    title: '📍 Provider Arrived',
-                    message: `Your provider has arrived at your location for ${jobData.serviceCategory || 'service'}.`,
-                    userId: jobData.clientId,
-                    targetUserId: jobData.clientId,
-                    bookingId: bookingId,
-                    jobId: bookingId,
-                    createdAt: new Date(),
-                    read: false,
-                  });
-                } catch (notifError) {
-                  console.log('Error creating notification:', notifError);
-                }
+                const notifRef = doc(collection(db, 'notifications'));
+                setDoc(notifRef, {
+                  id: notifRef.id,
+                  type: 'provider_arrived',
+                  title: '📍 Provider Arrived',
+                  message: `Your provider has arrived at your location for ${jobData.serviceCategory || 'service'}.`,
+                  userId: jobData.clientId,
+                  targetUserId: jobData.clientId,
+                  bookingId: bookingId,
+                  jobId: bookingId,
+                  createdAt: new Date(),
+                  read: false,
+                }).catch(err => console.log('Notification error:', err));
               }
-              setJobData(prev => ({...prev, status: 'arrived'}));
+              
               notificationService.notifyProviderArrived?.(jobData);
-              // Send FCM push notification to client
+              // Send FCM push notification to client (fire and forget)
               notificationService.pushJobStatusUpdate(jobData.clientId, jobData, 'arrived')
                 .catch(err => console.log('FCM push failed:', err));
               setPremiumModal({visible: true, variant: 'success', title: 'Arrived! 📍', message: 'Client has been notified of your arrival.'});
@@ -838,45 +841,47 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
             try {
               setIsUpdating(true);
               const bookingId = jobData.id || jobId;
-              await updateDoc(doc(db, 'bookings', bookingId), {
+              
+              // Optimistic update - update local state immediately
+              setJobData(prev => ({...prev, status: 'in_progress'}));
+              
+              // Update Firestore in background (fire and forget)
+              updateDoc(doc(db, 'bookings', bookingId), {
                 status: 'in_progress',
                 workStartedAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
-              });
-              // Update provider's user document
+              }).catch(err => console.log('Booking update error:', err));
+              
+              // Update provider's user document (fire and forget)
               if (user?.uid) {
-                await updateDoc(doc(db, 'users', user.uid), {
+                updateDoc(doc(db, 'users', user.uid), {
                   jobStatus: 'in_progress',
                   updatedAt: serverTimestamp(),
-                });
+                }).catch(err => console.log('User update error:', err));
               }
-              // Create Firestore notification for client
+              
+              // Create Firestore notification for client (fire and forget)
               if (jobData.clientId) {
-                try {
-                  const notifRef = doc(collection(db, 'notifications'));
-                  await setDoc(notifRef, {
-                    id: notifRef.id,
-                    type: 'job_started',
-                    title: '🔧 Work Started',
-                    message: `Your provider has started working on ${jobData.serviceCategory || 'service'}.`,
-                    userId: jobData.clientId,
-                    targetUserId: jobData.clientId,
-                    bookingId: bookingId,
-                    jobId: bookingId,
-                    createdAt: new Date(),
-                    read: false,
-                  });
-                } catch (notifError) {
-                  console.log('Error creating notification:', notifError);
-                }
+                const notifRef = doc(collection(db, 'notifications'));
+                setDoc(notifRef, {
+                  id: notifRef.id,
+                  type: 'job_started',
+                  title: '🔧 Work Started',
+                  message: `Your provider has started working on ${jobData.serviceCategory || 'service'}.`,
+                  userId: jobData.clientId,
+                  targetUserId: jobData.clientId,
+                  bookingId: bookingId,
+                  jobId: bookingId,
+                  createdAt: new Date(),
+                  read: false,
+                }).catch(err => console.log('Notification error:', err));
               }
-              setJobData(prev => ({...prev, status: 'in_progress'}));
-              // Notify client via push notification
+              
+              // Notify client via push notification (fire and forget)
               notificationService.notifyJobStarted(jobData);
-              // Send FCM push notification to client
               notificationService.pushJobStatusUpdate(jobData.clientId, jobData, 'in_progress')
                 .catch(err => console.log('FCM push failed:', err));
-              // Send SMS notification (async)
+              // Send SMS notification (fire and forget)
               if (jobData.client) {
                 smsEmailService.notifyJobStarted(jobData, jobData.client)
                   .catch(err => console.log('SMS notification failed:', err));
@@ -907,42 +912,44 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
             try {
               setIsUpdating(true);
               const bookingId = jobData.id || jobId;
-              await updateDoc(doc(db, 'bookings', bookingId), {
+              
+              // Optimistic update - update local state immediately
+              setJobData(prev => ({...prev, status: 'pending_completion'}));
+              
+              // Update Firestore in background (fire and forget)
+              updateDoc(doc(db, 'bookings', bookingId), {
                 status: 'pending_completion',
                 workCompletedAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
-              });
-              // Update provider's job status
+              }).catch(err => console.log('Booking update error:', err));
+              
+              // Update provider's job status (fire and forget)
               if (user?.uid) {
-                await updateDoc(doc(db, 'users', user.uid), {
+                updateDoc(doc(db, 'users', user.uid), {
                   jobStatus: 'pending_completion',
                   updatedAt: serverTimestamp(),
-                });
+                }).catch(err => console.log('User update error:', err));
               }
-              // Create Firestore notification for client
+              
+              // Create Firestore notification for client (fire and forget)
               if (jobData.clientId) {
-                try {
-                  const notifRef = doc(collection(db, 'notifications'));
-                  await setDoc(notifRef, {
-                    id: notifRef.id,
-                    type: 'work_completed',
-                    title: '✅ Work Complete - Please Confirm',
-                    message: `Your provider has completed ${jobData.serviceCategory || 'service'}. Please confirm and proceed to payment.`,
-                    userId: jobData.clientId,
-                    targetUserId: jobData.clientId,
-                    bookingId: bookingId,
-                    jobId: bookingId,
-                    createdAt: new Date(),
-                    read: false,
-                  });
-                } catch (notifError) {
-                  console.log('Error creating notification:', notifError);
-                }
+                const notifRef = doc(collection(db, 'notifications'));
+                setDoc(notifRef, {
+                  id: notifRef.id,
+                  type: 'work_completed',
+                  title: '✅ Work Complete - Please Confirm',
+                  message: `Your provider has completed ${jobData.serviceCategory || 'service'}. Please confirm and proceed to payment.`,
+                  userId: jobData.clientId,
+                  targetUserId: jobData.clientId,
+                  bookingId: bookingId,
+                  jobId: bookingId,
+                  createdAt: new Date(),
+                  read: false,
+                }).catch(err => console.log('Notification error:', err));
               }
-              setJobData(prev => ({...prev, status: 'pending_completion'}));
-              // Notify client to confirm completion
+              
+              // Notify client to confirm completion (fire and forget)
               notificationService.notifyWorkCompleted?.(jobData);
-              // Send FCM push notification
               notificationService.pushJobStatusUpdate(jobData.clientId, jobData, 'completed')
                 .catch(err => console.log('FCM push failed:', err));
               Alert.alert(
@@ -963,6 +970,7 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
 
   // Provider confirms payment received - final completion
   const handleConfirmPayment = () => {
+    if (isUpdating) return; // Prevent double-click
     // Calculate total including approved additional charges
     const baseAmount = jobData?.totalAmount || jobData?.providerPrice || 0;
     const additionalChargesTotal = jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
@@ -976,39 +984,40 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
         {
           text: 'Confirm Payment',
           onPress: async () => {
+            if (isUpdating) return; // Double-check
             try {
               setIsUpdating(true);
+              const bookingId = jobData.id || jobId;
               
-              // If payment wasn't recorded yet (e.g., direct cash), record it now
+              // Optimistic update - update local state immediately
+              setJobData(prev => ({...prev, status: 'completed', paid: true}));
+              
+              // If payment wasn't recorded yet (e.g., direct cash), record it in background
               if (!jobData.paid) {
-                await paymentService.recordCashPayment(
-                  jobData.id || jobId,
-                  jobData.clientId,
-                  totalAmount,
-                  user?.uid
-                );
+                paymentService.recordCashPayment(bookingId, jobData.clientId, totalAmount, user?.uid)
+                  .catch(err => console.log('Cash payment record error:', err));
               }
               
-              await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
+              // Update Firestore in background (fire and forget)
+              updateDoc(doc(db, 'bookings', bookingId), {
                 status: 'completed',
                 paid: true,
-                // Store the final amount for earnings calculation
                 finalAmount: totalAmount,
                 paymentConfirmedAt: serverTimestamp(),
                 completedAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
-              });
-              // Clear provider's current job status
+              }).catch(err => console.log('Booking update error:', err));
+              
+              // Clear provider's current job status (fire and forget)
               if (user?.uid) {
-                await updateDoc(doc(db, 'users', user.uid), {
+                updateDoc(doc(db, 'users', user.uid), {
                   currentJobId: null,
                   jobStatus: null,
                   updatedAt: serverTimestamp(),
-                });
+                }).catch(err => console.log('User update error:', err));
               }
-              setJobData(prev => ({...prev, status: 'completed', paid: true}));
               
-              // Award gamification points to both client and provider
+              // Award gamification points to both client and provider (fire and forget)
               if (jobData.clientId && user?.uid) {
                 onBookingCompleted(jobData.clientId, user.uid, totalAmount)
                   .then(result => {
@@ -1019,22 +1028,21 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                   .catch(err => console.log('Gamification error:', err));
               }
               
-              // Notify client job is fully completed
+              // Notify client job is fully completed (fire and forget)
               notificationService.notifyJobCompleted?.(jobData);
-              // Send FCM push notification to client
               notificationService.pushJobStatusUpdate(jobData.clientId, jobData, 'completed')
                 .catch(err => console.log('FCM push failed:', err));
-              // Send SMS/Email notification (async)
+              
+              // Send SMS/Email notification (fire and forget)
               if (jobData.client) {
                 smsEmailService.notifyJobCompleted(jobData, jobData.client, {name: user?.firstName || 'Provider'})
                   .catch(err => console.log('SMS/Email notification failed:', err));
                 
-                // Send payment receipt email via Brevo (async)
                 const clientEmail = jobData.client?.email;
                 const clientName = jobData.client?.name || 'Client';
                 if (clientEmail) {
                   sendPaymentReceipt(clientEmail, clientName, {
-                    bookingId: jobData.id || jobId,
+                    bookingId: bookingId,
                     serviceName: jobData.title || jobData.serviceCategory,
                     providerName: user?.firstName || 'Provider',
                     amount: totalAmount,

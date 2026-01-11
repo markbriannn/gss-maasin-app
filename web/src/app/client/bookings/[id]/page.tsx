@@ -334,6 +334,7 @@ function JobDetailsContent() {
 
   const handleConfirmCompletion = async () => {
     if (!job || !user) return;
+    if (updating) return; // Prevent double-click
     
     // Check if this is an escrow payment that needs to be released
     const isEscrowPayment = job.paymentStatus === 'held';
@@ -355,44 +356,64 @@ function JobDetailsContent() {
       onConfirm: async () => {
         setConfirmDialog({ show: false, title: '', message: '', onConfirm: () => {} });
         setUpdating(true);
+        
+        // Optimistic update - update local state immediately
+        const newStatus = isEscrowPayment || isPayFirstComplete ? 'payment_received' : 'pending_payment';
+        setJob(prev => prev ? { ...prev, status: newStatus } : null);
+        
         try {
           if (isEscrowPayment) {
-            // Call backend to release escrow
+            // Call backend to release escrow (fire and forget pattern for UI)
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
-            const response = await fetch(`${apiUrl}/payments/release-escrow/${job.id}`, {
+            fetch(`${apiUrl}/payments/release-escrow/${job.id}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ clientId: user.uid }),
+            }).then(async response => {
+              const result = await response.json();
+              if (result.success) {
+                showAlert('success', 'Payment Released! 🎉', `₱${result.providerShare?.toLocaleString() || ''} has been released to the provider. Thank you!`);
+              } else {
+                // Revert on error
+                setJob(prev => prev ? { ...prev, status: job.status } : null);
+                showAlert('error', 'Error', result.error || 'Failed to release payment. Please try again.');
+              }
+            }).catch(error => {
+              console.error('Error releasing escrow:', error);
+              setJob(prev => prev ? { ...prev, status: job.status } : null);
+              showAlert('error', 'Error', 'Failed to release payment. Please try again.');
             });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-              showAlert('success', 'Payment Released! 🎉', `₱${result.providerShare?.toLocaleString() || ''} has been released to the provider. Thank you!`);
-            } else {
-              showAlert('error', 'Error', result.error || 'Failed to release payment. Please try again.');
-            }
           } else if (isPayFirstComplete) {
-            await updateDoc(doc(db, 'bookings', job.id), {
+            // Fire and forget Firestore update
+            updateDoc(doc(db, 'bookings', job.id), {
               status: 'payment_received',
               clientConfirmedAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
+            }).catch(err => {
+              console.error('Error updating booking:', err);
+              setJob(prev => prev ? { ...prev, status: job.status } : null);
             });
-            // Send FCM push to provider about payment received
+            // Send FCM push to provider about payment received (fire and forget)
             if (job.providerId) {
-              pushNotifications.paymentReceivedToProvider(job.providerId, job.id, calculateTotal());
+              pushNotifications.paymentReceivedToProvider(job.providerId, job.id, calculateTotal()).catch(console.error);
             }
             showAlert('success', 'Job Complete! 🎉', 'Waiting for provider to confirm completion.');
           } else {
-            await updateDoc(doc(db, 'bookings', job.id), {
+            // Fire and forget Firestore update
+            updateDoc(doc(db, 'bookings', job.id), {
               status: 'pending_payment',
               clientConfirmedAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
+            }).catch(err => {
+              console.error('Error updating booking:', err);
+              setJob(prev => prev ? { ...prev, status: job.status } : null);
             });
             showAlert('info', 'Confirmed! 👍', 'Please proceed to pay the provider.');
           }
         } catch (error) {
           console.error('Error confirming:', error);
+          // Revert optimistic update on error
+          setJob(prev => prev ? { ...prev, status: job.status } : null);
           showAlert('error', 'Error', 'Failed to confirm completion. Please try again.');
         } finally {
           setUpdating(false);
@@ -417,40 +438,56 @@ function JobDetailsContent() {
     setUpdating(true);
     try {
       if (method === 'cash') {
+        // Optimistic update for cash payments
         if (isUpfrontPayment) {
-          await updateDoc(doc(db, 'bookings', job.id), {
+          setJob(prev => prev ? { ...prev, isPaidUpfront: true, upfrontPaidAmount: amount, paymentMethod: 'cash' } : null);
+          // Fire and forget Firestore update
+          updateDoc(doc(db, 'bookings', job.id), {
             isPaidUpfront: true,
             upfrontPaidAmount: amount,
             upfrontPaidAt: serverTimestamp(),
             paymentMethod: 'cash',
             updatedAt: serverTimestamp(),
+          }).catch(err => {
+            console.error('Error updating booking:', err);
+            setJob(prev => prev ? { ...prev, isPaidUpfront: false } : null);
           });
           showAlert('success', 'Payment Recorded! 💵', 'The provider can now start working on your job.');
         } else if (isPayFirstWithAdditional) {
-          await updateDoc(doc(db, 'bookings', job.id), {
+          setJob(prev => prev ? { ...prev, status: 'payment_received', additionalChargesPaid: true, paymentMethod: 'cash' } : null);
+          // Fire and forget Firestore update
+          updateDoc(doc(db, 'bookings', job.id), {
             status: 'payment_received',
             additionalChargesPaid: true,
             additionalChargesPaidAmount: amount,
             clientPaidAt: serverTimestamp(),
             paymentMethod: 'cash',
             updatedAt: serverTimestamp(),
+          }).catch(err => {
+            console.error('Error updating booking:', err);
+            setJob(prev => prev ? { ...prev, status: job.status } : null);
           });
-          // Send FCM push to provider about payment received
+          // Send FCM push to provider about payment received (fire and forget)
           if (job.providerId) {
-            pushNotifications.paymentReceivedToProvider(job.providerId, job.id, amount);
+            pushNotifications.paymentReceivedToProvider(job.providerId, job.id, amount).catch(console.error);
           }
           showAlert('success', 'Additional Payment Complete! ✅', 'Provider will confirm to complete the job.');
         } else {
-          await updateDoc(doc(db, 'bookings', job.id), {
+          setJob(prev => prev ? { ...prev, status: 'payment_received', paymentMethod: 'cash', finalAmount: amount } : null);
+          // Fire and forget Firestore update
+          updateDoc(doc(db, 'bookings', job.id), {
             status: 'payment_received',
             clientPaidAt: serverTimestamp(),
             paymentMethod: 'cash',
             finalAmount: amount,
             updatedAt: serverTimestamp(),
+          }).catch(err => {
+            console.error('Error updating booking:', err);
+            setJob(prev => prev ? { ...prev, status: job.status } : null);
           });
-          // Send FCM push to provider about payment received
+          // Send FCM push to provider about payment received (fire and forget)
           if (job.providerId) {
-            pushNotifications.paymentReceivedToProvider(job.providerId, job.id, amount);
+            pushNotifications.paymentReceivedToProvider(job.providerId, job.id, amount).catch(console.error);
           }
           showAlert('success', 'Payment Recorded! 💵', 'Waiting for provider confirmation.');
         }

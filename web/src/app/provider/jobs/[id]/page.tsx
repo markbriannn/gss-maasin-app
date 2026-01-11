@@ -225,6 +225,10 @@ export default function ProviderJobDetailsPage() {
   const updateJobStatus = async (newStatus: string, extraData: Record<string, unknown> = {}) => {
     if (!job) return;
     setUpdating(true);
+    
+    // Optimistic update - update local state immediately for faster UI response
+    setJob(prev => prev ? { ...prev, status: newStatus } : null);
+    
     try {
       await updateDoc(doc(db, 'bookings', job.id), {
         status: newStatus,
@@ -233,6 +237,8 @@ export default function ProviderJobDetailsPage() {
       });
     } catch (error) {
       console.error('Error updating status:', error);
+      // Revert optimistic update on error
+      setJob(prev => prev ? { ...prev, status: job.status } : null);
       alert('Failed to update job status');
     } finally {
       setUpdating(false);
