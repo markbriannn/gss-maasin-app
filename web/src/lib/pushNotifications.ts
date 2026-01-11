@@ -154,7 +154,7 @@ export async function getFCMToken(): Promise<string | null> {
 }
 
 /**
- * Register device token with backend
+ * Register device token with backend (with Firestore fallback)
  */
 export async function registerDeviceToken(userId: string): Promise<{ success: boolean; error?: string }> {
   try {
@@ -172,20 +172,46 @@ export async function registerDeviceToken(userId: string): Promise<{ success: bo
       return { success: false, error: 'No token' };
     }
 
-    console.log('[FCM Web] Registering token with backend...');
-    const response = await fetch(`${API_URL}/notifications/register-device`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId,
-        token,
-        platform: 'web',
-      }),
-    });
-
-    const result = await response.json();
-    console.log('[FCM Web] Registration result:', result);
-    return result;
+    console.log('[FCM Web] Registering token...');
+    
+    // Try backend first, fallback to direct Firestore
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const response = await fetch(`${API_URL}/notifications/register-device`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          token,
+          platform: 'web',
+        }),
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      const result = await response.json();
+      console.log('[FCM Web] Backend registration result:', result);
+      return result;
+    } catch (backendError) {
+      console.log('[FCM Web] Backend unavailable, using Firestore fallback');
+      
+      // Fallback: Save token directly to Firestore
+      try {
+        const { doc: firestoreDoc, updateDoc, serverTimestamp } = await import('firebase/firestore');
+        await updateDoc(firestoreDoc(db, 'users', userId), {
+          fcmToken: token,
+          fcmPlatform: 'web',
+          fcmUpdatedAt: serverTimestamp(),
+        });
+        console.log('[FCM Web] Token saved to Firestore directly');
+        return { success: true };
+      } catch (firestoreError) {
+        console.log('[FCM Web] Firestore fallback also failed:', firestoreError);
+        return { success: false, error: 'Both backend and Firestore failed' };
+      }
+    }
   } catch (error) {
     console.error('[FCM Web] Registration error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -298,20 +324,43 @@ export async function sendPushToUser(
     }
 
     console.log('[Push Web] Sending notification to user:', userId);
-    const response = await fetch(`${API_URL}/notifications/send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId,
-        title,
-        body,
-        data: { ...data, timestamp: new Date().toISOString() },
-      }),
-    });
+    
+    // Add timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    try {
+      const response = await fetch(`${API_URL}/notifications/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          title,
+          body,
+          data: { ...data, timestamp: new Date().toISOString() },
+        }),
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
 
-    const result = await response.json();
-    console.log('[Push Web] Result:', result);
-    return result;
+      if (!response.ok) {
+        console.log('[Push Web] Backend returned error:', response.status);
+        return { success: false, error: `HTTP ${response.status}` };
+      }
+
+      const result = await response.json();
+      console.log('[Push Web] Result:', result);
+      return result;
+    } catch (fetchError: unknown) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.log('[Push Web] Request timed out');
+        return { success: false, error: 'Request timed out' };
+      }
+      console.log('[Push Web] Backend unavailable:', fetchError);
+      return { success: false, error: 'Backend unavailable' };
+    }
   } catch (error) {
     console.error('[Push Web] Error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -328,19 +377,42 @@ export async function sendPushToAdmins(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     console.log('[Push Web] Sending notification to admins');
-    const response = await fetch(`${API_URL}/notifications/send-to-admins`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title,
-        body,
-        data: { ...data, timestamp: new Date().toISOString() },
-      }),
-    });
+    
+    // Add timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    try {
+      const response = await fetch(`${API_URL}/notifications/send-to-admins`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          body,
+          data: { ...data, timestamp: new Date().toISOString() },
+        }),
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
 
-    const result = await response.json();
-    console.log('[Push Web] Result:', result);
-    return result;
+      if (!response.ok) {
+        console.log('[Push Web] Backend returned error:', response.status);
+        return { success: false, error: `HTTP ${response.status}` };
+      }
+
+      const result = await response.json();
+      console.log('[Push Web] Result:', result);
+      return result;
+    } catch (fetchError: unknown) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.log('[Push Web] Request timed out');
+        return { success: false, error: 'Request timed out' };
+      }
+      console.log('[Push Web] Backend unavailable:', fetchError);
+      return { success: false, error: 'Backend unavailable' };
+    }
   } catch (error) {
     console.error('[Push Web] Error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
