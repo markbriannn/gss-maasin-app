@@ -281,38 +281,47 @@ function JobDetailsContent() {
     return () => unsubscribe();
   }, [jobId, user]);
 
-  // Real-time listener for provider info
+  // Fetch provider info once (not real-time to avoid flickering)
   useEffect(() => {
     if (!job?.providerId) return;
+    
+    // Skip if we already have provider info
+    if (job.provider?.id === job.providerId) return;
 
-    const unsubscribe = onSnapshot(doc(db, 'users', job.providerId), (docSnap) => {
-      if (docSnap.exists()) {
-        const pData = docSnap.data();
-        const providerRating = pData.rating || pData.averageRating || 0;
-        const providerReviewCount = pData.reviewCount || pData.totalReviews || 0;
-        const completedJobs = pData.completedJobs || pData.jobsCompleted || 0;
-        
-        setJob(prev => prev ? {
-          ...prev,
-          provider: {
-            id: docSnap.id,
-            name: `${pData.firstName || ''} ${pData.lastName || ''}`.trim() || 'Provider',
-            phone: pData.phone || pData.phoneNumber,
-            photo: pData.profilePhoto,
-            rating: providerRating,
-            reviewCount: providerReviewCount,
-            completedJobs,
-            tier: pData.tier,
-            points: pData.points || 0,
-            avgResponseTime: pData.avgResponseTime || pData.averageResponseTime || 999,
-            isVerified: pData.isVerified || pData.verified || false,
-          },
-        } : null);
+    const fetchProviderInfo = async () => {
+      try {
+        const { getDoc } = await import('firebase/firestore');
+        const providerDoc = await getDoc(doc(db, 'users', job.providerId));
+        if (providerDoc.exists()) {
+          const pData = providerDoc.data();
+          const providerRating = pData.rating || pData.averageRating || 0;
+          const providerReviewCount = pData.reviewCount || pData.totalReviews || 0;
+          const completedJobs = pData.completedJobs || pData.jobsCompleted || 0;
+          
+          setJob(prev => prev ? {
+            ...prev,
+            provider: {
+              id: providerDoc.id,
+              name: `${pData.firstName || ''} ${pData.lastName || ''}`.trim() || 'Provider',
+              phone: pData.phone || pData.phoneNumber,
+              photo: pData.profilePhoto,
+              rating: providerRating,
+              reviewCount: providerReviewCount,
+              completedJobs,
+              tier: pData.tier,
+              points: pData.points || 0,
+              avgResponseTime: pData.avgResponseTime || pData.averageResponseTime || 999,
+              isVerified: pData.isVerified || pData.verified || false,
+            },
+          } : null);
+        }
+      } catch (error) {
+        console.error('Error fetching provider info:', error);
       }
-    });
+    };
 
-    return () => unsubscribe();
-  }, [job?.providerId]);
+    fetchProviderInfo();
+  }, [job?.providerId, job?.provider?.id]);
 
   const calculateTotal = useCallback(() => {
     if (!job) return 0;
