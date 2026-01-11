@@ -230,11 +230,48 @@ export default function ProviderJobDetailsPage() {
     setJob(prev => prev ? { ...prev, status: newStatus } : null);
     
     try {
+      // Update booking status
       await updateDoc(doc(db, 'bookings', job.id), {
         status: newStatus,
         updatedAt: serverTimestamp(),
         ...extraData,
       });
+      
+      // Also update provider's user document for admin live map tracking
+      if (user?.uid) {
+        const userUpdateData: Record<string, unknown> = {
+          jobStatus: newStatus,
+          updatedAt: serverTimestamp(),
+        };
+        
+        // Set currentJobId when starting a job, clear it when completing
+        if (['traveling', 'arrived', 'in_progress', 'pending_completion'].includes(newStatus)) {
+          userUpdateData.currentJobId = job.id;
+        } else if (['completed', 'cancelled', 'rejected'].includes(newStatus)) {
+          userUpdateData.currentJobId = null;
+          userUpdateData.jobStatus = null;
+        }
+        
+        // Update location when traveling
+        if (newStatus === 'traveling' && navigator.geolocation) {
+          try {
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 60000,
+              });
+            });
+            userUpdateData.latitude = position.coords.latitude;
+            userUpdateData.longitude = position.coords.longitude;
+            userUpdateData.locationUpdatedAt = serverTimestamp();
+          } catch (locError) {
+            console.log('Could not get location:', locError);
+          }
+        }
+        
+        await updateDoc(doc(db, 'users', user.uid), userUpdateData);
+      }
     } catch (error) {
       console.error('Error updating status:', error);
       // Revert optimistic update on error

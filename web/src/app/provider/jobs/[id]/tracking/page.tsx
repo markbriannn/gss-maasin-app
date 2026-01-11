@@ -181,6 +181,24 @@ export default function ProviderTrackingPage() {
 
       await updateDoc(doc(db, "bookings", jobId), updateData);
 
+      // Also update provider's user document for admin live map tracking
+      if (user?.uid) {
+        const userUpdateData: Record<string, unknown> = {
+          currentJobId: jobId,
+          jobStatus: newStatus,
+          updatedAt: new Date(),
+        };
+        
+        // Update location when changing status
+        if (currentLocation) {
+          userUpdateData.latitude = currentLocation.lat;
+          userUpdateData.longitude = currentLocation.lng;
+          userUpdateData.locationUpdatedAt = new Date();
+        }
+        
+        await updateDoc(doc(db, "users", user.uid), userUpdateData);
+      }
+
       // Send notifications
       if (job.clientId) {
         if (newStatus === "traveling") {
