@@ -8,7 +8,7 @@ import { db } from '@/lib/firebase';
 import ProviderLayout from '@/components/layouts/ProviderLayout';
 import {
   Briefcase, Clock, MapPin, ChevronRight, User, Calendar, Image as ImageIcon,
-  Tag, RefreshCw, Sparkles, ArrowUpRight, CheckCircle, Navigation, Phone
+  Tag, RefreshCw, Sparkles, ArrowUpRight, CheckCircle
 } from 'lucide-react';
 
 interface ClientInfo {
@@ -74,11 +74,12 @@ export default function JobsPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [accepting, setAccepting] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [tabCounts, setTabCounts] = useState({ available: 0, my_jobs: 0, completed: 0 });
 
   const tabs = [
-    { key: 'available' as const, label: 'Available', count: 0 },
-    { key: 'my_jobs' as const, label: 'My Jobs', count: 0 },
-    { key: 'completed' as const, label: 'Completed', count: 0 },
+    { key: 'available' as const, label: 'Available' },
+    { key: 'my_jobs' as const, label: 'My Jobs' },
+    { key: 'completed' as const, label: 'Completed' },
   ];
 
   useEffect(() => {
@@ -87,6 +88,49 @@ export default function JobsPage() {
       else if (user?.role?.toUpperCase() !== 'PROVIDER') router.push('/');
     }
   }, [isLoading, isAuthenticated, user, router]);
+
+  // Fetch counts for all tabs
+  useEffect(() => {
+    if (!user?.uid) return;
+    const userId = user.uid;
+
+    // Available jobs listener
+    const availableQuery = query(
+      collection(db, 'bookings'),
+      where('providerId', '==', userId),
+      where('status', 'in', ['pending', 'pending_negotiation'])
+    );
+    const unsubAvailable = onSnapshot(availableQuery, (snap) => {
+      const count = snap.docs.filter(d => !d.data().adminRejected).length;
+      setTabCounts(prev => ({ ...prev, available: count }));
+    });
+
+    // My Jobs listener
+    const myJobsQuery = query(
+      collection(db, 'bookings'),
+      where('providerId', '==', userId),
+      where('status', 'in', ['accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion', 'pending_payment', 'payment_received'])
+    );
+    const unsubMyJobs = onSnapshot(myJobsQuery, (snap) => {
+      setTabCounts(prev => ({ ...prev, my_jobs: snap.size }));
+    });
+
+    // Completed jobs listener
+    const completedQuery = query(
+      collection(db, 'bookings'),
+      where('providerId', '==', userId),
+      where('status', '==', 'completed')
+    );
+    const unsubCompleted = onSnapshot(completedQuery, (snap) => {
+      setTabCounts(prev => ({ ...prev, completed: snap.size }));
+    });
+
+    return () => {
+      unsubAvailable();
+      unsubMyJobs();
+      unsubCompleted();
+    };
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -273,10 +317,19 @@ export default function JobsPage() {
             <div className="flex">
               {tabs.map((tab) => (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                  className={`flex-1 py-4 text-center font-semibold text-sm transition-all relative ${
+                  className={`flex-1 py-4 text-center font-semibold text-sm transition-all relative flex items-center justify-center gap-2 ${
                     activeTab === tab.key ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'
                   }`}>
                   {tab.label}
+                  {tabCounts[tab.key] > 0 && (
+                    <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center ${
+                      activeTab === tab.key 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-200 text-gray-600'
+                    }`}>
+                      {tabCounts[tab.key]}
+                    </span>
+                  )}
                   {activeTab === tab.key && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500" />
                   )}

@@ -41,12 +41,56 @@ const ProviderJobsScreen = ({navigation}) => {
   const [jobs, setJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [tabCounts, setTabCounts] = useState({ available: 0, my_jobs: 0, completed: 0 });
 
   const tabs = [
     {key: 'available', label: 'Available'},
     {key: 'my_jobs', label: 'My Jobs'},
     {key: 'completed', label: 'Completed'},
   ];
+
+  // Fetch counts for all tabs
+  useEffect(() => {
+    const userId = user?.uid || user?.id;
+    if (!userId) return;
+
+    // Available jobs listener
+    const availableQuery = query(
+      collection(db, 'bookings'),
+      where('providerId', '==', userId),
+      where('status', 'in', ['pending', 'pending_negotiation'])
+    );
+    const unsubAvailable = onSnapshot(availableQuery, (snap) => {
+      const count = snap.docs.filter(d => !d.data().adminRejected).length;
+      setTabCounts(prev => ({ ...prev, available: count }));
+    });
+
+    // My Jobs listener
+    const myJobsQuery = query(
+      collection(db, 'bookings'),
+      where('providerId', '==', userId),
+      where('status', 'in', ['accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion', 'pending_payment', 'payment_received'])
+    );
+    const unsubMyJobs = onSnapshot(myJobsQuery, (snap) => {
+      setTabCounts(prev => ({ ...prev, my_jobs: snap.size }));
+    });
+
+    // Completed jobs listener
+    const completedQuery = query(
+      collection(db, 'bookings'),
+      where('providerId', '==', userId),
+      where('status', '==', 'completed')
+    );
+    const unsubCompleted = onSnapshot(completedQuery, (snap) => {
+      setTabCounts(prev => ({ ...prev, completed: snap.size }));
+    });
+
+    return () => {
+      unsubAvailable();
+      unsubMyJobs();
+      unsubCompleted();
+    };
+  }, [user?.uid, user?.id]);
 
   useEffect(() => {
     if (!user?.uid && !user?.id) return;
@@ -512,6 +556,8 @@ const ProviderJobsScreen = ({navigation}) => {
               flex: 1,
               paddingVertical: 14,
               alignItems: 'center',
+              flexDirection: 'row',
+              justifyContent: 'center',
               borderBottomWidth: 3,
               borderBottomColor: activeTab === tab.key ? '#00B14F' : 'transparent',
             }}
@@ -524,6 +570,26 @@ const ProviderJobsScreen = ({navigation}) => {
             }}>
               {tab.label}
             </Text>
+            {tabCounts[tab.key] > 0 && (
+              <View style={{
+                minWidth: 20,
+                height: 20,
+                paddingHorizontal: 6,
+                borderRadius: 10,
+                backgroundColor: activeTab === tab.key ? '#00B14F' : '#E5E7EB',
+                marginLeft: 6,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <Text style={{
+                  fontSize: 11,
+                  fontWeight: '700',
+                  color: activeTab === tab.key ? '#FFFFFF' : '#6B7280',
+                }}>
+                  {tabCounts[tab.key]}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         ))}
       </View>
