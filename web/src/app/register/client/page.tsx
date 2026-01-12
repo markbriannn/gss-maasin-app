@@ -287,6 +287,14 @@ export default function ClientRegistration() {
     }
   }, [countdown]);
 
+  // Auto-verify when 6 digits are entered
+  React.useEffect(() => {
+    if (verificationCode.length === 6 && codeSent && !emailVerified && generatedCode) {
+      verifyEmailCode();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verificationCode]);
+
   // Handle get current location
   const handleGetCurrentLocation = async () => {
     console.log('=== LOCATION BUTTON CLICKED ===');

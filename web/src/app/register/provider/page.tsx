@@ -448,6 +448,14 @@ export default function ProviderRegistration() {
     }
   }, [countdown]);
 
+  // Auto-verify when 6 digits are entered
+  React.useEffect(() => {
+    if (verificationCode.length === 6 && codeSent && !emailVerified && generatedCode) {
+      verifyEmailCode();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verificationCode]);
+
 
   const canProceed = () => {
     switch (step) {
