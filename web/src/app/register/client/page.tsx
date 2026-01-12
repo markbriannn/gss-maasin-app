@@ -410,6 +410,9 @@ export default function ClientRegistration() {
         updatedAt: serverTimestamp(),
       });
 
+      // Clear onboarding flag so new user sees onboarding
+      localStorage.removeItem('hasSeenOnboarding');
+
       setStep(TOTAL_STEPS); // Go to completion step
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Registration failed';
