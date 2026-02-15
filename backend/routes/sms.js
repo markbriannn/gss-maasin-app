@@ -9,6 +9,10 @@ const {
   sendNewJobSMS,
   sendBookingApprovedByAdminSMS,
   sendBookingRejectedByAdminSMS,
+  sendProviderArrivedSMS,
+  sendWorkCompletedSMS,
+  sendReviewReminderSMS,
+  sendSMS,
 } = require('../services/smsService');
 
 // Store OTPs temporarily (in production, use Redis)
@@ -248,6 +252,102 @@ router.post('/booking-rejected-admin', async (req, res) => {
     }
   } catch (error) {
     console.error('Send booking rejected SMS error:', error);
+    res.status(500).json({ error: 'Failed to send SMS' });
+  }
+});
+
+/**
+ * Send provider arrived SMS to client
+ */
+router.post('/provider-arrived', async (req, res) => {
+  try {
+    const { phoneNumber, clientName, providerName, serviceCategory } = req.body;
+    
+    if (!phoneNumber || !providerName || !serviceCategory) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const result = await sendProviderArrivedSMS(phoneNumber, clientName || 'Client', providerName, serviceCategory);
+
+    if (result.success) {
+      res.json({ success: true, message: 'SMS sent successfully' });
+    } else {
+      res.json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    console.error('Send provider arrived SMS error:', error);
+    res.status(500).json({ error: 'Failed to send SMS' });
+  }
+});
+
+/**
+ * Send work completed SMS to client
+ */
+router.post('/work-completed', async (req, res) => {
+  try {
+    const { phoneNumber, clientName, providerName, serviceCategory } = req.body;
+    
+    if (!phoneNumber || !providerName || !serviceCategory) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const result = await sendWorkCompletedSMS(phoneNumber, clientName || 'Client', providerName, serviceCategory);
+
+    if (result.success) {
+      res.json({ success: true, message: 'SMS sent successfully' });
+    } else {
+      res.json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    console.error('Send work completed SMS error:', error);
+    res.status(500).json({ error: 'Failed to send SMS' });
+  }
+});
+
+/**
+ * Send review reminder SMS to client
+ */
+router.post('/review-reminder', async (req, res) => {
+  try {
+    const { phoneNumber, clientName, providerName, serviceCategory } = req.body;
+    
+    if (!phoneNumber || !providerName || !serviceCategory) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const result = await sendReviewReminderSMS(phoneNumber, clientName || 'Client', providerName, serviceCategory);
+
+    if (result.success) {
+      res.json({ success: true, message: 'SMS sent successfully' });
+    } else {
+      res.json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    console.error('Send review reminder SMS error:', error);
+    res.status(500).json({ error: 'Failed to send SMS' });
+  }
+});
+
+/**
+ * Send generic SMS
+ */
+router.post('/send-sms', async (req, res) => {
+  try {
+    const { phoneNumber, message } = req.body;
+    
+    if (!phoneNumber || !message) {
+      return res.status(400).json({ error: 'Phone number and message are required' });
+    }
+
+    const result = await sendSMS(phoneNumber, message);
+
+    if (result.success) {
+      res.json({ success: true, message: 'SMS sent successfully' });
+    } else {
+      res.json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    console.error('Send SMS error:', error);
     res.status(500).json({ error: 'Failed to send SMS' });
   }
 });

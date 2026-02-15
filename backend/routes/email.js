@@ -195,4 +195,64 @@ router.post('/send-verification', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/email/provider-arrived
+ * Send provider arrived notification to client
+ */
+router.post('/provider-arrived', async (req, res) => {
+  try {
+    const { email, clientName, providerName, serviceCategory } = req.body;
+    
+    if (!email || !providerName || !serviceCategory) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    const result = await emailService.sendProviderArrivedEmail(email, clientName || 'Client', providerName, serviceCategory);
+    res.json(result);
+  } catch (error) {
+    console.error('Provider arrived email error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/email/work-completed
+ * Send work completed notification to client
+ */
+router.post('/work-completed', async (req, res) => {
+  try {
+    const { email, clientName, providerName, serviceCategory } = req.body;
+    
+    if (!email || !providerName || !serviceCategory) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    const result = await emailService.sendWorkCompletedEmail(email, clientName || 'Client', providerName, serviceCategory);
+    res.json(result);
+  } catch (error) {
+    console.error('Work completed email error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/email/review-reminder
+ * Send review reminder to client
+ */
+router.post('/review-reminder', async (req, res) => {
+  try {
+    const { email, clientName, providerName, serviceCategory } = req.body;
+    
+    if (!email || !providerName || !serviceCategory) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    const result = await emailService.sendReviewReminderEmail(email, clientName || 'Client', providerName, serviceCategory);
+    res.json(result);
+  } catch (error) {
+    console.error('Review reminder email error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

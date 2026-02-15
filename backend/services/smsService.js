@@ -151,6 +151,33 @@ async function sendBookingRejectedByAdminSMS(phoneNumber, clientName, serviceCat
   return await sendSMS(phoneNumber, message);
 }
 
+/**
+ * Send provider arrived notification to client
+ */
+async function sendProviderArrivedSMS(phoneNumber, clientName, providerName, serviceCategory) {
+  const message = `GSS Maasin: ${providerName} has arrived at your location for ${serviceCategory}. Please meet them now.`;
+  
+  return await sendSMS(phoneNumber, message);
+}
+
+/**
+ * Send work completed notification to client
+ */
+async function sendWorkCompletedSMS(phoneNumber, clientName, providerName, serviceCategory) {
+  const message = `GSS Maasin: ${providerName} has completed your ${serviceCategory} service! Please confirm the work and leave a review. Thank you!`;
+  
+  return await sendSMS(phoneNumber, message);
+}
+
+/**
+ * Send review reminder to client
+ */
+async function sendReviewReminderSMS(phoneNumber, clientName, providerName, serviceCategory) {
+  const message = `GSS Maasin: Hi ${clientName}! How was your ${serviceCategory} service with ${providerName}? Please take a moment to leave a review. Your feedback helps others!`;
+  
+  return await sendSMS(phoneNumber, message);
+}
+
 module.exports = {
   sendSMS,
   sendOTP,
@@ -162,5 +189,8 @@ module.exports = {
   sendNewJobSMS,
   sendBookingApprovedByAdminSMS,
   sendBookingRejectedByAdminSMS,
+  sendProviderArrivedSMS,
+  sendWorkCompletedSMS,
+  sendReviewReminderSMS,
   formatPhoneNumber,
 };

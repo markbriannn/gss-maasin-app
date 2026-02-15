@@ -328,6 +328,133 @@ const sendRefundNotification = async (clientEmail, refundData) => {
   return sendEmail(clientEmail, subject, html);
 };
 
+/**
+ * Send provider arrived notification to client
+ */
+const sendProviderArrivedEmail = async (clientEmail, clientName, providerName, serviceCategory) => {
+  const subject = `Provider Arrived - ${serviceCategory}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #00B14F; padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+      </div>
+      <div style="padding: 30px; background: #f9f9f9;">
+        <h2 style="color: #1F2937;">Provider Has Arrived! 📍</h2>
+        <p style="color: #4B5563;">Hi ${clientName},</p>
+        <p style="color: #4B5563;">${providerName} has arrived at your location for your ${serviceCategory} service.</p>
+        
+        <div style="background: #DBEAFE; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+          <p style="color: #1E40AF; font-size: 18px; font-weight: bold; margin: 0;">
+            📍 Your provider is here!
+          </p>
+          <p style="color: #1E40AF; margin: 10px 0 0 0;">Please meet them now.</p>
+        </div>
+        
+        <p style="color: #6B7280; font-size: 14px;">
+          You can track the service progress in the GSS Maasin app.
+        </p>
+      </div>
+      <div style="padding: 20px; text-align: center; color: #9CA3AF; font-size: 12px;">
+        <p>GSS Maasin - General Service System</p>
+        <p>Maasin City, Southern Leyte</p>
+      </div>
+    </div>
+  `;
+  
+  return sendEmail(clientEmail, subject, html);
+};
+
+/**
+ * Send work completed notification to client
+ */
+const sendWorkCompletedEmail = async (clientEmail, clientName, providerName, serviceCategory) => {
+  const subject = `Work Completed - ${serviceCategory}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #00B14F; padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+      </div>
+      <div style="padding: 30px; background: #f9f9f9;">
+        <h2 style="color: #1F2937;">Work Completed! ✅</h2>
+        <p style="color: #4B5563;">Hi ${clientName},</p>
+        <p style="color: #4B5563;">${providerName} has completed your ${serviceCategory} service.</p>
+        
+        <div style="background: #D1FAE5; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+          <p style="color: #065F46; font-size: 18px; font-weight: bold; margin: 0;">
+            ✅ Service Complete!
+          </p>
+          <p style="color: #065F46; margin: 10px 0 0 0;">Please confirm the work and leave a review.</p>
+        </div>
+        
+        <div style="background: #FEF3C7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="color: #92400E; margin: 0; font-weight: bold;">⭐ Rate Your Experience</p>
+          <p style="color: #92400E; margin: 10px 0 0 0; font-size: 14px;">
+            Your feedback helps other clients and improves our service quality. Please take a moment to leave a review!
+          </p>
+        </div>
+        
+        <p style="color: #6B7280; font-size: 14px;">
+          Open the GSS Maasin app to confirm completion and leave your review.
+        </p>
+      </div>
+      <div style="padding: 20px; text-align: center; color: #9CA3AF; font-size: 12px;">
+        <p>GSS Maasin - General Service System</p>
+        <p>Maasin City, Southern Leyte</p>
+      </div>
+    </div>
+  `;
+  
+  return sendEmail(clientEmail, subject, html);
+};
+
+/**
+ * Send review reminder to client
+ */
+const sendReviewReminderEmail = async (clientEmail, clientName, providerName, serviceCategory) => {
+  const subject = `Please Review Your ${serviceCategory} Service`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #00B14F; padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+      </div>
+      <div style="padding: 30px; background: #f9f9f9;">
+        <h2 style="color: #1F2937;">How Was Your Experience? ⭐</h2>
+        <p style="color: #4B5563;">Hi ${clientName},</p>
+        <p style="color: #4B5563;">We hope you enjoyed your ${serviceCategory} service with ${providerName}!</p>
+        
+        <div style="background: #FEF3C7; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+          <p style="color: #92400E; font-size: 18px; font-weight: bold; margin: 0;">
+            ⭐⭐⭐⭐⭐
+          </p>
+          <p style="color: #92400E; margin: 10px 0 0 0;">Please take a moment to rate your experience</p>
+        </div>
+        
+        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <p style="color: #4B5563; margin: 0;"><strong>Why your review matters:</strong></p>
+          <ul style="color: #6B7280; margin: 10px 0;">
+            <li>Helps other clients make informed decisions</li>
+            <li>Improves service quality</li>
+            <li>Supports hardworking providers</li>
+            <li>Takes less than a minute!</li>
+          </ul>
+        </div>
+        
+        <p style="color: #6B7280; font-size: 14px;">
+          Open the GSS Maasin app to leave your review now.
+        </p>
+        
+        <p style="margin-top: 30px;">Thank you for using GSS Maasin!</p>
+      </div>
+      <div style="padding: 20px; text-align: center; color: #9CA3AF; font-size: 12px;">
+        <p>GSS Maasin - General Service System</p>
+        <p>Maasin City, Southern Leyte</p>
+      </div>
+    </div>
+  `;
+  
+  return sendEmail(clientEmail, subject, html);
+};
+
 module.exports = {
   sendEmail,
   sendBookingConfirmation,
@@ -338,4 +465,7 @@ module.exports = {
   sendVerificationCode,
   sendJobRejectionNotification,
   sendRefundNotification,
+  sendProviderArrivedEmail,
+  sendWorkCompletedEmail,
+  sendReviewReminderEmail,
 };

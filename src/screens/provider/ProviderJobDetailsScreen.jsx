@@ -815,6 +815,34 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               // Send FCM push notification to client (fire and forget)
               notificationService.pushJobStatusUpdate(jobData.clientId, jobData, 'arrived')
                 .catch(err => console.log('FCM push failed:', err));
+              
+              // Send SMS and Email notifications to client (fire and forget)
+              if (jobData.client) {
+                const clientPhone = jobData.client.phoneNumber || jobData.client.phone;
+                const clientEmail = jobData.client.email;
+                const clientName = `${jobData.client.firstName || ''} ${jobData.client.lastName || ''}`.trim() || 'Client';
+                const providerName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Provider';
+                
+                if (clientPhone) {
+                  smsEmailService.sendSMS(clientPhone, `GSS Maasin: ${providerName} has arrived at your location for ${jobData.serviceCategory}. Please meet them now.`)
+                    .catch(err => console.log('SMS notification failed:', err));
+                }
+                
+                if (clientEmail) {
+                  // Call backend email API
+                  fetch('https://gss-maasin-app.onrender.com/api/email/provider-arrived', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      email: clientEmail,
+                      clientName,
+                      providerName,
+                      serviceCategory: jobData.serviceCategory,
+                    }),
+                  }).catch(err => console.log('Email notification failed:', err));
+                }
+              }
+              
               setPremiumModal({visible: true, variant: 'success', title: 'Arrived! 📍', message: 'Client has been notified of your arrival.'});
             } catch (error) {
               console.error('Error marking arrived:', error);
@@ -952,6 +980,34 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
               notificationService.notifyWorkCompleted?.(jobData);
               notificationService.pushJobStatusUpdate(jobData.clientId, jobData, 'completed')
                 .catch(err => console.log('FCM push failed:', err));
+              
+              // Send SMS and Email notifications to client (fire and forget)
+              if (jobData.client) {
+                const clientPhone = jobData.client.phoneNumber || jobData.client.phone;
+                const clientEmail = jobData.client.email;
+                const clientName = `${jobData.client.firstName || ''} ${jobData.client.lastName || ''}`.trim() || 'Client';
+                const providerName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Provider';
+                
+                if (clientPhone) {
+                  smsEmailService.sendSMS(clientPhone, `GSS Maasin: ${providerName} has completed your ${jobData.serviceCategory} service! Please confirm the work and leave a review. Thank you!`)
+                    .catch(err => console.log('SMS notification failed:', err));
+                }
+                
+                if (clientEmail) {
+                  // Call backend email API
+                  fetch('https://gss-maasin-app.onrender.com/api/email/work-completed', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      email: clientEmail,
+                      clientName,
+                      providerName,
+                      serviceCategory: jobData.serviceCategory,
+                    }),
+                  }).catch(err => console.log('Email notification failed:', err));
+                }
+              }
+              
               Alert.alert(
                 'Waiting for Client', 
                 'The client has been notified to confirm the work is complete and proceed to payment.'
@@ -1049,6 +1105,32 @@ const ProviderJobDetailsScreen = ({navigation, route}) => {
                     paymentMethod: jobData.paymentMethod || 'Cash',
                   }).catch(err => console.log('Payment receipt email failed:', err));
                 }
+                
+                // Send review reminder after 5 minutes (fire and forget)
+                setTimeout(() => {
+                  const clientPhone = jobData.client.phoneNumber || jobData.client.phone;
+                  const clientEmail = jobData.client.email;
+                  const clientName = `${jobData.client.firstName || ''} ${jobData.client.lastName || ''}`.trim() || 'Client';
+                  const providerName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Provider';
+                  
+                  if (clientPhone) {
+                    smsEmailService.sendSMS(clientPhone, `GSS Maasin: Hi ${clientName}! How was your ${jobData.serviceCategory} service with ${providerName}? Please take a moment to leave a review. Your feedback helps others!`)
+                      .catch(err => console.log('Review reminder SMS failed:', err));
+                  }
+                  
+                  if (clientEmail) {
+                    fetch('https://gss-maasin-app.onrender.com/api/email/review-reminder', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        email: clientEmail,
+                        clientName,
+                        providerName,
+                        serviceCategory: jobData.serviceCategory,
+                      }),
+                    }).catch(err => console.log('Review reminder email failed:', err));
+                  }
+                }, 5 * 60 * 1000); // 5 minutes delay
               }
               setPremiumModal({visible: true, variant: 'success', title: 'Job Completed! 🎉', message: 'Payment confirmed. Thank you for your service!'});
             } catch (error) {

@@ -307,6 +307,40 @@ export default function ProviderJobDetailsPage() {
     // Send FCM push to client (fire and forget - don't block UI)
     if (job?.clientId) {
       pushNotifications.providerArrivedToClient(job.clientId, job.id).catch(console.error);
+      
+      // Send SMS and Email notifications to client (fire and forget)
+      const clientPhone = job.clientPhone;
+      const clientEmail = (job as any).clientEmail;
+      const clientName = job.clientName || 'Client';
+      const providerName = user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 'Provider';
+      
+      const API_URL = 'https://gss-maasin-app.onrender.com/api';
+      
+      if (clientPhone) {
+        fetch(`${API_URL}/sms/provider-arrived`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phoneNumber: clientPhone,
+            clientName,
+            providerName,
+            serviceCategory: job.serviceCategory,
+          }),
+        }).catch(err => console.error('SMS notification failed:', err));
+      }
+      
+      if (clientEmail) {
+        fetch(`${API_URL}/email/provider-arrived`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: clientEmail,
+            clientName,
+            providerName,
+            serviceCategory: job.serviceCategory,
+          }),
+        }).catch(err => console.error('Email notification failed:', err));
+      }
     }
   };
   
@@ -336,6 +370,40 @@ export default function ProviderJobDetailsPage() {
     // Send FCM push to client (fire and forget - don't block UI)
     if (job.clientId) {
       pushNotifications.jobCompletedToClient(job.clientId, job.id, job.serviceCategory || 'Service').catch(console.error);
+      
+      // Send SMS and Email notifications to client (fire and forget)
+      const clientPhone = job.clientPhone;
+      const clientEmail = (job as any).clientEmail;
+      const clientName = job.clientName || 'Client';
+      const providerName = user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 'Provider';
+      
+      const API_URL = 'https://gss-maasin-app.onrender.com/api';
+      
+      if (clientPhone) {
+        fetch(`${API_URL}/sms/work-completed`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phoneNumber: clientPhone,
+            clientName,
+            providerName,
+            serviceCategory: job.serviceCategory,
+          }),
+        }).catch(err => console.error('SMS notification failed:', err));
+      }
+      
+      if (clientEmail) {
+        fetch(`${API_URL}/email/work-completed`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: clientEmail,
+            clientName,
+            providerName,
+            serviceCategory: job.serviceCategory,
+          }),
+        }).catch(err => console.error('Email notification failed:', err));
+      }
     }
   };
 
@@ -404,6 +472,42 @@ export default function ProviderJobDetailsPage() {
       console.error('Error awarding gamification points:', gamError);
       // Don't fail the job completion if gamification fails
     }
+    
+    // Send review reminder after 5 minutes (fire and forget)
+    setTimeout(() => {
+      const clientPhone = job.clientPhone;
+      const clientEmail = (job as any).clientEmail;
+      const clientName = job.clientName || 'Client';
+      const providerName = user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 'Provider';
+      
+      const API_URL = 'https://gss-maasin-app.onrender.com/api';
+      
+      if (clientPhone) {
+        fetch(`${API_URL}/sms/review-reminder`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phoneNumber: clientPhone,
+            clientName,
+            providerName,
+            serviceCategory: job.serviceCategory,
+          }),
+        }).catch(err => console.error('Review reminder SMS failed:', err));
+      }
+      
+      if (clientEmail) {
+        fetch(`${API_URL}/email/review-reminder`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: clientEmail,
+            clientName,
+            providerName,
+            serviceCategory: job.serviceCategory,
+          }),
+        }).catch(err => console.error('Review reminder email failed:', err));
+      }
+    }, 5 * 60 * 1000); // 5 minutes delay
   };
 
   const handleReject = async () => {
