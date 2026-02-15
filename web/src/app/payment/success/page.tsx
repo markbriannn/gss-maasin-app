@@ -3,11 +3,123 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle, Smartphone, ExternalLink, Loader2 } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const bookingId = searchParams.get('bookingId');
   const [countdown, setCountdown] = useState(3);
+  const [notificationsSent, setNotificationsSent] = useState(false);
+
+  useEffect(() => {
+    // Send booking confirmation notifications
+    const sendNotifications = async () => {
+      if (!bookingId || notificationsSent) return;
+      
+      try {
+        console.log('[Payment Success] Fetching booking data for:', bookingId);
+        
+        // Get booking details from Firestore
+        const bookingRef = doc(db, 'jobs', bookingId);
+        const bookingSnap = await getDoc(bookingRef);
+        
+        if (!bookingSnap.exists()) {
+          console.error('[Payment Success] Booking not found:', bookingId);
+          return;
+        }
+        
+        const bookingData = bookingSnap.data();
+        const booking: any = { id: bookingSnap.id, ...bookingData };
+        console.log('[Payment Success] Booking data:', booking);
+        
+        // Get client details
+        const clientRef = doc(db, 'users', booking.clientId);
+        const clientSnap = await getDoc(clientRef);
+        const client: any = clientSnap.exists() ? clientSnap.data() : null;
+        
+        // Get provider details if available
+        let provider: any = null;
+        if (booking.providerId) {
+          const providerRef = doc(db, 'users', booking.providerId);
+          const providerSnap = await getDoc(providerRef);
+          provider = providerSnap.exists() ? providerSnap.data() : null;
+        }
+        
+        if (!client) {
+          console.error('[Payment Success] Client not found');
+          return;
+        }
+        
+        const API_URL = 'https://gss-maasin-app.onrender.com/api';
+        
+        // Prepare notification data
+        const clientPhone = client.phoneNumber || client.phone;
+        const clientEmail = client.email;
+        const clientName = `${client.firstName || ''} ${client.lastName || ''}`.trim() || 'Client';
+        const providerName = provider ? `${provider.firstName || ''} ${provider.lastName || ''}`.trim() : 'Provider';
+        
+        // Format date/time
+        const formatDate = (date: any) => {
+          if (!date) return 'ASAP';
+          try {
+            const d = date.toDate ? date.toDate() : new Date(date);
+            return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+          } catch {
+            return 'ASAP';
+          }
+        };
+        
+        const dateStr = booking.scheduledDate || formatDate(booking.createdAt) || 'ASAP';
+        const timeStr = booking.scheduledTime || 'As soon as possible';
+        
+        // Send SMS notification to client
+        if (clientPhone) {
+          const smsMessage = `GSS Maasin: Your booking for ${booking.serviceCategory} with ${providerName} is confirmed! ${dateStr !== 'ASAP' ? `Date: ${dateStr} at ${timeStr}.` : ''} Total: ₱${booking.totalAmount?.toLocaleString()}. Job ID: ${bookingId.slice(-6)}`;
+          
+          fetch(`${API_URL}/sms/send-sms`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phoneNumber: clientPhone,
+              message: smsMessage,
+            }),
+          }).catch(err => console.error('[Payment Success] SMS failed:', err));
+        }
+        
+        // Send Email notification to client
+        if (clientEmail) {
+          fetch(`${API_URL}/email/booking-confirmation`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: clientEmail,
+              clientName: clientName,
+              booking: {
+                id: bookingId,
+                serviceCategory: booking.serviceCategory,
+                scheduledDate: dateStr,
+                scheduledTime: timeStr,
+                address: booking.address || booking.location || 'As specified',
+                totalAmount: booking.totalAmount,
+              },
+              provider: {
+                name: providerName,
+              },
+            }),
+          }).catch(err => console.error('[Payment Success] Email failed:', err));
+        }
+        
+        console.log('[Payment Success] Notifications sent successfully');
+        setNotificationsSent(true);
+        
+      } catch (error) {
+        console.error('[Payment Success] Error sending notifications:', error);
+      }
+    };
+    
+    sendNotifications();
+  }, [bookingId, notificationsSent]);
 
   useEffect(() => {
     // Try to redirect to mobile app via deep link
