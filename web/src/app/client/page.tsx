@@ -7,7 +7,7 @@ import { collection, query, where, getDocs, onSnapshot, doc, setDoc, deleteDoc }
 import { db } from '@/lib/firebase';
 import ClientLayout from '@/components/layouts/ClientLayout';
 import dynamic from 'next/dynamic';
-import { 
+import {
   Search, Star, Heart, Zap, Droplets, Hammer, Sparkles, X,
   Navigation, User, Loader2, MapPin, DollarSign,
   ChevronRight, Clock, MessageCircle
@@ -15,8 +15,8 @@ import {
 
 const ClientMapView = dynamic(
   () => import('@/components/ClientMapView'),
-  { 
-    ssr: false, 
+  {
+    ssr: false,
     loading: () => (
       <div className="h-full w-full bg-gray-100 flex items-center justify-center">
         <div className="text-center">
@@ -82,10 +82,10 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
 
@@ -118,7 +118,7 @@ export default function ClientDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const panelRef = useRef<HTMLDivElement>(null);
-  
+
   const [providers, setProviders] = useState<Provider[]>([]);
   const [filteredProviders, setFilteredProviders] = useState<Provider[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -132,7 +132,7 @@ export default function ClientDashboard() {
   const [activeBooking, setActiveBooking] = useState<ActiveBooking | null>(null);
   const [activeBookingsMap, setActiveBookingsMap] = useState<Map<string, ActiveBooking>>(new Map());
   const [showProviderModal, setShowProviderModal] = useState(false);
-  
+
   const [panelHeight, setPanelHeight] = useState(PANEL_MID);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartY = useRef(0);
@@ -156,7 +156,7 @@ export default function ClientDashboard() {
     const distToMin = Math.abs(panelHeight - PANEL_MIN);
     const distToMid = Math.abs(panelHeight - PANEL_MID);
     const distToMax = Math.abs(panelHeight - PANEL_MAX);
-    
+
     if (distToMin <= distToMid && distToMin <= distToMax) setPanelHeight(PANEL_MIN);
     else if (distToMid <= distToMax) setPanelHeight(PANEL_MID);
     else setPanelHeight(PANEL_MAX);
@@ -206,7 +206,7 @@ export default function ClientDashboard() {
   // Load active bookings in real-time
   useEffect(() => {
     if (!user?.uid) return;
-    
+
     const activeStatuses = ['pending', 'approved', 'accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion', 'pending_payment', 'payment_received'];
     const bookingsQuery = query(
       collection(db, 'bookings'),
@@ -246,12 +246,12 @@ export default function ClientDashboard() {
           const data = docSnap.data();
           const isApproved = data.providerStatus === 'approved' || data.status === 'approved';
           if (!isApproved || !data.isOnline) return;
-          
+
           let distance: number | null = null;
           if (userLocation && data.latitude && data.longitude) {
             distance = calculateDistance(userLocation.lat, userLocation.lng, data.latitude, data.longitude);
           }
-          
+
           providersList.push({
             id: docSnap.id,
             firstName: data.firstName || '',
@@ -275,7 +275,7 @@ export default function ClientDashboard() {
             tier: data.tier || 'bronze',
           });
         });
-        
+
         setProviders(providersList);
         setLoadingData(false);
       });
@@ -303,7 +303,7 @@ export default function ClientDashboard() {
     if (!user?.uid) return;
     const isFavorite = favoriteIds.includes(providerId);
     const favoriteDocId = `${user.uid}_${providerId}`;
-    
+
     try {
       if (isFavorite) {
         await deleteDoc(doc(db, 'favorites', favoriteDocId));
@@ -319,11 +319,11 @@ export default function ClientDashboard() {
 
   const filterAndSortProviders = () => {
     let filtered = [...providers];
-    
+
     if (selectedCategory) {
       filtered = filtered.filter(p => p.serviceCategory?.toLowerCase() === selectedCategory.toLowerCase());
     }
-    
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(p =>
@@ -353,7 +353,7 @@ export default function ClientDashboard() {
         });
         break;
     }
-    
+
     setFilteredProviders(filtered);
   };
 
@@ -380,11 +380,11 @@ export default function ClientDashboard() {
     if (provider.latitude && provider.longitude) {
       setMapCenter({ lat: provider.latitude, lng: provider.longitude });
     }
-    
+
     // Check if client has an active booking with this provider from preloaded map
     const booking = activeBookingsMap.get(provider.id);
     setActiveBooking(booking || null);
-    
+
     // Show modal when clicking from map marker
     setShowProviderModal(true);
   };
@@ -396,16 +396,16 @@ export default function ClientDashboard() {
       setActiveBooking(null);
       return;
     }
-    
+
     setSelectedProvider(provider);
     if (provider.latitude && provider.longitude) {
       setMapCenter({ lat: provider.latitude, lng: provider.longitude });
     }
-    
+
     // Check if client has an active booking with this provider from preloaded map
     const booking = activeBookingsMap.get(provider.id);
     setActiveBooking(booking || null);
-    
+
     // Don't show modal when selecting from list, just highlight
     setShowProviderModal(false);
   };
@@ -458,42 +458,44 @@ export default function ClientDashboard() {
           />
         </div>
 
-        {/* Search Bar */}
+        {/* Search Bar - Frosted Glass */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 w-[90%] max-w-md">
-          <div className="flex items-center bg-white rounded-2xl shadow-lg px-4 py-3">
-            <Search className="w-5 h-5 text-emerald-500 mr-3 flex-shrink-0" />
+          <div className="glass-strong flex items-center rounded-2xl shadow-lg shadow-black/5 border border-white/60 px-4 py-3.5 transition-all focus-within:shadow-xl focus-within:shadow-emerald-500/10 focus-within:border-emerald-200">
+            <Search className="w-5 h-5 text-emerald-500 mr-3 flex-shrink-0 transition-transform group-focus-within:scale-110" />
             <input
               type="text"
-              placeholder="Search providers..."
+              placeholder="Search providers, services..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 outline-none text-sm bg-transparent"
+              className="flex-1 outline-none text-sm bg-transparent text-gray-800 placeholder:text-gray-400"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')}>
-                <X className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+              <button onClick={() => setSearchQuery('')} className="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Category Chips */}
+        {/* Category Chips - Gradient + Micro-interactions */}
         <div className="absolute top-20 left-0 right-0 z-10 px-4">
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {SERVICE_CATEGORIES.map((category) => (
-              <button
-                key={category.id}
-                onClick={() => handleCategorySelect(category.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-all shadow-md ${
-                  selectedCategory === category.id
-                    ? 'bg-emerald-500 text-white shadow-emerald-500/30'
-                    : 'bg-white text-gray-700 hover:shadow-lg'
-                }`}
-              >
-                <span className="text-lg">{category.emoji}</span>
-                <span className="text-sm font-semibold">{category.name}</span>
-              </button>
-            ))}
+          <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide">
+            {SERVICE_CATEGORIES.map((category) => {
+              const isActive = selectedCategory === category.id;
+              return (
+                <button
+                  key={category.id}
+                  onClick={() => handleCategorySelect(category.id)}
+                  className={`tap-bounce flex items-center gap-2 px-4 py-2.5 rounded-2xl whitespace-nowrap transition-all duration-200 ${isActive
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30 scale-[1.02]'
+                    : 'glass-strong text-gray-700 shadow-md shadow-black/5 border border-white/60 hover:shadow-lg hover:scale-[1.02]'
+                    }`}
+                >
+                  <span className="text-lg">{category.emoji}</span>
+                  <span className="text-sm font-semibold">{category.name}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -501,24 +503,24 @@ export default function ClientDashboard() {
         <button
           onClick={handleMyLocation}
           style={{ bottom: panelHeight + 16 }}
-          className="absolute right-4 z-10 w-12 h-12 bg-white rounded-xl shadow-lg flex items-center justify-center hover:shadow-xl transition-all"
+          className="absolute right-4 z-10 w-12 h-12 glass-strong rounded-2xl shadow-lg shadow-black/5 border border-white/60 flex items-center justify-center hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200"
         >
           <Navigation className="w-5 h-5 text-emerald-500" />
         </button>
 
-        {/* Bottom Panel */}
-        <div 
+        {/* Bottom Panel - Frosted Glass */}
+        <div
           ref={panelRef}
           style={{ height: panelHeight }}
-          className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl z-20 ${isDragging ? '' : 'transition-[height] duration-300'}`}
+          className={`absolute bottom-0 left-0 right-0 glass-strong rounded-t-3xl shadow-2xl shadow-black/10 border-t border-white/60 z-20 ${isDragging ? '' : 'transition-[height] duration-300'}`}
         >
           {/* Drag Handle */}
-          <div 
-            className="w-full flex justify-center py-3 cursor-grab active:cursor-grabbing touch-none select-none"
+          <div
+            className="w-full flex justify-center py-3.5 cursor-grab active:cursor-grabbing touch-none select-none"
             onMouseDown={handleMouseDown}
             onTouchStart={handleTouchStart}
           >
-            <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+            <div className="w-14 h-1.5 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-full" />
           </div>
 
           <div className="px-4 pb-4 overflow-hidden" style={{ height: panelHeight - 50 }}>
@@ -528,11 +530,10 @@ export default function ClientDashboard() {
                 <button
                   key={filter.id}
                   onClick={() => setActiveFilter(filter.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
-                    activeFilter === filter.id
-                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
+                  className={`tap-bounce flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold whitespace-nowrap transition-all duration-200 ${activeFilter === filter.id
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25'
+                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-100'
+                    }`}
                 >
                   {filter.icon}
                   {filter.label}
@@ -543,104 +544,122 @@ export default function ClientDashboard() {
             {/* Provider Count */}
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-bold text-gray-900">Available Providers</h2>
-              <span className="text-sm text-emerald-600 font-semibold bg-emerald-50 px-3 py-1 rounded-full">
+              <div className="flex items-center gap-1.5 text-sm text-emerald-600 font-semibold bg-gradient-to-r from-emerald-50 to-teal-50 px-3 py-1.5 rounded-full border border-emerald-100">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse-ring" />
                 {filteredProviders.length} online
-              </span>
+              </div>
             </div>
 
             {loadingData ? (
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 {[1, 2, 3, 4, 5, 6].map(i => (
-                  <div key={i} className="bg-gray-100 rounded-xl h-32 animate-pulse" />
+                  <div key={i} className="rounded-2xl overflow-hidden border border-gray-100">
+                    <div className="p-3">
+                      <div className="flex items-center gap-2.5 mb-3">
+                        <div className="w-12 h-12 rounded-xl skeleton-shimmer" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-3.5 w-20 rounded-full skeleton-shimmer" />
+                          <div className="h-3 w-14 rounded-full skeleton-shimmer" />
+                        </div>
+                      </div>
+                      <div className="h-3 w-full rounded-full skeleton-shimmer mb-2" />
+                      <div className="h-4 w-16 rounded-full skeleton-shimmer" />
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : filteredProviders.length > 0 ? (
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 overflow-y-auto pr-1" style={{ maxHeight: panelHeight - 160 }}>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 overflow-y-auto pr-1" style={{ maxHeight: panelHeight - 160 }}>
                 {filteredProviders.map((provider, index) => {
                   const isSelected = selectedProvider?.id === provider.id;
                   const isTopPick = index === 0 && activeFilter === 'recommended';
                   const tierStyle = getTierStyle(provider.tier);
                   const categoryData = SERVICE_CATEGORIES.find(c => c.id === provider.serviceCategory?.toLowerCase());
-                  
+
                   return (
                     <div
                       key={provider.id}
                       onClick={() => handleProviderSelectFromList(provider)}
-                      className={`rounded-xl border transition-all cursor-pointer overflow-hidden ${
-                        isSelected
-                          ? 'border-emerald-500 bg-emerald-50 shadow-md shadow-emerald-500/20'
-                          : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm'
-                      }`}
+                      className={`group rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden animate-fade-in ${isSelected
+                        ? 'border-emerald-400 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-lg shadow-emerald-500/15 ring-1 ring-emerald-400/30'
+                        : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-md hover:-translate-y-0.5'
+                        }`}
                     >
                       {isTopPick && (
-                        <div className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-[8px] font-bold px-2 py-0.5 flex items-center justify-center gap-0.5">
-                          <Sparkles className="w-2.5 h-2.5" /> TOP
+                        <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white text-[9px] font-bold px-3 py-1 flex items-center justify-center gap-1">
+                          <Sparkles className="w-3 h-3" /> TOP PICK
                         </div>
                       )}
-                      
-                      <div className="p-2">
+
+                      <div className="p-3">
                         {/* Photo Row */}
-                        <div className="flex items-center gap-2 mb-1.5">
+                        <div className="flex items-center gap-2.5 mb-2">
                           <div className="relative flex-shrink-0">
-                            <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100">
-                              {provider.profilePhoto ? (
-                                <img src={provider.profilePhoto} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-lg bg-gradient-to-br from-emerald-50 to-teal-50">
-                                  {categoryData?.emoji || '🛠️'}
-                                </div>
-                              )}
+                            <div className={`w-12 h-12 rounded-xl overflow-hidden ${provider.isOnline ? 'gradient-ring' : 'bg-gray-100 p-0'}`}>
+                              <div className="w-full h-full rounded-[10px] overflow-hidden bg-gray-100">
+                                {provider.profilePhoto ? (
+                                  <img src={provider.profilePhoto} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-xl bg-gradient-to-br from-emerald-50 to-teal-50">
+                                    {categoryData?.emoji || '🛠️'}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                             {provider.isOnline && (
-                              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white" />
+                              <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white animate-pulse-ring" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-gray-900 text-xs truncate">{provider.firstName}</h3>
-                            <p className="text-[10px] text-emerald-600 font-medium truncate">
+                            <h3 className="font-bold text-gray-900 text-xs truncate">{provider.firstName}</h3>
+                            <p className="text-[11px] text-emerald-600 font-medium truncate">
                               {categoryData?.emoji} {provider.serviceCategory || 'Service'}
                             </p>
-                            <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                              <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
-                              <span>{provider.rating > 0 ? provider.rating.toFixed(1) : 'New'}</span>
-                            </div>
                           </div>
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleFavorite(provider.id); }}
-                            className="p-1 hover:bg-gray-100 rounded-md transition-colors"
+                            className="p-1.5 hover:bg-red-50 rounded-lg transition-all duration-200 group/fav"
                           >
-                            <Heart className={`w-3.5 h-3.5 ${favoriteIds.includes(provider.id) ? 'fill-red-500 text-red-500' : 'text-gray-300'}`} />
+                            <Heart className={`w-4 h-4 transition-transform duration-200 group-hover/fav:scale-110 ${favoriteIds.includes(provider.id) ? 'fill-red-500 text-red-500 scale-110' : 'text-gray-300'}`} />
                           </button>
                         </div>
 
-                        {/* Info */}
-                        <div className="flex items-center justify-between text-[10px] text-gray-500 mb-1">
-                          <span>{provider.estimatedArrival}</span>
-                          {provider.distance && <span>{provider.distance} km</span>}
+                        {/* Rating + Distance */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full">
+                            <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                            <span className="text-[11px] font-semibold text-amber-700">{provider.rating > 0 ? provider.rating.toFixed(1) : 'New'}</span>
+                          </div>
+                          {provider.distance && (
+                            <span className="text-[11px] text-gray-400">{provider.distance} km</span>
+                          )}
                         </div>
 
-                        {/* Price */}
-                        {provider.fixedPrice && provider.fixedPrice > 0 ? (
-                          <div className="text-sm font-bold text-emerald-600">₱{provider.fixedPrice.toLocaleString()}</div>
-                        ) : (
-                          <div className="text-[10px] text-gray-400">Price varies</div>
-                        )}
+                        {/* ETA + Price */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-gray-400">{provider.estimatedArrival}</span>
+                          {provider.fixedPrice && provider.fixedPrice > 0 ? (
+                            <span className="text-sm font-bold text-emerald-600">₱{provider.fixedPrice.toLocaleString()}</span>
+                          ) : (
+                            <span className="text-[11px] text-gray-400">Price varies</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <User className="w-10 h-10 text-gray-300" />
+              <div className="text-center py-16">
+                <div className="w-24 h-24 bg-gradient-to-br from-gray-50 to-gray-100 rounded-3xl flex items-center justify-center mx-auto mb-5 animate-float">
+                  <User className="w-12 h-12 text-gray-300" />
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 mb-2">No providers available</h3>
-                <p className="text-gray-500">
-                  {searchQuery ? `No results for "${searchQuery}"` : 'No providers online in your area'}
+                <p className="text-gray-500 text-sm max-w-xs mx-auto">
+                  {searchQuery ? `No results for "${searchQuery}"` : 'No providers online in your area right now'}
                 </p>
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} className="mt-3 text-emerald-500 font-semibold">
+                  <button onClick={() => setSearchQuery('')} className="mt-4 text-emerald-500 font-semibold bg-emerald-50 px-5 py-2 rounded-xl hover:bg-emerald-100 transition-colors">
                     Clear Search
                   </button>
                 )}
@@ -650,7 +669,7 @@ export default function ClientDashboard() {
 
           {/* Contact Button - Simple bottom bar when provider selected from list */}
           {selectedProvider && !showProviderModal && (
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 shadow-2xl">
+            <div className="absolute bottom-0 left-0 right-0 p-4 glass-strong border-t border-white/60 shadow-2xl animate-fade-in">
               <div className="flex items-center gap-4 mb-3">
                 <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
                   {selectedProvider.profilePhoto ? (
@@ -667,15 +686,15 @@ export default function ClientDashboard() {
                 </div>
                 <div className="text-right">
                   {selectedProvider.fixedPrice && selectedProvider.fixedPrice > 0 && (
-                    <p className="text-xl font-bold text-emerald-600">₱{selectedProvider.fixedPrice.toLocaleString()}</p>
+                    <p className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">₱{selectedProvider.fixedPrice.toLocaleString()}</p>
                   )}
                 </div>
               </div>
-              
+
               {activeBooking ? (
                 <button
                   onClick={() => router.push(`/client/bookings/${activeBooking.id}`)}
-                  className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-amber-500/30 hover:shadow-xl hover:scale-[1.02] hover:from-amber-600 hover:to-orange-600 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-amber-500/30 hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   <Clock className="w-5 h-5" />
                   {activeBooking.status === 'pending' ? 'Pending Approval' : 'View Booking'}
@@ -684,7 +703,7 @@ export default function ClientDashboard() {
               ) : (
                 <button
                   onClick={() => router.push(`/client/book?providerId=${selectedProvider.id}`)}
-                  className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-500/30 hover:shadow-xl hover:scale-[1.02] hover:from-blue-600 hover:to-indigo-600 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   Contact Us
                   <ChevronRight className="w-5 h-5" />
@@ -699,15 +718,15 @@ export default function ClientDashboard() {
       {showProviderModal && selectedProvider && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
-          <div 
+          <div
             className="absolute inset-0 bg-black/50"
             onClick={() => setShowProviderModal(false)}
           />
-          
+
           {/* Modal Content */}
-          <div className="relative bg-white rounded-3xl w-full max-w-md p-6 animate-scale-up shadow-2xl">
+          <div className="relative bg-white rounded-3xl w-full max-w-md p-6 animate-scale-up shadow-2xl shadow-black/20 border border-gray-100">
             {/* Close Button */}
-            <button 
+            <button
               onClick={() => setShowProviderModal(false)}
               className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
             >
@@ -724,7 +743,7 @@ export default function ClientDashboard() {
                       {getStatusDisplay(activeBooking.status, activeBooking.adminApproved).label}
                     </span>
                   </div>
-                  
+
                   {/* Provider Info */}
                   <div className="flex items-center justify-center gap-3 mb-2">
                     <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 border-4 border-white shadow-lg">
@@ -761,7 +780,7 @@ export default function ClientDashboard() {
                 </div>
 
                 <p className="text-center text-sm text-gray-500 mb-4">
-                  {activeBooking.adminApproved 
+                  {activeBooking.adminApproved
                     ? 'Waiting for provider to accept your booking...'
                     : 'Your booking is being reviewed by admin...'}
                 </p>
@@ -802,17 +821,19 @@ export default function ClientDashboard() {
                     }}
                     className="relative inline-block group"
                   >
-                    <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 border-4 border-white shadow-xl mx-auto">
-                      {selectedProvider.profilePhoto ? (
-                        <img src={selectedProvider.profilePhoto} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-3xl bg-gradient-to-br from-emerald-50 to-teal-50">
-                          {SERVICE_CATEGORIES.find(c => c.id === selectedProvider.serviceCategory?.toLowerCase())?.emoji || '🛠️'}
-                        </div>
-                      )}
+                    <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-transparent bg-gradient-to-br from-emerald-400 to-teal-400 p-[3px] shadow-xl shadow-emerald-500/20 mx-auto">
+                      <div className="w-full h-full rounded-full overflow-hidden bg-white">
+                        {selectedProvider.profilePhoto ? (
+                          <img src={selectedProvider.profilePhoto} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-3xl bg-gradient-to-br from-emerald-50 to-teal-50">
+                            {SERVICE_CATEGORIES.find(c => c.id === selectedProvider.serviceCategory?.toLowerCase())?.emoji || '🛠️'}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     {selectedProvider.isOnline && (
-                      <div className="absolute bottom-1 right-1/2 translate-x-6 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white" />
+                      <div className="absolute bottom-1 right-1/2 translate-x-8 w-5 h-5 bg-emerald-500 rounded-full border-3 border-white animate-pulse-ring" />
                     )}
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                       <span className="text-white text-xs font-medium">View Profile</span>
@@ -853,22 +874,22 @@ export default function ClientDashboard() {
                   </p>
                 )}
 
-                {/* Distance & Time */}
-                <div className="flex items-center justify-center gap-6 mb-4">
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Navigation className="w-5 h-5 text-gray-400" />
-                    <span>{selectedProvider.distance?.toFixed(1) || '0'} km away</span>
+                {/* Distance & Time - Pill badges */}
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-xl">
+                    <Navigation className="w-4 h-4 text-emerald-500" />
+                    <span className="text-sm font-medium text-gray-700">{selectedProvider.distance?.toFixed(1) || '0'} km</span>
                   </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Clock className="w-5 h-5 text-gray-400" />
-                    <span>{selectedProvider.estimatedArrival}</span>
+                  <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-xl">
+                    <Clock className="w-4 h-4 text-emerald-500" />
+                    <span className="text-sm font-medium text-gray-700">{selectedProvider.estimatedArrival}</span>
                   </div>
                 </div>
 
-                {/* Price */}
-                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl p-4 mb-6 text-center">
-                  <p className="text-sm text-gray-500 mb-1">Starting at</p>
-                  <p className="text-3xl font-bold text-emerald-600">₱{selectedProvider.fixedPrice?.toLocaleString() || '0'}</p>
+                {/* Price - Gradient card */}
+                <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 rounded-2xl p-5 mb-6 text-center border border-emerald-100/50">
+                  <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide font-medium">Starting at</p>
+                  <p className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">₱{selectedProvider.fixedPrice?.toLocaleString() || '0'}</p>
                 </div>
 
                 {/* Action Buttons */}
@@ -878,7 +899,7 @@ export default function ClientDashboard() {
                       setShowProviderModal(false);
                       router.push(`/client/providers/${selectedProvider.id}`);
                     }}
-                    className="flex-1 flex items-center justify-center gap-2 py-4 bg-gray-100 text-gray-700 rounded-2xl font-semibold hover:bg-gray-200 transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 py-4 bg-gray-50 text-gray-700 rounded-2xl font-semibold hover:bg-gray-100 transition-all border border-gray-100"
                   >
                     <User className="w-5 h-5" />
                     View Profile
@@ -888,7 +909,7 @@ export default function ClientDashboard() {
                       setShowProviderModal(false);
                       router.push(`/client/book?providerId=${selectedProvider.id}`);
                     }}
-                    className="flex-1 flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl font-semibold shadow-lg shadow-blue-500/30 hover:shadow-xl hover:scale-[1.02] hover:from-blue-600 hover:to-indigo-600 transition-all cursor-pointer"
+                    className="flex-1 flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer"
                   >
                     <MessageCircle className="w-5 h-5" />
                     Contact Us

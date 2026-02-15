@@ -1,48 +1,74 @@
-import {StyleSheet} from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
 export const chatStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F8FAFB',
   },
-  
+
   // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#F3F4F6',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   backButton: {
     marginRight: 12,
+    padding: 4,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#00B14F',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#00B14F',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   avatarText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
   },
   headerInfo: {
     flex: 1,
   },
   headerName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+    letterSpacing: -0.3,
   },
   headerRole: {
     fontSize: 13,
     color: '#6B7280',
+    marginTop: 1,
   },
   onlineIndicator: {
     flexDirection: 'row',
@@ -57,30 +83,36 @@ export const chatStyles = StyleSheet.create({
   },
   onlineText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#10B981',
+    fontWeight: '500',
   },
   callButton: {
-    padding: 8,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
   },
 
   // Job Banner
   jobBanner: {
     backgroundColor: '#EFF6FF',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#DBEAFE',
   },
   jobBannerText: {
     marginLeft: 8,
     color: '#1E40AF',
     fontSize: 13,
+    fontWeight: '500',
     flex: 1,
   },
 
   // Messages
   messageContainer: {
-    marginVertical: 4,
+    marginVertical: 3,
     marginHorizontal: 16,
   },
   messageContainerMe: {
@@ -91,32 +123,41 @@ export const chatStyles = StyleSheet.create({
   },
   senderName: {
     fontSize: 11,
-    color: '#6B7280',
-    marginBottom: 2,
+    color: '#9CA3AF',
+    marginBottom: 3,
     marginLeft: 4,
+    fontWeight: '500',
   },
   messageBubble: {
     maxWidth: '80%',
-    borderRadius: 20,
+    borderRadius: 22,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   messageBubbleMe: {
     backgroundColor: '#00B14F',
-    borderTopRightRadius: 4,
+    borderBottomRightRadius: 6,
   },
   messageBubbleOther: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 4,
+    borderBottomLeftRadius: 6,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
   },
   messageText: {
     fontSize: 15,
-    lineHeight: 20,
+    lineHeight: 21,
   },
   messageTextMe: {
     color: '#FFFFFF',
@@ -129,12 +170,13 @@ export const chatStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     marginTop: 4,
+    gap: 4,
   },
   messageTime: {
     fontSize: 11,
   },
   messageTimeMe: {
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.6)',
   },
   messageTimeOther: {
     color: '#9CA3AF',
@@ -147,6 +189,23 @@ export const chatStyles = StyleSheet.create({
     color: '#10B981',
     marginTop: 2,
     marginRight: 4,
+    fontWeight: '500',
+  },
+
+  // Date Separator
+  dateSeparator: {
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  dateSeparatorText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
 
   // Typing Indicator
@@ -158,33 +217,43 @@ export const chatStyles = StyleSheet.create({
   },
   typingBubble: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderTopLeftRadius: 4,
+    borderRadius: 22,
+    borderBottomLeftRadius: 6,
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   typingText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6B7280',
     marginRight: 8,
+    fontWeight: '500',
   },
   typingDotsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 3,
   },
   typingDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#9CA3AF',
-    marginHorizontal: 2,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#00B14F',
+    opacity: 0.6,
   },
 
   // Empty State
@@ -195,42 +264,59 @@ export const chatStyles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyText: {
-    marginTop: 12,
+    marginTop: 16,
     color: '#9CA3AF',
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '500',
   },
 
   // Quick Replies
   quickRepliesContainer: {
-    paddingVertical: 8,
+    paddingVertical: 10,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    minHeight: 50,
+    borderTopColor: '#F3F4F6',
+    minHeight: 52,
   },
   quickReplyButton: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F0FDF4',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
   },
   quickReplyText: {
     fontSize: 13,
-    color: '#4B5563',
+    color: '#059669',
+    fontWeight: '500',
   },
 
   // Input Area
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#F3F4F6',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   attachButton: {
-    padding: 8,
+    padding: 10,
+    borderRadius: 12,
   },
   inputWrapper: {
     flex: 1,
@@ -240,6 +326,7 @@ export const chatStyles = StyleSheet.create({
     borderRadius: 24,
     paddingHorizontal: 16,
     marginHorizontal: 8,
+    minHeight: 44,
   },
   textInput: {
     flex: 1,
@@ -249,20 +336,73 @@ export const chatStyles = StyleSheet.create({
     maxHeight: 100,
   },
   emojiButton: {
-    padding: 4,
+    padding: 6,
   },
   sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendButtonActive: {
     backgroundColor: '#00B14F',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#00B14F',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   sendButtonInactive: {
     backgroundColor: '#E5E7EB',
+  },
+
+  // Image Preview
+  imagePreviewContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  imagePreview: {
+    width: 72,
+    height: 72,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  imagePreviewClose: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Reactions
+  reactionsContainer: {
+    flexDirection: 'row',
+    marginTop: 4,
+    gap: 4,
+  },
+  reactionBadge: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
 
   // Loading
@@ -272,7 +412,9 @@ export const chatStyles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: 16,
     color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

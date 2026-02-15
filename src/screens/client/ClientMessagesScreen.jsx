@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,15 @@ import {
   Animated,
   FlatList,
   Image,
+  Platform,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {Swipeable} from 'react-native-gesture-handler';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Swipeable } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {globalStyles} from '../../css/globalStyles';
-import {useAuth} from '../../context/AuthContext';
-import {useTheme} from '../../context/ThemeContext';
+import LinearGradient from 'react-native-linear-gradient';
+import { globalStyles } from '../../css/globalStyles';
+import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import {
   subscribeToConversations,
   deleteConversation,
@@ -24,9 +26,9 @@ import {
   scanAndFixBrokenConversations,
 } from '../../services/messageService';
 
-const ClientMessagesScreen = ({navigation}) => {
-  const {user} = useAuth();
-  const {isDark, theme} = useTheme();
+const ClientMessagesScreen = ({ navigation }) => {
+  const { user } = useAuth();
+  const { isDark, theme } = useTheme();
   const [conversations, setConversations] = useState([]);
   const [archivedConversations, setArchivedConversations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,33 +36,16 @@ const ClientMessagesScreen = ({navigation}) => {
   const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
-    console.log('[ClientMessages] ========================================');
-    console.log('[ClientMessages] useEffect triggered');
-    console.log('[ClientMessages] user object:', JSON.stringify(user, null, 2));
-    console.log('[ClientMessages] user?.uid:', user?.uid);
-    console.log('[ClientMessages] typeof user?.uid:', typeof user?.uid);
-    console.log('[ClientMessages] ========================================');
-    
-    if (!user?.uid) {
-      console.log('[ClientMessages] No user.uid, returning early');
-      return;
-    }
+    if (!user?.uid) return;
 
-    console.log('[ClientMessages] Starting subscription with uid:', user.uid);
-
-    // First, scan and fix any broken conversations
     scanAndFixBrokenConversations(user.uid).then((fixedCount) => {
       if (fixedCount > 0) {
         console.log('[ClientMessages] Fixed', fixedCount, 'broken conversations');
       }
     });
 
-    // Subscribe to real-time conversation updates
     const unsubscribe = subscribeToConversations(user.uid, (updatedConversations) => {
-      console.log('[ClientMessages] Received', updatedConversations.length, 'conversations from subscription');
-      // Filter out deleted conversations
       const nonDeleted = updatedConversations.filter((c) => !c.deleted?.[user.uid]);
-      // Separate active and archived
       const active = nonDeleted.filter((c) => !c.archived?.[user.uid]);
       const archived = nonDeleted.filter((c) => c.archived?.[user.uid]);
       setConversations(active);
@@ -74,7 +59,6 @@ const ClientMessagesScreen = ({navigation}) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Scan and fix broken conversations on refresh
     if (user?.uid) {
       const fixedCount = await scanAndFixBrokenConversations(user.uid);
       if (fixedCount > 0) {
@@ -89,7 +73,7 @@ const ClientMessagesScreen = ({navigation}) => {
       'Delete Conversation',
       'Are you sure you want to delete this conversation? This cannot be undone.',
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
@@ -107,7 +91,6 @@ const ClientMessagesScreen = ({navigation}) => {
 
   const handleArchive = async (conversationId, swipeableRef) => {
     try {
-      // Close swipeable first for smooth animation
       swipeableRef?.current?.close();
       await archiveConversation(conversationId, user.uid);
     } catch (error) {
@@ -126,13 +109,11 @@ const ClientMessagesScreen = ({navigation}) => {
 
   const formatTimestamp = (date) => {
     if (!date) return '';
-
     const now = new Date();
     const diff = now - date;
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
-
     if (minutes < 1) return 'Just now';
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
@@ -151,14 +132,11 @@ const ClientMessagesScreen = ({navigation}) => {
   };
 
   const renderRightActions = (progress, dragX, conversationId, isArchived = false, swipeableRef) => {
-    // Scale animation for buttons
     const scale = dragX.interpolate({
       inputRange: [-160, -80, 0],
       outputRange: [1, 0.9, 0.8],
       extrapolate: 'clamp',
     });
-    
-    // Opacity animation
     const opacity = dragX.interpolate({
       inputRange: [-160, -40, 0],
       outputRange: [1, 0.8, 0],
@@ -166,8 +144,8 @@ const ClientMessagesScreen = ({navigation}) => {
     });
 
     return (
-      <Animated.View style={{flexDirection: 'row', opacity}}>
-        <Animated.View style={{transform: [{scale}]}}>
+      <Animated.View style={{ flexDirection: 'row', opacity }}>
+        <Animated.View style={{ transform: [{ scale }] }}>
           <TouchableOpacity
             style={{
               backgroundColor: isArchived ? '#10B981' : '#F59E0B',
@@ -175,17 +153,19 @@ const ClientMessagesScreen = ({navigation}) => {
               alignItems: 'center',
               width: 80,
               height: '100%',
+              borderRadius: 16,
+              marginLeft: 4,
             }}
             onPress={() =>
               isArchived ? handleUnarchive(conversationId, swipeableRef) : handleArchive(conversationId, swipeableRef)
             }>
-            <Icon name={isArchived ? 'arrow-undo' : 'archive'} size={24} color="#FFFFFF" />
-            <Text style={{color: '#FFFFFF', fontSize: 12, marginTop: 4}}>
+            <Icon name={isArchived ? 'arrow-undo' : 'archive'} size={22} color="#FFFFFF" />
+            <Text style={{ color: '#FFFFFF', fontSize: 11, marginTop: 4, fontWeight: '600' }}>
               {isArchived ? 'Restore' : 'Archive'}
             </Text>
           </TouchableOpacity>
         </Animated.View>
-        <Animated.View style={{transform: [{scale}]}}>
+        <Animated.View style={{ transform: [{ scale }] }}>
           <TouchableOpacity
             style={{
               backgroundColor: '#EF4444',
@@ -193,26 +173,27 @@ const ClientMessagesScreen = ({navigation}) => {
               alignItems: 'center',
               width: 80,
               height: '100%',
+              borderRadius: 16,
+              marginLeft: 4,
             }}
-          onPress={() => handleDelete(conversationId)}>
-          <Icon name="trash" size={24} color="#FFFFFF" />
-          <Text style={{color: '#FFFFFF', fontSize: 12, marginTop: 4}}>Delete</Text>
-        </TouchableOpacity>
+            onPress={() => handleDelete(conversationId)}>
+            <Icon name="trash" size={22} color="#FFFFFF" />
+            <Text style={{ color: '#FFFFFF', fontSize: 11, marginTop: 4, fontWeight: '600' }}>Delete</Text>
+          </TouchableOpacity>
         </Animated.View>
       </Animated.View>
     );
   };
 
-  // Store refs for swipeables
   const swipeableRefs = useRef({});
 
-  const renderConversation = ({item: conversation, isArchived = false}) => {
-    // Create or get ref for this conversation
+  const renderConversation = ({ item: conversation, isArchived = false }) => {
     if (!swipeableRefs.current[conversation.id]) {
       swipeableRefs.current[conversation.id] = React.createRef();
     }
     const swipeableRef = swipeableRefs.current[conversation.id];
-    
+    const hasUnread = conversation.unreadCount > 0;
+
     return (
       <Swipeable
         ref={swipeableRef}
@@ -228,158 +209,187 @@ const ClientMessagesScreen = ({navigation}) => {
           style={{
             flexDirection: 'row',
             padding: 16,
-            backgroundColor:
-              conversation.unreadCount > 0
-                ? isDark
-                  ? '#064E3B'
-                  : '#F0FDF4'
-                : isDark
-                ? theme.colors.card
-                : '#FFFFFF',
-            borderBottomWidth: 1,
-            borderBottomColor: isDark ? theme.colors.border : '#F3F4F6',
+            marginHorizontal: 16,
+            marginVertical: 4,
+            backgroundColor: hasUnread
+              ? isDark ? '#064E3B' : '#F0FDF4'
+              : isDark ? theme.colors.card : '#FFFFFF',
+            borderRadius: 18,
+            borderWidth: 1,
+            borderColor: hasUnread
+              ? isDark ? '#065F46' : '#D1FAE5'
+              : isDark ? theme.colors.border : '#F3F4F6',
+            ...Platform.select({
+              ios: {
+                shadowColor: hasUnread ? '#00B14F' : '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: hasUnread ? 0.1 : 0.05,
+                shadowRadius: 8,
+              },
+              android: { elevation: hasUnread ? 4 : 2 },
+            }),
           }}
           onPress={() =>
             navigation.navigate('Chat', {
               conversationId: conversation.id,
               recipient: conversation.otherUser,
               jobId: conversation.jobId,
-          })
-        }>
-        {conversation.otherUser?.profilePhoto ? (
-          <Image
-            source={{uri: conversation.otherUser.profilePhoto}}
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              marginRight: 12,
-              backgroundColor: '#E5E7EB',
-            }}
-          />
-        ) : (
-          <View
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 28,
+            })
+          }>
+          {/* Accent bar for unread */}
+          {hasUnread && (
+            <View style={{
+              position: 'absolute',
+              left: 0,
+              top: 8,
+              bottom: 8,
+              width: 3,
               backgroundColor: '#00B14F',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginRight: 12,
-            }}>
-            <Text style={{color: '#FFFFFF', fontSize: 18, fontWeight: '600'}}>
-              {getInitials(conversation.otherUser?.name)}
-            </Text>
-          </View>
-        )}
-        <View style={{flex: 1}}>
-          <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4}}>
-            <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+              borderRadius: 2,
+            }} />
+          )}
+
+          {conversation.otherUser?.profilePhoto ? (
+            <Image
+              source={{ uri: conversation.otherUser.profilePhoto }}
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                marginRight: 14,
+                backgroundColor: '#E5E7EB',
+                borderWidth: hasUnread ? 2 : 0,
+                borderColor: '#00B14F',
+              }}
+            />
+          ) : (
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                backgroundColor: '#00B14F',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginRight: 14,
+                borderWidth: hasUnread ? 2 : 0,
+                borderColor: hasUnread ? '#065F46' : 'transparent',
+              }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>
+                {getInitials(conversation.otherUser?.name)}
+              </Text>
+            </View>
+          )}
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: hasUnread ? '700' : '600',
+                    color: isDark ? theme.colors.text : '#111827',
+                    letterSpacing: -0.3,
+                  }}
+                  numberOfLines={1}>
+                  {conversation.otherUser?.role === 'ADMIN' ? 'GSS Support' : (conversation.otherUser?.name || 'Unknown')}
+                </Text>
+                {conversation.otherUser?.role &&
+                  (conversation.otherUser.role === 'ADMIN' ||
+                    conversation.otherUser.role === 'PROVIDER') && (
+                    <View
+                      style={{
+                        marginLeft: 8,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 8,
+                        backgroundColor:
+                          conversation.otherUser.role === 'ADMIN' ? '#8B5CF6' : '#3B82F6',
+                      }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#FFFFFF' }}>
+                        {conversation.otherUser.role === 'ADMIN' ? 'SUPPORT' : conversation.otherUser.role}
+                      </Text>
+                    </View>
+                  )}
+              </View>
               <Text
                 style={{
-                  fontSize: 16,
-                  fontWeight: conversation.unreadCount > 0 ? '700' : '600',
-                  color: isDark ? theme.colors.text : '#1F2937',
+                  fontSize: 12,
+                  fontWeight: hasUnread ? '600' : '400',
+                  color: hasUnread
+                    ? '#00B14F'
+                    : isDark ? theme.colors.textSecondary : '#9CA3AF',
+                }}>
+                {formatTimestamp(conversation.lastMessageTime)}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: hasUnread
+                    ? isDark ? theme.colors.text : '#374151'
+                    : isDark ? theme.colors.textSecondary : '#6B7280',
+                  fontWeight: hasUnread ? '500' : 'normal',
+                  flex: 1,
+                  lineHeight: 20,
                 }}
                 numberOfLines={1}>
-                {conversation.otherUser?.role === 'ADMIN' ? 'GSS Support' : (conversation.otherUser?.name || 'Unknown')}
+                {conversation.lastSenderId === user?.uid ? 'You: ' : ''}
+                {conversation.lastMessage || 'No messages yet'}
               </Text>
-              {/* Role Badge - Only show ADMIN or PROVIDER (not CLIENT since this is client screen) */}
-              {conversation.otherUser?.role &&
-                (conversation.otherUser.role === 'ADMIN' ||
-                  conversation.otherUser.role === 'PROVIDER') && (
-                  <View
-                    style={{
-                      marginLeft: 8,
-                      paddingHorizontal: 8,
-                      paddingVertical: 2,
-                      borderRadius: 4,
-                      backgroundColor:
-                        conversation.otherUser.role === 'ADMIN' ? '#8B5CF6' : '#3B82F6',
-                    }}>
-                    <Text style={{fontSize: 10, fontWeight: '700', color: '#FFFFFF'}}>
-                      {conversation.otherUser.role === 'ADMIN' ? 'SUPPORT' : conversation.otherUser.role}
-                    </Text>
-                  </View>
-                )}
+              {hasUnread && (
+                <View
+                  style={{
+                    minWidth: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    backgroundColor: '#00B14F',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginLeft: 10,
+                    paddingHorizontal: 7,
+                    ...Platform.select({
+                      ios: {
+                        shadowColor: '#00B14F',
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.3,
+                        shadowRadius: 3,
+                      },
+                      android: { elevation: 2 },
+                    }),
+                  }}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFFFFF' }}>
+                    {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
+                  </Text>
+                </View>
+              )}
             </View>
-            <Text
-              style={{
-                fontSize: 12,
-                color:
-                  conversation.unreadCount > 0
-                    ? '#00B14F'
-                    : isDark
-                    ? theme.colors.textSecondary
-                    : '#9CA3AF',
-              }}>
-              {formatTimestamp(conversation.lastMessageTime)}
-            </Text>
           </View>
-          <View
-            style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-            <Text
-              style={{
-                fontSize: 14,
-                color:
-                  conversation.unreadCount > 0
-                    ? isDark
-                      ? theme.colors.text
-                      : '#1F2937'
-                    : isDark
-                    ? theme.colors.textSecondary
-                    : '#6B7280',
-                fontWeight: conversation.unreadCount > 0 ? '500' : 'normal',
-                flex: 1,
-              }}
-              numberOfLines={1}>
-              {conversation.lastSenderId === user?.uid ? 'You: ' : ''}
-              {conversation.lastMessage || 'No messages yet'}
-            </Text>
-            {conversation.unreadCount > 0 && (
-              <View
-                style={{
-                  minWidth: 22,
-                  height: 22,
-                  borderRadius: 11,
-                  backgroundColor: '#00B14F',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  marginLeft: 8,
-                  paddingHorizontal: 6,
-                }}>
-                <Text style={{fontSize: 11, fontWeight: '700', color: '#FFFFFF'}}>
-                  {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-      </TouchableOpacity>
-    </Swipeable>
+        </TouchableOpacity>
+      </Swipeable>
     );
   };
 
   if (loading) {
     return (
       <SafeAreaView
-        style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]}
+        style={[globalStyles.container, isDark && { backgroundColor: theme.colors.background }]}
         edges={['top']}>
         <View
           style={{
-            padding: 20,
+            paddingHorizontal: 20,
+            paddingVertical: 24,
             backgroundColor: isDark ? theme.colors.card : '#FFFFFF',
             borderBottomWidth: 1,
-            borderBottomColor: isDark ? theme.colors.border : '#E5E7EB',
+            borderBottomColor: isDark ? theme.colors.border : '#F3F4F6',
           }}>
-          <Text style={[globalStyles.heading2, isDark && {color: theme.colors.text}]}>
+          <Text style={{ fontSize: 28, fontWeight: '800', color: isDark ? theme.colors.text : '#111827', letterSpacing: -0.5 }}>
             Messages
           </Text>
         </View>
-        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color="#00B14F" />
-          <Text style={{marginTop: 12, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>
+          <Text style={{ marginTop: 16, color: isDark ? theme.colors.textSecondary : '#6B7280', fontWeight: '500' }}>
             Loading messages...
           </Text>
         </View>
@@ -388,50 +398,91 @@ const ClientMessagesScreen = ({navigation}) => {
   }
 
   const displayedConversations = showArchived ? archivedConversations : conversations;
+  const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
   return (
     <SafeAreaView
-      style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]}
+      style={[globalStyles.container, isDark && { backgroundColor: theme.colors.background }]}
       edges={['top']}>
+      {/* Premium Header */}
       <View
         style={{
-          padding: 20,
+          paddingHorizontal: 20,
+          paddingTop: 16,
+          paddingBottom: 20,
           backgroundColor: isDark ? theme.colors.card : '#FFFFFF',
           borderBottomWidth: 1,
-          borderBottomColor: isDark ? theme.colors.border : '#E5E7EB',
+          borderBottomColor: isDark ? theme.colors.border : '#F3F4F6',
+          ...Platform.select({
+            ios: {
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.04,
+              shadowRadius: 8,
+            },
+            android: { elevation: 2 },
+          }),
         }}>
-        <Text style={[globalStyles.heading2, isDark && {color: theme.colors.text}]}>Messages</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <Text style={{ fontSize: 28, fontWeight: '800', color: isDark ? theme.colors.text : '#111827', letterSpacing: -0.5 }}>
+            Messages
+          </Text>
+          {totalUnread > 0 && (
+            <View style={{
+              backgroundColor: '#00B14F',
+              borderRadius: 12,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+            }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>
+                {totalUnread} new
+              </Text>
+            </View>
+          )}
+        </View>
         <Text
           style={{
             fontSize: 14,
-            color: isDark ? theme.colors.textSecondary : '#6B7280',
-            marginTop: 4,
+            color: isDark ? theme.colors.textSecondary : '#9CA3AF',
           }}>
           Swipe left for options
         </Text>
       </View>
 
-      {/* Tabs */}
+      {/* Pill-style Tabs */}
       <View
         style={{
           flexDirection: 'row',
-          backgroundColor: isDark ? theme.colors.card : '#FFFFFF',
-          borderBottomWidth: 1,
-          borderBottomColor: isDark ? theme.colors.border : '#E5E7EB',
+          marginHorizontal: 16,
+          marginTop: 16,
+          marginBottom: 8,
+          backgroundColor: isDark ? theme.colors.card : '#F3F4F6',
+          borderRadius: 16,
+          padding: 4,
         }}>
         <TouchableOpacity
           style={{
             flex: 1,
             paddingVertical: 12,
             alignItems: 'center',
-            borderBottomWidth: 2,
-            borderBottomColor: !showArchived ? '#00B14F' : 'transparent',
+            borderRadius: 12,
+            backgroundColor: !showArchived ? '#00B14F' : 'transparent',
+            ...(!showArchived && Platform.select({
+              ios: {
+                shadowColor: '#00B14F',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 4,
+              },
+              android: { elevation: 3 },
+            })),
           }}
           onPress={() => setShowArchived(false)}>
           <Text
             style={{
-              fontWeight: '600',
-              color: !showArchived ? '#00B14F' : isDark ? theme.colors.textSecondary : '#6B7280',
+              fontWeight: '700',
+              fontSize: 14,
+              color: !showArchived ? '#FFFFFF' : isDark ? theme.colors.textSecondary : '#6B7280',
             }}>
             Active ({conversations.length})
           </Text>
@@ -441,25 +492,35 @@ const ClientMessagesScreen = ({navigation}) => {
             flex: 1,
             paddingVertical: 12,
             alignItems: 'center',
-            borderBottomWidth: 2,
-            borderBottomColor: showArchived ? '#F59E0B' : 'transparent',
+            borderRadius: 12,
+            backgroundColor: showArchived ? '#F59E0B' : 'transparent',
+            flexDirection: 'row',
+            justifyContent: 'center',
+            ...(showArchived && Platform.select({
+              ios: {
+                shadowColor: '#F59E0B',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 4,
+              },
+              android: { elevation: 3 },
+            })),
           }}
           onPress={() => setShowArchived(true)}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
-            <Icon
-              name="archive"
-              size={16}
-              color={showArchived ? '#F59E0B' : isDark ? theme.colors.textSecondary : '#6B7280'}
-              style={{marginRight: 4}}
-            />
-            <Text
-              style={{
-                fontWeight: '600',
-                color: showArchived ? '#F59E0B' : isDark ? theme.colors.textSecondary : '#6B7280',
-              }}>
-              Archived ({archivedConversations.length})
-            </Text>
-          </View>
+          <Icon
+            name="archive"
+            size={16}
+            color={showArchived ? '#FFFFFF' : isDark ? theme.colors.textSecondary : '#6B7280'}
+            style={{ marginRight: 6 }}
+          />
+          <Text
+            style={{
+              fontWeight: '700',
+              fontSize: 14,
+              color: showArchived ? '#FFFFFF' : isDark ? theme.colors.textSecondary : '#6B7280',
+            }}>
+            Archived ({archivedConversations.length})
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -467,34 +528,46 @@ const ClientMessagesScreen = ({navigation}) => {
         <FlatList
           data={displayedConversations}
           keyExtractor={(item) => item.id}
-          renderItem={({item}) => renderConversation({item, isArchived: showArchived})}
+          renderItem={({ item }) => renderConversation({ item, isArchived: showArchived })}
+          contentContainerStyle={{ paddingTop: 4, paddingBottom: 20 }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#00B14F']} />
           }
         />
       ) : (
         <View
-          style={{flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80}}>
-          <Icon
-            name={showArchived ? 'archive-outline' : 'chatbubbles-outline'}
-            size={80}
-            color={isDark ? theme.colors.border : '#E5E7EB'}
-          />
+          style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80 }}>
+          <View style={{
+            width: 80,
+            height: 80,
+            borderRadius: 40,
+            backgroundColor: isDark ? theme.colors.card : '#F0FDF4',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: 20,
+          }}>
+            <Icon
+              name={showArchived ? 'archive-outline' : 'chatbubbles-outline'}
+              size={36}
+              color={showArchived ? '#F59E0B' : '#00B14F'}
+            />
+          </View>
           <Text
             style={{
-              fontSize: 18,
-              fontWeight: '600',
-              color: isDark ? theme.colors.text : '#1F2937',
-              marginTop: 16,
+              fontSize: 20,
+              fontWeight: '700',
+              color: isDark ? theme.colors.text : '#111827',
               marginBottom: 8,
+              letterSpacing: -0.3,
             }}>
             {showArchived ? 'No archived messages' : 'No messages yet'}
           </Text>
           <Text
             style={{
-              fontSize: 14,
-              color: isDark ? theme.colors.textSecondary : '#6B7280',
+              fontSize: 15,
+              color: isDark ? theme.colors.textSecondary : '#9CA3AF',
               textAlign: 'center',
+              lineHeight: 22,
             }}>
             {showArchived
               ? 'Archived conversations will appear here'

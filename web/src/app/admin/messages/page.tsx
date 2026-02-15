@@ -60,7 +60,7 @@ export default function AdminMessagesPage() {
             if (!userName) userName = userData.email?.split('@')[0] || 'User';
             otherUser = { id: otherUserId, name: userName, profilePhoto: userData.profilePhoto || userData.photoURL, role: userData.role || 'CLIENT' };
           }
-        } catch {}
+        } catch { }
 
         return {
           id: docSnap.id,
@@ -96,7 +96,7 @@ export default function AdminMessagesPage() {
     try {
       await updateDoc(doc(db, 'conversations', conversationId), { [`archived.${user.uid}`]: true });
       setMenuOpen(null);
-    } catch {}
+    } catch { }
   };
 
   const handleUnarchive = async (conversationId: string) => {
@@ -104,19 +104,19 @@ export default function AdminMessagesPage() {
     try {
       await updateDoc(doc(db, 'conversations', conversationId), { [`archived.${user.uid}`]: false });
       setMenuOpen(null);
-    } catch {}
+    } catch { }
   };
 
   const handleDelete = async (conversationId: string) => {
     if (!user?.uid) return;
     if (!confirm('Delete this conversation?')) return;
     try {
-      await updateDoc(doc(db, 'conversations', conversationId), { 
+      await updateDoc(doc(db, 'conversations', conversationId), {
         [`deleted.${user.uid}`]: true,
         [`deletedAt.${user.uid}`]: serverTimestamp()
       });
       setMenuOpen(null);
-    } catch {}
+    } catch { }
   };
 
   const formatTime = (date: Date) => {
@@ -149,7 +149,7 @@ export default function AdminMessagesPage() {
   const filteredConversations = displayedConversations
     .filter((c) => c.otherUser.name.toLowerCase().includes(searchQuery.toLowerCase()))
     .filter((c) => filterRole === 'all' || c.otherUser.role?.toUpperCase() === filterRole);
-  
+
   const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
   const clientCount = conversations.filter(c => c.otherUser.role?.toUpperCase() === 'CLIENT').length;
   const providerCount = conversations.filter(c => c.otherUser.role?.toUpperCase() === 'PROVIDER').length;
@@ -225,17 +225,15 @@ export default function AdminMessagesPage() {
           <div className="bg-white rounded-2xl shadow-lg p-1.5 flex mb-4">
             <button
               onClick={() => setShowArchived(false)}
-              className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all ${
-                !showArchived ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-md' : 'text-gray-500 hover:text-gray-700'
-              }`}
+              className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all ${!showArchived ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-md' : 'text-gray-500 hover:text-gray-700'
+                }`}
             >
               Active ({conversations.length})
             </button>
             <button
               onClick={() => setShowArchived(true)}
-              className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-                showArchived ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md' : 'text-gray-500 hover:text-gray-700'
-              }`}
+              className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${showArchived ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md' : 'text-gray-500 hover:text-gray-700'
+                }`}
             >
               <Archive className="w-4 h-4" />
               Archived ({archivedConversations.length})
@@ -248,11 +246,10 @@ export default function AdminMessagesPage() {
               <button
                 key={role}
                 onClick={() => setFilterRole(role)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  filterRole === role
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${filterRole === role
                     ? role === 'all' ? 'bg-purple-500 text-white' : role === 'CLIENT' ? 'bg-emerald-500 text-white' : 'bg-blue-500 text-white'
                     : 'bg-white text-gray-600 hover:bg-gray-50 shadow-sm'
-                }`}
+                  }`}
               >
                 {role === 'all' ? 'All' : role === 'CLIENT' ? 'Clients' : 'Providers'}
               </button>
@@ -262,7 +259,7 @@ export default function AdminMessagesPage() {
           {/* Conversations List */}
           {filteredConversations.length === 0 ? (
             <div className="bg-white rounded-3xl shadow-xl p-12 text-center">
-              <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-violet-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-violet-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-float">
                 {showArchived ? <Archive className="w-12 h-12 text-amber-400" /> : <MessageSquare className="w-12 h-12 text-purple-400" />}
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">
@@ -277,7 +274,8 @@ export default function AdminMessagesPage() {
               {filteredConversations.map((conversation) => {
                 const roleBadge = getRoleBadge(conversation.otherUser.role);
                 return (
-                  <div key={conversation.id} className={`relative group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all border ${conversation.unreadCount > 0 ? 'border-purple-200 bg-gradient-to-r from-purple-50/50 to-white' : 'border-gray-100'}`}>
+                  <div key={conversation.id} className={`relative group bg-white rounded-2xl shadow-lg hover:shadow-xl hover:scale-[1.005] transition-all border overflow-hidden ${conversation.unreadCount > 0 ? 'border-purple-200 bg-gradient-to-r from-purple-50/50 to-white' : 'border-gray-100'}`}>
+                    {conversation.unreadCount > 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 to-violet-400 rounded-l-2xl" />}
                     <div className="p-4 flex items-center gap-4">
                       <div className="relative cursor-pointer" onClick={() => router.push(`/chat/${conversation.id}`)}>
                         {conversation.otherUser.profilePhoto ? (
@@ -320,7 +318,7 @@ export default function AdminMessagesPage() {
                       </div>
                     </div>
                     {menuOpen === conversation.id && (
-                      <div className="absolute right-4 top-16 bg-white rounded-xl shadow-2xl border z-20 py-2 min-w-[160px]">
+                      <div className="absolute right-4 top-16 bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/60 z-20 py-2 min-w-[170px] animate-fade-in">
                         {showArchived ? (
                           <button onClick={() => handleUnarchive(conversation.id)} className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-purple-600">
                             <RotateCcw className="w-4 h-4" />Restore

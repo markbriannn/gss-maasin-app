@@ -76,6 +76,8 @@
     ║ • createdAt   ║                                                          │
     ╚═══════╤═══════╝                                                          │
             │                                                                  │
+            │ [TRIGGER]                                                        │
+            │ New review submitted                                             │
             ▼                                                                  │
     ╭───────────────╮                                                          │
     │     10.6      │                                                          │
@@ -97,6 +99,8 @@
     ║   25          ║                                                          │
     ╚═══════╤═══════╝                                                          │
             │                                                                  │
+            │ [TRIGGER]                                                        │
+            │ Rating updated successfully                                      │
             ▼                                                                  │
     ╭───────────────╮                                                          │
     │     10.7      │                                                          │
@@ -122,6 +126,8 @@
     ║   5%          ║                                                          │
     ╚═══════╤═══════╝                                                          │
             │                                                                  │
+            │ [TRIGGER]                                                        │
+            │ Transaction recorded                                             │
             ▼                                                                  │
     ╭───────────────╮                                                          │
     │     10.8      │                                                          │
@@ -143,6 +149,8 @@
     ║  pending: ₱0  ║                                                          │
     ╚═══════╤═══════╝                                                          │
             │                                                                  │
+            │ [TRIGGER]                                                        │
+            │ Wallet updated successfully                                      │
             ▼                                                                  │
     ╭───────────────╮                                                          │
     │     10.9      │                                                          │
@@ -162,6 +170,8 @@
     │               │
     └───────┬───────┘
             │
+            │ [TRIGGER]
+            │ Payment notification sent
             ▼
     ╭───────────────╮
     │     10.10     │

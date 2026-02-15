@@ -3,9 +3,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { 
-  collection, doc, onSnapshot, addDoc, updateDoc, getDoc, 
-  query, orderBy, serverTimestamp, where, getDocs 
+import {
+  collection, doc, onSnapshot, addDoc, updateDoc, getDoc,
+  query, orderBy, serverTimestamp, where, getDocs
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
@@ -42,7 +42,7 @@ export default function ChatPage() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
-  
+
   const conversationIdParam = params.conversationId as string;
   const recipientId = searchParams.get('recipientId');
   const jobId = searchParams.get('jobId');
@@ -61,12 +61,12 @@ export default function ChatPage() {
   const [recipient, setRecipient] = useState<Recipient | null>(null);
   const resolvedRecipientIdRef = useRef<string | null>(null); // Store resolved recipient ID
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+
   // Typing indicator states
   const [isTyping, setIsTyping] = useState(false);
   const [otherUserTyping, setOtherUserTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Reaction picker state
   const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
   const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -78,14 +78,14 @@ export default function ChatPage() {
   // Handle typing indicator
   const handleTextChange = useCallback((text: string) => {
     setNewMessage(text);
-    
+
     if (!conversationId || !user?.uid) return;
-    
+
     // Clear existing timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-    
+
     // Set typing status - update timestamp on every keystroke for better sync
     if (text.trim()) {
       if (!isTyping) {
@@ -94,16 +94,16 @@ export default function ChatPage() {
       updateDoc(doc(db, 'conversations', conversationId), {
         [`typing.${user.uid}`]: true,
         [`typingTimestamp.${user.uid}`]: serverTimestamp(),
-      }).catch(() => {});
+      }).catch(() => { });
     }
-    
+
     // Clear typing after 2 seconds of inactivity
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
       if (conversationId && user?.uid) {
         updateDoc(doc(db, 'conversations', conversationId), {
           [`typing.${user.uid}`]: false,
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }, 2000);
   }, [conversationId, user?.uid, isTyping]);
@@ -114,7 +114,7 @@ export default function ChatPage() {
       if (conversationId && user?.uid) {
         updateDoc(doc(db, 'conversations', conversationId), {
           [`typing.${user.uid}`]: false,
-        }).catch(() => {});
+        }).catch(() => { });
       }
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
@@ -125,12 +125,12 @@ export default function ChatPage() {
   // Subscribe to typing status
   useEffect(() => {
     if (!conversationId || !user?.uid) return;
-    
+
     const unsubscribe = onSnapshot(doc(db, 'conversations', conversationId), (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data();
         const typing = data.typing || {};
-        
+
         // Check if any other user is typing
         let otherTyping = false;
         for (const [userId, isUserTyping] of Object.entries(typing)) {
@@ -153,34 +153,34 @@ export default function ChatPage() {
         setOtherUserTyping(otherTyping);
       }
     });
-    
+
     return () => unsubscribe();
   }, [conversationId, user?.uid]);
 
   // Add reaction to message
   const addReaction = async (messageId: string, emoji: string) => {
     if (!conversationId || !user?.uid) return;
-    
+
     try {
       const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
       const messageSnap = await getDoc(messageRef);
-      
+
       if (messageSnap.exists()) {
         const data = messageSnap.data();
         let reactions: Reaction[] = data.reactions || [];
-        
+
         // Check if user already reacted with this emoji
         const existingIndex = reactions.findIndex(
           r => r.userId === user.uid && r.emoji === emoji
         );
-        
+
         if (existingIndex >= 0) {
           // Remove reaction if same emoji clicked
           reactions = reactions.filter((_, i) => i !== existingIndex);
         } else {
           // Remove any existing reaction from this user and add new one
           reactions = reactions.filter(r => r.userId !== user.uid);
-          
+
           // Get user name for reaction
           let reactionUserName = 'User';
           const isAdmin = user.role?.toUpperCase() === 'ADMIN';
@@ -203,20 +203,20 @@ export default function ChatPage() {
               }
             }
           }
-          
+
           reactions.push({
             emoji,
             userId: user.uid,
             userName: reactionUserName,
           });
         }
-        
+
         await updateDoc(messageRef, { reactions });
       }
     } catch (error) {
       console.error('Error adding reaction:', error);
     }
-    
+
     setShowReactionPicker(null);
   };
 
@@ -235,15 +235,15 @@ export default function ChatPage() {
         // If we have a conversation ID, use it
         if (conversationIdParam && conversationIdParam !== 'new') {
           setConversationId(conversationIdParam);
-          
+
           // Get conversation to find recipient
           const convDoc = await getDoc(doc(db, 'conversations', conversationIdParam));
           if (convDoc.exists()) {
             const convData = convDoc.data();
             let participants = convData.participants || [];
-            
+
             console.log('[Chat] Existing conversation participants:', participants);
-            
+
             // FIX: If current user is not in participants, add them (fixes broken conversations)
             if (!participants.includes(user.uid)) {
               console.log('[Chat] FIXING broken conversation - adding current user to participants');
@@ -253,10 +253,10 @@ export default function ChatPage() {
                 [`unreadCount.${user.uid}`]: 0,
               });
             }
-            
+
             // Find the other user - first try from participants
             let otherUserId = participants.find((p: string) => p !== user.uid);
-            
+
             // If no other user found in participants, check messages to find who else is involved
             if (!otherUserId) {
               console.log('[Chat] No other user in participants, checking messages...');
@@ -265,7 +265,7 @@ export default function ChatPage() {
                 orderBy('timestamp', 'desc')
               );
               const messagesSnapshot = await getDocs(messagesQuery);
-              
+
               for (const msgDoc of messagesSnapshot.docs) {
                 const msgData = msgDoc.data();
                 if (msgData.senderId && msgData.senderId !== user.uid) {
@@ -279,7 +279,7 @@ export default function ChatPage() {
                   break;
                 }
               }
-              
+
               // Also check unreadCount keys
               if (!otherUserId && convData.unreadCount) {
                 const unreadKeys = Object.keys(convData.unreadCount);
@@ -296,7 +296,7 @@ export default function ChatPage() {
                 }
               }
             }
-            
+
             if (otherUserId) {
               resolvedRecipientIdRef.current = otherUserId;
               const userDoc = await getDoc(doc(db, 'users', otherUserId));
@@ -325,7 +325,7 @@ export default function ChatPage() {
         // If we have a recipient ID, find or create conversation
         if (recipientId) {
           let actualRecipientId = recipientId;
-          
+
           // Handle special case: "admin" means find an actual admin user
           if (recipientId === 'admin') {
             try {
@@ -348,7 +348,7 @@ export default function ChatPage() {
               return;
             }
           }
-          
+
           // Fetch recipient info
           const recipientDoc = await getDoc(doc(db, 'users', actualRecipientId));
           if (recipientDoc.exists()) {
@@ -377,27 +377,27 @@ export default function ChatPage() {
             where('participants', 'array-contains', user.uid)
           );
           const convSnapshot = await getDocs(convQuery);
-          
+
           let existingConvId: string | null = null;
           let fallbackConvId: string | null = null;
-          
+
           console.log('[Chat] Current user ID:', user.uid);
           console.log('[Chat] Looking for existing conversation with recipient:', actualRecipientId, 'jobId:', jobId);
           console.log('[Chat] Found', convSnapshot.docs.length, 'conversations for user');
-          
+
           convSnapshot.forEach((docSnap) => {
             const data = docSnap.data();
             // IMPORTANT: Verify BOTH participants are in the array to ensure conversation is valid
             const hasCurrentUser = data.participants?.includes(user.uid);
             const hasRecipient = data.participants?.includes(actualRecipientId);
-            
+
             console.log('[Chat] Checking conversation:', docSnap.id, {
               participants: data.participants,
               hasCurrentUser,
               hasRecipient,
               jobId: data.jobId
             });
-            
+
             if (hasCurrentUser && hasRecipient) {
               console.log('[Chat] Found valid conversation:', docSnap.id);
               // Priority 1: Match by jobId if specified
@@ -459,10 +459,10 @@ export default function ChatPage() {
     // Immediately reset unread count when opening the chat
     updateDoc(doc(db, 'conversations', conversationId), {
       [`unreadCount.${user.uid}`]: 0,
-    }).catch(() => {});
+    }).catch(() => { });
 
     let userDeletedAt: Date | null = null;
-    
+
     getDeletedAt().then((deletedAt) => {
       userDeletedAt = deletedAt;
     });
@@ -477,18 +477,18 @@ export default function ChatPage() {
       const convDoc = await getDoc(doc(db, 'conversations', conversationId));
       const convData = convDoc.data();
       userDeletedAt = convData?.deletedAt?.[user.uid]?.toDate?.() || null;
-      
+
       const msgs: Message[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const msgTime = data.timestamp?.toDate() || data.createdAt?.toDate() || new Date();
-        
+
         // Filter out messages that were sent before user deleted the conversation
         // Only show messages sent AFTER the user deleted (if they deleted)
         if (userDeletedAt && msgTime < userDeletedAt) {
           return; // Skip this message - it's from before user deleted
         }
-        
+
         msgs.push({
           id: docSnap.id,
           text: data.text || '',
@@ -508,7 +508,7 @@ export default function ChatPage() {
         if (msg.senderId !== user?.uid && !msg.read) {
           updateDoc(doc(db, 'conversations', conversationId, 'messages', msg.id), {
             read: true,
-          }).catch(() => {});
+          }).catch(() => { });
         }
       });
     });
@@ -522,13 +522,13 @@ export default function ChatPage() {
     setSending(true);
     const messageText = newMessage.trim();
     setNewMessage('');
-    
+
     // Clear typing status immediately
     setIsTyping(false);
     if (conversationId && user?.uid) {
       updateDoc(doc(db, 'conversations', conversationId), {
         [`typing.${user.uid}`]: false,
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     try {
@@ -564,16 +564,16 @@ export default function ChatPage() {
         console.log('[Chat] - Recipient ID:', actualRecipientId);
         console.log('[Chat] - Job ID:', jobId);
         console.log('[Chat] - Participants array will be:', [user.uid, actualRecipientId]);
-        
+
         // CRITICAL: Ensure both IDs are valid strings
         if (typeof user.uid !== 'string' || typeof actualRecipientId !== 'string') {
           console.error('[Chat] Invalid user IDs:', { senderType: typeof user.uid, recipientType: typeof actualRecipientId });
           throw new Error('Invalid user IDs');
         }
-        
+
         const participantsArray = [user.uid, actualRecipientId];
         console.log('[Chat] Final participants array:', participantsArray);
-        
+
         const convRef = await addDoc(collection(db, 'conversations'), {
           participants: participantsArray,
           createdAt: serverTimestamp(),
@@ -589,7 +589,7 @@ export default function ChatPage() {
         });
         convId = convRef.id;
         console.log('[Chat] Created new conversation with ID:', convId);
-        
+
         // VERIFY the conversation was created correctly
         const verifyDoc = await getDoc(doc(db, 'conversations', convId));
         if (verifyDoc.exists()) {
@@ -602,7 +602,7 @@ export default function ChatPage() {
             });
           }
         }
-        
+
         setConversationId(convId);
       } else {
         // EXISTING conversation - verify recipient is in participants
@@ -629,7 +629,7 @@ export default function ChatPage() {
       // Get sender name - ALWAYS fetch from Firestore to ensure we have the correct name
       let senderName = 'User';
       const isAdmin = user.role?.toUpperCase() === 'ADMIN';
-      
+
       if (isAdmin) {
         senderName = 'GSS Support';
       } else {
@@ -654,9 +654,9 @@ export default function ChatPage() {
           senderName = contextName || user.email?.split('@')[0] || 'User';
         }
       }
-      
+
       console.log('[Chat] Final senderName:', senderName);
-      
+
       await addDoc(collection(db, 'conversations', convId, 'messages'), {
         text: messageText,
         senderId: user.uid,
@@ -670,7 +670,7 @@ export default function ChatPage() {
       const convDoc = await getDoc(doc(db, 'conversations', convId));
       const convData = convDoc.data();
       const unreadCount: Record<string, number> = convData?.unreadCount ? { ...convData.unreadCount } : {};
-      
+
       // Increment unread count for other participants
       convData?.participants?.forEach((participantId: string) => {
         if (participantId !== user.uid) {
@@ -686,7 +686,7 @@ export default function ChatPage() {
         updatedAt: serverTimestamp(),
         unreadCount,
       };
-      
+
       // Clear deleted flag for all other participants (so conversation shows in their inbox again)
       convData?.participants?.forEach((participantId: string) => {
         if (participantId !== user.uid) {
@@ -781,32 +781,35 @@ export default function ChatPage() {
     );
   }
 
-  const backUrl = user?.role?.toUpperCase() === 'PROVIDER' 
-    ? '/provider/messages' 
+  const backUrl = user?.role?.toUpperCase() === 'PROVIDER'
+    ? '/provider/messages'
     : user?.role?.toUpperCase() === 'ADMIN'
-    ? '/admin/messages'
-    : '/client/messages';
+      ? '/admin/messages'
+      : '/client/messages';
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-4">
-          <Link href={backUrl} className="p-2 hover:bg-gray-100 rounded-full">
-            <ArrowLeft className="w-5 h-5" />
+      <div className="bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 sticky top-0 z-10 shadow-lg shadow-emerald-500/20">
+        <div className="max-w-2xl mx-auto px-4 py-3.5 flex items-center gap-4">
+          <Link href={backUrl} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+            <ArrowLeft className="w-5 h-5 text-white" />
           </Link>
-          {recipient?.photo ? (
-            <img src={recipient.photo} alt="" className="w-10 h-10 rounded-full object-cover" />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-              <User className="w-5 h-5 text-gray-400" />
-            </div>
-          )}
+          <div className="relative">
+            {recipient?.photo ? (
+              <img src={recipient.photo} alt="" className="w-11 h-11 rounded-full object-cover ring-2 ring-white/50 shadow-md" />
+            ) : (
+              <div className="w-11 h-11 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/30">
+                <User className="w-5 h-5 text-white" />
+              </div>
+            )}
+            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white" />
+          </div>
           <div className="flex-1">
-            <p className="font-semibold text-gray-900">{recipient?.name || 'Chat'}</p>
+            <p className="font-bold text-white">{recipient?.name || 'Chat'}</p>
             {recipient?.role && (
-              <p className="text-xs text-gray-500 capitalize">
-                {recipient.role === 'Support Team' ? 'Support Team' : recipient.role.toLowerCase()}
+              <p className="text-xs text-white/70 capitalize">
+                {recipient.role === 'Support Team' ? '● Support Team' : recipient.role.toLowerCase()}
               </p>
             )}
           </div>
@@ -818,8 +821,8 @@ export default function ChatPage() {
         <div className="max-w-2xl mx-auto px-4 py-4">
           {Object.entries(groupedMessages).map(([date, msgs]) => (
             <div key={date}>
-              <div className="flex justify-center my-4">
-                <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+              <div className="flex justify-center my-5">
+                <span className="text-[11px] font-semibold text-gray-500 bg-gradient-to-r from-gray-100 to-gray-50 px-4 py-1.5 rounded-full shadow-sm border border-gray-100/80">
                   {date}
                 </span>
               </div>
@@ -835,48 +838,46 @@ export default function ChatPage() {
                     <div className="relative">
                       {/* Reaction picker */}
                       {showReactionPicker === message.id && (
-                        <div className={`absolute bottom-full mb-2 ${isOwn ? 'right-0' : 'left-0'} bg-white rounded-full shadow-lg border border-gray-100 px-2 py-1 flex gap-1 z-10`}>
+                        <div className={`absolute bottom-full mb-2 ${isOwn ? 'right-0' : 'left-0'} bg-white/90 backdrop-blur-xl rounded-full shadow-2xl border border-white/60 px-2.5 py-1.5 flex gap-0.5 z-10 animate-fade-in`}>
                           {REACTION_EMOJIS.map((emoji) => (
                             <button
                               key={emoji}
                               onClick={() => addReaction(message.id, emoji)}
-                              className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors text-lg"
+                              className="w-9 h-9 flex items-center justify-center hover:bg-gray-100 hover:scale-125 rounded-full transition-all text-lg"
                             >
                               {emoji}
                             </button>
                           ))}
                         </div>
                       )}
-                      
+
                       <div
-                        className={`max-w-[75%] min-w-[80px] rounded-2xl px-4 py-2 ${
-                          isOwn
-                            ? 'bg-[#00B14F] text-white rounded-br-md'
-                            : 'bg-white text-gray-900 rounded-bl-md shadow-sm'
-                        }`}
+                        className={`max-w-[75%] min-w-[80px] rounded-2xl px-4 py-2.5 ${isOwn
+                            ? 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white rounded-br-sm shadow-md shadow-emerald-500/20'
+                            : 'bg-white text-gray-900 rounded-bl-sm shadow-md shadow-gray-200/50 border border-gray-100/60'
+                          }`}
                       >
                         {message.imageUrl && (
                           <img
                             src={message.imageUrl}
                             alt=""
-                            className="max-w-full rounded-lg mb-2 cursor-pointer hover:opacity-90"
+                            className="max-w-full rounded-xl mb-2 cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
                             onClick={() => window.open(message.imageUrl, '_blank')}
                           />
                         )}
-                        {message.text && <p className="whitespace-pre-wrap">{message.text}</p>}
-                        <div className={`flex items-center justify-end gap-1 mt-1 ${isOwn ? 'text-green-100' : 'text-gray-400'}`}>
-                          <span className="text-xs">{formatTime(message.createdAt)}</span>
-                          {/* Read receipts for own messages */}
+                        {message.text && <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{message.text}</p>}
+                        <div className={`flex items-center justify-end gap-1.5 mt-1.5 ${isOwn ? 'text-white/60' : 'text-gray-400'}`}>
+                          <span className="text-[11px]">{formatTime(message.createdAt)}</span>
                           {showReadReceipt && (
                             message.read ? (
-                              <CheckCheck className="w-4 h-4 text-blue-300" />
+                              <CheckCheck className="w-4 h-4 text-sky-200" />
                             ) : (
                               <Check className="w-4 h-4" />
                             )
                           )}
                         </div>
                       </div>
-                      
+
                       {/* Reactions display */}
                       {message.reactions && message.reactions.length > 0 && (
                         <div className={`flex gap-0.5 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
@@ -897,7 +898,7 @@ export default function ChatPage() {
                           ))}
                         </div>
                       )}
-                      
+
                       {/* Reaction button (shows on hover) */}
                       <button
                         onClick={() => setShowReactionPicker(showReactionPicker === message.id ? null : message.id)}
@@ -905,7 +906,7 @@ export default function ChatPage() {
                       >
                         <Smile className="w-4 h-4 text-gray-400" />
                       </button>
-                      
+
                       {/* Read text for last own message */}
                       {isLastOwnMessage && message.read && (
                         <p className={`text-xs text-emerald-500 mt-0.5 ${isOwn ? 'text-right' : 'text-left'}`}>
@@ -918,48 +919,47 @@ export default function ChatPage() {
               })}
             </div>
           ))}
-          
+
           {/* Typing Indicator */}
           {otherUserTyping && (
-            <div className="flex justify-start mb-3">
-              <div className="bg-white rounded-2xl rounded-bl-md shadow-sm px-4 py-3 flex items-center gap-2">
-                <span className="text-sm text-gray-500">{recipient?.name?.split(' ')[0] || 'User'} is typing</span>
+            <div className="flex justify-start mb-3 animate-fade-in">
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl rounded-bl-sm shadow-md border border-gray-100/60 px-4 py-3 flex items-center gap-2.5">
+                <span className="text-sm text-gray-500 font-medium">{recipient?.name?.split(' ')[0] || 'User'} is typing</span>
                 <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                  <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                  <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                  <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                 </div>
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
       </div>
 
       {/* Input */}
-      <div className="bg-white border-t sticky bottom-0">
+      <div className="bg-white/80 backdrop-blur-xl border-t border-gray-100/60 sticky bottom-0 shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
         {/* Image Preview */}
         {imagePreview && (
           <div className="max-w-2xl mx-auto px-4 pt-3">
             <div className="relative inline-block">
-              <img 
-                src={imagePreview} 
-                alt="Preview" 
-                className="h-20 w-20 object-cover rounded-lg border border-gray-200"
+              <img
+                src={imagePreview}
+                alt="Preview"
+                className="h-20 w-20 object-cover rounded-xl border border-gray-200 shadow-sm"
               />
               <button
                 onClick={clearSelectedImage}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 shadow-md transition-colors"
               >
                 <X className="w-3 h-3" />
               </button>
             </div>
           </div>
         )}
-        
+
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
-          {/* Image Upload Button */}
           <input
             ref={fileInputRef}
             type="file"
@@ -970,24 +970,24 @@ export default function ChatPage() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={sending || uploadingImage}
-            className="p-2.5 text-gray-500 hover:text-[#00B14F] hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
+            className="p-2.5 text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all disabled:opacity-50"
             title="Send image"
           >
             <ImageIcon className="w-5 h-5" />
           </button>
-          
+
           <input
             type="text"
             value={newMessage}
             onChange={(e) => handleTextChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
-            className="flex-1 px-4 py-2.5 bg-gray-100 rounded-full outline-none focus:ring-2 focus:ring-[#00B14F]/20"
+            className="flex-1 px-5 py-3 bg-gray-100/80 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition-all text-[15px]"
           />
           <button
             onClick={handleSend}
             disabled={(!newMessage.trim() && !selectedImage) || sending}
-            className="p-2.5 bg-[#00B14F] text-white rounded-full disabled:opacity-50 hover:bg-[#009940] transition-colors"
+            className="p-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl disabled:opacity-40 hover:shadow-lg hover:shadow-emerald-500/25 transition-all hover:scale-105"
           >
             {sending || uploadingImage ? (
               <Loader2 className="w-5 h-5 animate-spin" />

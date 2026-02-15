@@ -6,11 +6,11 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { 
-  Home, 
-  Calendar, 
-  MessageSquare, 
-  User, 
+import {
+  Home,
+  Calendar,
+  MessageSquare,
+  User,
   Wrench,
   Bell,
   LogOut,
@@ -42,6 +42,14 @@ const navItems: NavItem[] = [
   { href: '/client/profile', icon: User, label: 'Profile' },
 ];
 
+// Subset for mobile bottom tab bar
+const mobileTabItems: NavItem[] = [
+  { href: '/client', icon: Home, label: 'Home' },
+  { href: '/client/bookings', icon: Calendar, label: 'Bookings', badgeKey: 'bookings' },
+  { href: '/client/messages', icon: MessageSquare, label: 'Messages', badgeKey: 'messages' },
+  { href: '/client/profile', icon: User, label: 'Profile' },
+];
+
 export default function ClientLayout({ children }: ClientLayoutProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
@@ -54,16 +62,16 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
   // Listen for badge counts (bookings and messages)
   useEffect(() => {
     if (!user?.uid) return;
-    
+
     const unsubscribers: (() => void)[] = [];
-    
+
     // Listen to active bookings for this client
     const bookingsQuery = query(
       collection(db, 'bookings'),
       where('clientId', '==', user.uid),
       where('status', 'in', ['pending', 'accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion'])
     );
-    
+
     unsubscribers.push(onSnapshot(bookingsQuery, (snapshot) => {
       setBadgeCounts(prev => ({ ...prev, bookings: snapshot.size }));
     }, (error) => {
@@ -79,13 +87,13 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
         setBadgeCounts(prev => ({ ...prev, bookings: count }));
       });
     }));
-    
+
     // Listen to unread messages
     const messagesQuery = query(
       collection(db, 'conversations'),
       where('participants', 'array-contains', user.uid)
     );
-    
+
     unsubscribers.push(onSnapshot(messagesQuery, (snapshot) => {
       let unreadMessages = 0;
       snapshot.docs.forEach(doc => {
@@ -95,64 +103,64 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
       });
       setBadgeCounts(prev => ({ ...prev, messages: unreadMessages }));
     }));
-    
+
     return () => unsubscribers.forEach(unsub => unsub());
   }, [user?.uid]);
 
   // Listen for unread notifications count (from bookings like mobile app)
   useEffect(() => {
     if (!user?.uid) return;
-    
+
     // Function to calculate unread count
     const calculateUnreadCount = (snapshot: any) => {
       // Always get fresh read IDs from localStorage
       const stored = localStorage.getItem(`read_notifications_${user.uid}`);
       const readIds = stored ? new Set(JSON.parse(stored)) : new Set();
-      
+
       let count = 0;
       snapshot.forEach((docSnap: any) => {
         const data = docSnap.data();
         const status = data.status;
         const notifId = `${status}_${docSnap.id}`;
-        
+
         // Count as unread if status has a notification and not in readIds
-        const hasNotification = ['accepted', 'traveling', 'arrived', 'in_progress', 
+        const hasNotification = ['accepted', 'traveling', 'arrived', 'in_progress',
           'pending_completion', 'pending_payment', 'payment_received', 'counter_offer', 'completed'].includes(status);
-        
+
         if (hasNotification && !readIds.has(notifId)) {
           count++;
         }
       });
       setUnreadCount(count);
     };
-    
+
     // Listen to client's bookings
     const bookingsQuery = query(
       collection(db, 'bookings'),
       where('clientId', '==', user.uid)
     );
-    
+
     let latestSnapshot: any = null;
-    
+
     const unsubscribe = onSnapshot(bookingsQuery, (snapshot) => {
       latestSnapshot = snapshot;
       calculateUnreadCount(snapshot);
     }, (error) => {
       console.log('Unread count error:', error);
     });
-    
+
     // Listen for localStorage changes (when dropdown marks as read)
     const handleStorageChange = () => {
       if (latestSnapshot) {
         calculateUnreadCount(latestSnapshot);
       }
     };
-    
+
     // Custom event for same-tab localStorage updates
     window.addEventListener('notificationsRead', handleStorageChange);
     // Standard storage event for cross-tab updates
     window.addEventListener('storage', handleStorageChange);
-    
+
     return () => {
       unsubscribe();
       window.removeEventListener('notificationsRead', handleStorageChange);
@@ -183,11 +191,10 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`relative flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                      pathname === item.href
+                    className={`relative flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${pathname === item.href
                         ? 'text-[#00B14F] bg-[#00B14F]/10'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                    }`}
+                      }`}
                   >
                     <item.icon className="w-5 h-5" />
                     <span className="font-medium">{item.label}</span>
@@ -203,7 +210,7 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
 
             <div className="flex items-center gap-4">
               <div className="relative">
-                <button 
+                <button
                   ref={notificationBtnRef}
                   onClick={() => setNotificationOpen(!notificationOpen)}
                   className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
@@ -215,13 +222,13 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
                     </span>
                   )}
                 </button>
-                <NotificationDropdown 
+                <NotificationDropdown
                   isOpen={notificationOpen}
                   onClose={() => setNotificationOpen(false)}
                   anchorRef={notificationBtnRef}
                 />
               </div>
-              
+
               <div className="hidden md:flex items-center gap-3">
                 <div className="w-9 h-9 bg-gray-200 rounded-full overflow-hidden">
                   {user?.profilePhoto ? (
@@ -232,7 +239,7 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
                     </div>
                   )}
                 </div>
-                <button 
+                <button
                   onClick={logout}
                   className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                 >
@@ -241,7 +248,7 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
               </div>
 
               {/* Mobile menu button */}
-              <button 
+              <button
                 className="md:hidden p-2 text-gray-600"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               >
@@ -262,11 +269,10 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
                     key={item.href}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center justify-between gap-3 px-3 py-3 rounded-lg ${
-                      pathname === item.href
+                    className={`flex items-center justify-between gap-3 px-3 py-3 rounded-lg ${pathname === item.href
                         ? 'text-[#00B14F] bg-[#00B14F]/10'
                         : 'text-gray-600'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <item.icon className="w-5 h-5" />
@@ -280,7 +286,7 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
                   </Link>
                 );
               })}
-              <button 
+              <button
                 onClick={logout}
                 className="flex items-center gap-3 px-3 py-3 rounded-lg text-red-600 w-full"
               >
@@ -292,9 +298,42 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
         )}
       </header>
 
-      {/* Main Content */}
-      <main>{children}</main>
-      
+      {/* Main Content - add bottom padding for mobile tab bar */}
+      <main className="md:pb-0 pb-20">{children}</main>
+
+      {/* Mobile Bottom Tab Bar */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-strong border-t border-white/60 pb-safe">
+        <div className="flex items-center justify-around px-2 py-2">
+          {mobileTabItems.map((item) => {
+            const isActive = pathname === item.href;
+            const badgeCount = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`relative flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-2xl transition-all duration-200 ${isActive
+                    ? 'text-[#00B14F]'
+                    : 'text-gray-400 hover:text-gray-600'
+                  }`}
+              >
+                <div className="relative">
+                  <item.icon className={`w-6 h-6 transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} />
+                  {badgeCount > 0 && (
+                    <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center px-1">
+                      {badgeCount > 9 ? '9+' : badgeCount}
+                    </span>
+                  )}
+                </div>
+                <span className={`text-[10px] font-semibold ${isActive ? 'text-[#00B14F]' : ''}`}>{item.label}</span>
+                {isActive && (
+                  <div className="absolute -bottom-0.5 w-5 h-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full" />
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+
       {/* Toast Notifications */}
       <ToastNotification />
     </div>

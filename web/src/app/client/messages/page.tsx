@@ -63,22 +63,22 @@ export default function MessagesPage() {
         const allConvsQuery = query(collection(db, 'conversations'));
         const { getDocs } = await import('firebase/firestore');
         const allConvsSnapshot = await getDocs(allConvsQuery);
-        
+
         for (const docSnap of allConvsSnapshot.docs) {
           const data = docSnap.data();
           const participants = data.participants || [];
-          
+
           // Skip if user is already in participants
           if (participants.includes(user.uid)) continue;
-          
+
           // Check if this conversation should include this user
           let shouldFix = false;
-          
+
           // Check unreadCount
           if (data.unreadCount && data.unreadCount[user.uid] !== undefined) {
             shouldFix = true;
           }
-          
+
           // Check messages
           if (!shouldFix) {
             try {
@@ -90,9 +90,9 @@ export default function MessagesPage() {
                   break;
                 }
               }
-            } catch {}
+            } catch { }
           }
-          
+
           if (shouldFix) {
             console.log('[ClientMessages Web] FIXING conversation:', docSnap.id);
             await updateDoc(doc(db, 'conversations', docSnap.id), {
@@ -104,7 +104,7 @@ export default function MessagesPage() {
         console.error('[ClientMessages Web] Error scanning conversations:', e);
       }
     };
-    
+
     scanAndFixConversations();
 
     const conversationsQuery = query(
@@ -125,14 +125,14 @@ export default function MessagesPage() {
         console.log(`[ClientMessages Web]   lastMessage:`, data.lastMessage?.substring(0, 30));
       });
       console.log('[ClientMessages Web] ========================================');
-      
+
       const conversationPromises = snapshot.docs.map(async (docSnap) => {
         const data = docSnap.data();
         if (data.deleted?.[user.uid]) return null;
 
         const otherParticipantId = data.participants?.find((p: string) => p !== user.uid);
         let otherUser: OtherUser | null = null;
-        
+
         if (otherParticipantId) {
           try {
             const userDoc = await getDoc(doc(db, 'users', otherParticipantId));
@@ -155,7 +155,7 @@ export default function MessagesPage() {
         } else {
           otherUser = { name: 'Unknown User' };
         }
-        
+
         return {
           id: docSnap.id,
           otherUser,
@@ -231,7 +231,7 @@ export default function MessagesPage() {
     if (!user?.uid) return;
     if (!confirm('Delete this conversation?')) return;
     try {
-      await updateDoc(doc(db, 'conversations', conversationId), { 
+      await updateDoc(doc(db, 'conversations', conversationId), {
         [`deleted.${user.uid}`]: true,
         [`deletedAt.${user.uid}`]: serverTimestamp()
       });
@@ -325,17 +325,15 @@ export default function MessagesPage() {
           <div className="bg-white rounded-2xl shadow-lg p-1.5 flex mb-4">
             <button
               onClick={() => setShowArchived(false)}
-              className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all ${
-                !showArchived ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-md' : 'text-gray-500 hover:text-gray-700'
-              }`}
+              className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all ${!showArchived ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-md' : 'text-gray-500 hover:text-gray-700'
+                }`}
             >
               Active ({conversations.length})
             </button>
             <button
               onClick={() => setShowArchived(true)}
-              className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-                showArchived ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md' : 'text-gray-500 hover:text-gray-700'
-              }`}
+              className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${showArchived ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md' : 'text-gray-500 hover:text-gray-700'
+                }`}
             >
               <Archive className="w-4 h-4" />
               Archived ({archivedConversations.length})
@@ -346,20 +344,21 @@ export default function MessagesPage() {
           {loadingData ? (
             <div className="space-y-3">
               {[1, 2, 3, 4].map(i => (
-                <div key={i} className="bg-white rounded-2xl p-4 animate-pulse">
+                <div key={i} className="bg-white rounded-2xl p-4 skeleton-shimmer">
                   <div className="flex gap-4">
                     <div className="w-14 h-14 bg-gray-200 rounded-full" />
                     <div className="flex-1 space-y-3">
-                      <div className="h-4 bg-gray-200 rounded w-1/3" />
-                      <div className="h-3 bg-gray-100 rounded w-2/3" />
+                      <div className="h-4 bg-gray-200 rounded-lg w-1/3" />
+                      <div className="h-3 bg-gray-100 rounded-lg w-2/3" />
                     </div>
+                    <div className="h-3 bg-gray-100 rounded-lg w-12" />
                   </div>
                 </div>
               ))}
             </div>
           ) : filteredConversations.length === 0 ? (
             <div className="bg-white rounded-3xl shadow-xl p-12 text-center">
-              <div className="w-24 h-24 bg-gradient-to-br from-emerald-100 to-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="w-24 h-24 bg-gradient-to-br from-emerald-100 to-green-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-float">
                 {showArchived ? <Archive className="w-12 h-12 text-amber-400" /> : <MessageSquare className="w-12 h-12 text-emerald-400" />}
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">
@@ -380,7 +379,8 @@ export default function MessagesPage() {
               {filteredConversations.map((conversation) => {
                 const roleBadge = getRoleBadge(conversation.otherUser?.role);
                 return (
-                  <div key={conversation.id} className={`relative group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all border ${conversation.unreadCount > 0 ? 'border-emerald-200 bg-gradient-to-r from-emerald-50/50 to-white' : 'border-gray-100'}`}>
+                  <div key={conversation.id} className={`relative group bg-white rounded-2xl shadow-lg hover:shadow-xl hover:scale-[1.005] transition-all border overflow-hidden ${conversation.unreadCount > 0 ? 'border-emerald-200 bg-gradient-to-r from-emerald-50/50 to-white' : 'border-gray-100'}`}>
+                    {conversation.unreadCount > 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-teal-400 rounded-l-2xl" />}
                     <div className="p-4 flex items-center gap-4">
                       <div className="relative cursor-pointer" onClick={() => router.push(`/chat/${conversation.id}`)}>
                         {conversation.otherUser?.profilePhoto ? (
@@ -417,7 +417,7 @@ export default function MessagesPage() {
                       </div>
                     </div>
                     {menuOpen === conversation.id && (
-                      <div className="absolute right-4 top-16 bg-white rounded-xl shadow-2xl border z-20 py-2 min-w-[160px]">
+                      <div className="absolute right-4 top-16 bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/60 z-20 py-2 min-w-[170px] animate-fade-in">
                         {showArchived ? (
                           <button onClick={() => handleUnarchive(conversation.id)} className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-emerald-600">
                             <RotateCcw className="w-4 h-4" />Restore
