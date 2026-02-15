@@ -11,10 +11,10 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
+import axios from 'axios';
+import {API_BASE_URL} from '@env';
 
-// DEV MODE: Set to true while sender name is pending approval
-const DEV_MODE = true;
-const DEV_OTP = '123456';
+const API_URL = API_BASE_URL || 'https://gss-maasin-app.onrender.com/api';
 
 const PhoneVerificationScreen = ({navigation, route}) => {
   let contactInfo = {};
@@ -49,9 +49,9 @@ const PhoneVerificationScreen = ({navigation, route}) => {
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [generatedCode, setGeneratedCode] = useState('');
   const [countdown, setCountdown] = useState(0);
   const [codeSent, setCodeSent] = useState(false);
+  const [devOtp, setDevOtp] = useState(''); // For dev/testing fallback
   const inputRefs = useRef([]);
   const verifyingRef = useRef(false);
   const hasNavigatedRef = useRef(false);
@@ -61,47 +61,88 @@ const PhoneVerificationScreen = ({navigation, route}) => {
     setIsSending(true);
 
     try {
-      if (DEV_MODE) {
-        setGeneratedCode(DEV_OTP);
-        setCodeSent(true);
-        setCountdown(60);
-        Alert.alert('Development Mode', `SMS sender pending approval.\n\nUse code: ${DEV_OTP}`);
-      } else {
-        setGeneratedCode(DEV_OTP);
+      console.log('[PhoneVerification] Sending OTP to:', phoneNumber);
+      
+      const response = await axios.post(`${API_URL}/sms/send-otp`, {
+        phoneNumber: phoneNumber,
+      }, { timeout: 20000 });
+
+      console.log('[PhoneVerification] Response:', response.data);
+
+      if (response.data.success) {
         setCodeSent(true);
         setCountdown(60);
         Alert.alert('Code Sent', `Verification code sent to ${phoneNumber}`);
+      } else {
+        // SMS failed but OTP generated for dev/testing
+        if (response.data.devOtp) {
+          setDevOtp(response.data.devOtp);
+          setCodeSent(true);
+          setCountdown(60);
+          Alert.alert(
+            'SMS Service Issue',
+            `SMS delivery failed, but you can use this code for testing:\n\n${response.data.devOtp}\n\nError: ${response.data.error || 'Unknown'}`,
+            [{text: 'OK'}]
+          );
+        } else {
+          throw new Error(response.data.error || 'Failed to send OTP');
+        }
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to send code');
+      console.log('[PhoneVerification] Error:', error);
+      Alert.alert(
+        'Error',
+        error.response?.data?.error || error.message || 'Failed to send verification code. Please try again.'
+      );
     } finally {
       setIsSending(false);
     }
   }, [phoneNumber, isSending, isValidPhone]);
 
-  const handleVerify = useCallback((enteredCodeParam) => {
+  const handleVerify = useCallback(async (enteredCodeParam) => {
     // Prevent multiple navigations
     if (hasNavigatedRef.current) return;
     
     const enteredCode = enteredCodeParam || code.join('');
-    if (enteredCode.length !== 6 || !generatedCode) return;
+    if (enteredCode.length !== 6) return;
 
     setIsLoading(true);
-    if (enteredCode === generatedCode) {
+    
+    try {
+      console.log('[PhoneVerification] Verifying OTP:', enteredCode);
+      
+      const response = await axios.post(`${API_URL}/sms/verify-otp`, {
+        phoneNumber: phoneNumber,
+        otp: enteredCode,
+      }, { timeout: 10000 });
+
+      console.log('[PhoneVerification] Verify response:', response.data);
+
+      if (response.data.success) {
+        setIsLoading(false);
+        hasNavigatedRef.current = true;
+        navigation.navigate('EmailVerification', {
+          ...otherParams,
+          contactInfo: {...contactInfo, phoneVerified: true},
+          phoneVerification: {verified: true, phoneNumber},
+        });
+      } else {
+        setIsLoading(false);
+        Alert.alert('Invalid Code', response.data.error || 'The code you entered is incorrect.');
+        setCode(['', '', '', '', '', '']);
+        inputRefs.current[0]?.focus();
+      }
+    } catch (error) {
       setIsLoading(false);
-      hasNavigatedRef.current = true;
-      navigation.navigate('EmailVerification', {
-        ...otherParams,
-        contactInfo: {...contactInfo, phoneVerified: true},
-        phoneVerification: {verified: true, phoneNumber},
-      });
-    } else {
-      setIsLoading(false);
-      Alert.alert('Invalid Code', 'The code you entered is incorrect.');
+      console.log('[PhoneVerification] Verify error:', error);
+      Alert.alert(
+        'Verification Failed',
+        error.response?.data?.error || error.message || 'Failed to verify code. Please try again.'
+      );
       setCode(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     }
-  }, [code, contactInfo, generatedCode, navigation, otherParams, phoneNumber]);
+  }, [code, contactInfo, navigation, otherParams, phoneNumber]);
 
   useEffect(() => {
     if (countdown > 0) {
@@ -112,12 +153,12 @@ const PhoneVerificationScreen = ({navigation, route}) => {
 
   useEffect(() => {
     const enteredCode = code.join('');
-    if (enteredCode.length === 6 && generatedCode && !isLoading && !verifyingRef.current) {
+    if (enteredCode.length === 6 && !isLoading && !verifyingRef.current) {
       verifyingRef.current = true;
       handleVerify(enteredCode);
       setTimeout(() => { verifyingRef.current = false; }, 1000);
     }
-  }, [code, generatedCode, isLoading, handleVerify]);
+  }, [code, isLoading, handleVerify]);
 
   const handleCodeChange = (text, index) => {
     const digit = text.replace(/[^0-9]/g, '');
@@ -171,11 +212,11 @@ const PhoneVerificationScreen = ({navigation, route}) => {
           <Text style={styles.phoneText}>{phoneNumber}</Text>
         </View>
 
-        {/* Dev Mode Notice */}
-        {DEV_MODE && (
+        {/* Dev OTP Notice (only shown if SMS failed) */}
+        {devOtp && (
           <View style={styles.devNotice}>
-            <Icon name="time" size={18} color="#92400E" />
-            <Text style={styles.devNoticeText}>SMS pending approval. Use code: {DEV_OTP}</Text>
+            <Icon name="information-circle" size={18} color="#92400E" />
+            <Text style={styles.devNoticeText}>Testing code: {devOtp}</Text>
           </View>
         )}
 
@@ -223,7 +264,13 @@ const PhoneVerificationScreen = ({navigation, route}) => {
 
             <View style={styles.resendContainer}>
               <Text style={styles.resendLabel}>Didn't receive the code?</Text>
-              <TouchableOpacity onPress={() => { setCode(['', '', '', '', '', '']); sendVerificationCode(); }} disabled={countdown > 0}>
+              <TouchableOpacity 
+                onPress={() => { 
+                  setCode(['', '', '', '', '', '']); 
+                  setDevOtp('');
+                  sendVerificationCode(); 
+                }} 
+                disabled={countdown > 0 || isSending}>
                 {countdown > 0 ? (
                   <Text style={styles.resendDisabled}>Resend in {countdown}s</Text>
                 ) : (
