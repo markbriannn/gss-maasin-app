@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { collection, query, where, getDocs, doc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { sendProviderApprovalEmail, sendNotificationEmail } from '@/lib/email';
 import AdminLayout from '@/components/layouts/AdminLayout';
@@ -201,12 +201,60 @@ export default function ProvidersPage() {
   const updateProviderStatus = async (providerId: string, newStatus: string, additionalData = {}) => {
     setUpdating(true);
     try {
-      await updateDoc(doc(db, 'users', providerId), {
+      const providerRef = doc(db, 'users', providerId);
+      await updateDoc(providerRef, {
         status: newStatus,
         providerStatus: newStatus,
         updatedAt: new Date(),
         ...additionalData,
       });
+      
+      // Send SMS and Email notifications
+      try {
+        const providerDoc = await getDoc(providerRef);
+        const providerData = providerDoc.data();
+        
+        if (providerData && (newStatus === 'approved' || newStatus === 'rejected')) {
+          const API_URL = 'https://gss-maasin-app.onrender.com/api';
+          
+          // Send SMS notification
+          const smsEndpoint = newStatus === 'approved' 
+            ? `${API_URL}/sms/provider-status`
+            : `${API_URL}/sms/provider-status`;
+          
+          await fetch(smsEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phoneNumber: providerData.phoneNumber || providerData.phone,
+              providerName: `${providerData.firstName} ${providerData.lastName}`,
+              isApproved: newStatus === 'approved',
+              reason: newStatus === 'rejected' ? 'Application did not meet requirements' : undefined,
+            }),
+          }).catch(err => console.error('SMS notification failed:', err));
+          
+          // Send Email notification
+          const emailEndpoint = newStatus === 'approved'
+            ? `${API_URL}/email/provider-approved`
+            : `${API_URL}/email/provider-rejected`;
+          
+          await fetch(emailEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: providerData.email,
+              name: `${providerData.firstName} ${providerData.lastName}`,
+              reason: newStatus === 'rejected' ? 'Application did not meet requirements' : undefined,
+            }),
+          }).catch(err => console.error('Email notification failed:', err));
+          
+          console.log(`Notifications sent to provider (${newStatus})`);
+        }
+      } catch (notifError) {
+        console.error('Notification error:', notifError);
+        // Don't fail the whole operation if notifications fail
+      }
+      
       return true;
     } catch (error) {
       console.error('Error updating provider:', error);
