@@ -106,9 +106,13 @@ const ContactInfoScreen = ({navigation, route}) => {
                 placeholder="9XX XXX XXXX"
                 placeholderTextColor="#9CA3AF"
                 value={formData.phoneNumber}
-                onChangeText={(text) => setFormData({...formData, phoneNumber: text})}
+                onChangeText={(text) => {
+                  // Only allow numbers and limit to 10 digits
+                  const cleaned = text.replace(/\D/g, '').slice(0, 10);
+                  setFormData({...formData, phoneNumber: cleaned});
+                }}
                 keyboardType="phone-pad"
-                maxLength={12}
+                maxLength={10}
               />
             </View>
             <Text style={styles.helperText}>We'll send a verification code to this number</Text>

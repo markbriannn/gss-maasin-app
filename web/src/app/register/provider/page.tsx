@@ -801,7 +801,11 @@ export default function ProviderRegistration() {
                 <input
                   type="tel"
                   value={formData.phoneNumber}
-                  onChange={(e) => updateForm('phoneNumber', e.target.value)}
+                  onChange={(e) => {
+                    // Only allow numbers and limit to 10 digits
+                    const cleaned = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    updateForm('phoneNumber', cleaned);
+                  }}
                   className="flex-1 px-4 py-3 border border-gray-300 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="9XX XXX XXXX"
                   maxLength={10}
