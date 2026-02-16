@@ -29,26 +29,37 @@ router.post('/send-otp', async (req, res) => {
       return res.status(400).json({ error: 'Phone number is required' });
     }
 
+    console.log('[Send OTP] Request for:', phoneNumber);
+
     // Generate and send OTP
     const result = await sendOTP(phoneNumber);
     
-    if (result.success) {
-      // Store OTP with expiration (5 minutes)
-      otpStore.set(phoneNumber, {
-        otp: result.otp,
-        expiresAt: Date.now() + 5 * 60 * 1000,
-        attempts: 0,
-      });
+    // Normalize phone number for storage (remove all non-digits, ensure starts with 63)
+    let normalizedPhone = phoneNumber.replace(/\D/g, '');
+    if (normalizedPhone.startsWith('0')) {
+      normalizedPhone = '63' + normalizedPhone.substring(1);
+    } else if (!normalizedPhone.startsWith('63')) {
+      normalizedPhone = '63' + normalizedPhone;
+    }
+    
+    const otpData = {
+      otp: result.otp,
+      expiresAt: Date.now() + 5 * 60 * 1000,
+      attempts: 0,
+    };
 
+    // Store with multiple formats to handle different client implementations
+    otpStore.set(phoneNumber, otpData); // Original format
+    otpStore.set(normalizedPhone, otpData); // Normalized without +
+    otpStore.set(`+${normalizedPhone}`, otpData); // Normalized with +
+    
+    console.log('[Send OTP] Stored with keys:', phoneNumber, normalizedPhone, `+${normalizedPhone}`);
+    console.log('[Send OTP] OTP:', result.otp);
+
+    if (result.success) {
       res.json({ success: true, message: 'OTP sent successfully' });
     } else {
-      // Still store OTP for dev/testing even if SMS fails
-      otpStore.set(phoneNumber, {
-        otp: result.otp,
-        expiresAt: Date.now() + 5 * 60 * 1000,
-        attempts: 0,
-      });
-      
+      // Still return success for dev/testing even if SMS fails
       res.json({ 
         success: false, 
         error: result.error,
@@ -73,33 +84,50 @@ router.post('/verify-otp', async (req, res) => {
       return res.status(400).json({ error: 'Phone number and OTP are required' });
     }
 
-    const storedData = otpStore.get(phoneNumber);
+    // Normalize phone number to match the format used in send-otp
+    const normalizedPhone = phoneNumber.replace(/\D/g, '');
+    
+    // Try to find OTP with different phone number formats
+    let storedData = otpStore.get(phoneNumber) || 
+                     otpStore.get(normalizedPhone) || 
+                     otpStore.get(`+${normalizedPhone}`) ||
+                     otpStore.get(`+63${normalizedPhone.replace(/^63/, '')}`);
 
     if (!storedData) {
+      console.log('[Verify OTP] No OTP found for:', phoneNumber, 'normalized:', normalizedPhone);
+      console.log('[Verify OTP] Available keys:', Array.from(otpStore.keys()));
       return res.status(400).json({ error: 'No OTP found. Please request a new code.' });
     }
 
     // Check expiration
     if (Date.now() > storedData.expiresAt) {
       otpStore.delete(phoneNumber);
+      otpStore.delete(normalizedPhone);
+      otpStore.delete(`+${normalizedPhone}`);
       return res.status(400).json({ error: 'OTP has expired. Please request a new code.' });
     }
 
     // Check attempts (max 5)
     if (storedData.attempts >= 5) {
       otpStore.delete(phoneNumber);
+      otpStore.delete(normalizedPhone);
+      otpStore.delete(`+${normalizedPhone}`);
       return res.status(400).json({ error: 'Too many attempts. Please request a new code.' });
     }
 
     // Verify OTP
     if (storedData.otp !== otp) {
       storedData.attempts += 1;
+      console.log('[Verify OTP] Invalid OTP. Expected:', storedData.otp, 'Got:', otp);
       return res.status(400).json({ error: 'Invalid OTP. Please try again.' });
     }
 
-    // OTP is valid - clear it
+    // OTP is valid - clear it from all possible formats
     otpStore.delete(phoneNumber);
+    otpStore.delete(normalizedPhone);
+    otpStore.delete(`+${normalizedPhone}`);
 
+    console.log('[Verify OTP] Success for:', phoneNumber);
     res.json({ success: true, message: 'OTP verified successfully' });
   } catch (error) {
     console.error('Verify OTP error:', error);
