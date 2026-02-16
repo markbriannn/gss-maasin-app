@@ -247,12 +247,16 @@ const RoleSelectionScreen = ({navigation}) => {
               )}
 
               <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
-                {selectedRole === 'CLIENT' ? '5' : '6'}. Privacy & Data
+                {selectedRole === 'CLIENT' ? '5' : '6'}. Privacy & Data Protection
               </Text>
               <Text style={{fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 16}}>
-                • We collect and process your data as described in our Privacy Policy.{'\n'}
-                • Your personal information is protected and not shared without consent.{'\n'}
-                • Location data is used to connect you with nearby {selectedRole === 'CLIENT' ? 'providers' : 'clients'}.
+                • We collect and process your data in accordance with the Philippine Data Privacy Act of 2012.{'\n'}
+                • Your personal information (name, contact details, location) is encrypted and securely stored.{'\n'}
+                {selectedRole === 'PROVIDER' ? '• Your verification documents (ID, clearances) are accessible only to administrators and never shared with clients.\n' : ''}
+                • Location data is collected only during active service delivery for safety and coordination.{'\n'}
+                • Payment information is processed by PayMongo (PCI-DSS compliant) - we never store your card details.{'\n'}
+                • You have the right to access, correct, or delete your personal data at any time.{'\n'}
+                • We do not sell your personal information to third parties.
               </Text>
 
               <Text style={{fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8}}>
