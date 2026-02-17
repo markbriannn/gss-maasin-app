@@ -367,7 +367,7 @@ router.post('/create-paymaya-source', async (req, res) => {
   }
 });
 
-// QRPh Payment - uses Payment Intent workflow (not Sources)
+// QRPh Payment - uses Checkout Session (provides hosted checkout page with QR code)
 router.post('/create-qrph-payment', async (req, res) => {
   try {
     const { amount, bookingId, userId, description, platform } = req.body;
@@ -417,19 +417,30 @@ router.post('/create-qrph-payment', async (req, res) => {
 
     const amountInCentavos = Math.round(amount * 100);
 
-    // Step 1: Create Payment Intent with qrph as allowed method
-    const intentResponse = await axios.post(
-      `${PAYMONGO_API}/payment_intents`,
+    // Create a Checkout Session with QRPh as the payment method
+    const checkoutResponse = await axios.post(
+      `${PAYMONGO_API}/checkout_sessions`,
       {
         data: {
           attributes: {
-            amount: amountInCentavos,
-            currency: 'PHP',
-            payment_method_allowed: ['qrph'],
+            send_email_receipt: false,
+            show_description: true,
+            show_line_items: true,
+            payment_method_types: ['qrph'],
+            line_items: [
+              {
+                currency: 'PHP',
+                amount: amountInCentavos,
+                name: description || 'Service Payment',
+                quantity: 1,
+              },
+            ],
+            success_url: successUrl,
+            cancel_url: failedUrl,
             description: description || 'Service Payment',
             metadata: {
               bookingId,
-              userId,
+              userId: userId || '',
             },
           },
         },
@@ -437,75 +448,36 @@ router.post('/create-qrph-payment', async (req, res) => {
       paymongoAuth
     );
 
-    const paymentIntent = intentResponse.data.data;
-    const paymentIntentId = paymentIntent.id;
-    const clientKey = paymentIntent.attributes.client_key;
-
-    // Step 2: Create QRPh Payment Method
-    const methodResponse = await axios.post(
-      `${PAYMONGO_API}/payment_methods`,
-      {
-        data: {
-          attributes: {
-            type: 'qrph',
-          },
-        },
-      },
-      paymongoAuth
-    );
-
-    const paymentMethod = methodResponse.data.data;
-    const paymentMethodId = paymentMethod.id;
-
-    // Step 3: Attach Payment Method to Intent
-    const attachResponse = await axios.post(
-      `${PAYMONGO_API}/payment_intents/${paymentIntentId}/attach`,
-      {
-        data: {
-          attributes: {
-            payment_method: paymentMethodId,
-            client_key: clientKey,
-            return_url: successUrl,
-          },
-        },
-      },
-      paymongoAuth
-    );
-
-    const attachedIntent = attachResponse.data.data;
-    const nextAction = attachedIntent.attributes.next_action;
-
-    // The checkout URL is in next_action.redirect.url
-    const checkoutUrl = nextAction?.redirect?.url || null;
+    const checkoutSession = checkoutResponse.data.data;
+    const checkoutId = checkoutSession.id;
+    const checkoutUrl = checkoutSession.attributes.checkout_url;
 
     if (!checkoutUrl) {
-      console.error('No checkout URL returned from QRPh attach:', JSON.stringify(attachedIntent.attributes, null, 2));
+      console.error('No checkout URL returned from QRPh session:', JSON.stringify(checkoutSession.attributes, null, 2));
       return res.status(500).json({
         success: false,
         error: 'Failed to generate QRPh checkout URL'
       });
     }
 
-    // Save payment record (use paymentIntentId as doc ID for QRPh)
-    await db.collection('payments').doc(paymentIntentId).set({
-      sourceId: paymentIntentId, // Use intent ID as sourceId for compatibility
-      paymentIntentId,
-      paymentMethodId,
+    // Save payment record
+    await db.collection('payments').doc(checkoutId).set({
+      sourceId: checkoutId,
+      checkoutSessionId: checkoutId,
       bookingId,
       userId: userId || null,
       amount,
       type: 'qrph',
       status: 'pending',
       checkoutUrl,
-      clientKey,
       createdAt: new Date(),
     });
 
     res.json({
       success: true,
-      sourceId: paymentIntentId,
+      sourceId: checkoutId,
       checkoutUrl,
-      status: 'awaiting_next_action',
+      status: 'pending',
     });
   } catch (error) {
     console.error('Error creating QRPh payment:', error.response?.data || error.message);
@@ -1144,6 +1116,117 @@ router.post('/webhook', async (req, res) => {
             }
           }
         }
+      }
+    }
+
+    // Handle Checkout Session completed payments (QRPh via Checkout API)
+    if (eventType === 'checkout_session.payment.paid') {
+      const checkoutSession = event.attributes.data;
+      const checkoutId = checkoutSession.id;
+      const metadata = checkoutSession.attributes?.metadata || {};
+      const bookingId = metadata.bookingId;
+      const payments = checkoutSession.attributes?.payments || [];
+      const lastPayment = payments[payments.length - 1];
+      const amountInCentavos = lastPayment?.attributes?.amount || checkoutSession.attributes?.line_items?.[0]?.amount || 0;
+      const amountInPesos = amountInCentavos / 100;
+
+      console.log('Checkout session payment paid:', checkoutId, 'bookingId:', bookingId, 'amount:', amountInPesos);
+
+      // Try to find payment record by checkout session ID
+      let paymentDoc = await db.collection('payments').doc(checkoutId).get();
+
+      // If not found by checkout ID, try searching by bookingId
+      if (!paymentDoc.exists && bookingId) {
+        const paymentQuery = await db.collection('payments')
+          .where('bookingId', '==', bookingId)
+          .where('type', '==', 'qrph')
+          .where('status', '==', 'pending')
+          .get();
+
+        if (!paymentQuery.empty) {
+          paymentDoc = paymentQuery.docs[0];
+        }
+      }
+
+      if (paymentDoc && paymentDoc.exists) {
+        const paymentData = paymentDoc.data();
+
+        if (paymentData.status !== 'paid') {
+          // Update payment record
+          await paymentDoc.ref.update({
+            status: 'paid',
+            paidAt: new Date(),
+            webhookProcessed: true,
+            balanceUpdated: true,
+            paymentId: lastPayment?.id || null,
+          });
+
+          if (paymentData.bookingId) {
+            // Check if transaction already exists
+            const existingTx = await db.collection('transactions')
+              .where('bookingId', '==', paymentData.bookingId)
+              .where('type', '==', 'payment')
+              .get();
+
+            if (!existingTx.empty) {
+              console.log(`Transaction already exists for QRPh checkout booking ${paymentData.bookingId}, skipping`);
+              await markEventProcessed(db, eventId, eventType);
+              return res.json({ received: true, skipped: true, reason: 'transaction_exists' });
+            }
+
+            // Get booking to find providerId
+            const bookingDoc = await db.collection('bookings').doc(paymentData.bookingId).get();
+            const bookingData = bookingDoc.data();
+            const providerId = bookingData?.providerId;
+            const providerShare = bookingData?.providerPrice || bookingData?.providerFixedPrice || bookingData?.offeredPrice || Math.round(amountInPesos / 1.05);
+            const platformCommission = amountInPesos - providerShare;
+
+            const isPayFirstBooking = bookingData?.paymentPreference === 'pay_first';
+
+            // Update booking status
+            await db.collection('bookings').doc(paymentData.bookingId).update({
+              paymentStatus: 'paid',
+              paymentMethod: 'qrph',
+              paidAt: new Date(),
+              paymentId: lastPayment?.id || checkoutId,
+              ...(isPayFirstBooking ? { status: 'confirmed' } : {}),
+            });
+
+            // Create transaction record
+            const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            await db.collection('transactions').doc(transactionId).set({
+              bookingId: paymentData.bookingId,
+              userId: paymentData.userId,
+              providerId: providerId || null,
+              type: 'payment',
+              paymentMethod: 'qrph',
+              amount: amountInPesos,
+              providerAmount: providerShare,
+              platformCommission: platformCommission,
+              status: 'completed',
+              paymentId: lastPayment?.id || checkoutId,
+              createdAt: new Date(),
+            });
+
+            // Update provider balance (escrow)
+            if (providerId) {
+              const providerRef = db.collection('users').doc(providerId);
+              const providerDoc = await providerRef.get();
+              const currentBalance = providerDoc.data()?.balance || 0;
+              const currentPending = providerDoc.data()?.pendingBalance || 0;
+
+              await providerRef.update({
+                pendingBalance: currentPending + providerShare,
+              });
+
+              console.log(`QRPh checkout webhook: Provider balance updated: +₱${providerShare}`);
+            }
+
+            console.log(`QRPh checkout payment processed: ₱${amountInPesos} - Provider: ₱${providerShare}, Platform: ₱${platformCommission}`);
+          }
+        }
+      } else {
+        console.log('No payment record found for checkout session:', checkoutId);
       }
     }
 
