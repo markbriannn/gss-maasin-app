@@ -269,6 +269,43 @@ export default function AdminJobsPage() {
       await updateDoc(doc(db, 'bookings', job.id), { adminApproved: true, approvedAt: new Date(), approvedBy: 'admin', updatedAt: new Date() });
       setAllJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, adminApproved: true } : j)));
       setShowModal(false);
+
+      // Send SMS and Email notifications to client
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
+      const capitalize = (s: string) => s.replace(/\b\w/g, c => c.toUpperCase());
+
+      if (job.client?.phone) {
+        const clientName = capitalize(job.client.name || 'Client');
+        fetch(`${API_URL}/sms/booking-approved-admin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phoneNumber: job.client.phone,
+            clientName,
+            serviceCategory: job.category,
+          }),
+        }).catch(err => console.error('SMS notification failed:', err));
+      }
+
+      if (job.client?.email) {
+        fetch(`${API_URL}/email/booking-confirmation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: job.client.email,
+            clientName: job.client.name,
+            booking: {
+              id: job.id,
+              serviceCategory: job.category,
+              scheduledDate: job.scheduledDate,
+              scheduledTime: job.scheduledTime,
+              address: job.location,
+              totalAmount: job.amount,
+            },
+            provider: { name: job.provider?.name },
+          }),
+        }).catch(err => console.error('Email notification failed:', err));
+      }
     } catch (error) {
       console.error('Error approving job:', error);
     } finally {

@@ -147,7 +147,7 @@ export default function AdminJobDetailsPage() {
               const cData = clientDoc.data();
               clientInfo = { name: `${cData.firstName || ""} ${cData.lastName || ""}`.trim() || "Unknown", phone: cData.phone || cData.phoneNumber || "", email: cData.email || "" };
             }
-          } catch (e) {}
+          } catch (e) { }
         }
 
         let providerInfo = { name: data.providerName || "Not Assigned", phone: "", email: "", tier: "", points: 0 };
@@ -156,15 +156,15 @@ export default function AdminJobDetailsPage() {
             const providerDoc = await getDoc(doc(db, "users", data.providerId));
             if (providerDoc.exists()) {
               const pData = providerDoc.data();
-              providerInfo = { 
-                name: `${pData.firstName || ""} ${pData.lastName || ""}`.trim() || "Unknown", 
-                phone: pData.phone || pData.phoneNumber || "", 
+              providerInfo = {
+                name: `${pData.firstName || ""} ${pData.lastName || ""}`.trim() || "Unknown",
+                phone: pData.phone || pData.phoneNumber || "",
                 email: pData.email || "",
                 tier: pData.tier || "",
                 points: pData.points || 0,
               };
             }
-          } catch (e) {}
+          } catch (e) { }
         }
 
         setJob({
@@ -220,19 +220,56 @@ export default function AdminJobDetailsPage() {
     setUpdating(true);
     try {
       await updateDoc(doc(db, "bookings", job.id), { adminApproved: true, approvedAt: serverTimestamp(), approvedBy: user?.uid, updatedAt: serverTimestamp() });
-      
+
       // Send FCM push notification to client
       if (job.clientId) {
         pushNotifications.jobApprovedToClient(job.clientId, job.id, job.category || 'service')
           .catch(err => console.log('FCM push to client failed:', err));
       }
-      
+
       // Send FCM push notification to provider
       if (job.providerId) {
         pushNotifications.newJobToProvider(job.providerId, job.id, job.category || 'service')
           .catch(err => console.log('FCM push to provider failed:', err));
       }
-      
+
+      // Send SMS and Email notifications to client
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
+      const capitalize = (s: string) => s.replace(/\b\w/g, c => c.toUpperCase());
+
+      if (job.clientPhone) {
+        const clientName = capitalize(job.clientName || 'Client');
+        fetch(`${API_URL}/sms/booking-approved-admin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phoneNumber: job.clientPhone,
+            clientName,
+            serviceCategory: job.category,
+          }),
+        }).catch(err => console.error('SMS notification failed:', err));
+      }
+
+      if (job.clientEmail) {
+        fetch(`${API_URL}/email/booking-confirmation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: job.clientEmail,
+            clientName: job.clientName,
+            booking: {
+              id: job.id,
+              serviceCategory: job.category,
+              scheduledDate: job.scheduledDate,
+              scheduledTime: job.scheduledTime,
+              address: job.address,
+              totalAmount: job.amount,
+            },
+            provider: { name: job.providerName },
+          }),
+        }).catch(err => console.error('Email notification failed:', err));
+      }
+
       alert("Job approved successfully!");
     } catch (error) {
       console.error("Error approving job:", error);
@@ -247,13 +284,13 @@ export default function AdminJobDetailsPage() {
     setUpdating(true);
     try {
       await updateDoc(doc(db, "bookings", job.id), { status: "rejected", adminRejected: true, rejectedAt: serverTimestamp(), rejectedBy: user?.uid, updatedAt: serverTimestamp() });
-      
+
       // Send FCM push notification to client
       if (job.clientId) {
         pushNotifications.jobRejectedToClient(job.clientId, job.id, job.category || 'service')
           .catch(err => console.log('FCM push to client failed:', err));
       }
-      
+
       // Process automatic refund if payment was made
       if (job.paid || job.isPaidUpfront) {
         try {
@@ -289,19 +326,19 @@ export default function AdminJobDetailsPage() {
     setUpdating(true);
     try {
       await updateDoc(doc(db, "bookings", job.id), { status: "cancelled", cancelledAt: serverTimestamp(), cancelledBy: "admin", updatedAt: serverTimestamp() });
-      
+
       // Send FCM push notification to client
       if (job.clientId) {
         pushNotifications.jobCancelledToUser(job.clientId, job.id, 'admin')
           .catch(err => console.log('FCM push to client failed:', err));
       }
-      
+
       // Send FCM push notification to provider
       if (job.providerId) {
         pushNotifications.jobCancelledToUser(job.providerId, job.id, 'admin')
           .catch(err => console.log('FCM push to provider failed:', err));
       }
-      
+
       // Process automatic refund if payment was made
       if (job.paid || job.isPaidUpfront) {
         try {
@@ -380,7 +417,7 @@ export default function AdminJobDetailsPage() {
         <div className={`bg-gradient-to-r ${catStyle.bg} relative overflow-hidden`}>
           <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-          
+
           <div className="relative max-w-5xl mx-auto px-6 py-8">
             <button onClick={() => router.back()} className="flex items-center gap-2 text-white/80 hover:text-white mb-6 transition-colors">
               <ArrowLeft className="w-5 h-5" />

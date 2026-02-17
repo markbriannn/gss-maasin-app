@@ -16,28 +16,28 @@ function PaymentSuccessContent() {
     // Send booking confirmation notifications
     const sendNotifications = async () => {
       if (!bookingId || notificationsSent) return;
-      
+
       try {
         console.log('[Payment Success] Fetching booking data for:', bookingId);
-        
+
         // Get booking details from Firestore
-        const bookingRef = doc(db, 'jobs', bookingId);
+        const bookingRef = doc(db, 'bookings', bookingId);
         const bookingSnap = await getDoc(bookingRef);
-        
+
         if (!bookingSnap.exists()) {
           console.error('[Payment Success] Booking not found:', bookingId);
           return;
         }
-        
+
         const bookingData = bookingSnap.data();
         const booking: any = { id: bookingSnap.id, ...bookingData };
         console.log('[Payment Success] Booking data:', booking);
-        
+
         // Get client details
         const clientRef = doc(db, 'users', booking.clientId);
         const clientSnap = await getDoc(clientRef);
         const client: any = clientSnap.exists() ? clientSnap.data() : null;
-        
+
         // Get provider details if available
         let provider: any = null;
         if (booking.providerId) {
@@ -45,20 +45,21 @@ function PaymentSuccessContent() {
           const providerSnap = await getDoc(providerRef);
           provider = providerSnap.exists() ? providerSnap.data() : null;
         }
-        
+
         if (!client) {
           console.error('[Payment Success] Client not found');
           return;
         }
-        
+
         const API_URL = 'https://gss-maasin-app.onrender.com/api';
-        
+
         // Prepare notification data
         const clientPhone = client.phoneNumber || client.phone;
         const clientEmail = client.email;
-        const clientName = `${client.firstName || ''} ${client.lastName || ''}`.trim() || 'Client';
-        const providerName = provider ? `${provider.firstName || ''} ${provider.lastName || ''}`.trim() : 'Provider';
-        
+        const capitalize = (s: string) => s.replace(/\b\w/g, c => c.toUpperCase());
+        const clientName = capitalize(`${client.firstName || ''} ${client.lastName || ''}`.trim() || 'Client');
+        const providerName = capitalize(provider ? `${provider.firstName || ''} ${provider.lastName || ''}`.trim() : 'Provider');
+
         // Format date/time
         const formatDate = (date: any) => {
           if (!date) return 'ASAP';
@@ -69,14 +70,14 @@ function PaymentSuccessContent() {
             return 'ASAP';
           }
         };
-        
+
         const dateStr = booking.scheduledDate || formatDate(booking.createdAt) || 'ASAP';
         const timeStr = booking.scheduledTime || 'As soon as possible';
-        
+
         // Send SMS notification to client
         if (clientPhone) {
           const smsMessage = `GSS Maasin: Your booking for ${booking.serviceCategory} with ${providerName} is confirmed! ${dateStr !== 'ASAP' ? `Date: ${dateStr} at ${timeStr}.` : ''} Total: ₱${booking.totalAmount?.toLocaleString()}. Job ID: ${bookingId.slice(-6)}`;
-          
+
           fetch(`${API_URL}/sms/send-sms`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -86,7 +87,7 @@ function PaymentSuccessContent() {
             }),
           }).catch(err => console.error('[Payment Success] SMS failed:', err));
         }
-        
+
         // Send Email notification to client
         if (clientEmail) {
           fetch(`${API_URL}/email/booking-confirmation`, {
@@ -109,22 +110,22 @@ function PaymentSuccessContent() {
             }),
           }).catch(err => console.error('[Payment Success] Email failed:', err));
         }
-        
+
         console.log('[Payment Success] Notifications sent successfully');
         setNotificationsSent(true);
-        
+
       } catch (error) {
         console.error('[Payment Success] Error sending notifications:', error);
       }
     };
-    
+
     sendNotifications();
   }, [bookingId, notificationsSent]);
 
   useEffect(() => {
     // Try to redirect to mobile app via deep link
     const deepLink = `gssmaasin://payment/success?bookingId=${bookingId}`;
-    
+
     // Attempt deep link redirect
     const timer = setTimeout(() => {
       window.location.href = deepLink;
@@ -157,10 +158,10 @@ function PaymentSuccessContent() {
         <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/30">
           <CheckCircle className="w-10 h-10 text-white" />
         </div>
-        
+
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h1>
         <p className="text-gray-600 mb-6">Your payment has been processed successfully.</p>
-        
+
         {bookingId && (
           <p className="text-sm text-gray-500 mb-6">Booking ID: {bookingId}</p>
         )}

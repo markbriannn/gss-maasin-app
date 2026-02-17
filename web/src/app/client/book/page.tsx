@@ -254,7 +254,7 @@ function BookServiceContent() {
         isPaidUpfront: false,
         upfrontPaidAmount: 0,
         escrowAmount: totalAmount, // Amount held in escrow
-        status: 'pending', // Start as pending - admin will review and approve
+        status: 'awaiting_payment', // Start as awaiting_payment - only becomes 'pending' after payment confirmed
         adminApproved: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -264,9 +264,8 @@ function BookServiceContent() {
       const newBookingId = docRef.id;
       setBookingId(newBookingId);
 
-      // Send FCM push notification to admins about new booking
-      const clientName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Client';
-      pushNotifications.newBookingToAdmins(newBookingId, clientName, provider.serviceCategory);
+      // Note: Admin notification will be sent by the backend after payment is confirmed
+      // (when status transitions from 'awaiting_payment' to 'pending')
 
       // Now redirect to payment
       setProcessingPayment(true);
@@ -626,8 +625,8 @@ function BookServiceContent() {
                   <button
                     onClick={() => setPaymentMethod('qrph')}
                     className={`relative p-4 rounded-2xl border-2 text-center transition-all ${paymentMethod === 'qrph'
-                        ? 'border-violet-500 bg-violet-50 shadow-lg shadow-violet-100'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      ? 'border-violet-500 bg-violet-50 shadow-lg shadow-violet-100'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                       }`}
                   >
                     {paymentMethod === 'qrph' && (
@@ -645,8 +644,8 @@ function BookServiceContent() {
                   <button
                     onClick={() => setPaymentMethod('gcash')}
                     className={`relative p-4 rounded-2xl border-2 text-center transition-all ${paymentMethod === 'gcash'
-                        ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                       }`}
                   >
                     {paymentMethod === 'gcash' && (
@@ -663,8 +662,8 @@ function BookServiceContent() {
                   <button
                     onClick={() => setPaymentMethod('maya')}
                     className={`relative p-4 rounded-2xl border-2 text-center transition-all ${paymentMethod === 'maya'
-                        ? 'border-green-500 bg-green-50 shadow-lg shadow-green-100'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      ? 'border-green-500 bg-green-50 shadow-lg shadow-green-100'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                       }`}
                   >
                     {paymentMethod === 'maya' && (

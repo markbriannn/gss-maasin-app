@@ -7,7 +7,7 @@ import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase';
 import ClientLayout from '@/components/layouts/ClientLayout';
 import Link from 'next/link';
-import { 
+import {
   ArrowLeft, Phone, MessageCircle, MapPin, Clock,
   CreditCard, CheckCircle, AlertCircle, Star, User,
   Banknote, Loader2, Wallet, X, ChevronRight, Navigation, Tag
@@ -144,8 +144,8 @@ const getProviderBadges = (stats: { completedJobs?: number; rating?: number; rev
         isEarned = completedJobs >= (req as { count: number }).count;
         break;
       case 'rating':
-        isEarned = rating >= (req as { minRating: number; minReviews: number }).minRating && 
-                   reviewCount >= (req as { minRating: number; minReviews: number }).minReviews;
+        isEarned = rating >= (req as { minRating: number; minReviews: number }).minRating &&
+          reviewCount >= (req as { minRating: number; minReviews: number }).minReviews;
         break;
       case 'responseTime':
         isEarned = avgResponseTime <= (req as { maxMinutes: number }).maxMinutes;
@@ -181,7 +181,7 @@ function JobDetailsContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const jobId = params.id as string;
-  
+
   // Handle payment callback from PayMongo
   const paymentStatus = searchParams.get('payment');
 
@@ -210,7 +210,7 @@ function JobDetailsContent() {
     title: string;
     message: string;
     onConfirm: () => void;
-  }>({ show: false, title: '', message: '', onConfirm: () => {} });
+  }>({ show: false, title: '', message: '', onConfirm: () => { } });
 
   const showAlert = (type: 'success' | 'error' | 'info' | 'payment', title: string, message: string, onClose?: () => void) => {
     setAlertModal({ show: true, type, title, message, onClose });
@@ -221,7 +221,7 @@ function JobDetailsContent() {
     const verifyPayment = async () => {
       if (paymentStatus === 'success' && jobId) {
         setPaymentMessage({ type: 'success', text: 'Payment successful! Verifying...' });
-        
+
         // Call backend to verify and process the payment
         try {
           const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
@@ -229,7 +229,7 @@ function JobDetailsContent() {
             method: 'POST',
           });
           const result = await response.json();
-          
+
           if (result.status === 'paid') {
             setPaymentMessage({ type: 'success', text: 'Payment verified! Your booking has been updated.' });
           } else if (result.status === 'pending') {
@@ -240,7 +240,7 @@ function JobDetailsContent() {
           // Still show success since PayMongo redirected with success
           setPaymentMessage({ type: 'success', text: 'Payment successful! Your booking will be updated shortly.' });
         }
-        
+
         // Clear the URL params after showing message
         setTimeout(() => {
           router.replace(`/client/bookings/${jobId}`);
@@ -252,7 +252,7 @@ function JobDetailsContent() {
         }, 3000);
       }
     };
-    
+
     verifyPayment();
   }, [paymentStatus, jobId, router]);
 
@@ -285,7 +285,7 @@ function JobDetailsContent() {
   // Fetch provider info once (not real-time to avoid flickering)
   useEffect(() => {
     if (!job?.providerId) return;
-    
+
     // Skip if we already have this provider's info
     if (providerInfo?.id === job.providerId) return;
 
@@ -298,7 +298,20 @@ function JobDetailsContent() {
           const providerRating = pData.rating || pData.averageRating || 0;
           const providerReviewCount = pData.reviewCount || pData.totalReviews || 0;
           const completedJobs = pData.completedJobs || pData.jobsCompleted || 0;
-          
+
+          // Read points from gamification collection (where they're actually stored)
+          let providerPoints = 0;
+          let providerTier = pData.tier;
+          try {
+            const gamDoc = await getDoc(doc(db, 'gamification', job.providerId));
+            if (gamDoc.exists()) {
+              providerPoints = gamDoc.data().points || 0;
+            }
+          } catch (gamErr) {
+            console.log('Error fetching provider gamification:', gamErr);
+            providerPoints = pData.points || 0; // Fallback to users collection
+          }
+
           setProviderInfo({
             id: providerDoc.id,
             name: `${pData.firstName || ''} ${pData.lastName || ''}`.trim() || 'Provider',
@@ -307,8 +320,8 @@ function JobDetailsContent() {
             rating: providerRating,
             reviewCount: providerReviewCount,
             completedJobs,
-            tier: pData.tier,
-            points: pData.points || 0,
+            tier: providerTier,
+            points: providerPoints,
             avgResponseTime: pData.avgResponseTime || pData.averageResponseTime || 999,
             isVerified: pData.isVerified || pData.verified || false,
           });
@@ -335,10 +348,10 @@ function JobDetailsContent() {
   const handleConfirmCompletion = async () => {
     if (!job || !user) return;
     if (updating) return; // Prevent double-click
-    
+
     // Check if this is an escrow payment that needs to be released
     const isEscrowPayment = job.paymentStatus === 'held';
-    
+
     const additionalChargesTotal = (job.additionalCharges || [])
       .filter(c => c.status === 'approved')
       .reduce((sum, c) => sum + (c.total || 0), 0);
@@ -348,19 +361,19 @@ function JobDetailsContent() {
     setConfirmDialog({
       show: true,
       title: isEscrowPayment ? 'Release Payment to Provider? 💰' : (isPayFirstComplete ? 'Confirm Job Complete? ✅' : 'Confirm & Proceed to Pay?'),
-      message: isEscrowPayment 
+      message: isEscrowPayment
         ? 'Are you satisfied with the work? This will release the payment from escrow to the provider.'
-        : (isPayFirstComplete 
-            ? 'Are you satisfied with the work? This will mark the job as complete.'
-            : 'Are you satisfied with the work? This will proceed to payment.'),
+        : (isPayFirstComplete
+          ? 'Are you satisfied with the work? This will mark the job as complete.'
+          : 'Are you satisfied with the work? This will proceed to payment.'),
       onConfirm: async () => {
-        setConfirmDialog({ show: false, title: '', message: '', onConfirm: () => {} });
+        setConfirmDialog({ show: false, title: '', message: '', onConfirm: () => { } });
         setUpdating(true);
-        
+
         // Optimistic update - update local state immediately
         const newStatus = isEscrowPayment || isPayFirstComplete ? 'payment_received' : 'pending_payment';
         setJob(prev => prev ? { ...prev, status: newStatus } : null);
-        
+
         try {
           if (isEscrowPayment) {
             // Call backend to release escrow (fire and forget pattern for UI)
@@ -425,16 +438,16 @@ function JobDetailsContent() {
   const handlePayment = async (method: 'gcash' | 'maya' | 'cash') => {
     if (!job || !user) return;
     if (updating) return; // Prevent double-click
-    
+
     const baseAmount = job.totalAmount || job.price || 0;
     const additionalChargesTotal = (job.additionalCharges || [])
       .filter(c => c.status === 'approved')
       .reduce((sum, c) => sum + (c.total || 0), 0);
     const isPayFirstWithAdditional = job.paymentPreference === 'pay_first' && job.isPaidUpfront && additionalChargesTotal > 0;
     const amount = isPayFirstWithAdditional ? additionalChargesTotal : (baseAmount + additionalChargesTotal);
-    const isUpfrontPayment = job.paymentPreference === 'pay_first' && !job.isPaidUpfront && 
+    const isUpfrontPayment = job.paymentPreference === 'pay_first' && !job.isPaidUpfront &&
       ['accepted', 'traveling', 'arrived'].includes(job.status);
-    
+
     setUpdating(true);
     try {
       if (method === 'cash') {
@@ -506,15 +519,15 @@ function JobDetailsContent() {
             platform: 'web', // Use web redirect URLs
           }),
         });
-        
+
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Payment API error:', errorText);
           throw new Error('Payment service unavailable');
         }
-        
+
         const result = await response.json();
-        
+
         if (result.success && result.checkoutUrl) {
           setShowPaymentModal(false);
           window.open(result.checkoutUrl, '_blank');
@@ -552,7 +565,7 @@ function JobDetailsContent() {
         cancelReason: reason,
         cancelledBy: 'client',
       });
-      
+
       // Create notification for provider
       if (job.providerId) {
         const { collection: firestoreCollection, doc: firestoreDoc, setDoc } = await import('firebase/firestore');
@@ -569,11 +582,11 @@ function JobDetailsContent() {
           createdAt: new Date(),
           read: false,
         });
-        
+
         // Send FCM push notification to provider
         pushNotifications.jobCancelledToUser(job.providerId, job.id, 'Client');
       }
-      
+
       setShowCancelModal(false);
       showAlert('success', 'Cancelled', 'Your booking has been cancelled.');
       setTimeout(() => router.push('/client/bookings'), 1500);
@@ -651,7 +664,7 @@ function JobDetailsContent() {
     );
     const hasPending = updatedCharges.some(c => c.status === 'pending');
     try {
-      await updateDoc(doc(db, 'bookings', job.id), { 
+      await updateDoc(doc(db, 'bookings', job.id), {
         additionalCharges: updatedCharges,
         hasAdditionalPending: hasPending,
       });
@@ -668,7 +681,7 @@ function JobDetailsContent() {
     );
     const hasPending = updatedCharges.some(c => c.status === 'pending');
     try {
-      await updateDoc(doc(db, 'bookings', job.id), { 
+      await updateDoc(doc(db, 'bookings', job.id), {
         additionalCharges: updatedCharges,
         hasAdditionalPending: hasPending,
       });
@@ -733,9 +746,8 @@ function JobDetailsContent() {
       <div className="max-w-2xl mx-auto px-4 py-6">
         {/* Payment Callback Message */}
         {paymentMessage && (
-          <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl mb-4 shadow-sm ${
-            paymentMessage.type === 'success' ? 'bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200' : 'bg-gradient-to-r from-red-50 to-rose-50 border border-red-200'
-          }`}>
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl mb-4 shadow-sm ${paymentMessage.type === 'success' ? 'bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200' : 'bg-gradient-to-r from-red-50 to-rose-50 border border-red-200'
+            }`}>
             {paymentMessage.type === 'success' ? (
               <div className="p-2 bg-green-100 rounded-full">
                 <CheckCircle className="w-5 h-5 text-green-600" />
@@ -745,9 +757,8 @@ function JobDetailsContent() {
                 <AlertCircle className="w-5 h-5 text-red-600" />
               </div>
             )}
-            <span className={`font-medium ${
-              paymentMessage.type === 'success' ? 'text-green-700' : 'text-red-700'
-            }`}>
+            <span className={`font-medium ${paymentMessage.type === 'success' ? 'text-green-700' : 'text-red-700'
+              }`}>
               {paymentMessage.text}
             </span>
           </div>
@@ -762,12 +773,11 @@ function JobDetailsContent() {
         </div>
 
         {/* Status Banner - Enhanced */}
-        <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl mb-5 shadow-sm border ${
-          job.status === 'pending' ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200' :
-          job.status === 'completed' ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' :
-          job.status === 'cancelled' ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-200' :
-          `${statusConfig.bgColor} border-transparent`
-        }`}>
+        <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl mb-5 shadow-sm border ${job.status === 'pending' ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200' :
+            job.status === 'completed' ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' :
+              job.status === 'cancelled' ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-200' :
+                `${statusConfig.bgColor} border-transparent`
+          }`}>
           <div className={`w-3 h-3 rounded-full animate-pulse ${statusConfig.color.replace('text-', 'bg-')}`} />
           <span className={`font-bold text-base ${statusConfig.color}`}>{statusConfig.label}</span>
         </div>
@@ -776,9 +786,8 @@ function JobDetailsContent() {
         {(job.status === 'traveling' || job.status === 'arrived') && (
           <Link
             href={`/client/bookings/${job.id}/tracking`}
-            className={`flex items-center gap-4 p-5 rounded-2xl mb-5 shadow-lg transition-transform hover:scale-[1.02] ${
-              job.status === 'traveling' ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gradient-to-r from-emerald-500 to-emerald-600'
-            }`}
+            className={`flex items-center gap-4 p-5 rounded-2xl mb-5 shadow-lg transition-transform hover:scale-[1.02] ${job.status === 'traveling' ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gradient-to-r from-emerald-500 to-emerald-600'
+              }`}
           >
             <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
               {job.status === 'traveling' ? (
@@ -1014,19 +1023,17 @@ function JobDetailsContent() {
         {/* Payment Status - Enhanced */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Payment Status</h3>
-          <div className={`rounded-xl p-5 border-2 ${
-            job.paymentStatus === 'held' ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-300' : 
-            job.paymentStatus === 'released' ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300' :
-            job.isPaidUpfront ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300' : 
-            'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300'
-          }`}>
+          <div className={`rounded-xl p-5 border-2 ${job.paymentStatus === 'held' ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-300' :
+              job.paymentStatus === 'released' ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300' :
+                job.isPaidUpfront ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300' :
+                  'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300'
+            }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-xl ${
-                  job.paymentStatus === 'held' ? 'bg-emerald-100' : 
-                  job.paymentStatus === 'released' ? 'bg-blue-100' :
-                  job.isPaidUpfront ? 'bg-green-100' : 'bg-amber-100'
-                }`}>
+                <div className={`p-3 rounded-xl ${job.paymentStatus === 'held' ? 'bg-emerald-100' :
+                    job.paymentStatus === 'released' ? 'bg-blue-100' :
+                      job.isPaidUpfront ? 'bg-green-100' : 'bg-amber-100'
+                  }`}>
                   {job.paymentStatus === 'held' ? (
                     <CheckCircle className="w-6 h-6 text-emerald-600" />
                   ) : job.paymentStatus === 'released' ? (
@@ -1038,27 +1045,25 @@ function JobDetailsContent() {
                   )}
                 </div>
                 <div>
-                  <p className={`font-bold text-base ${
-                    job.paymentStatus === 'held' ? 'text-emerald-700' : 
-                    job.paymentStatus === 'released' ? 'text-blue-700' :
-                    job.isPaidUpfront ? 'text-green-700' : 'text-amber-700'
-                  }`}>
-                    {job.paymentStatus === 'held' ? 'Payment Held in Escrow' : 
-                     job.paymentStatus === 'released' ? 'Payment Released' :
-                     job.isPaidUpfront ? 'Paid Upfront' : 
-                     job.status === 'awaiting_payment' ? 'Awaiting Payment' :
-                     job.paymentPreference === 'pay_first' ? 'PAID' : 'Pay Later'}
+                  <p className={`font-bold text-base ${job.paymentStatus === 'held' ? 'text-emerald-700' :
+                      job.paymentStatus === 'released' ? 'text-blue-700' :
+                        job.isPaidUpfront ? 'text-green-700' : 'text-amber-700'
+                    }`}>
+                    {job.paymentStatus === 'held' ? 'Payment Held in Escrow' :
+                      job.paymentStatus === 'released' ? 'Payment Released' :
+                        job.isPaidUpfront ? 'Paid Upfront' :
+                          job.status === 'awaiting_payment' ? 'Awaiting Payment' :
+                            job.paymentPreference === 'pay_first' ? 'PAID' : 'Pay Later'}
                   </p>
-                  <p className={`text-sm mt-0.5 ${
-                    job.paymentStatus === 'held' ? 'text-emerald-600' : 
-                    job.paymentStatus === 'released' ? 'text-blue-600' :
-                    job.isPaidUpfront ? 'text-green-600' : 'text-amber-600'
-                  }`}>
-                    {job.paymentStatus === 'held' ? 'Released when you confirm job completion' : 
-                     job.paymentStatus === 'released' ? 'Payment sent to provider' :
-                     job.isPaidUpfront ? 'Payment secured' : 
-                     job.status === 'awaiting_payment' ? 'Complete payment to submit booking' :
-                     job.paymentPreference === 'pay_first' ? 'Pay before service starts' : 'Pay after job completion'}
+                  <p className={`text-sm mt-0.5 ${job.paymentStatus === 'held' ? 'text-emerald-600' :
+                      job.paymentStatus === 'released' ? 'text-blue-600' :
+                        job.isPaidUpfront ? 'text-green-600' : 'text-amber-600'
+                    }`}>
+                    {job.paymentStatus === 'held' ? 'Released when you confirm job completion' :
+                      job.paymentStatus === 'released' ? 'Payment sent to provider' :
+                        job.isPaidUpfront ? 'Payment secured' :
+                          job.status === 'awaiting_payment' ? 'Complete payment to submit booking' :
+                            job.paymentPreference === 'pay_first' ? 'Pay before service starts' : 'Pay after job completion'}
                   </p>
                 </div>
               </div>
@@ -1277,43 +1282,43 @@ function JobDetailsContent() {
           )}
 
           {/* PAY FIRST - Pay Upfront Button */}
-          {job.paymentPreference === 'pay_first' && !job.isPaidUpfront && 
-           ['accepted', 'traveling', 'arrived'].includes(job.status) && (
-            <div className="space-y-4">
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-400 rounded-2xl p-5 text-center">
-                <div className="p-3 bg-amber-100 rounded-xl inline-block mb-3">
-                  <AlertCircle className="w-8 h-8 text-amber-500" />
+          {job.paymentPreference === 'pay_first' && !job.isPaidUpfront &&
+            ['accepted', 'traveling', 'arrived'].includes(job.status) && (
+              <div className="space-y-4">
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-400 rounded-2xl p-5 text-center">
+                  <div className="p-3 bg-amber-100 rounded-xl inline-block mb-3">
+                    <AlertCircle className="w-8 h-8 text-amber-500" />
+                  </div>
+                  <p className="text-xl font-bold text-amber-800">Payment Required First</p>
+                  <p className="text-3xl font-black text-amber-600 mt-3">{formatCurrency(calculateTotal())}</p>
+                  <p className="text-sm text-amber-700 mt-3 leading-relaxed">
+                    Payment is required before the provider can start working.
+                  </p>
                 </div>
-                <p className="text-xl font-bold text-amber-800">Payment Required First</p>
-                <p className="text-3xl font-black text-amber-600 mt-3">{formatCurrency(calculateTotal())}</p>
-                <p className="text-sm text-amber-700 mt-3 leading-relaxed">
-                  Payment is required before the provider can start working.
-                </p>
+                <button
+                  onClick={() => setShowPaymentModal(true)}
+                  className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold hover:from-amber-600 hover:to-orange-600 flex items-center justify-center gap-2 shadow-lg transition-all"
+                >
+                  <CreditCard className="w-5 h-5" />
+                  Pay Now (Before Service)
+                </button>
               </div>
-              <button
-                onClick={() => setShowPaymentModal(true)}
-                className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold hover:from-amber-600 hover:to-orange-600 flex items-center justify-center gap-2 shadow-lg transition-all"
-              >
-                <CreditCard className="w-5 h-5" />
-                Pay Now (Before Service)
-              </button>
-            </div>
-          )}
+            )}
 
           {/* PAY FIRST - Already paid, waiting for work */}
-          {job.paymentPreference === 'pay_first' && job.isPaidUpfront && 
-           ['accepted', 'traveling', 'arrived', 'in_progress'].includes(job.status) && (
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-5 text-center">
-              <div className="p-3 bg-green-100 rounded-xl inline-block mb-3">
-                <CheckCircle className="w-8 h-8 text-green-500" />
+          {job.paymentPreference === 'pay_first' && job.isPaidUpfront &&
+            ['accepted', 'traveling', 'arrived', 'in_progress'].includes(job.status) && (
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-5 text-center">
+                <div className="p-3 bg-green-100 rounded-xl inline-block mb-3">
+                  <CheckCircle className="w-8 h-8 text-green-500" />
+                </div>
+                <p className="font-bold text-green-700 text-lg">Payment Complete</p>
+                <p className="text-green-600 font-semibold mt-1">{formatCurrency(job.upfrontPaidAmount || job.totalAmount || 0)} paid</p>
+                <p className="text-sm text-green-600 mt-3 leading-relaxed">
+                  Provider can now proceed with the work. You'll be notified when complete.
+                </p>
               </div>
-              <p className="font-bold text-green-700 text-lg">Payment Complete</p>
-              <p className="text-green-600 font-semibold mt-1">{formatCurrency(job.upfrontPaidAmount || job.totalAmount || 0)} paid</p>
-              <p className="text-sm text-green-600 mt-3 leading-relaxed">
-                Provider can now proceed with the work. You'll be notified when complete.
-              </p>
-            </div>
-          )}
+            )}
 
           {/* Pending Completion - Confirm Button */}
           {showConfirmButton && (
@@ -1379,11 +1384,10 @@ function JobDetailsContent() {
               <button
                 onClick={handleConfirmCompletion}
                 disabled={updating || job.hasAdditionalPending}
-                className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg ${
-                  job.hasAdditionalPending 
-                    ? 'bg-gray-400 text-white cursor-not-allowed' 
+                className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg ${job.hasAdditionalPending
+                    ? 'bg-gray-400 text-white cursor-not-allowed'
                     : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600'
-                }`}
+                  }`}
               >
                 {updating ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
                 {(() => {
@@ -1406,8 +1410,8 @@ function JobDetailsContent() {
                   <CreditCard className="w-8 h-8 text-blue-500" />
                 </div>
                 <p className="font-bold text-blue-800 text-lg">
-                  {job.paymentPreference === 'pay_first' && job.isPaidUpfront 
-                    ? 'Additional Payment Required' 
+                  {job.paymentPreference === 'pay_first' && job.isPaidUpfront
+                    ? 'Additional Payment Required'
                     : 'Payment Required'}
                 </p>
                 <p className="text-3xl font-black text-blue-700 mt-3">
@@ -1428,7 +1432,7 @@ function JobDetailsContent() {
                   </p>
                 )}
                 <p className="text-sm text-blue-600 mt-3 leading-relaxed">
-                  {job.paymentPreference === 'pay_first' && job.isPaidUpfront 
+                  {job.paymentPreference === 'pay_first' && job.isPaidUpfront
                     ? 'Please pay the additional charges to complete this job.'
                     : 'Please pay the provider to complete this job.'}
                 </p>
@@ -1487,15 +1491,13 @@ function JobDetailsContent() {
                 <button
                   key={reason}
                   onClick={() => setSelectedCancelReason(reason)}
-                  className={`w-full p-3 rounded-xl text-left border-2 transition-colors flex items-center gap-3 ${
-                    selectedCancelReason === reason
+                  className={`w-full p-3 rounded-xl text-left border-2 transition-colors flex items-center gap-3 ${selectedCancelReason === reason
                       ? 'border-red-500 bg-red-50 text-red-700'
                       : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                    selectedCancelReason === reason ? 'border-red-500' : 'border-gray-300'
-                  }`}>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedCancelReason === reason ? 'border-red-500' : 'border-gray-300'
+                    }`}>
                     {selectedCancelReason === reason && <div className="w-2.5 h-2.5 rounded-full bg-red-500" />}
                   </div>
                   <span className={selectedCancelReason === reason ? 'font-semibold' : ''}>{reason}</span>
@@ -1544,7 +1546,7 @@ function JobDetailsContent() {
             </div>
 
             <p className="text-sm text-gray-500 mb-4">
-              Provider's counter: {formatCurrency(job?.counterOfferPrice || 0)} | 
+              Provider's counter: {formatCurrency(job?.counterOfferPrice || 0)} |
               Your last offer: {formatCurrency(job?.offeredPrice || 0)}
             </p>
 
@@ -1664,11 +1666,11 @@ function JobDetailsContent() {
 
       {/* Image Viewer Modal */}
       {selectedImage && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/90 flex items-center justify-center z-50"
           onClick={() => setSelectedImage(null)}
         >
-          <button 
+          <button
             onClick={() => setSelectedImage(null)}
             className="absolute top-4 right-4 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
           >
@@ -1688,12 +1690,11 @@ function JobDetailsContent() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-bounce-in">
             {/* Icon Header */}
-            <div className={`p-8 flex flex-col items-center ${
-              alertModal.type === 'success' ? 'bg-gradient-to-br from-emerald-500 to-green-600' :
-              alertModal.type === 'error' ? 'bg-gradient-to-br from-red-500 to-rose-600' :
-              alertModal.type === 'payment' ? 'bg-gradient-to-br from-blue-500 to-indigo-600' :
-              'bg-gradient-to-br from-amber-500 to-orange-600'
-            }`}>
+            <div className={`p-8 flex flex-col items-center ${alertModal.type === 'success' ? 'bg-gradient-to-br from-emerald-500 to-green-600' :
+                alertModal.type === 'error' ? 'bg-gradient-to-br from-red-500 to-rose-600' :
+                  alertModal.type === 'payment' ? 'bg-gradient-to-br from-blue-500 to-indigo-600' :
+                    'bg-gradient-to-br from-amber-500 to-orange-600'
+              }`}>
               <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-4">
                 {alertModal.type === 'success' && <CheckCircle className="w-10 h-10 text-white" />}
                 {alertModal.type === 'error' && <AlertCircle className="w-10 h-10 text-white" />}
@@ -1706,7 +1707,7 @@ function JobDetailsContent() {
             {/* Content */}
             <div className="p-6">
               <p className="text-gray-600 text-center mb-6 leading-relaxed">{alertModal.message}</p>
-              
+
               {alertModal.type === 'payment' && (
                 <div className="bg-blue-50 rounded-xl p-4 mb-4 flex items-start gap-3">
                   <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -1726,12 +1727,11 @@ function JobDetailsContent() {
                   }
                   alertModal.onClose?.();
                 }}
-                className={`w-full py-4 rounded-xl font-bold text-white transition-all ${
-                  alertModal.type === 'success' ? 'bg-gradient-to-r from-emerald-500 to-green-600 hover:shadow-lg hover:shadow-emerald-500/30' :
-                  alertModal.type === 'error' ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:shadow-lg hover:shadow-red-500/30' :
-                  alertModal.type === 'payment' ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:shadow-lg hover:shadow-blue-500/30' :
-                  'bg-gradient-to-r from-amber-500 to-orange-600 hover:shadow-lg hover:shadow-amber-500/30'
-                }`}
+                className={`w-full py-4 rounded-xl font-bold text-white transition-all ${alertModal.type === 'success' ? 'bg-gradient-to-r from-emerald-500 to-green-600 hover:shadow-lg hover:shadow-emerald-500/30' :
+                    alertModal.type === 'error' ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:shadow-lg hover:shadow-red-500/30' :
+                      alertModal.type === 'payment' ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:shadow-lg hover:shadow-blue-500/30' :
+                        'bg-gradient-to-r from-amber-500 to-orange-600 hover:shadow-lg hover:shadow-amber-500/30'
+                  }`}
               >
                 {alertModal.type === 'payment' ? 'Refresh Page' : 'Got it'}
               </button>
@@ -1766,10 +1766,10 @@ function JobDetailsContent() {
             {/* Content */}
             <div className="p-6">
               <p className="text-gray-600 text-center mb-6 leading-relaxed">{confirmDialog.message}</p>
-              
+
               <div className="flex gap-3">
                 <button
-                  onClick={() => setConfirmDialog({ show: false, title: '', message: '', onConfirm: () => {} })}
+                  onClick={() => setConfirmDialog({ show: false, title: '', message: '', onConfirm: () => { } })}
                   className="flex-1 py-4 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
                 >
                   Cancel

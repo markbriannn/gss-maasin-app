@@ -222,8 +222,21 @@ export default function ProviderDashboard() {
       if (providerDoc.exists()) {
         const data = providerDoc.data();
         setIsOnline(data.isOnline || false);
-        setPoints(data.points || 0);
         providerRating = data.averageRating || data.rating || providerRating;
+      }
+
+      // Read points from gamification collection (where they're actually stored)
+      try {
+        const gamDoc = await getDoc(doc(db, 'gamification', user.uid));
+        if (gamDoc.exists()) {
+          setPoints(gamDoc.data().points || 0);
+        } else {
+          // Fallback to users collection
+          setPoints(providerDoc.exists() ? (providerDoc.data().points || 0) : 0);
+        }
+      } catch (gamError) {
+        console.error('Error fetching gamification data:', gamError);
+        setPoints(providerDoc.exists() ? (providerDoc.data()?.points || 0) : 0);
       }
 
       const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -370,8 +383,8 @@ export default function ProviderDashboard() {
                 {isOnline && (
                   <div className="relative group">
                     <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-default ${liveStatus === 'live'
-                        ? 'bg-emerald-500/20 border border-emerald-500/30'
-                        : 'bg-amber-500/20 border border-amber-500/30'
+                      ? 'bg-emerald-500/20 border border-emerald-500/30'
+                      : 'bg-amber-500/20 border border-amber-500/30'
                       }`}>
                       <div className={`relative w-2 h-2 rounded-full ${liveStatus === 'live' ? 'bg-emerald-400' : 'bg-amber-400'
                         }`}>

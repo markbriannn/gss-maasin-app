@@ -1,5 +1,5 @@
 import axios from 'axios';
-import {API_BASE_URL} from '@env';
+import { API_BASE_URL } from '@env';
 
 const API_URL = API_BASE_URL || 'https://gss-maasin-app.onrender.com/api';
 
@@ -23,6 +23,14 @@ class SMSEmailService {
   }
 
   /**
+   * Capitalize first letter of each word in a string
+   */
+  capitalize(str) {
+    if (!str) return str;
+    return str.replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  /**
    * Send SMS notification via Semaphore API
    * @param {string} phoneNumber - Recipient phone number (Philippine format)
    * @param {string} message - SMS message content
@@ -32,40 +40,40 @@ class SMSEmailService {
     const formattedPhone = this.formatPhoneNumber(phoneNumber);
     // Semaphore expects number without + prefix
     const numberOnly = formattedPhone.replace('+', '');
-    
+
     console.log('[SMS] Sending to:', numberOnly);
     console.log('[SMS] Message:', message);
-    
+
     try {
       // Use Semaphore API with form-urlencoded format
       const params = new URLSearchParams();
       params.append('apikey', this.semaphoreApiKey);
       params.append('number', numberOnly);
       params.append('message', message);
-      
+
       const response = await axios.post(SEMAPHORE_API_URL, params.toString(), {
         timeout: 15000,
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
       });
-      
+
       console.log('[SMS] Semaphore response:', JSON.stringify(response.data));
-      
+
       // Check if Semaphore returned success (returns array with message_id)
       if (response.data && Array.isArray(response.data) && response.data[0]?.message_id) {
-        return {success: true, data: response.data};
+        return { success: true, data: response.data };
       } else if (response.data && response.data.message_id) {
-        return {success: true, data: response.data};
+        return { success: true, data: response.data };
       } else {
         const errorMsg = response.data?.message || response.data?.[0]?.message || 'SMS sending failed';
         console.log('[SMS] Failed:', errorMsg);
-        return {success: false, error: errorMsg, data: response.data};
+        return { success: false, error: errorMsg, data: response.data };
       }
     } catch (error) {
       const errorMsg = error.response?.data?.message || error.response?.data || error.message;
       console.log('[SMS] Error sending via Semaphore:', errorMsg);
-      return {success: false, error: typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)};
+      return { success: false, error: typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg) };
     }
   }
 
@@ -80,22 +88,22 @@ class SMSEmailService {
     if (!this.isConfigured) {
       console.log('[Email - Dev Mode] Would send to:', email);
       console.log('[Email - Dev Mode] Subject:', subject);
-      return {success: true, devMode: true};
+      return { success: true, devMode: true };
     }
-    
+
     try {
       const response = await axios.post(`${this.apiUrl}/notifications/email`, {
         to: email,
         subject: subject,
         html: body,
-      }, {timeout: 10000});
-      
+      }, { timeout: 10000 });
+
       console.log('Email sent successfully:', response.data);
-      return {success: true, data: response.data};
+      return { success: true, data: response.data };
     } catch (error) {
       // Don't spam console with network errors in dev
       console.log('[Email] Failed to send (backend unavailable):', email);
-      return {success: false, error: error.message};
+      return { success: false, error: error.message };
     }
   }
 
@@ -104,20 +112,20 @@ class SMSEmailService {
    */
   formatPhoneNumber(phone) {
     if (!phone) return '';
-    
+
     // Remove all non-numeric characters
     let cleaned = phone.replace(/\D/g, '');
-    
+
     // If starts with 0, replace with +63
     if (cleaned.startsWith('0')) {
       cleaned = '63' + cleaned.substring(1);
     }
-    
+
     // If doesn't start with 63, add it
     if (!cleaned.startsWith('63')) {
       cleaned = '63' + cleaned;
     }
-    
+
     return '+' + cleaned;
   }
 
@@ -137,12 +145,12 @@ class SMSEmailService {
         return 'ASAP';
       }
     };
-    
+
     const dateStr = booking.scheduledDate || formatDate(booking.createdAt) || 'ASAP';
     const timeStr = booking.scheduledTime || 'As soon as possible';
-    
-    const smsMessage = `GSS Maasin: Your booking for ${booking.serviceCategory} with ${provider.name} is confirmed! ${dateStr !== 'ASAP' ? `Date: ${dateStr} at ${timeStr}.` : ''} Total: ₱${booking.totalAmount?.toLocaleString()}. Job ID: ${booking.id?.slice(-6)}`;
-    
+
+    const smsMessage = `GSS Maasin: Your booking for ${booking.serviceCategory} with ${this.capitalize(provider.name)} is confirmed! ${dateStr !== 'ASAP' ? `Date: ${dateStr} at ${timeStr}.` : ''} Total: ₱${booking.totalAmount?.toLocaleString()}. Job ID: ${booking.id?.slice(-6)}`;
+
     const emailSubject = `Booking Confirmed - ${booking.serviceCategory}`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -177,13 +185,13 @@ class SMSEmailService {
 
     // Send both SMS and Email
     const results = await Promise.allSettled([
-      client.phone ? this.sendSMS(client.phone, smsMessage) : Promise.resolve({success: false}),
-      client.email ? this.sendEmail(client.email, emailSubject, emailBody) : Promise.resolve({success: false}),
+      client.phone ? this.sendSMS(client.phone, smsMessage) : Promise.resolve({ success: false }),
+      client.email ? this.sendEmail(client.email, emailSubject, emailBody) : Promise.resolve({ success: false }),
     ]);
 
     return {
-      sms: results[0].status === 'fulfilled' ? results[0].value : {success: false},
-      email: results[1].status === 'fulfilled' ? results[1].value : {success: false},
+      sms: results[0].status === 'fulfilled' ? results[0].value : { success: false },
+      email: results[1].status === 'fulfilled' ? results[1].value : { success: false },
     };
   }
 
@@ -192,23 +200,23 @@ class SMSEmailService {
    */
   async notifyProviderNewJob(booking, provider) {
     const smsMessage = `GSS Maasin: New job request! ${booking.serviceCategory} on ${booking.scheduledDate}. Client: ${booking.clientName}. Price: ₱${booking.totalAmount?.toLocaleString()}. Open app to accept.`;
-    
+
     if (provider.phone) {
       return this.sendSMS(provider.phone, smsMessage);
     }
-    return {success: false, error: 'No phone number'};
+    return { success: false, error: 'No phone number' };
   }
 
   /**
    * Notify client when job is accepted
    */
   async notifyJobAccepted(booking, client, provider) {
-    const smsMessage = `GSS Maasin: Great news! ${provider.name} accepted your ${booking.serviceCategory} booking for ${booking.scheduledDate}. They will arrive at ${booking.scheduledTime}.`;
-    
+    const smsMessage = `GSS Maasin: Great news! ${this.capitalize(provider.name)} accepted your ${booking.serviceCategory} booking for ${booking.scheduledDate}. They will arrive at ${booking.scheduledTime}.`;
+
     if (client.phone) {
       return this.sendSMS(client.phone, smsMessage);
     }
-    return {success: false, error: 'No phone number'};
+    return { success: false, error: 'No phone number' };
   }
 
   /**
@@ -216,19 +224,19 @@ class SMSEmailService {
    */
   async notifyJobStarted(booking, client) {
     const smsMessage = `GSS Maasin: Your ${booking.serviceCategory} service has started! The provider is now working on your job.`;
-    
+
     if (client.phone) {
       return this.sendSMS(client.phone, smsMessage);
     }
-    return {success: false, error: 'No phone number'};
+    return { success: false, error: 'No phone number' };
   }
 
   /**
    * Notify about job completion
    */
   async notifyJobCompleted(booking, client, provider) {
-    const smsMessage = `GSS Maasin: Your ${booking.serviceCategory} job is complete! Total: ₱${booking.totalAmount?.toLocaleString()}. Please rate ${provider.name} in the app. Thank you!`;
-    
+    const smsMessage = `GSS Maasin: Your ${booking.serviceCategory} job is complete! Total: ₱${booking.totalAmount?.toLocaleString()}. Please rate ${this.capitalize(provider.name)} in the app. Thank you!`;
+
     const emailSubject = `Job Completed - Please Leave a Review`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -260,13 +268,13 @@ class SMSEmailService {
     `;
 
     const results = await Promise.allSettled([
-      client.phone ? this.sendSMS(client.phone, smsMessage) : Promise.resolve({success: false}),
-      client.email ? this.sendEmail(client.email, emailSubject, emailBody) : Promise.resolve({success: false}),
+      client.phone ? this.sendSMS(client.phone, smsMessage) : Promise.resolve({ success: false }),
+      client.email ? this.sendEmail(client.email, emailSubject, emailBody) : Promise.resolve({ success: false }),
     ]);
 
     return {
-      sms: results[0].status === 'fulfilled' ? results[0].value : {success: false},
-      email: results[1].status === 'fulfilled' ? results[1].value : {success: false},
+      sms: results[0].status === 'fulfilled' ? results[0].value : { success: false },
+      email: results[1].status === 'fulfilled' ? results[1].value : { success: false },
     };
   }
 
@@ -276,11 +284,11 @@ class SMSEmailService {
   async notifyJobCancelled(booking, recipient, cancelledBy, reason) {
     const byText = cancelledBy === 'client' ? 'The client' : 'The provider';
     const smsMessage = `GSS Maasin: ${byText} cancelled the ${booking.serviceCategory} booking for ${booking.scheduledDate}.${reason ? ` Reason: ${reason}` : ''} We apologize for any inconvenience.`;
-    
+
     if (recipient.phone) {
       return this.sendSMS(recipient.phone, smsMessage);
     }
-    return {success: false, error: 'No phone number'};
+    return { success: false, error: 'No phone number' };
   }
 
   // ========== PROVIDER ACCOUNT NOTIFICATIONS ==========
@@ -290,7 +298,7 @@ class SMSEmailService {
    */
   async notifyProviderApproved(provider) {
     const smsMessage = `GSS Maasin: Congratulations ${provider.firstName}! Your provider account has been approved. You can now receive job requests. Open the app to get started!`;
-    
+
     const emailSubject = `Welcome to GSS Maasin - Account Approved!`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -324,13 +332,13 @@ class SMSEmailService {
     `;
 
     const results = await Promise.allSettled([
-      provider.phone ? this.sendSMS(provider.phone, smsMessage) : Promise.resolve({success: false}),
-      provider.email ? this.sendEmail(provider.email, emailSubject, emailBody) : Promise.resolve({success: false}),
+      provider.phone ? this.sendSMS(provider.phone, smsMessage) : Promise.resolve({ success: false }),
+      provider.email ? this.sendEmail(provider.email, emailSubject, emailBody) : Promise.resolve({ success: false }),
     ]);
 
     return {
-      sms: results[0].status === 'fulfilled' ? results[0].value : {success: false},
-      email: results[1].status === 'fulfilled' ? results[1].value : {success: false},
+      sms: results[0].status === 'fulfilled' ? results[0].value : { success: false },
+      email: results[1].status === 'fulfilled' ? results[1].value : { success: false },
     };
   }
 
@@ -339,7 +347,7 @@ class SMSEmailService {
    */
   async notifyProviderRejected(provider, reason = '') {
     const smsMessage = `GSS Maasin: We're sorry, your provider application was not approved.${reason ? ` Reason: ${reason}` : ''} Please contact support for more information.`;
-    
+
     const emailSubject = `GSS Maasin - Application Status Update`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -374,13 +382,13 @@ class SMSEmailService {
     `;
 
     const results = await Promise.allSettled([
-      provider.phone ? this.sendSMS(provider.phone, smsMessage) : Promise.resolve({success: false}),
-      provider.email ? this.sendEmail(provider.email, emailSubject, emailBody) : Promise.resolve({success: false}),
+      provider.phone ? this.sendSMS(provider.phone, smsMessage) : Promise.resolve({ success: false }),
+      provider.email ? this.sendEmail(provider.email, emailSubject, emailBody) : Promise.resolve({ success: false }),
     ]);
 
     return {
-      sms: results[0].status === 'fulfilled' ? results[0].value : {success: false},
-      email: results[1].status === 'fulfilled' ? results[1].value : {success: false},
+      sms: results[0].status === 'fulfilled' ? results[0].value : { success: false },
+      email: results[1].status === 'fulfilled' ? results[1].value : { success: false },
     };
   }
 
@@ -390,8 +398,8 @@ class SMSEmailService {
    * Notify client when their booking request is approved by admin
    */
   async notifyBookingApproved(booking, client, provider) {
-    const smsMessage = `GSS Maasin: Your ${booking.serviceCategory || 'service'} request has been approved! ${provider?.name || 'The provider'} will review and accept your booking soon. Job ID: ${booking.id?.slice(-6)}`;
-    
+    const smsMessage = `GSS Maasin: Your ${booking.serviceCategory || 'service'} request has been approved! ${this.capitalize(provider?.name) || 'The provider'} will review and accept your booking soon. Job ID: ${booking.id?.slice(-6)}`;
+
     const emailSubject = `Booking Request Approved - ${booking.serviceCategory || 'Service'}`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -427,13 +435,13 @@ class SMSEmailService {
     `;
 
     const results = await Promise.allSettled([
-      client.phone ? this.sendSMS(client.phone, smsMessage) : Promise.resolve({success: false}),
-      client.email ? this.sendEmail(client.email, emailSubject, emailBody) : Promise.resolve({success: false}),
+      client.phone ? this.sendSMS(client.phone, smsMessage) : Promise.resolve({ success: false }),
+      client.email ? this.sendEmail(client.email, emailSubject, emailBody) : Promise.resolve({ success: false }),
     ]);
 
     return {
-      sms: results[0].status === 'fulfilled' ? results[0].value : {success: false},
-      email: results[1].status === 'fulfilled' ? results[1].value : {success: false},
+      sms: results[0].status === 'fulfilled' ? results[0].value : { success: false },
+      email: results[1].status === 'fulfilled' ? results[1].value : { success: false },
     };
   }
 
@@ -442,7 +450,7 @@ class SMSEmailService {
    */
   async notifyBookingRejected(booking, client, reason = '') {
     const smsMessage = `GSS Maasin: We're sorry, your ${booking.serviceCategory || 'service'} request was not approved.${reason ? ` Reason: ${reason}` : ''} Please try again or contact support.`;
-    
+
     const emailSubject = `Booking Request Update - ${booking.serviceCategory || 'Service'}`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -482,13 +490,13 @@ class SMSEmailService {
     `;
 
     const results = await Promise.allSettled([
-      client.phone ? this.sendSMS(client.phone, smsMessage) : Promise.resolve({success: false}),
-      client.email ? this.sendEmail(client.email, emailSubject, emailBody) : Promise.resolve({success: false}),
+      client.phone ? this.sendSMS(client.phone, smsMessage) : Promise.resolve({ success: false }),
+      client.email ? this.sendEmail(client.email, emailSubject, emailBody) : Promise.resolve({ success: false }),
     ]);
 
     return {
-      sms: results[0].status === 'fulfilled' ? results[0].value : {success: false},
-      email: results[1].status === 'fulfilled' ? results[1].value : {success: false},
+      sms: results[0].status === 'fulfilled' ? results[0].value : { success: false },
+      email: results[1].status === 'fulfilled' ? results[1].value : { success: false },
     };
   }
 
@@ -497,7 +505,7 @@ class SMSEmailService {
    */
   async notifyProviderNewApprovedJob(booking, provider, client) {
     const smsMessage = `GSS Maasin: New job request! ${booking.serviceCategory || 'Service'} from ${client?.name || 'a client'} on ${booking.scheduledDate || 'TBD'}. Amount: ₱${(booking.totalAmount || booking.amount || 0).toLocaleString()}. Open app to accept!`;
-    
+
     const emailSubject = `New Job Request - ${booking.serviceCategory || 'Service'}`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -532,13 +540,13 @@ class SMSEmailService {
     `;
 
     const results = await Promise.allSettled([
-      provider.phone ? this.sendSMS(provider.phone, smsMessage) : Promise.resolve({success: false}),
-      provider.email ? this.sendEmail(provider.email, emailSubject, emailBody) : Promise.resolve({success: false}),
+      provider.phone ? this.sendSMS(provider.phone, smsMessage) : Promise.resolve({ success: false }),
+      provider.email ? this.sendEmail(provider.email, emailSubject, emailBody) : Promise.resolve({ success: false }),
     ]);
 
     return {
-      sms: results[0].status === 'fulfilled' ? results[0].value : {success: false},
-      email: results[1].status === 'fulfilled' ? results[1].value : {success: false},
+      sms: results[0].status === 'fulfilled' ? results[0].value : { success: false },
+      email: results[1].status === 'fulfilled' ? results[1].value : { success: false },
     };
   }
 
@@ -560,35 +568,35 @@ class SMSEmailService {
     // Validate phone number first
     if (!phoneNumber || typeof phoneNumber !== 'string') {
       console.log('[OTP] Invalid phone number provided:', phoneNumber);
-      return {success: false, error: 'Invalid phone number'};
+      return { success: false, error: 'Invalid phone number' };
     }
-    
+
     const formattedPhone = this.formatPhoneNumber(phoneNumber).replace('+', '');
-    
+
     // Validate formatted phone (should be 12 digits for PH: 63 + 10 digits)
     if (!formattedPhone || formattedPhone.length < 11) {
       console.log('[OTP] Phone number too short:', formattedPhone);
-      return {success: false, error: 'Phone number is too short'};
+      return { success: false, error: 'Phone number is too short' };
     }
-    
+
     const otp = this.generateOTP();
-    
+
     console.log('[OTP] Sending SMS to:', formattedPhone);
     console.log('[OTP] Code:', otp);
-    
+
     let lastError = null;
-    
+
     // Retry logic for Semaphore reliability issues
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`[OTP] Attempt ${attempt}/${maxRetries}`);
-        
+
         // Use Semaphore's standard messages endpoint
         const params = new URLSearchParams();
         params.append('apikey', this.semaphoreApiKey);
         params.append('number', formattedPhone);
         params.append('message', `Your GSS Maasin verification code is ${otp}. Valid for 5 minutes.`);
-        
+
         const response = await axios.post(
           'https://api.semaphore.co/api/v4/messages',
           params.toString(),
@@ -599,41 +607,41 @@ class SMSEmailService {
             },
           }
         );
-        
+
         console.log('[OTP] Semaphore response:', JSON.stringify(response.data));
-        
+
         // Check if message was accepted (returns array with message_id)
         if (response.data && Array.isArray(response.data) && response.data[0]?.message_id) {
-          return {success: true, otp: otp, data: response.data[0]};
+          return { success: true, otp: otp, data: response.data[0] };
         }
-        
+
         if (response.data && response.data.message_id) {
-          return {success: true, otp: otp, data: response.data};
+          return { success: true, otp: otp, data: response.data };
         }
-        
+
         // If we got a response but no message_id, it's a soft failure
         lastError = response.data?.message || response.data?.[0]?.message || 'No message_id in response';
         console.log(`[OTP] Attempt ${attempt} soft failure:`, lastError);
-        
+
       } catch (error) {
         lastError = error.response?.data || error.message;
         console.log(`[OTP] Attempt ${attempt} error:`, lastError);
-        
+
         // Don't retry on validation errors (4xx)
         if (error.response?.status >= 400 && error.response?.status < 500) {
           break;
         }
       }
-      
+
       // Wait before retry (exponential backoff)
       if (attempt < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
       }
     }
-    
+
     console.log('[OTP] All attempts failed');
     return {
-      success: false, 
+      success: false,
       error: typeof lastError === 'string' ? lastError : JSON.stringify(lastError),
       otp: otp // Return OTP anyway for dev/testing fallback
     };

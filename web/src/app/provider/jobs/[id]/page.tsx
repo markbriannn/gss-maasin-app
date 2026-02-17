@@ -7,8 +7,8 @@ import { doc, onSnapshot, updateDoc, serverTimestamp, getDoc, collection, query,
 import { db } from '@/lib/firebase';
 import ProviderLayout from '@/components/layouts/ProviderLayout';
 import Link from 'next/link';
-import { 
-  ArrowLeft, Phone, MessageCircle, MapPin, Calendar, 
+import {
+  ArrowLeft, Phone, MessageCircle, MapPin, Calendar,
   CheckCircle, AlertCircle, User, Navigation, Play,
   Plus, Minus, Loader2, Banknote, Image as ImageIcon, Clock
 } from 'lucide-react';
@@ -156,7 +156,7 @@ export default function ProviderJobDetailsPage() {
     const unsubscribe = onSnapshot(doc(db, 'bookings', jobId), async (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        
+
         // Build service location from booking address fields (not client profile)
         let serviceLocation = '';
         if (data.houseNumber) serviceLocation += data.houseNumber + ', ';
@@ -166,7 +166,7 @@ export default function ProviderJobDetailsPage() {
         if (!data.houseNumber && !data.streetAddress && !data.barangay) {
           serviceLocation = data.location || data.address || 'Maasin City';
         }
-        
+
         // Fetch client info
         let clientInfo = { name: data.clientName || 'Client', phone: '', photo: '', address: serviceLocation, points: 0, tier: '', completedBookings: 0, reviewsGiven: 0, totalSpent: 0 };
         if (data.clientId) {
@@ -174,7 +174,7 @@ export default function ProviderJobDetailsPage() {
             const clientDoc = await getDoc(doc(db, 'users', data.clientId));
             if (clientDoc.exists()) {
               const cData = clientDoc.data();
-              
+
               clientInfo = {
                 name: `${cData.firstName || ''} ${cData.lastName || ''}`.trim() || data.clientName,
                 phone: cData.phone || cData.phoneNumber || '',
@@ -225,10 +225,10 @@ export default function ProviderJobDetailsPage() {
   const updateJobStatus = async (newStatus: string, extraData: Record<string, unknown> = {}) => {
     if (!job) return;
     setUpdating(true);
-    
+
     // Optimistic update - update local state immediately for faster UI response
     setJob(prev => prev ? { ...prev, status: newStatus } : null);
-    
+
     try {
       // Update booking status
       await updateDoc(doc(db, 'bookings', job.id), {
@@ -236,14 +236,14 @@ export default function ProviderJobDetailsPage() {
         updatedAt: serverTimestamp(),
         ...extraData,
       });
-      
+
       // Also update provider's user document for admin live map tracking
       if (user?.uid) {
         const userUpdateData: Record<string, unknown> = {
           jobStatus: newStatus,
           updatedAt: serverTimestamp(),
         };
-        
+
         // Set currentJobId when starting a job, clear it when completing
         if (['traveling', 'arrived', 'in_progress', 'pending_completion'].includes(newStatus)) {
           userUpdateData.currentJobId = job.id;
@@ -251,7 +251,7 @@ export default function ProviderJobDetailsPage() {
           userUpdateData.currentJobId = null;
           userUpdateData.jobStatus = null;
         }
-        
+
         // Update location when traveling
         if (newStatus === 'traveling' && navigator.geolocation) {
           try {
@@ -269,7 +269,7 @@ export default function ProviderJobDetailsPage() {
             console.log('Could not get location:', locError);
           }
         }
-        
+
         await updateDoc(doc(db, 'users', user.uid), userUpdateData);
       }
     } catch (error) {
@@ -291,7 +291,7 @@ export default function ProviderJobDetailsPage() {
       pushNotifications.jobAcceptedToClient(job.clientId, job.id, providerName).catch(console.error);
     }
   };
-  
+
   const handleStartTraveling = async () => {
     if (updating) return; // Prevent double-click
     await updateJobStatus('traveling', { travelingAt: serverTimestamp() });
@@ -300,22 +300,23 @@ export default function ProviderJobDetailsPage() {
       pushNotifications.providerTravelingToClient(job.clientId, job.id).catch(console.error);
     }
   };
-  
+
   const handleArrived = async () => {
     if (updating) return; // Prevent double-click
     await updateJobStatus('arrived', { arrivedAt: serverTimestamp() });
     // Send FCM push to client (fire and forget - don't block UI)
     if (job?.clientId) {
       pushNotifications.providerArrivedToClient(job.clientId, job.id).catch(console.error);
-      
+
       // Send SMS and Email notifications to client (fire and forget)
       const clientPhone = job.clientPhone;
       const clientEmail = (job as any).clientEmail;
-      const clientName = job.clientName || 'Client';
-      const providerName = user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 'Provider';
-      
+      const capitalize = (s: string) => s.replace(/\b\w/g, c => c.toUpperCase());
+      const clientName = capitalize(job.clientName || 'Client');
+      const providerName = capitalize(user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 'Provider');
+
       const API_URL = 'https://gss-maasin-app.onrender.com/api';
-      
+
       if (clientPhone) {
         fetch(`${API_URL}/sms/provider-arrived`, {
           method: 'POST',
@@ -328,7 +329,7 @@ export default function ProviderJobDetailsPage() {
           }),
         }).catch(err => console.error('SMS notification failed:', err));
       }
-      
+
       if (clientEmail) {
         fetch(`${API_URL}/email/provider-arrived`, {
           method: 'POST',
@@ -343,7 +344,7 @@ export default function ProviderJobDetailsPage() {
       }
     }
   };
-  
+
   const handleStartWork = async () => {
     if (updating) return; // Prevent double-click
     await updateJobStatus('in_progress', { startedAt: serverTimestamp() });
@@ -358,27 +359,28 @@ export default function ProviderJobDetailsPage() {
     // Use the new chat URL format that properly finds or creates conversations
     router.push(`/chat/new?recipientId=${clientId}&jobId=${jobId}`);
   };
-  
+
   const handleMarkDone = async () => {
     if (!job) return;
     if (updating) return; // Prevent double-click
     const finalAmount = calculateTotal();
-    await updateJobStatus('pending_completion', { 
+    await updateJobStatus('pending_completion', {
       markedDoneAt: serverTimestamp(),
       finalAmount,
     });
     // Send FCM push to client (fire and forget - don't block UI)
     if (job.clientId) {
       pushNotifications.jobCompletedToClient(job.clientId, job.id, job.serviceCategory || 'Service').catch(console.error);
-      
+
       // Send SMS and Email notifications to client (fire and forget)
       const clientPhone = job.clientPhone;
       const clientEmail = (job as any).clientEmail;
-      const clientName = job.clientName || 'Client';
-      const providerName = user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 'Provider';
-      
+      const capitalize = (s: string) => s.replace(/\b\w/g, c => c.toUpperCase());
+      const clientName = capitalize(job.clientName || 'Client');
+      const providerName = capitalize(user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 'Provider');
+
       const API_URL = 'https://gss-maasin-app.onrender.com/api';
-      
+
       if (clientPhone) {
         fetch(`${API_URL}/sms/work-completed`, {
           method: 'POST',
@@ -391,7 +393,7 @@ export default function ProviderJobDetailsPage() {
           }),
         }).catch(err => console.error('SMS notification failed:', err));
       }
-      
+
       if (clientEmail) {
         fetch(`${API_URL}/email/work-completed`, {
           method: 'POST',
@@ -414,7 +416,7 @@ export default function ProviderJobDetailsPage() {
     const systemFee = Math.round(providerAmount * 0.05); // 5% of provider's amount
     const clientTotal = providerAmount + systemFee; // What client pays
     const providerEarnings = providerAmount; // Provider keeps their full amount
-    
+
     await updateJobStatus('completed', {
       completedAt: serverTimestamp(),
       finalAmount: clientTotal,
@@ -428,7 +430,7 @@ export default function ProviderJobDetailsPage() {
     try {
       const gamificationRef = doc(db, 'gamification', user.uid);
       const clientGamificationRef = doc(db, 'gamification', job.clientId);
-      
+
       // Award provider points (JOB_COMPLETED: 100 points)
       const providerGamDoc = await getDoc(gamificationRef);
       if (providerGamDoc.exists()) {
@@ -466,22 +468,22 @@ export default function ProviderJobDetailsPage() {
           updatedAt: serverTimestamp(),
         });
       }
-      
+
       console.log('Gamification points awarded for job completion');
     } catch (gamError) {
       console.error('Error awarding gamification points:', gamError);
       // Don't fail the job completion if gamification fails
     }
-    
+
     // Send review reminder after 5 minutes (fire and forget)
     setTimeout(() => {
       const clientPhone = job.clientPhone;
       const clientEmail = (job as any).clientEmail;
       const clientName = job.clientName || 'Client';
       const providerName = user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 'Provider';
-      
+
       const API_URL = 'https://gss-maasin-app.onrender.com/api';
-      
+
       if (clientPhone) {
         fetch(`${API_URL}/sms/review-reminder`, {
           method: 'POST',
@@ -494,7 +496,7 @@ export default function ProviderJobDetailsPage() {
           }),
         }).catch(err => console.error('Review reminder SMS failed:', err));
       }
-      
+
       if (clientEmail) {
         fetch(`${API_URL}/email/review-reminder`, {
           method: 'POST',
@@ -621,12 +623,11 @@ export default function ProviderJobDetailsPage() {
                 <ArrowLeft className="w-5 h-5 text-white" />
               </button>
               <div className="flex-1">
-                <span className={`inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full ${
-                  job.status === 'pending' ? 'bg-amber-400/20 text-amber-100' :
-                  job.status === 'completed' ? 'bg-emerald-400/20 text-emerald-100' :
-                  job.status === 'cancelled' || job.status === 'rejected' ? 'bg-red-400/20 text-red-100' :
-                  'bg-white/20 text-white'
-                }`}>
+                <span className={`inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full ${job.status === 'pending' ? 'bg-amber-400/20 text-amber-100' :
+                    job.status === 'completed' ? 'bg-emerald-400/20 text-emerald-100' :
+                      job.status === 'cancelled' || job.status === 'rejected' ? 'bg-red-400/20 text-red-100' :
+                        'bg-white/20 text-white'
+                  }`}>
                   <span className="w-2 h-2 rounded-full bg-current"></span>
                   {statusConfig.label}
                 </span>
@@ -648,17 +649,15 @@ export default function ProviderJobDetailsPage() {
 
           {/* Payment Badge - Escrow System */}
           {(job.paymentStatus || job.paymentPreference) && (
-            <div className={`rounded-2xl p-4 mb-4 flex items-center gap-3 shadow-sm ${
-              job.paymentStatus === 'held' || job.isPaidUpfront 
-                ? 'bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200' 
+            <div className={`rounded-2xl p-4 mb-4 flex items-center gap-3 shadow-sm ${job.paymentStatus === 'held' || job.isPaidUpfront
+                ? 'bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200'
                 : job.paymentStatus === 'released'
-                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200'
-                : 'bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200'
-            }`}>
-              <div className={`p-2 rounded-xl ${
-                job.paymentStatus === 'held' || job.isPaidUpfront ? 'bg-emerald-100' : 
-                job.paymentStatus === 'released' ? 'bg-blue-100' : 'bg-amber-100'
+                  ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200'
+                  : 'bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200'
               }`}>
+              <div className={`p-2 rounded-xl ${job.paymentStatus === 'held' || job.isPaidUpfront ? 'bg-emerald-100' :
+                  job.paymentStatus === 'released' ? 'bg-blue-100' : 'bg-amber-100'
+                }`}>
                 {job.paymentStatus === 'held' || job.isPaidUpfront ? (
                   <CheckCircle className="w-5 h-5 text-emerald-600" />
                 ) : job.paymentStatus === 'released' ? (
@@ -668,14 +667,13 @@ export default function ProviderJobDetailsPage() {
                 )}
               </div>
               <div>
-                <span className={`font-semibold ${
-                  job.paymentStatus === 'held' || job.isPaidUpfront ? 'text-emerald-700' : 
-                  job.paymentStatus === 'released' ? 'text-blue-700' : 'text-amber-700'
-                }`}>
-                  {job.paymentStatus === 'held' ? 'Payment Held in Escrow' : 
-                   job.paymentStatus === 'released' ? 'Payment Released to You' :
-                   job.isPaidUpfront ? 'Client Paid Upfront' : 
-                   'Awaiting Client Payment'}
+                <span className={`font-semibold ${job.paymentStatus === 'held' || job.isPaidUpfront ? 'text-emerald-700' :
+                    job.paymentStatus === 'released' ? 'text-blue-700' : 'text-amber-700'
+                  }`}>
+                  {job.paymentStatus === 'held' ? 'Payment Held in Escrow' :
+                    job.paymentStatus === 'released' ? 'Payment Released to You' :
+                      job.isPaidUpfront ? 'Client Paid Upfront' :
+                        'Awaiting Client Payment'}
                 </span>
                 {job.paymentStatus === 'held' && (
                   <p className="text-xs text-emerald-600 mt-0.5">Released when client confirms completion</p>
@@ -688,11 +686,10 @@ export default function ProviderJobDetailsPage() {
           {(job.status === 'traveling' || job.status === 'arrived') && (
             <Link
               href={`/provider/jobs/${job.id}/tracking`}
-              className={`flex items-center gap-4 p-4 rounded-2xl mb-4 shadow-lg ${
-                job.status === 'traveling' 
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-500 shadow-blue-500/30' 
+              className={`flex items-center gap-4 p-4 rounded-2xl mb-4 shadow-lg ${job.status === 'traveling'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-500 shadow-blue-500/30'
                   : 'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30'
-              }`}
+                }`}
             >
               <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
                 <Navigation className="w-6 h-6 text-white" />
@@ -727,10 +724,10 @@ export default function ProviderJobDetailsPage() {
                 {(job.clientTier || (job.clientPoints && job.clientPoints > 0)) && (
                   <div className="mt-1">
                     {(() => {
-                      const tierDisplay = job.clientTier 
+                      const tierDisplay = job.clientTier
                         ? (job.clientTier.toLowerCase() === 'premium' ? { name: 'Premium', color: 'bg-amber-500' } :
-                           job.clientTier.toLowerCase() === 'vip' ? { name: 'VIP', color: 'bg-blue-500' } :
-                           { name: 'Regular', color: 'bg-gray-400' })
+                          job.clientTier.toLowerCase() === 'vip' ? { name: 'VIP', color: 'bg-blue-500' } :
+                            { name: 'Regular', color: 'bg-gray-400' })
                         : getClientTier(job.clientPoints || 0);
                       return (
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${tierDisplay.color} text-white shadow-sm`}>
@@ -805,7 +802,7 @@ export default function ProviderJobDetailsPage() {
             </div>
           </div>
 
-        {/* Media */}
+          {/* Media */}
           {((job.mediaFiles && job.mediaFiles.length > 0) || (job.mediaUrls && job.mediaUrls.length > 0)) && (
             <div className="bg-white rounded-2xl p-5 shadow-lg shadow-gray-200/50 mb-4 border border-gray-100">
               <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -863,11 +860,10 @@ export default function ProviderJobDetailsPage() {
                 <div key={charge.id} className="flex justify-between items-center text-sm">
                   <span className={charge.status === 'rejected' ? 'text-red-400 line-through' : 'text-gray-500'}>
                     {charge.description}
-                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${
-                      charge.status === 'approved' ? 'bg-emerald-100 text-emerald-600' :
-                      charge.status === 'rejected' ? 'bg-red-100 text-red-600' :
-                      'bg-amber-100 text-amber-600'
-                    }`}>
+                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${charge.status === 'approved' ? 'bg-emerald-100 text-emerald-600' :
+                        charge.status === 'rejected' ? 'bg-red-100 text-red-600' :
+                          'bg-amber-100 text-amber-600'
+                      }`}>
                       {charge.status}
                     </span>
                   </span>
@@ -1004,11 +1000,10 @@ export default function ProviderJobDetailsPage() {
                 <button
                   key={reason}
                   onClick={() => setSelectedCancelReason(reason)}
-                  className={`w-full p-3 rounded-lg text-left border transition-colors ${
-                    selectedCancelReason === reason
+                  className={`w-full p-3 rounded-lg text-left border transition-colors ${selectedCancelReason === reason
                       ? 'border-red-500 bg-red-50 text-red-700'
                       : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   {reason}
                 </button>

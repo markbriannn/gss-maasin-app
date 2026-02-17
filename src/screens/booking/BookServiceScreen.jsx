@@ -46,7 +46,7 @@ const BookServiceScreen = ({ navigation, route }) => {
 
   const displayProviderName = providerName || provider?.name;
   const actualProviderId = providerId || provider?.id;
-  const providerService = provider?.service || '';
+  const providerService = provider?.serviceCategory || provider?.service || '';
   const providerFixedPrice = provider?.fixedPrice || provider?.hourlyRate || 0;
 
   const [serviceCategory, setServiceCategory] = useState(providerService);
@@ -376,7 +376,7 @@ const BookServiceScreen = ({ navigation, route }) => {
         providerId: actualProviderId || null,
         providerName: displayProviderName || null,
         // Pay First ONLY - no cash, no pay later
-        status: 'pending', // Start as pending, will be updated after payment
+        status: 'awaiting_payment', // Start as awaiting_payment - only becomes 'pending' after payment confirmed
         paymentPreference: 'pay_first', // ALWAYS pay first
         paymentMethod: paymentMethod, // gcash or maya
         paymentStatus: 'pending', // pending -> paid -> held -> released
