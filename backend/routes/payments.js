@@ -592,7 +592,136 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
       return res.json({ status: 'paid', message: 'Payment already processed' });
     }
 
-    // Check source status from PayMongo
+    // Handle QRPh (Checkout Session) payments differently
+    if (paymentData.type === 'qrph' || paymentData.sourceId?.startsWith('cs_') || paymentData.checkoutSessionId) {
+      const checkoutId = paymentData.checkoutSessionId || paymentData.sourceId;
+
+      try {
+        // Check checkout session status from PayMongo
+        const sessionResponse = await axios.get(
+          `${PAYMONGO_API}/checkout_sessions/${checkoutId}`,
+          paymongoAuth
+        );
+        const session = sessionResponse.data.data;
+        const sessionStatus = session.attributes.status;
+        const payments = session.attributes.payments || [];
+
+        console.log('Checkout session status for', checkoutId, ':', sessionStatus, 'payments:', payments.length);
+
+        if (sessionStatus === 'active' && payments.length > 0) {
+          // Payment was made through the checkout session
+          const lastPayment = payments[payments.length - 1];
+          const amountInCentavos = lastPayment.attributes?.amount || session.attributes.line_items?.[0]?.amount || 0;
+          const amountInPesos = amountInCentavos / 100;
+
+          // Update payment record
+          await db.collection('payments').doc(paymentDoc.id).update({
+            paymentId: lastPayment.id,
+            status: 'paid',
+            paidAt: new Date(),
+            balanceUpdated: true,
+          });
+
+          // Get booking data
+          const bookingDoc = await db.collection('bookings').doc(bookingId).get();
+          const bookingData = bookingDoc.data();
+          const providerId = bookingData?.providerId;
+          const providerShare = bookingData?.providerPrice || bookingData?.providerFixedPrice || bookingData?.offeredPrice || Math.round(amountInPesos / 1.05);
+          const platformCommission = amountInPesos - providerShare;
+
+          const isPayFirstBooking = bookingData?.paymentPreference === 'pay_first';
+          const isUpfrontPayment = isPayFirstBooking && !bookingData?.isPaidUpfront;
+
+          // Update booking status
+          const bookingUpdate = {
+            paid: true,
+            paymentId: lastPayment.id,
+            paymentMethod: 'qrph',
+            paidAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          if (isUpfrontPayment) {
+            bookingUpdate.isPaidUpfront = true;
+            bookingUpdate.upfrontPaidAmount = amountInPesos;
+            bookingUpdate.upfrontPaidAt = new Date();
+            bookingUpdate.paymentStatus = 'held';
+            if (bookingData?.status === 'pending_payment') {
+              bookingUpdate.status = 'accepted';
+            }
+          } else if (isPayFirstBooking && bookingData?.isPaidUpfront) {
+            if (bookingData?.status === 'pending_payment' || bookingData?.status === 'pending_completion') {
+              bookingUpdate.status = 'payment_received';
+            }
+          } else {
+            bookingUpdate.status = 'payment_received';
+          }
+
+          await db.collection('bookings').doc(bookingId).update(bookingUpdate);
+
+          // Check if transaction already exists
+          const existingTx = await db.collection('transactions')
+            .where('bookingId', '==', bookingId)
+            .where('type', '==', 'payment')
+            .get();
+
+          if (existingTx.empty) {
+            await db.collection('transactions').add({
+              bookingId,
+              clientId: paymentData.userId,
+              providerId: providerId,
+              type: 'payment',
+              amount: amountInPesos,
+              providerShare,
+              platformCommission,
+              paymentMethod: 'qrph',
+              status: 'completed',
+              createdAt: new Date(),
+            });
+
+            if (providerId) {
+              const providerRef = db.collection('users').doc(providerId);
+              const providerDoc = await providerRef.get();
+              const currentBalance = providerDoc.data()?.availableBalance || 0;
+              const currentEarnings = providerDoc.data()?.totalEarnings || 0;
+
+              await providerRef.update({
+                availableBalance: currentBalance + providerShare,
+                totalEarnings: currentEarnings + providerShare,
+                updatedAt: new Date(),
+              });
+            }
+          }
+
+          console.log(`QRPh payment verified: ₱${amountInPesos} for booking ${bookingId}`);
+          return res.json({ status: 'paid', message: 'QRPh payment processed successfully' });
+        } else if (sessionStatus === 'expired') {
+          await db.collection('payments').doc(paymentDoc.id).update({
+            status: 'failed',
+            failedAt: new Date(),
+          });
+          return res.json({ status: 'failed', message: 'Checkout session expired' });
+        } else {
+          // Still pending - check our own Firestore payment record as fallback
+          // The webhook may have already processed it
+          const freshPaymentDoc = await db.collection('payments').doc(paymentDoc.id).get();
+          if (freshPaymentDoc.data()?.status === 'paid') {
+            return res.json({ status: 'paid', message: 'Payment already processed via webhook' });
+          }
+          return res.json({ status: 'pending', message: 'Payment still pending' });
+        }
+      } catch (checkoutError) {
+        console.error('Error checking checkout session:', checkoutError.response?.data || checkoutError.message);
+        // Fallback: check our local payment record
+        const freshPaymentDoc = await db.collection('payments').doc(paymentDoc.id).get();
+        if (freshPaymentDoc.data()?.status === 'paid') {
+          return res.json({ status: 'paid', message: 'Payment already processed' });
+        }
+        return res.json({ status: 'pending', message: 'Unable to verify checkout status, please wait' });
+      }
+    }
+
+    // Check source status from PayMongo (GCash/Maya)
     const sourceResponse = await axios.get(
       `${PAYMONGO_API}/sources/${paymentData.sourceId}`,
       paymongoAuth
