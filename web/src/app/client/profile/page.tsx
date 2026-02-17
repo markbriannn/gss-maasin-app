@@ -7,7 +7,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ClientLayout from '@/components/layouts/ClientLayout';
 import Image from 'next/image';
-import { 
+import {
   User, Trophy, Clock, CreditCard, Heart, Bell, HelpCircle, FileText, Info,
   ChevronRight, LogOut, MapPin, Star, Award, Settings, Shield, Sparkles, Crown, Zap
 } from 'lucide-react';
@@ -117,13 +117,13 @@ export default function ProfilePage() {
 
   return (
     <ClientLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900">
         {/* Premium Profile Header */}
         <div className="bg-gradient-to-br from-emerald-500 via-green-500 to-teal-600 relative overflow-hidden">
           {/* Decorative elements */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
-          
+
           <div className="relative max-w-2xl mx-auto px-4 py-8">
             {/* Settings Button */}
             <button
@@ -218,19 +218,18 @@ export default function ProfilePage() {
               <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">
                 {section.title}
               </h3>
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
                 {section.items.map((item, index) => (
                   <button
                     key={item.title}
                     onClick={() => router.push(item.path)}
-                    className={`w-full flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors ${
-                      index !== section.items.length - 1 ? 'border-b border-gray-100' : ''
-                    }`}
+                    className={`w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${index !== section.items.length - 1 ? 'border-b border-gray-100 dark:border-gray-700' : ''
+                      }`}
                   >
                     <div className={`w-11 h-11 ${item.bg} rounded-xl flex items-center justify-center`}>
                       <item.icon className={`w-5 h-5 ${item.color}`} />
                     </div>
-                    <span className="flex-1 text-left text-gray-900 font-medium">{item.title}</span>
+                    <span className="flex-1 text-left text-gray-900 dark:text-white font-medium">{item.title}</span>
                     <ChevronRight className="w-5 h-5 text-gray-300" />
                   </button>
                 ))}
@@ -242,7 +241,7 @@ export default function ProfilePage() {
           <div className="pt-2">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-4 p-4 bg-white rounded-2xl shadow-lg border border-red-100 hover:bg-red-50 transition-colors"
+              className="w-full flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-red-100 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
             >
               <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center">
                 <LogOut className="w-5 h-5 text-red-500" />

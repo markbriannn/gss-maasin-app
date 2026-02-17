@@ -6,17 +6,17 @@ import { useAuth } from '@/context/AuthContext';
 import { doc, getDoc, addDoc, collection, serverTimestamp, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { sendBookingConfirmation } from '@/lib/email';
-import { createPaymentSource, PaymentMethod } from '@/lib/paymongo';
+import { processPayment, PaymentMethod } from '@/lib/paymongo';
 import { pushNotifications } from '@/lib/pushNotifications';
 import ClientLayout from '@/components/layouts/ClientLayout';
 import Link from 'next/link';
 import Image from 'next/image';
-import { 
+import {
   ArrowLeft, User, MapPin, FileText, Camera, X, Star, Shield,
   CreditCard, Loader2, CheckCircle, Clock, AlertCircle, Play,
   Sparkles, ChevronRight, Upload, ImagePlus, Video, Wallet,
   BadgeCheck, Calendar, MessageSquare, Phone, Navigation, Home,
-  Building, Flag, Receipt, Info, ArrowRight, Check, Zap
+  Building, Flag, Receipt, Info, ArrowRight, Check, Zap, QrCode
 } from 'lucide-react';
 
 interface ProviderData {
@@ -80,7 +80,7 @@ function BookServiceContent() {
 
   // Form state
   const [additionalNotes, setAdditionalNotes] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gcash');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('qrph');
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -194,7 +194,7 @@ function BookServiceContent() {
         where('status', 'in', activeStatuses)
       );
       const existingBookingsSnap = await getDocs(existingBookingsQuery);
-      
+
       if (!existingBookingsSnap.empty) {
         alert(`You already have an active booking with ${provider.firstName} ${provider.lastName}. Please wait for it to complete or cancel it before booking again.`);
         return;
@@ -270,8 +270,8 @@ function BookServiceContent() {
 
       // Now redirect to payment
       setProcessingPayment(true);
-      
-      const paymentResult = await createPaymentSource({
+
+      const paymentResult = await processPayment({
         amount: totalAmount,
         description: `${provider.serviceCategory} Service - ${provider.firstName} ${provider.lastName}`,
         bookingId: newBookingId,
@@ -280,9 +280,9 @@ function BookServiceContent() {
         paymentMethod: paymentMethod,
       });
 
-      if (paymentResult.success && paymentResult.checkoutUrl) {
+      if (paymentResult.success && paymentResult.redirectUrl) {
         // Redirect to PayMongo checkout
-        window.location.href = paymentResult.checkoutUrl;
+        window.location.href = paymentResult.redirectUrl;
       } else {
         alert('Failed to process payment: ' + (paymentResult.error || 'Unknown error'));
         setProcessingPayment(false);
@@ -319,7 +319,7 @@ function BookServiceContent() {
             {/* Success Animation */}
             <div className="bg-white rounded-3xl shadow-2xl shadow-green-100 p-8 text-center relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#00B14F] via-emerald-400 to-teal-500" />
-              
+
               {/* Confetti Effect */}
               <div className="absolute inset-0 pointer-events-none">
                 {[...Array(20)].map((_, i) => (
@@ -341,7 +341,7 @@ function BookServiceContent() {
                 <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-200 animate-pulse">
                   <CheckCircle className="w-12 h-12 text-white" />
                 </div>
-                
+
                 <h2 className="text-3xl font-bold text-gray-900 mb-2">Request Submitted!</h2>
                 <p className="text-gray-500 mb-6">Your booking is pending admin approval</p>
 
@@ -503,9 +503,8 @@ function BookServiceContent() {
                   onDragOver={handleDrag}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
-                  className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
-                    dragActive ? 'border-[#00B14F] bg-green-50' : mediaFiles.length === 0 ? 'border-red-300 bg-red-50/50 hover:border-red-400' : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                  }`}
+                  className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${dragActive ? 'border-[#00B14F] bg-green-50' : mediaFiles.length === 0 ? 'border-red-300 bg-red-50/50 hover:border-red-400' : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                    }`}
                 >
                   <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center ${dragActive ? 'bg-green-100' : mediaFiles.length === 0 ? 'bg-red-100' : 'bg-gray-100'}`}>
                     <Upload className={`w-8 h-8 ${dragActive ? 'text-green-600' : mediaFiles.length === 0 ? 'text-red-500' : 'text-gray-400'}`} />
@@ -514,7 +513,7 @@ function BookServiceContent() {
                     {dragActive ? 'Drop files here' : 'Drag & drop or click to upload'}
                   </p>
                   <p className="text-sm text-gray-500">Up to 5 photos or videos • Max 50MB each</p>
-                  
+
                   <div className="flex items-center justify-center gap-4 mt-4">
                     <div className="flex items-center gap-2 text-sm text-gray-500">
                       <ImagePlus className="w-4 h-4" />
@@ -623,14 +622,32 @@ function BookServiceContent() {
                 </div>
 
                 <p className="text-sm font-medium text-gray-700 mb-3">Select Payment Method</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    onClick={() => setPaymentMethod('qrph')}
+                    className={`relative p-4 rounded-2xl border-2 text-center transition-all ${paymentMethod === 'qrph'
+                        ? 'border-violet-500 bg-violet-50 shadow-lg shadow-violet-100'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                  >
+                    {paymentMethod === 'qrph' && (
+                      <div className="absolute top-2 right-2 w-5 h-5 bg-violet-500 rounded-full flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                    <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-2">
+                      <QrCode className="w-6 h-6 text-white" />
+                    </div>
+                    <p className={`font-semibold text-sm ${paymentMethod === 'qrph' ? 'text-violet-600' : 'text-gray-900'}`}>QR Ph</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Scan to Pay</p>
+                  </button>
+
                   <button
                     onClick={() => setPaymentMethod('gcash')}
-                    className={`relative p-4 rounded-2xl border-2 text-center transition-all ${
-                      paymentMethod === 'gcash'
+                    className={`relative p-4 rounded-2xl border-2 text-center transition-all ${paymentMethod === 'gcash'
                         ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     {paymentMethod === 'gcash' && (
                       <div className="absolute top-2 right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
@@ -640,16 +657,15 @@ function BookServiceContent() {
                     <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center mx-auto mb-2">
                       <span className="text-white font-bold text-lg">G</span>
                     </div>
-                    <p className={`font-semibold ${paymentMethod === 'gcash' ? 'text-blue-600' : 'text-gray-900'}`}>GCash</p>
+                    <p className={`font-semibold text-sm ${paymentMethod === 'gcash' ? 'text-blue-600' : 'text-gray-900'}`}>GCash</p>
                   </button>
 
                   <button
                     onClick={() => setPaymentMethod('maya')}
-                    className={`relative p-4 rounded-2xl border-2 text-center transition-all ${
-                      paymentMethod === 'maya'
+                    className={`relative p-4 rounded-2xl border-2 text-center transition-all ${paymentMethod === 'maya'
                         ? 'border-green-500 bg-green-50 shadow-lg shadow-green-100'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     {paymentMethod === 'maya' && (
                       <div className="absolute top-2 right-2 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
@@ -659,14 +675,17 @@ function BookServiceContent() {
                     <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center mx-auto mb-2">
                       <span className="text-white font-bold text-lg">M</span>
                     </div>
-                    <p className={`font-semibold ${paymentMethod === 'maya' ? 'text-green-600' : 'text-gray-900'}`}>Maya</p>
+                    <p className={`font-semibold text-sm ${paymentMethod === 'maya' ? 'text-green-600' : 'text-gray-900'}`}>Maya</p>
                   </button>
                 </div>
 
                 <div className="mt-4 p-4 bg-amber-50 rounded-xl flex gap-3">
                   <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-amber-800">
-                    You&apos;ll be redirected to {paymentMethod === 'gcash' ? 'GCash' : 'Maya'} to complete payment. 
+                    {paymentMethod === 'qrph'
+                      ? 'You\'ll be shown a QR code to scan with any banking or e-wallet app (GCash, Maya, BPI, etc.).'
+                      : `You'll be redirected to ${paymentMethod === 'gcash' ? 'GCash' : 'Maya'} to complete payment.`
+                    }{' '}
                     Money will be held until the provider completes the job and you confirm.
                   </p>
                 </div>
@@ -733,7 +752,7 @@ function BookServiceContent() {
                       <span className="font-semibold">Price Summary</span>
                     </div>
                   </div>
-                  
+
                   <div className="p-5 space-y-4">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Service Price</span>
@@ -746,7 +765,7 @@ function BookServiceContent() {
                       </div>
                       <span className="font-semibold text-gray-900">₱{getSystemFee().toLocaleString()}</span>
                     </div>
-                    
+
                     <div className="border-t border-gray-100 pt-4">
                       <div className="flex justify-between items-center">
                         <span className="font-bold text-gray-900">Total</span>

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --primary: #00B14F;
   --primary-dark: #009940;
@@ -7,10 +9,28 @@
   --warning: #F59E0B;
   --danger: #EF4444;
   --success: #10B981;
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F9FAFB;
+  --bg-card: #FFFFFF;
+  --text-primary: #1F2937;
+  --text-secondary: #6B7280;
+  --border-color: #E5E7EB;
+}
+
+.dark {
+  --bg-primary: #111827;
+  --bg-secondary: #1F2937;
+  --bg-card: #1F2937;
+  --text-primary: #F9FAFB;
+  --text-secondary: #9CA3AF;
+  --border-color: #374151;
 }
 
 body {
   font-family: 'Inter', sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Custom scrollbar */
@@ -33,6 +53,18 @@ body {
   background: #a1a1a1;
 }
 
+.dark ::-webkit-scrollbar-track {
+  background: #1F2937;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #4B5563;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #6B7280;
+}
+
 /* Loading spinner */
 .spinner {
   border: 3px solid #f3f3f3;
@@ -44,8 +76,13 @@ body {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Fix Leaflet map z-index issues */
@@ -82,6 +119,7 @@ body {
     transform: translateY(100%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -98,6 +136,7 @@ body {
     transform: scale(0.9);
     opacity: 0;
   }
+
   to {
     transform: scale(1);
     opacity: 1;
@@ -110,8 +149,15 @@ body {
 
 /* Fade in */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade-in {
@@ -120,8 +166,13 @@ body {
 
 /* Shimmer loading skeleton */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .skeleton-shimmer {
@@ -132,9 +183,17 @@ body {
 
 /* Pulse ring for online indicators */
 @keyframes pulseRing {
-  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
-  70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+  }
+
+  70% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
 }
 
 .animate-pulse-ring {
@@ -143,8 +202,15 @@ body {
 
 /* Floating animation for empty states */
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 .animate-float {
@@ -155,6 +221,7 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -174,10 +241,18 @@ body {
   -webkit-backdrop-filter: blur(16px);
 }
 
+.dark .glass {
+  background: rgba(17, 24, 39, 0.85);
+}
+
 .glass-strong {
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
+}
+
+.dark .glass-strong {
+  background: rgba(17, 24, 39, 0.92);
 }
 
 /* Bounce on tap */
@@ -189,4 +264,145 @@ body {
 /* Bottom tab bar safe area */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 8px);
+}
+
+/* ===== Map Animation Keyframes (Grab/iOS-style) ===== */
+
+/* Provider marker bounce-in with overshoot */
+@keyframes markerBounceIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+
+  70% {
+    transform: scale(0.92);
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.marker-bounce-in {
+  animation: markerBounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Staggered bounce delays for multiple markers */
+.marker-delay-1 {
+  animation-delay: 0.05s;
+}
+
+.marker-delay-2 {
+  animation-delay: 0.1s;
+}
+
+.marker-delay-3 {
+  animation-delay: 0.15s;
+}
+
+.marker-delay-4 {
+  animation-delay: 0.2s;
+}
+
+.marker-delay-5 {
+  animation-delay: 0.25s;
+}
+
+/* User location radar pulse (Grab-style expanding ring) */
+@keyframes radarPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0.6;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(2.5);
+    opacity: 0;
+  }
+}
+
+.user-location-pulse {
+  position: relative;
+}
+
+.user-location-pulse::before,
+.user-location-pulse::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #3B82F6;
+  background: transparent;
+  animation: radarPulse 2s ease-out infinite;
+}
+
+.user-location-pulse::after {
+  animation-delay: 1s;
+}
+
+/* Selected provider marker glow */
+@keyframes markerGlow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 177, 79, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px rgba(0, 177, 79, 0);
+  }
+}
+
+.marker-selected-glow {
+  animation: markerGlow 2s ease-in-out infinite;
+}
+
+/* Provider marker hover lift */
+.provider-marker-container {
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s ease;
+  cursor: pointer;
+}
+
+.provider-marker-container:hover {
+  transform: scale(1.12) translateY(-2px);
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+}
+
+/* Online indicator pulse on map markers */
+@keyframes onlinePulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.4);
+    opacity: 0.7;
+  }
+}
+
+.online-indicator-map {
+  animation: onlinePulse 2s ease-in-out infinite;
+}
+
+/* Custom Leaflet marker overrides for clean look */
+.custom-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.leaflet-marker-icon.custom-marker {
+  transition: transform 0.2s ease;
 }

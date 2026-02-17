@@ -264,8 +264,9 @@ export default function ClientDashboard() {
             barangay: data.barangay,
             bio: data.bio,
             providerStatus: data.providerStatus,
-            latitude: data.latitude,
-            longitude: data.longitude,
+            // Fallback to Maasin City center with small random offset so providers without coordinates still show on map
+            latitude: data.latitude || (10.1335 + (Math.random() - 0.5) * 0.008),
+            longitude: data.longitude || (124.8513 + (Math.random() - 0.5) * 0.008),
             distance: distance !== null ? parseFloat(distance.toFixed(1)) : null,
             completedJobs: data.completedJobs || 0,
             fixedPrice: data.fixedPrice || data.hourlyRate || 0,
@@ -467,7 +468,7 @@ export default function ClientDashboard() {
               placeholder="Search providers, services..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 outline-none text-sm bg-transparent text-gray-800 placeholder:text-gray-400"
+              className="flex-1 outline-none text-sm bg-transparent text-gray-800 dark:text-gray-200 placeholder:text-gray-400"
             />
             {searchQuery && (
               <button onClick={() => setSearchQuery('')} className="p-1 hover:bg-gray-100 rounded-full transition-colors">
@@ -488,7 +489,7 @@ export default function ClientDashboard() {
                   onClick={() => handleCategorySelect(category.id)}
                   className={`tap-bounce flex items-center gap-2 px-4 py-2.5 rounded-2xl whitespace-nowrap transition-all duration-200 ${isActive
                     ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30 scale-[1.02]'
-                    : 'glass-strong text-gray-700 shadow-md shadow-black/5 border border-white/60 hover:shadow-lg hover:scale-[1.02]'
+                    : 'glass-strong text-gray-700 dark:text-gray-200 shadow-md shadow-black/5 border border-white/60 dark:border-gray-600/60 hover:shadow-lg hover:scale-[1.02]'
                     }`}
                 >
                   <span className="text-lg">{category.emoji}</span>
@@ -532,7 +533,7 @@ export default function ClientDashboard() {
                   onClick={() => setActiveFilter(filter.id)}
                   className={`tap-bounce flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold whitespace-nowrap transition-all duration-200 ${activeFilter === filter.id
                     ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25'
-                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-100'
+                    : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-100 dark:border-gray-700'
                     }`}
                 >
                   {filter.icon}
@@ -543,7 +544,7 @@ export default function ClientDashboard() {
 
             {/* Provider Count */}
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-bold text-gray-900">Available Providers</h2>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Available Providers</h2>
               <div className="flex items-center gap-1.5 text-sm text-emerald-600 font-semibold bg-gradient-to-r from-emerald-50 to-teal-50 px-3 py-1.5 rounded-full border border-emerald-100">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse-ring" />
                 {filteredProviders.length} online
@@ -582,7 +583,7 @@ export default function ClientDashboard() {
                       onClick={() => handleProviderSelectFromList(provider)}
                       className={`group rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden animate-fade-in ${isSelected
                         ? 'border-emerald-400 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-lg shadow-emerald-500/15 ring-1 ring-emerald-400/30'
-                        : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-md hover:-translate-y-0.5'
+                        : 'border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-200 dark:hover:border-gray-600 hover:shadow-md hover:-translate-y-0.5'
                         }`}
                     >
                       {isTopPick && (
@@ -611,7 +612,7 @@ export default function ClientDashboard() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-gray-900 text-xs truncate">{provider.firstName}</h3>
+                            <h3 className="font-bold text-gray-900 dark:text-white text-xs truncate">{provider.firstName}</h3>
                             <p className="text-[11px] text-emerald-600 font-medium truncate">
                               {categoryData?.emoji} {provider.serviceCategory || 'Service'}
                             </p>
@@ -654,8 +655,8 @@ export default function ClientDashboard() {
                 <div className="w-24 h-24 bg-gradient-to-br from-gray-50 to-gray-100 rounded-3xl flex items-center justify-center mx-auto mb-5 animate-float">
                   <User className="w-12 h-12 text-gray-300" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">No providers available</h3>
-                <p className="text-gray-500 text-sm max-w-xs mx-auto">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">No providers available</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm max-w-xs mx-auto">
                   {searchQuery ? `No results for "${searchQuery}"` : 'No providers online in your area right now'}
                 </p>
                 {searchQuery && (
@@ -681,8 +682,8 @@ export default function ClientDashboard() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900 truncate">{selectedProvider.firstName} {selectedProvider.lastName}</p>
-                  <p className="text-sm text-gray-500">{selectedProvider.estimatedArrival} away • {selectedProvider.serviceCategory}</p>
+                  <p className="font-bold text-gray-900 dark:text-white truncate">{selectedProvider.firstName} {selectedProvider.lastName}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{selectedProvider.estimatedArrival} away • {selectedProvider.serviceCategory}</p>
                 </div>
                 <div className="text-right">
                   {selectedProvider.fixedPrice && selectedProvider.fixedPrice > 0 && (
@@ -724,11 +725,11 @@ export default function ClientDashboard() {
           />
 
           {/* Modal Content */}
-          <div className="relative bg-white rounded-3xl w-full max-w-md p-6 animate-scale-up shadow-2xl shadow-black/20 border border-gray-100">
+          <div className="relative bg-white dark:bg-gray-800 rounded-3xl w-full max-w-md p-6 animate-scale-up shadow-2xl shadow-black/20 border border-gray-100 dark:border-gray-700 transition-colors duration-300">
             {/* Close Button */}
             <button
               onClick={() => setShowProviderModal(false)}
-              className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="absolute top-4 right-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
             >
               <X className="w-5 h-5 text-gray-500" />
             </button>
@@ -756,7 +757,7 @@ export default function ClientDashboard() {
                       )}
                     </div>
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900">{selectedProvider.firstName} {selectedProvider.lastName}</h3>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">{selectedProvider.firstName} {selectedProvider.lastName}</h3>
                   <div className="flex items-center justify-center gap-2 text-gray-500 mt-1">
                     <span>{selectedProvider.serviceCategory}</span>
                     <span>•</span>
@@ -768,10 +769,10 @@ export default function ClientDashboard() {
                 </div>
 
                 {/* Booking Details */}
-                <div className="bg-gray-50 rounded-2xl p-4 mb-4">
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl p-4 mb-4">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm text-gray-500">Total Amount</span>
-                    <span className="text-2xl font-bold text-gray-900">₱{activeBooking.totalAmount.toLocaleString()}</span>
+                    <span className="text-2xl font-bold text-gray-900 dark:text-white">₱{activeBooking.totalAmount.toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">Service</span>
@@ -849,7 +850,7 @@ export default function ClientDashboard() {
                   }}
                   className="block w-full text-center hover:text-emerald-600 transition-colors"
                 >
-                  <h3 className="text-xl font-bold text-gray-900">{selectedProvider.firstName} {selectedProvider.lastName}</h3>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">{selectedProvider.firstName} {selectedProvider.lastName}</h3>
                 </button>
 
                 {/* Service & Rating */}
@@ -861,7 +862,7 @@ export default function ClientDashboard() {
                   <span className="text-gray-300">|</span>
                   <div className="flex items-center gap-1">
                     <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
-                    <span className="font-semibold text-gray-900">{selectedProvider.rating?.toFixed(1) || '0.0'}</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{selectedProvider.rating?.toFixed(1) || '0.0'}</span>
                     <span className="text-gray-500 text-sm">({selectedProvider.reviewCount || 0})</span>
                   </div>
                 </div>
@@ -876,13 +877,13 @@ export default function ClientDashboard() {
 
                 {/* Distance & Time - Pill badges */}
                 <div className="flex items-center justify-center gap-3 mb-4">
-                  <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-xl">
+                  <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 px-4 py-2 rounded-xl">
                     <Navigation className="w-4 h-4 text-emerald-500" />
-                    <span className="text-sm font-medium text-gray-700">{selectedProvider.distance?.toFixed(1) || '0'} km</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{selectedProvider.distance?.toFixed(1) || '0'} km</span>
                   </div>
-                  <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-xl">
+                  <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 px-4 py-2 rounded-xl">
                     <Clock className="w-4 h-4 text-emerald-500" />
-                    <span className="text-sm font-medium text-gray-700">{selectedProvider.estimatedArrival}</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{selectedProvider.estimatedArrival}</span>
                   </div>
                 </div>
 

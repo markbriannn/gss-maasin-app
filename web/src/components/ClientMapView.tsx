@@ -13,6 +13,7 @@ interface Provider {
   profilePhoto?: string;
   latitude?: number;
   longitude?: number;
+  isOnline?: boolean;
 }
 
 interface ClientMapViewProps {
@@ -23,59 +24,154 @@ interface ClientMapViewProps {
   selectedProviderId?: string | null;
 }
 
-// Blue marker for user location
-const userIcon = new L.Icon({
-  iconUrl: 'data:image/svg+xml;base64,' + btoa(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32">
-      <circle fill="#3B82F6" cx="12" cy="12" r="8" stroke="white" stroke-width="3"/>
-    </svg>
-  `),
+// Animated user location icon with pulse ring (Grab-style)
+const userIcon = L.divIcon({
+  className: 'custom-marker user-location-pulse',
+  html: `
+    <div style="position: relative; width: 32px; height: 32px;">
+      <div style="
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: rgba(59, 130, 246, 0.12);
+        border: 1.5px solid rgba(59, 130, 246, 0.25);
+        animation: radarPulse 2s ease-out infinite;
+      "></div>
+      <div style="
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: rgba(59, 130, 246, 0.08);
+        border: 1.5px solid rgba(59, 130, 246, 0.15);
+        animation: radarPulse 2s ease-out infinite 1s;
+      "></div>
+      <div style="
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #3B82F6;
+        border: 3px solid white;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+      "></div>
+    </div>
+  `,
   iconSize: [32, 32],
   iconAnchor: [16, 16],
 });
 
-// Create provider marker with photo or initial
-const createProviderIcon = (initial: string, profilePhoto?: string) => {
+// Create provider marker with Grab/iOS-style design
+const createProviderIcon = (initial: string, profilePhoto?: string, isSelected: boolean = false, isOnline: boolean = true, index: number = 0) => {
+  const selectedClass = isSelected ? 'marker-selected-glow' : '';
+  const borderColor = isSelected ? '#00B14F' : (isOnline ? '#00B14F' : '#E5E7EB');
+  const borderWidth = isSelected ? '3.5px' : '3px';
+  const scale = isSelected ? 'scale(1.1)' : 'scale(1)';
+  const shadow = isSelected
+    ? '0 4px 12px rgba(0, 177, 79, 0.35)'
+    : '0 2px 8px rgba(0,0,0,0.15)';
+
+  const onlineDot = isOnline ? `
+    <div style="
+      position: absolute;
+      bottom: -1px;
+      right: -1px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #00B14F;
+      border: 2.5px solid white;
+      z-index: 2;
+    " class="online-indicator-map"></div>
+  ` : '';
+
+  const selectedRing = isSelected ? `
+    <div style="
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: rgba(0, 177, 79, 0.12);
+      border: 2px solid rgba(0, 177, 79, 0.25);
+    "></div>
+  ` : '';
+
   if (profilePhoto) {
     return L.divIcon({
       className: 'custom-marker',
       html: `
-        <div style="
-          width: 44px;
-          height: 44px;
-          border-radius: 50%;
-          border: 3px solid #FFFFFF;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-          overflow: hidden;
-          background-color: #00B14F;
-        ">
-          <img 
-            src="${profilePhoto}" 
-            style="width: 100%; height: 100%; object-fit: cover;"
-            onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:white;font-weight:bold;font-size:18px;\\'>${initial}</div>'"
-          />
+        <div class="provider-marker-container" style="position: relative; display: flex; align-items: center; justify-content: center; width: 64px; height: 64px;">
+          ${selectedRing}
+          <div class="${selectedClass}" style="
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: ${borderWidth} solid ${borderColor};
+            box-shadow: ${shadow};
+            overflow: hidden;
+            background-color: #FFF;
+            transform: ${scale};
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+          ">
+            <img
+              src="${profilePhoto}"
+              style="width: 100%; height: 100%; object-fit: cover;"
+              onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:#00B14F;font-weight:800;font-size:18px;background:#F0FDF4;\\'>${initial}</div>'"
+            />
+          </div>
+          ${onlineDot}
         </div>
       `,
-      iconSize: [44, 44],
-      iconAnchor: [22, 22],
-      popupAnchor: [0, -22],
+      iconSize: [64, 64],
+      iconAnchor: [32, 32],
+      popupAnchor: [0, -32],
     });
   }
-  
-  return new L.Icon({
-    iconUrl: 'data:image/svg+xml;base64,' + btoa(`
-      <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
-        <circle cx="22" cy="22" r="20" fill="#00B14F" stroke="#FFFFFF" stroke-width="3"/>
-        <text x="22" y="28" text-anchor="middle" fill="white" font-size="18" font-weight="bold">${initial}</text>
-      </svg>
-    `),
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
-    popupAnchor: [0, -22],
+
+  return L.divIcon({
+    className: 'custom-marker',
+    html: `
+      <div class="provider-marker-container" style="position: relative; display: flex; align-items: center; justify-content: center; width: 64px; height: 64px;">
+        ${selectedRing}
+        <div class="${selectedClass}" style="
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          border: ${borderWidth} solid ${borderColor};
+          box-shadow: ${shadow};
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #F0FDF4;
+          transform: ${scale};
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        ">
+          <span style="font-size: 18px; font-weight: 800; color: #00B14F;">${initial}</span>
+        </div>
+        ${onlineDot}
+      </div>
+    `,
+    iconSize: [64, 64],
+    iconAnchor: [32, 32],
+    popupAnchor: [0, -32],
   });
 };
 
-// Component to recenter map
+// Component to recenter map with smooth animation
 function MapController({ center }: { center: { lat: number; lng: number } }) {
   const map = useMap();
   const prevCenter = useRef(center);
@@ -91,9 +187,13 @@ function MapController({ center }: { center: { lat: number; lng: number } }) {
 
     const latDiff = Math.abs(center.lat - prevCenter.current.lat);
     const lngDiff = Math.abs(center.lng - prevCenter.current.lng);
-    
+
     if (latDiff > 0.001 || lngDiff > 0.001) {
-      map.setView([center.lat, center.lng], map.getZoom());
+      // Smooth fly-to animation (iOS-like)
+      map.flyTo([center.lat, center.lng], map.getZoom(), {
+        duration: 0.8,
+        easeLinearity: 0.25,
+      });
       prevCenter.current = center;
     }
   }, [center, map]);
@@ -110,7 +210,7 @@ async function fetchRoute(
     const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
     const response = await fetch(url);
     const data = await response.json();
-    
+
     if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates) {
       // OSRM returns [lng, lat], we need [lat, lng] for Leaflet
       return data.routes[0].geometry.coordinates.map(
@@ -134,17 +234,22 @@ export default function ClientMapView({ providers, userLocation, center, onProvi
     setIsMounted(true);
     return () => setIsMounted(false);
   }, []);
-  
-  // Memoize provider icons
+
+  // Memoize provider icons - now includes selected state and index for staggered animation
   const providerIcons = useMemo(() => {
-    const icons: Record<string, L.Icon | L.DivIcon> = {};
-    providers.forEach(p => {
-      if (!icons[p.id]) {
-        icons[p.id] = createProviderIcon(p.firstName?.[0] || 'P', p.profilePhoto);
-      }
+    const icons: Record<string, L.DivIcon> = {};
+    providers.forEach((p, index) => {
+      const isSelected = selectedProviderId === p.id;
+      icons[p.id] = createProviderIcon(
+        p.firstName?.[0] || 'P',
+        p.profilePhoto,
+        isSelected,
+        p.isOnline !== false,
+        index
+      );
     });
     return icons;
-  }, [providers]);
+  }, [providers, selectedProviderId]);
 
   // Get selected provider for route
   const selectedProvider = useMemo(() => {
@@ -199,38 +304,67 @@ export default function ClientMapView({ providers, userLocation, center, onProvi
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <MapController center={center} />
-      
-      {/* Route line following actual roads */}
+
+      {/* Route lines - Grab-style with glow effect */}
       {routeCoordinates && routeCoordinates.length > 0 && (
-        <Polyline
-          positions={routeCoordinates}
-          pathOptions={{
-            color: '#3B82F6',
-            weight: 5,
-            opacity: 0.8,
-          }}
-        />
+        <>
+          {/* Shadow/glow line underneath */}
+          <Polyline
+            positions={routeCoordinates}
+            pathOptions={{
+              color: 'rgba(59, 130, 246, 0.2)',
+              weight: 10,
+              opacity: 0.8,
+            }}
+          />
+          {/* Main route line */}
+          <Polyline
+            positions={routeCoordinates}
+            pathOptions={{
+              color: '#3B82F6',
+              weight: 5,
+              opacity: 0.9,
+            }}
+          />
+        </>
       )}
-      
-      {/* User location marker */}
+
+      {/* User location marker with animated pulse */}
       {userLocation && (
         <>
           <Marker position={[userLocation.lat, userLocation.lng]} icon={userIcon}>
             <Popup>Your Location</Popup>
           </Marker>
+          {/* Outer radius circle */}
           <Circle
             center={[userLocation.lat, userLocation.lng]}
             radius={300}
-            pathOptions={{ color: '#3B82F6', fillColor: '#3B82F6', fillOpacity: 0.1, weight: 2 }}
+            pathOptions={{
+              color: 'rgba(59, 130, 246, 0.2)',
+              fillColor: 'rgba(59, 130, 246, 0.06)',
+              fillOpacity: 0.6,
+              weight: 1.5,
+            }}
+          />
+          {/* Inner radius circle */}
+          <Circle
+            center={[userLocation.lat, userLocation.lng]}
+            radius={100}
+            pathOptions={{
+              color: 'rgba(59, 130, 246, 0.3)',
+              fillColor: 'rgba(59, 130, 246, 0.1)',
+              fillOpacity: 0.8,
+              weight: 1.5,
+            }}
           />
         </>
       )}
-      
-      {/* Provider markers */}
+
+      {/* Provider markers with animated bounce-in */}
       {providers.map((provider) => {
         if (!provider.latitude || !provider.longitude) return null;
         const isSelected = selectedProviderId === provider.id;
-        
+
         return (
           <Marker
             key={provider.id}
@@ -246,7 +380,7 @@ export default function ClientMapView({ providers, userLocation, center, onProvi
             }}
           >
             <Popup closeOnClick={true} autoClose={true}>
-              <div 
+              <div
                 className="text-center cursor-pointer min-w-[120px]"
                 onClick={() => onProviderClick(provider.id)}
               >

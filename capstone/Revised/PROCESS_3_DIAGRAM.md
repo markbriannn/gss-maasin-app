@@ -1,77 +1,77 @@
-# PROCESS 8: PROVIDER RESPONSE
+# PROCESS 3: ADMIN VERIFICATION
 
-## Level 1 DFD - Provider Response
+## Level 1 DFD - Admin Verification of Provider
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                          PROCESS 8: PROVIDER RESPONSE                                    │
+│                          PROCESS 3: ADMIN VERIFICATION                                   │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 
     ┌──────────────┐                                                    
     │              │                                                    
-    │   PROVIDER   │                                                    
+    │    ADMIN     │                                                    
     │              │                                                    
     └──────┬───────┘                                                    
            │                                                            
-           │ View Job Request                                           
+           │ View Pending Providers                                     
            │                                                            
            ▼                                                            
     ╭───────────────╮                                                   
-    │      8.1      │──────────────┐                                   
+    │      3.1      │──────────────┐                                   
     │     VIEW      │              │ Query                              
-    │  JOB REQUEST  │              │                                   
+    │   PROVIDERS   │              │                                   
     ╰───────────────╯              │                                   
                                    ▼                                   
                             ╔═══════════════╗                          
                             ║               ║                          
-                            ║   BOOKINGS    ║                          
+                            ║     USERS     ║                          
                             ║  (Firestore)  ║                          
-                            ║    status:    ║                          
-                            ║  'approved'   ║                          
+                            ║ProviderStatus:║                          
+                            ║   "pending"   ║                          
                             ╚═══════╤═══════╝                          
                                     │                                   
-                                    │ Job Details                       
+                                    │ Provider Details                  
                                     │                                   
                                     ▼                                   
                             ╭───────────────╮                          
-                            │      8.2      │                          
+                            │      3.2      │                          
                             │    REVIEW     │                          
-                            │      JOB      │                          
-                            │  -Client Info │                          
-                            │  -Location    │                          
-                            │  -Payment     │                          
-                            │  -Schedule    │                          
+                            │   DOCUMENTS   │                          
+                            │  -Valid ID    │                          
+                            │  -Selfie      │                          
+                            │  -Clearances  │                          
                             ╰───────┬───────╯                          
                                     │                                   
                                     │ Decision                          
                                     │                                   
                     ┌───────────────┼───────────────┐                  
                     │               │               │                  
-                    │ Accept        │ Decline       │                  
+                    │ Approve       │ Reject        │                  
                     │               │               │                  
                     ▼               ▼               ▼                  
             ╭───────────────╮  ╭───────────────╮  ┌───────────────┐  
-            │      8.3      │  │      8.4      │  │   PROVIDER    │  
-            │    ACCEPT     │  │    DECLINE    │  │   (Back to    │  
-            │      JOB      │  │      JOB      │  │    Jobs)      │  
+            │      3.3      │  │      3.4      │  │    ADMIN      │  
+            │    APPROVE    │  │    REJECT     │  │   (Back to    │  
+            │   PROVIDER    │  │   PROVIDER    │  │   Dashboard)  │  
             ╰───────┬───────╯  ╰───────┬───────╯  └───────────────┘  
                     │               │                                   
                     │ Update        │ Update                            
                     │               │                                   
                     ▼               ▼                                   
             ╔═══════════════╗  ╔═══════════════╗                      
-            ║   BOOKINGS    ║  ║   BOOKINGS    ║                      
+            ║     USERS     ║  ║     USERS     ║                      
             ║  (Firestore)  ║  ║  (Firestore)  ║                      
             ║    status:    ║  ║    status:    ║                      
-            ║  'accepted'   ║  ║  'declined'   ║                      
+            ║  'approved'   ║  ║  'rejected'   ║                      
             ╚═══════╤═══════╝  ╚═══════╤═══════╝                      
                     │               │                                   
                     │ Notification  │ Notification                      
                     │               │                                   
                     ▼               ▼                                   
             ┌───────────────┐  ┌───────────────┐                      
-            │    CLIENT     │  │    CLIENT     │                      
-            │  (Accepted)   │  │  (Declined)   │                      
+            │   PROVIDER    │  │   PROVIDER    │                      
+            │  (Approved)   │  │  (Rejected)   │                      
+            │ Can Go Online │  │ Cannot Access │                      
             └───────────────┘  └───────────────┘                      
 ```
 
@@ -81,43 +81,42 @@
 
 | Process | Name | Description |
 |---------|------|-------------|
-| **8.1** | View Job Request | Provider receives and views new job notification |
-| **8.2** | Review Job | Provider reviews job details (client, location, payment, service) |
-| **8.3** | Accept Job | Provider accepts job (status: 'accepted') |
-| **8.4** | Decline Job | Provider declines job (status: 'declined') |
+| **3.1** | View Providers | Admin views all pending provider registrations |
+| **3.2** | Review Documents | Admin reviews provider's uploaded documents (Valid ID, Selfie with ID, Barangay Clearance, Police Clearance) |
+| **3.3** | Approve Provider | Admin approves provider (status: 'approved') - provider can now go online |
+| **3.4** | Reject Provider | Admin rejects provider (status: 'rejected') - provider cannot access system |
 
 ---
 
-## Data Dictionary - Process 8
+## Data Dictionary - Process 3
 
 | Data Element | Description | Source | Destination |
 |--------------|-------------|--------|-------------|
-| **bookingStatus** | Job acceptance status | Provider Action | Firestore (bookings) |
-| **acceptedAt** | Timestamp of acceptance | System | Firestore (bookings) |
-| **declinedAt** | Timestamp of decline | System | Firestore (bookings) |
-| **declineReason** | Reason for declining | Provider | Firestore (bookings) |
+| **providerStatus** | Provider verification status | Admin Action | Firestore (users) |
+| **approvedAt** | Timestamp of approval | System | Firestore (users) |
+| **rejectedAt** | Timestamp of rejection | System | Firestore (users) |
+| **rejectionReason** | Reason for rejection | Admin | Firestore (users) |
+| **verifiedBy** | Admin who verified | Admin | Firestore (users) |
 
 ---
 
-## Job Status Flow
+## Provider Status Flow
 
 ```
-approved → accepted → in_progress → completed
-         ↓
-      declined
+pending → approved → can_go_online
+        ↓
+     rejected
 ```
 
 ---
 
-## Booking Status Values
+## Provider Status Values
 
-| Status | Description | Provider Action |
+| Status | Description | Provider Access |
 |--------|-------------|-----------------|
-| **approved** | Admin approved, awaiting provider | Accept or Decline |
-| **accepted** | Provider accepted job | Start job |
-| **declined** | Provider declined job | None (job ends) |
-| **in_progress** | Provider started job | Mark as complete |
-| **completed** | Job finished | None |
+| **pending** | Awaiting admin verification | Cannot go online |
+| **approved** | Admin approved documents | Can toggle online/offline |
+| **rejected** | Admin rejected application | Cannot access system |
 
 ---
 
@@ -131,7 +130,7 @@ approved → accepted → in_progress → completed
 └───────────────┘
 
 ╭───────────────╮
-│     8.X       │     Process
+│     3.X       │     Process
 │   PROCESS     │
 │               │
 ╰───────────────╯

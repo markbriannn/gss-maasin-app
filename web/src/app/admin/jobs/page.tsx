@@ -138,15 +138,15 @@ export default function AdminJobsPage() {
               const clientDoc = await getDoc(doc(db, 'users', data.clientId));
               if (clientDoc.exists()) {
                 const clientData = clientDoc.data();
-                clientInfo = { 
-                  id: data.clientId, 
-                  name: `${clientData.firstName || ''} ${clientData.lastName || ''}`.trim() || 'Unknown', 
-                  phone: clientData.phone || clientData.phoneNumber || 'Not provided', 
+                clientInfo = {
+                  id: data.clientId,
+                  name: `${clientData.firstName || ''} ${clientData.lastName || ''}`.trim() || 'Unknown',
+                  phone: clientData.phone || clientData.phoneNumber || 'Not provided',
                   email: clientData.email,
                   photo: clientData.profilePhoto || clientData.photoURL,
                 };
               }
-            } catch (e) {}
+            } catch (e) { }
           }
 
           let providerInfo: ProviderInfo = { id: data.providerId || '', name: data.providerName || 'Not Assigned', phone: 'N/A' };
@@ -155,15 +155,15 @@ export default function AdminJobsPage() {
               const providerDoc = await getDoc(doc(db, 'users', data.providerId));
               if (providerDoc.exists()) {
                 const providerData = providerDoc.data();
-                providerInfo = { 
-                  id: data.providerId, 
-                  name: `${providerData.firstName || ''} ${providerData.lastName || ''}`.trim() || 'Unknown', 
-                  phone: providerData.phone || providerData.phoneNumber || 'Not provided', 
+                providerInfo = {
+                  id: data.providerId,
+                  name: `${providerData.firstName || ''} ${providerData.lastName || ''}`.trim() || 'Unknown',
+                  phone: providerData.phone || providerData.phoneNumber || 'Not provided',
                   email: providerData.email,
                   photo: providerData.profilePhoto || providerData.photoURL,
                 };
               }
-            } catch (e) {}
+            } catch (e) { }
           }
 
           return {
@@ -319,12 +319,12 @@ export default function AdminJobsPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/30">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900">
         {/* Premium Header */}
         <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-          
+
           <div className="relative max-w-7xl mx-auto px-6 py-8">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-4">
@@ -393,7 +393,7 @@ export default function AdminJobsPage() {
 
         <div className="max-w-7xl mx-auto px-6 py-6">
           {/* Search & Filters */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 mb-6">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -402,7 +402,7 @@ export default function AdminJobsPage() {
                   placeholder="Search by job ID, title, client, or provider..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 text-gray-900 placeholder-gray-400"
+                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 dark:bg-gray-700 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 text-gray-900 dark:text-white placeholder-gray-400"
                 />
               </div>
               <div className="flex gap-2 flex-wrap">
@@ -413,11 +413,10 @@ export default function AdminJobsPage() {
                     <button
                       key={filter.id}
                       onClick={() => setActiveFilter(filter.id)}
-                      className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 ${
-                        isActive
-                          ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-500/30'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                      className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 ${isActive
+                        ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-500/30'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
                     >
                       {filter.label}
                       <span className={`min-w-[20px] h-5 rounded-full text-xs flex items-center justify-center ${isActive ? 'bg-white/20' : 'bg-gray-200'}`}>
@@ -432,12 +431,12 @@ export default function AdminJobsPage() {
 
           {/* Jobs List */}
           {jobs.length === 0 ? (
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-12 text-center">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-12 text-center">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Briefcase className="w-10 h-10 text-gray-300" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">No jobs found</h3>
-              <p className="text-gray-500">Try adjusting your search or filter criteria</p>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No jobs found</h3>
+              <p className="text-gray-500 dark:text-gray-400">Try adjusting your search or filter criteria</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -448,12 +447,12 @@ export default function AdminJobsPage() {
                   <div
                     key={job.id}
                     onClick={() => { setSelectedJob(job); setShowModal(true); }}
-                    className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer group"
+                    className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer group"
                   >
                     <div className="flex">
                       {/* Category Color Bar */}
                       <div className={`w-2 bg-gradient-to-b ${catStyle.bg}`}></div>
-                      
+
                       <div className="flex-1 p-5">
                         {/* Header */}
                         <div className="flex justify-between items-start mb-4">
@@ -463,8 +462,8 @@ export default function AdminJobsPage() {
                             </div>
                             <div>
                               <p className="text-xs text-gray-400 font-mono">{job.id.slice(0, 12)}...</p>
-                              <h3 className="font-bold text-gray-900 text-lg">{job.title}</h3>
-                              <p className="text-sm text-violet-600 font-medium">{job.category}</p>
+                              <h3 className="font-bold text-gray-900 dark:text-white text-lg">{job.title}</h3>
+                              <p className="text-sm text-violet-600 dark:text-violet-400 font-medium">{job.category}</p>
                             </div>
                           </div>
                           <span className={`${statusStyle.bg} ${statusStyle.text} px-3 py-1.5 rounded-full text-xs font-bold`}>
@@ -474,36 +473,36 @@ export default function AdminJobsPage() {
 
                         {/* Parties */}
                         <div className="grid grid-cols-2 gap-4 mb-4">
-                          <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
+                          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 flex items-center gap-3">
                             {job.client.photo ? (
                               <img src={job.client.photo} alt="" className="w-10 h-10 rounded-full object-cover" />
                             ) : (
-                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                <User className="w-5 h-5 text-blue-600" />
+                              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                                <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                               </div>
                             )}
                             <div>
-                              <p className="text-xs text-gray-500">Client</p>
-                              <p className="font-semibold text-gray-900">{job.client.name}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">Client</p>
+                              <p className="font-semibold text-gray-900 dark:text-white">{job.client.name}</p>
                             </div>
                           </div>
-                          <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
+                          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 flex items-center gap-3">
                             {job.provider.photo ? (
                               <img src={job.provider.photo} alt="" className="w-10 h-10 rounded-full object-cover" />
                             ) : (
-                              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-                                <Wrench className="w-5 h-5 text-emerald-600" />
+                              <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
+                                <Wrench className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                               </div>
                             )}
                             <div>
-                              <p className="text-xs text-gray-500">Provider</p>
-                              <p className="font-semibold text-gray-900">{job.provider.name}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">Provider</p>
+                              <p className="font-semibold text-gray-900 dark:text-white">{job.provider.name}</p>
                             </div>
                           </div>
                         </div>
 
                         {/* Footer */}
-                        <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+                        <div className="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-gray-700">
                           <div className="flex items-center gap-3">
                             <div className="flex items-center gap-1">
                               <DollarSign className="w-5 h-5 text-emerald-500" />
@@ -536,7 +535,7 @@ export default function AdminJobsPage() {
         {/* Detail Modal */}
         {showModal && selectedJob && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4" onClick={() => setShowModal(false)}>
-            <div className="bg-white rounded-t-3xl md:rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white dark:bg-gray-900 rounded-t-3xl md:rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
               {/* Modal Header */}
               <div className={`bg-gradient-to-r ${getCategoryStyle(selectedJob.category).bg} p-6 relative overflow-hidden`}>
                 <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
@@ -559,7 +558,7 @@ export default function AdminJobsPage() {
               <div className="p-6">
                 {/* View Full Details */}
                 <button onClick={() => router.push(`/admin/jobs/${selectedJob.id}`)}
-                  className="w-full py-3 bg-gray-100 text-violet-600 rounded-xl font-semibold hover:bg-gray-200 transition-colors mb-6 flex items-center justify-center gap-2">
+                  className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-violet-600 dark:text-violet-400 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors mb-6 flex items-center justify-center gap-2">
                   <Eye className="w-5 h-5" /> View Full Details <ChevronRight className="w-5 h-5" />
                 </button>
 
@@ -627,11 +626,11 @@ export default function AdminJobsPage() {
 
                 {/* Client & Provider */}
                 <div className="grid md:grid-cols-2 gap-4 mb-6">
-                  <div className="bg-gray-50 p-4 rounded-2xl">
+                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-2xl">
                     <div className="flex items-center gap-3 mb-3">
                       {selectedJob.client.photo ? (
-                        <img 
-                          src={selectedJob.client.photo} 
+                        <img
+                          src={selectedJob.client.photo}
                           alt={selectedJob.client.name}
                           className="w-10 h-10 rounded-full object-cover border-2 border-blue-200"
                           onError={(e) => {
@@ -644,17 +643,17 @@ export default function AdminJobsPage() {
                       <div className={`w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center ${selectedJob.client.photo ? 'hidden' : ''}`}>
                         <User className="w-5 h-5 text-blue-600" />
                       </div>
-                      <h4 className="font-bold text-gray-900">Client</h4>
+                      <h4 className="font-bold text-gray-900 dark:text-white">Client</h4>
                     </div>
-                    <p className="font-semibold text-gray-900">{selectedJob.client.name}</p>
-                    <p className="text-sm text-gray-500">{selectedJob.client.phone}</p>
-                    {selectedJob.client.email && <p className="text-sm text-gray-500">{selectedJob.client.email}</p>}
+                    <p className="font-semibold text-gray-900 dark:text-white">{selectedJob.client.name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{selectedJob.client.phone}</p>
+                    {selectedJob.client.email && <p className="text-sm text-gray-500 dark:text-gray-400">{selectedJob.client.email}</p>}
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-2xl">
+                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-2xl">
                     <div className="flex items-center gap-3 mb-3">
                       {selectedJob.provider.photo ? (
-                        <img 
-                          src={selectedJob.provider.photo} 
+                        <img
+                          src={selectedJob.provider.photo}
                           alt={selectedJob.provider.name}
                           className="w-10 h-10 rounded-full object-cover border-2 border-emerald-200"
                           onError={(e) => {
@@ -667,45 +666,45 @@ export default function AdminJobsPage() {
                       <div className={`w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center ${selectedJob.provider.photo ? 'hidden' : ''}`}>
                         <Wrench className="w-5 h-5 text-emerald-600" />
                       </div>
-                      <h4 className="font-bold text-gray-900">Provider</h4>
+                      <h4 className="font-bold text-gray-900 dark:text-white">Provider</h4>
                     </div>
-                    <p className="font-semibold text-gray-900">{selectedJob.provider.name}</p>
-                    <p className="text-sm text-gray-500">{selectedJob.provider.phone}</p>
-                    {selectedJob.provider.email && <p className="text-sm text-gray-500">{selectedJob.provider.email}</p>}
+                    <p className="font-semibold text-gray-900 dark:text-white">{selectedJob.provider.name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{selectedJob.provider.phone}</p>
+                    {selectedJob.provider.email && <p className="text-sm text-gray-500 dark:text-gray-400">{selectedJob.provider.email}</p>}
                   </div>
                 </div>
 
                 {/* Schedule & Location */}
                 <div className="space-y-3 mb-6">
                   {(selectedJob.scheduledDate || selectedJob.scheduledTime) && (
-                    <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
-                      <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center">
-                        <Calendar className="w-5 h-5 text-violet-600" />
+                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+                      <div className="w-10 h-10 bg-violet-100 dark:bg-violet-900/30 rounded-xl flex items-center justify-center">
+                        <Calendar className="w-5 h-5 text-violet-600 dark:text-violet-400" />
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Schedule</p>
-                        <p className="font-semibold text-gray-900">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Schedule</p>
+                        <p className="font-semibold text-gray-900 dark:text-white">
                           {selectedJob.scheduledDate}{selectedJob.scheduledDate && selectedJob.scheduledTime ? ' at ' : ''}{selectedJob.scheduledTime}
                         </p>
                       </div>
                     </div>
                   )}
-                  <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                      <MapPin className="w-5 h-5 text-blue-600" />
+                  <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                      <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Location</p>
-                      <p className="font-semibold text-gray-900">{selectedJob.location}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Location</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">{selectedJob.location}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
-                    <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                      <Clock className="w-5 h-5 text-amber-600" />
+                  <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+                    <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center">
+                      <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Submitted</p>
-                      <p className="font-semibold text-gray-900">{selectedJob.createdAt}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Submitted</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">{selectedJob.createdAt}</p>
                     </div>
                   </div>
                 </div>
@@ -713,7 +712,7 @@ export default function AdminJobsPage() {
                 {/* Media */}
                 {selectedJob.media && selectedJob.media.length > 0 && (
                   <div className="mb-6">
-                    <h4 className="font-bold text-gray-900 mb-3">Attached Photos/Videos</h4>
+                    <h4 className="font-bold text-gray-900 dark:text-white mb-3">Attached Photos/Videos</h4>
                     <div className="flex gap-3 overflow-x-auto pb-2">
                       {selectedJob.media.map((url, idx) => (
                         <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
@@ -751,7 +750,7 @@ export default function AdminJobsPage() {
         {/* Custom Confirmation Modal */}
         {confirmModal.show && confirmModal.job && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in">
+            <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in">
               {/* Header */}
               <div className={`p-6 ${confirmModal.type === 'approve' ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : 'bg-gradient-to-r from-red-500 to-rose-500'}`}>
                 <div className="flex items-center gap-4">
@@ -775,14 +774,14 @@ export default function AdminJobsPage() {
 
               {/* Content */}
               <div className="p-6">
-                <div className="bg-gray-50 rounded-2xl p-4 mb-6">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 mb-6">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center">
                       <User className="w-5 h-5 text-violet-600" />
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Client</p>
-                      <p className="font-semibold text-gray-900">{confirmModal.job.client?.name || 'Unknown'}</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">{confirmModal.job.client?.name || 'Unknown'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -791,13 +790,13 @@ export default function AdminJobsPage() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Provider</p>
-                      <p className="font-semibold text-gray-900">{confirmModal.job.provider?.name || 'Not assigned'}</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">{confirmModal.job.provider?.name || 'Not assigned'}</p>
                     </div>
                   </div>
                 </div>
 
-                <p className="text-gray-600 text-center mb-6">
-                  {confirmModal.type === 'approve' 
+                <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
+                  {confirmModal.type === 'approve'
                     ? `This will send the job to ${confirmModal.job.provider?.name || 'the provider'} for review.`
                     : 'This action cannot be undone. The client will be notified.'}
                 </p>
@@ -806,18 +805,17 @@ export default function AdminJobsPage() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setConfirmModal({ show: false, type: 'approve', job: null })}
-                    className="flex-1 py-3.5 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+                    className="flex-1 py-3.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={confirmModal.type === 'approve' ? executeApprove : executeReject}
                     disabled={updating}
-                    className={`flex-1 py-3.5 text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${
-                      confirmModal.type === 'approve'
-                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-lg hover:shadow-emerald-500/30'
-                        : 'bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/30'
-                    }`}
+                    className={`flex-1 py-3.5 text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${confirmModal.type === 'approve'
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-lg hover:shadow-emerald-500/30'
+                      : 'bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/30'
+                      }`}
                   >
                     {updating ? (
                       <RefreshCw className="w-5 h-5 animate-spin" />

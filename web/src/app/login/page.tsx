@@ -80,12 +80,12 @@ export default function LoginPage() {
   // Role Selection Screen
   if (!selectedRole) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 transition-colors duration-300">
         {/* Back Button */}
         <div className="absolute top-4 left-4">
           <Link
             href="/"
-            className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
             <span className="text-sm font-medium">Back</span>
@@ -98,10 +98,10 @@ export default function LoginPage() {
               <Wrench className="w-7 h-7 text-white" />
             </div>
           </Link>
-          <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
+          <h2 className="mt-6 text-center text-3xl font-bold text-gray-900 dark:text-white">
             Welcome Back
           </h2>
-          <p className="mt-2 text-center text-gray-600">
+          <p className="mt-2 text-center text-gray-600 dark:text-gray-400">
             Choose how you want to sign in
           </p>
         </div>
@@ -111,15 +111,15 @@ export default function LoginPage() {
             {/* Client Option */}
             <button
               onClick={() => setSelectedRole('CLIENT')}
-              className="w-full bg-white p-6 rounded-xl shadow-sm border-2 border-transparent hover:border-[#00B14F] hover:shadow-md transition-all group"
+              className="w-full bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border-2 border-transparent hover:border-[#00B14F] hover:shadow-md transition-all group"
             >
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center group-hover:bg-green-200 transition-colors">
                   <User className="w-7 h-7 text-[#00B14F]" />
                 </div>
                 <div className="flex-1 text-left">
-                  <h3 className="text-lg font-semibold text-gray-900">Login as Client</h3>
-                  <p className="text-sm text-gray-500">Book services from trusted providers</p>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Login as Client</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Book services from trusted providers</p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#00B14F] transition-colors" />
               </div>
@@ -128,15 +128,15 @@ export default function LoginPage() {
             {/* Provider Option */}
             <button
               onClick={() => setSelectedRole('PROVIDER')}
-              className="w-full bg-white p-6 rounded-xl shadow-sm border-2 border-transparent hover:border-blue-500 hover:shadow-md transition-all group"
+              className="w-full bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border-2 border-transparent hover:border-blue-500 hover:shadow-md transition-all group"
             >
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center group-hover:bg-blue-200 transition-colors">
                   <Briefcase className="w-7 h-7 text-blue-500" />
                 </div>
                 <div className="flex-1 text-left">
-                  <h3 className="text-lg font-semibold text-gray-900">Login as Provider</h3>
-                  <p className="text-sm text-gray-500">Manage jobs and grow your business</p>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Login as Provider</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Manage jobs and grow your business</p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-500 transition-colors" />
               </div>
@@ -145,15 +145,15 @@ export default function LoginPage() {
             {/* Admin Option */}
             <button
               onClick={() => setSelectedRole('ADMIN')}
-              className="w-full bg-white p-6 rounded-xl shadow-sm border-2 border-transparent hover:border-purple-500 hover:shadow-md transition-all group"
+              className="w-full bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border-2 border-transparent hover:border-purple-500 hover:shadow-md transition-all group"
             >
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-purple-100 rounded-xl flex items-center justify-center group-hover:bg-purple-200 transition-colors">
                   <Shield className="w-7 h-7 text-purple-500" />
                 </div>
                 <div className="flex-1 text-left">
-                  <h3 className="text-lg font-semibold text-gray-900">Login as Admin</h3>
-                  <p className="text-sm text-gray-500">Manage platform and users</p>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Login as Admin</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Manage platform and users</p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-purple-500 transition-colors" />
               </div>
@@ -162,7 +162,7 @@ export default function LoginPage() {
 
           {/* Register Link */}
           <div className="mt-8 text-center">
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-400">
               Don&apos;t have an account?{' '}
               <Link href="/register" className="font-semibold text-[#00B14F] hover:text-[#009940]">
                 Create one
@@ -186,7 +186,7 @@ export default function LoginPage() {
   const RoleIcon = roleIcons[selectedRole];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 transition-colors duration-300">
       {/* Back to Role Selection */}
       <div className="absolute top-4 left-4">
         <button
@@ -196,7 +196,7 @@ export default function LoginPage() {
             setEmail('');
             setPassword('');
           }}
-          className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
           <span className="text-sm font-medium">Back</span>
@@ -209,16 +209,16 @@ export default function LoginPage() {
             <RoleIcon className={`w-8 h-8 ${colors.text}`} />
           </div>
         </div>
-        <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
+        <h2 className="mt-6 text-center text-3xl font-bold text-gray-900 dark:text-white">
           {roleLabels[selectedRole]} Login
         </h2>
-        <p className="mt-2 text-center text-gray-600">
+        <p className="mt-2 text-center text-gray-600 dark:text-gray-400">
           Sign in to your {roleLabels[selectedRole].toLowerCase()} account
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-lg sm:rounded-xl sm:px-10">
+        <div className="bg-white dark:bg-gray-800 py-8 px-4 shadow-lg sm:rounded-xl sm:px-10 transition-colors duration-300">
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
@@ -227,7 +227,7 @@ export default function LoginPage() {
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Email address
               </label>
               <div className="mt-1 relative">
@@ -242,14 +242,14 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className={`appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${colors.border.replace('border-', 'focus:ring-')} focus:border-transparent`}
+                  className={`appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${colors.border.replace('border-', 'focus:ring-')} focus:border-transparent`}
                   placeholder="you@example.com"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Password
               </label>
               <div className="mt-1 relative">
@@ -264,7 +264,7 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`appearance-none block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${colors.border.replace('border-', 'focus:ring-')} focus:border-transparent`}
+                  className={`appearance-none block w-full pl-10 pr-10 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${colors.border.replace('border-', 'focus:ring-')} focus:border-transparent`}
                   placeholder="••••••••"
                 />
                 <button
@@ -289,7 +289,7 @@ export default function LoginPage() {
                   type="checkbox"
                   className={`h-4 w-4 ${colors.text} focus:ring-2 border-gray-300 rounded`}
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
                   Remember me
                 </label>
               </div>
@@ -316,10 +316,10 @@ export default function LoginPage() {
             <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300" />
+                  <div className="w-full border-t border-gray-300 dark:border-gray-600" />
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">New to GSS Maasin?</span>
+                  <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">New to GSS Maasin?</span>
                 </div>
               </div>
 
@@ -339,12 +339,12 @@ export default function LoginPage() {
       {/* Pending Approval Modal */}
       {showPendingModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full text-center">
             <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-5">
               <Clock className="w-10 h-10 text-amber-500" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">Pending Approval</h3>
-            <p className="text-gray-600 mb-6">
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Pending Approval</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
               Your provider account is currently under review. We&apos;ll notify you via email once your account has been approved by our admin team.
             </p>
             <div className="bg-amber-50 rounded-xl p-4 mb-6">
@@ -365,11 +365,11 @@ export default function LoginPage() {
       {/* Suspended Account Modal */}
       {showSuspendedModal && suspensionDetails && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full text-center">
             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-5">
               <Ban className="w-10 h-10 text-red-500" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">Account Suspended</h3>
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Account Suspended</h3>
             {suspensionDetails.suspendedAt && (
               <p className="text-sm text-gray-500 mb-4">
                 Suspended on: {suspensionDetails.suspendedAt}
@@ -380,8 +380,8 @@ export default function LoginPage() {
                 {suspensionDetails.label}
               </span>
             )}
-            <div className="bg-gray-50 rounded-xl p-4 mb-6">
-              <p className="text-gray-700">
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 mb-6">
+              <p className="text-gray-700 dark:text-gray-300">
                 {suspensionDetails.reason}
               </p>
             </div>

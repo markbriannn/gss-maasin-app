@@ -1,18 +1,18 @@
-import React, {useState, useEffect} from 'react';
-import {View, Text} from 'react-native';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {createDrawerNavigator} from '@react-navigation/drawer';
+import React, { useState, useEffect } from 'react';
+import { View, Text } from 'react-native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createDrawerNavigator } from '@react-navigation/drawer';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {useAuth} from '../context/AuthContext';
-import {useTheme} from '../context/ThemeContext';
-import {db} from '../config/firebase';
-import {collection, query, where, onSnapshot} from 'firebase/firestore';
+import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import { db } from '../config/firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import AnimatedTabIcon from '../components/animations/AnimatedTabIcon';
 
 // Badge Component
-const BadgeIcon = ({iconName, focused, color, size, count}) => (
+const BadgeIcon = ({ iconName, focused, color, size, count }) => (
   <View>
     <Icon name={iconName} size={size} color={color} />
     {count > 0 && (
@@ -28,7 +28,7 @@ const BadgeIcon = ({iconName, focused, color, size, count}) => (
         alignItems: 'center',
         paddingHorizontal: 4,
       }}>
-        <Text style={{fontSize: 10, fontWeight: '700', color: '#FFFFFF'}}>
+        <Text style={{ fontSize: 10, fontWeight: '700', color: '#FFFFFF' }}>
           {count > 99 ? '99+' : count}
         </Text>
       </View>
@@ -37,14 +37,14 @@ const BadgeIcon = ({iconName, focused, color, size, count}) => (
 );
 
 // Custom Messages Icon with Badge
-const MessagesTabIcon = ({focused, color, size, userId}) => {
+const MessagesTabIcon = ({ focused, color, size, userId }) => {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     if (!userId) return;
 
     let isMounted = true;
-    let unsubscribe = () => {};
+    let unsubscribe = () => { };
 
     try {
       const conversationsRef = collection(db, 'conversations');
@@ -79,32 +79,32 @@ const MessagesTabIcon = ({focused, color, size, userId}) => {
   }, [userId]);
 
   return (
-    <BadgeIcon 
-      iconName={focused ? 'chatbubbles' : 'chatbubbles-outline'} 
-      focused={focused} 
-      color={color} 
-      size={size} 
-      count={unreadCount} 
+    <BadgeIcon
+      iconName={focused ? 'chatbubbles' : 'chatbubbles-outline'}
+      focused={focused}
+      color={color}
+      size={size}
+      count={unreadCount}
     />
   );
 };
 
 // Provider Jobs Tab Icon with Badge (available jobs + active jobs)
-const ProviderJobsTabIcon = ({focused, color, size, userId}) => {
+const ProviderJobsTabIcon = ({ focused, color, size, userId }) => {
   const [badgeCount, setBadgeCount] = useState(0);
 
   useEffect(() => {
     if (!userId) return;
 
     let isMounted = true;
-    let unsubAvailable = () => {};
-    let unsubActive = () => {};
+    let unsubAvailable = () => { };
+    let unsubActive = () => { };
     let availableCount = 0;
     let activeCount = 0;
 
     try {
       const bookingsRef = collection(db, 'bookings');
-      
+
       // Query 1: Available jobs (admin approved, pending, no provider assigned)
       const availableQuery = query(
         bookingsRef,
@@ -150,25 +150,25 @@ const ProviderJobsTabIcon = ({focused, color, size, userId}) => {
   }, [userId]);
 
   return (
-    <BadgeIcon 
-      iconName={focused ? 'briefcase' : 'briefcase-outline'} 
-      focused={focused} 
-      color={color} 
-      size={size} 
-      count={badgeCount} 
+    <BadgeIcon
+      iconName={focused ? 'briefcase' : 'briefcase-outline'}
+      focused={focused}
+      color={color}
+      size={size}
+      count={badgeCount}
     />
   );
 };
 
 // Client Bookings Tab Icon with Badge (active bookings with updates)
-const ClientBookingsTabIcon = ({focused, color, size, userId}) => {
+const ClientBookingsTabIcon = ({ focused, color, size, userId }) => {
   const [activeCount, setActiveCount] = useState(0);
 
   useEffect(() => {
     if (!userId) return;
 
     let isMounted = true;
-    let unsubscribe = () => {};
+    let unsubscribe = () => { };
 
     try {
       const bookingsRef = collection(db, 'bookings');
@@ -196,23 +196,23 @@ const ClientBookingsTabIcon = ({focused, color, size, userId}) => {
   }, [userId]);
 
   return (
-    <BadgeIcon 
-      iconName={focused ? 'calendar' : 'calendar-outline'} 
-      focused={focused} 
-      color={color} 
-      size={size} 
-      count={activeCount} 
+    <BadgeIcon
+      iconName={focused ? 'calendar' : 'calendar-outline'}
+      focused={focused}
+      color={color}
+      size={size}
+      count={activeCount}
     />
   );
 };
 
 // Admin Providers Tab Icon with Badge (pending approval)
-const AdminProvidersTabIcon = ({focused, color, size}) => {
+const AdminProvidersTabIcon = ({ focused, color, size }) => {
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
-    let unsubscribe = () => {};
+    let unsubscribe = () => { };
 
     try {
       const usersRef = collection(db, 'users');
@@ -227,8 +227,8 @@ const AdminProvidersTabIcon = ({focused, color, size}) => {
         // Filter providers that are pending (check both status and providerStatus fields)
         const pendingProviders = snapshot.docs.filter(doc => {
           const data = doc.data();
-          return data.status === 'pending' || data.providerStatus === 'pending' || 
-                 (!data.status && !data.providerStatus); // Also count if no status set
+          return data.status === 'pending' || data.providerStatus === 'pending' ||
+            (!data.status && !data.providerStatus); // Also count if no status set
         });
         setPendingCount(pendingProviders.length);
       }, (error) => {
@@ -245,23 +245,23 @@ const AdminProvidersTabIcon = ({focused, color, size}) => {
   }, []);
 
   return (
-    <BadgeIcon 
-      iconName={focused ? 'people' : 'people-outline'} 
-      focused={focused} 
-      color={color} 
-      size={size} 
-      count={pendingCount} 
+    <BadgeIcon
+      iconName={focused ? 'people' : 'people-outline'}
+      focused={focused}
+      color={color}
+      size={size}
+      count={pendingCount}
     />
   );
 };
 
 // Admin Jobs Tab Icon with Badge (pending jobs needing approval)
-const AdminJobsTabIcon = ({focused, color, size}) => {
+const AdminJobsTabIcon = ({ focused, color, size }) => {
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
-    let unsubscribe = () => {};
+    let unsubscribe = () => { };
 
     try {
       const bookingsRef = collection(db, 'bookings');
@@ -293,12 +293,12 @@ const AdminJobsTabIcon = ({focused, color, size}) => {
   }, []);
 
   return (
-    <BadgeIcon 
-      iconName={focused ? 'briefcase' : 'briefcase-outline'} 
-      focused={focused} 
-      color={color} 
-      size={size} 
-      count={pendingCount} 
+    <BadgeIcon
+      iconName={focused ? 'briefcase' : 'briefcase-outline'}
+      focused={focused}
+      color={color}
+      size={size}
+      count={pendingCount}
     />
   );
 };
@@ -383,21 +383,21 @@ const Drawer = createDrawerNavigator();
 
 // Client Bottom Tabs
 function ClientTabs() {
-  const {isDark, theme} = useTheme();
-  const {user} = useAuth();
+  const { isDark, theme } = useTheme();
+  const { user } = useAuth();
   const userId = user?.uid || user?.id;
-  
+
   return (
     <Tab.Navigator
-      screenOptions={({route}) => ({
-        tabBarIcon: ({focused, color, size}) => {
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
           if (route.name === 'Messages') {
             return <MessagesTabIcon focused={focused} color={color} size={size} userId={userId} />;
           }
           if (route.name === 'Bookings') {
             return <ClientBookingsTabIcon focused={focused} color={color} size={size} userId={userId} />;
           }
-          
+
           let iconName;
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
@@ -435,21 +435,21 @@ function ClientTabs() {
 
 // Provider Bottom Tabs
 function ProviderTabs() {
-  const {isDark, theme} = useTheme();
-  const {user} = useAuth();
+  const { isDark, theme } = useTheme();
+  const { user } = useAuth();
   const userId = user?.uid || user?.id;
-  
+
   return (
     <Tab.Navigator
-      screenOptions={({route}) => ({
-        tabBarIcon: ({focused, color, size}) => {
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
           if (route.name === 'Messages') {
             return <MessagesTabIcon focused={focused} color={color} size={size} userId={userId} />;
           }
           if (route.name === 'Jobs') {
             return <ProviderJobsTabIcon focused={focused} color={color} size={size} userId={userId} />;
           }
-          
+
           let iconName;
           if (route.name === 'Dashboard') {
             iconName = focused ? 'grid' : 'grid-outline';
@@ -490,14 +490,14 @@ function ProviderTabs() {
 
 // Admin Bottom Tabs
 function AdminTabs() {
-  const {isDark, theme} = useTheme();
-  const {user} = useAuth();
+  const { isDark, theme } = useTheme();
+  const { user } = useAuth();
   const userId = user?.uid || user?.id;
-  
+
   return (
     <Tab.Navigator
-      screenOptions={({route}) => ({
-        tabBarIcon: ({focused, color, size}) => {
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
           if (route.name === 'Providers') {
             return <AdminProvidersTabIcon focused={focused} color={color} size={size} />;
           }
@@ -507,7 +507,7 @@ function AdminTabs() {
           if (route.name === 'Messages') {
             return <MessagesTabIcon focused={focused} color={color} size={size} userId={userId} />;
           }
-          
+
           let iconName;
           if (route.name === 'Dashboard') {
             iconName = focused ? 'stats-chart' : 'stats-chart-outline';
@@ -546,13 +546,20 @@ function AdminTabs() {
 
 // Main App Navigator
 export default function AppNavigator() {
-  const {isAuthenticated, userRole, isLoading} = useAuth();
+  const { isAuthenticated, userRole, isLoading } = useAuth();
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(true); // Default to true to skip onboarding
   const [onboardingChecked, setOnboardingChecked] = useState(false);
 
   useEffect(() => {
     checkOnboardingStatus();
   }, []);
+
+  // Re-check onboarding status when user logs out to ensure it stays correct
+  useEffect(() => {
+    if (!isAuthenticated) {
+      checkOnboardingStatus();
+    }
+  }, [isAuthenticated]);
 
   const checkOnboardingStatus = async () => {
     try {
@@ -569,18 +576,9 @@ export default function AppNavigator() {
     }
   };
 
-  // Determine initial route for unauthenticated users
-  const getInitialRouteName = () => {
-    if (!isAuthenticated) {
-      // Only show onboarding on first install (hasSeenOnboarding is false)
-      return hasSeenOnboarding ? 'GuestHome' : 'Onboarding';
-    }
-    return undefined; // Let the stack determine based on role
-  };
-
   if (isLoading || !onboardingChecked) {
     // Return a green background to prevent white flash during loading
-    return <View style={{flex: 1, backgroundColor: '#00B14F'}} />;
+    return <View style={{ flex: 1, backgroundColor: '#00B14F' }} />;
   }
 
   // Normalize role to uppercase for comparison
@@ -588,7 +586,7 @@ export default function AppNavigator() {
 
   return (
     <Stack.Navigator
-      initialRouteName={getInitialRouteName()}
+      initialRouteName={!isAuthenticated && !hasSeenOnboarding ? 'Onboarding' : undefined}
       screenOptions={{
         headerShown: false,
         gestureEnabled: true,
@@ -598,17 +596,19 @@ export default function AppNavigator() {
       {!isAuthenticated ? (
         <>
           {/* GuestHome is always the initial screen after logout */}
-          <Stack.Screen 
-            name="GuestHome" 
+          <Stack.Screen
+            name="GuestHome"
             component={GuestHomeScreen}
-            options={{animation: 'none'}}
+            options={{ animation: 'none' }}
           />
-          {/* Onboarding is only accessible on first install, not after logout */}
-          <Stack.Screen 
-            name="Onboarding" 
-            component={OnboardingScreen}
-            options={{animation: 'none'}}
-          />
+          {/* Onboarding is only shown on first install - never after logout */}
+          {!hasSeenOnboarding && (
+            <Stack.Screen
+              name="Onboarding"
+              component={OnboardingScreen}
+              options={{ animation: 'none' }}
+            />
+          )}
           <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="PhoneOTP" component={PhoneOTPScreen} />
@@ -628,8 +628,8 @@ export default function AppNavigator() {
           <Stack.Screen name="AdminAnalytics" component={AdminAnalyticsScreen} />
           <Stack.Screen name="AdminEarnings" component={AdminEarningsScreen} />
           <Stack.Screen name="AdminSettings" component={AdminSettingsScreen} />
-          <Stack.Screen name="AdminChat" component={ChatScreen} options={{gestureEnabled: false}} />
-          <Stack.Screen name="Chat" component={ChatScreen} options={{gestureEnabled: false}} />
+          <Stack.Screen name="AdminChat" component={ChatScreen} options={{ gestureEnabled: false }} />
+          <Stack.Screen name="Chat" component={ChatScreen} options={{ gestureEnabled: false }} />
           <Stack.Screen name="ProviderProfile" component={ProviderProfileScreen} />
           <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
@@ -645,7 +645,7 @@ export default function AppNavigator() {
           <Stack.Screen name="ProviderJobDetails" component={ProviderJobDetailsScreen} />
           <Stack.Screen name="ProviderTracking" component={ProviderTrackingScreen} />
           <Stack.Screen name="Directions" component={DirectionsScreen} />
-          <Stack.Screen name="Chat" component={ChatScreen} options={{gestureEnabled: false}} />
+          <Stack.Screen name="Chat" component={ChatScreen} options={{ gestureEnabled: false }} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="ServiceHistory" component={ServiceHistoryScreen} />
           <Stack.Screen name="ServiceReceipt" component={ServiceReceiptScreen} />
@@ -668,7 +668,7 @@ export default function AppNavigator() {
           <Stack.Screen name="HireProvider" component={BookServiceScreen} />
           <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
           <Stack.Screen name="Tracking" component={JobTrackingScreen} />
-          <Stack.Screen name="Chat" component={ChatScreen} options={{gestureEnabled: false}} />
+          <Stack.Screen name="Chat" component={ChatScreen} options={{ gestureEnabled: false }} />
           <Stack.Screen name="Review" component={ReviewScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />

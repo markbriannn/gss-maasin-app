@@ -12,7 +12,7 @@ const getBaseUrl = () => {
   return APP_URL;
 };
 
-export type PaymentMethod = 'gcash' | 'maya' | 'card' | 'cash';
+export type PaymentMethod = 'gcash' | 'maya' | 'card' | 'cash' | 'qrph';
 
 interface PaymentSourceResponse {
   success: boolean;
@@ -46,7 +46,7 @@ interface CreatePaymentParams {
 export const createPaymentSource = async (params: CreatePaymentParams): Promise<PaymentSourceResponse> => {
   try {
     const { amount, description, bookingId, clientId, paymentMethod, successUrl, failedUrl } = params;
-    
+
     // Use backend API to create source (keeps secret key secure)
     const baseUrl = getBaseUrl();
     const response = await fetch(`${API_URL}/payments/create-source`, {
@@ -97,7 +97,7 @@ export const createPaymentSource = async (params: CreatePaymentParams): Promise<
 export const createPaymentIntent = async (params: CreatePaymentParams): Promise<PaymentIntentResponse> => {
   try {
     const { amount, description, bookingId } = params;
-    
+
     const response = await fetch(`${API_URL}/payments/create-intent`, {
       method: 'POST',
       headers: {
@@ -161,6 +161,51 @@ export const checkPaymentStatus = async (sourceId: string): Promise<{
 /**
  * Process payment - main function to handle all payment types
  */
+/**
+ * Create a QRPh payment using Payment Intent workflow
+ */
+export const createQrphPayment = async (params: CreatePaymentParams): Promise<PaymentSourceResponse> => {
+  try {
+    const { amount, description, bookingId, clientId, paymentMethod } = params;
+
+    const baseUrl = getBaseUrl();
+    const response = await fetch(`${API_URL}/payments/create-qrph-payment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount,
+        description,
+        bookingId,
+        userId: clientId,
+        platform: 'web',
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data.success && data.checkoutUrl) {
+      return {
+        success: true,
+        checkoutUrl: data.checkoutUrl,
+        sourceId: data.sourceId,
+      };
+    }
+
+    return {
+      success: false,
+      error: data.error || 'Failed to create QRPh payment',
+    };
+  } catch (error) {
+    console.error('PayMongo QRPh error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'QRPh payment failed',
+    };
+  }
+};
+
 export const processPayment = async (params: CreatePaymentParams): Promise<{
   success: boolean;
   redirectUrl?: string;
@@ -171,6 +216,20 @@ export const processPayment = async (params: CreatePaymentParams): Promise<{
   if (paymentMethod === 'cash') {
     // Cash payments don't need PayMongo
     return { success: true };
+  }
+
+  if (paymentMethod === 'qrph') {
+    const result = await createQrphPayment(params);
+    if (result.success && result.checkoutUrl) {
+      return {
+        success: true,
+        redirectUrl: result.checkoutUrl,
+      };
+    }
+    return {
+      success: false,
+      error: result.error,
+    };
   }
 
   if (paymentMethod === 'gcash' || paymentMethod === 'maya') {
@@ -190,8 +249,6 @@ export const processPayment = async (params: CreatePaymentParams): Promise<{
   if (paymentMethod === 'card') {
     const result = await createPaymentIntent(params);
     if (result.success) {
-      // For card payments, you'd typically use PayMongo.js to handle the card form
-      // This returns the client key for the frontend to use
       return {
         success: true,
       };
@@ -218,6 +275,7 @@ export const getPublicKey = (): string => {
 export default {
   createPaymentSource,
   createPaymentIntent,
+  createQrphPayment,
   checkPaymentStatus,
   processPayment,
   getPublicKey,

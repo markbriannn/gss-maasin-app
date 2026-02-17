@@ -72,7 +72,7 @@ export default function ProviderProfilePage() {
           badges: data.badges || [],
         });
       }
-    } catch {}
+    } catch { }
   };
 
   const fetchReviews = async () => {
@@ -82,7 +82,7 @@ export default function ProviderProfilePage() {
       const q = query(collection(db, 'reviews'), where('providerId', '==', user.uid));
       const snap = await getDocs(q);
       const items: Review[] = [];
-      
+
       for (const d of snap.docs) {
         const data = d.data();
         if (['deleted', 'hidden', 'removed'].includes(data.status)) continue;
@@ -95,7 +95,7 @@ export default function ProviderProfilePage() {
               const reviewer = reviewerDoc.data();
               reviewerName = `${reviewer.firstName || ''} ${reviewer.lastName || ''}`.trim() || 'Client';
             }
-          } catch {}
+          } catch { }
         }
 
         items.push({
@@ -115,7 +115,7 @@ export default function ProviderProfilePage() {
         const avg = items.reduce((sum, r) => sum + r.rating, 0) / items.length;
         setStats((prev) => ({ ...prev, rating: Number(avg.toFixed(1)), reviewCount: items.length }));
       }
-    } catch {} finally {
+    } catch { } finally {
       setReviewsLoading(false);
     }
   };
@@ -149,7 +149,7 @@ export default function ProviderProfilePage() {
         : 'Not enough data';
 
       setStats((prev) => ({ ...prev, jobsCompleted: completed, responseTime: formattedResponse }));
-    } catch {}
+    } catch { }
   };
 
   if (isLoading) {
@@ -164,12 +164,12 @@ export default function ProviderProfilePage() {
 
   return (
     <ProviderLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 pb-24">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900 pb-24">
         {/* Premium Profile Header */}
         <div className="bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
-          
+
           <div className="relative max-w-3xl mx-auto px-4 pt-6 pb-8">
             <div className="flex items-start gap-5">
               {/* Profile Photo */}
@@ -238,10 +238,10 @@ export default function ProviderProfilePage() {
 
         {/* Status Badge */}
         <div className="max-w-3xl mx-auto px-4 mt-4">
-          <div className="bg-white rounded-2xl shadow-lg p-4 flex items-center justify-between">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Shield className={`w-5 h-5 ${user?.providerStatus === 'approved' ? 'text-emerald-500' : 'text-amber-500'}`} />
-              <span className="text-gray-600">Account Status</span>
+              <span className="text-gray-600 dark:text-gray-300">Account Status</span>
             </div>
             <span className={`px-3 py-1 rounded-full text-sm font-semibold ${user?.providerStatus === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
               {user?.providerStatus === 'approved' ? 'Approved' : 'Pending Approval'}
@@ -252,26 +252,26 @@ export default function ProviderProfilePage() {
         {/* Stats Cards */}
         <div className="max-w-3xl mx-auto px-4 mt-4">
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white rounded-2xl p-4 shadow-lg text-center">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg text-center">
               <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-2">
                 <Briefcase className="w-6 h-6 text-blue-500" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">{stats.jobsCompleted}</p>
-              <p className="text-xs text-gray-500">Jobs Done</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.jobsCompleted}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Jobs Done</p>
             </div>
-            <div className="bg-white rounded-2xl p-4 shadow-lg text-center">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg text-center">
               <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center mx-auto mb-2">
                 <Star className="w-6 h-6 text-amber-500" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">{stats.rating || '0.0'}</p>
-              <p className="text-xs text-gray-500">Rating</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.rating || '0.0'}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Rating</p>
             </div>
-            <div className="bg-white rounded-2xl p-4 shadow-lg text-center">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg text-center">
               <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center mx-auto mb-2">
                 <Clock className="w-6 h-6 text-emerald-500" />
               </div>
-              <p className="text-lg font-bold text-gray-900">{stats.responseTime}</p>
-              <p className="text-xs text-gray-500">Response</p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">{stats.responseTime}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Response</p>
             </div>
           </div>
         </div>
@@ -300,8 +300,8 @@ export default function ProviderProfilePage() {
         {/* Location */}
         {(user?.streetAddress || user?.barangay) && (
           <div className="max-w-3xl mx-auto px-4 mt-4">
-            <div className="bg-white rounded-2xl p-5 shadow-lg">
-              <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg">
+              <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-blue-500" />
                 Service Location
               </h3>
@@ -335,9 +335,9 @@ export default function ProviderProfilePage() {
 
         {/* About */}
         <div className="max-w-3xl mx-auto px-4 mt-4">
-          <div className="bg-white rounded-2xl p-5 shadow-lg">
-            <h3 className="font-bold text-gray-900 mb-3">About</h3>
-            <p className="text-gray-600 text-sm leading-relaxed">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg">
+            <h3 className="font-bold text-gray-900 dark:text-white mb-3">About</h3>
+            <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
               {user?.bio || user?.about || `Experienced ${user?.serviceCategory?.toLowerCase() || 'service provider'} serving the Maasin City area. Committed to quality work and customer satisfaction.`}
             </p>
           </div>
@@ -345,9 +345,9 @@ export default function ProviderProfilePage() {
 
         {/* Reviews */}
         <div className="max-w-3xl mx-auto px-4 mt-4">
-          <div className="bg-white rounded-2xl p-5 shadow-lg">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <Star className="w-5 h-5 text-amber-500" />
                 Reviews ({reviews.length})
               </h3>
@@ -366,7 +366,7 @@ export default function ProviderProfilePage() {
             ) : (
               <div className="space-y-4">
                 {reviews.slice(0, 5).map((review) => (
-                  <div key={review.id} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                  <div key={review.id} className="border-b border-gray-100 dark:border-gray-700 pb-4 last:border-0 last:pb-0">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <div className="flex">
@@ -397,7 +397,7 @@ export default function ProviderProfilePage() {
       </div>
 
       {/* Bottom Action Buttons */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-200 p-4">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-t border-gray-200 dark:border-gray-700 p-4">
         <div className="max-w-3xl mx-auto flex gap-3">
           <button
             onClick={() => router.push('/leaderboard')}
@@ -418,11 +418,11 @@ export default function ProviderProfilePage() {
 
       {/* Image Viewer Modal */}
       {selectedImage && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4"
           onClick={() => setSelectedImage(null)}
         >
-          <button 
+          <button
             className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
             onClick={() => setSelectedImage(null)}
           >
@@ -430,11 +430,11 @@ export default function ProviderProfilePage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <Image 
-            src={selectedImage} 
-            alt="Review image" 
-            width={800} 
-            height={600} 
+          <Image
+            src={selectedImage}
+            alt="Review image"
+            width={800}
+            height={600}
             className="max-w-full max-h-[80vh] object-contain rounded-lg"
             onClick={(e) => e.stopPropagation()}
           />

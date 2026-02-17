@@ -9,7 +9,7 @@ import { db } from '@/lib/firebase';
 import Image from 'next/image';
 import {
   Shield, MapPin, Clock, Wrench, Zap, Droplets, Hammer, Search, Star, Grid, Sparkles,
-  ArrowRight, CheckCircle, DollarSign, Users, Award, ChevronRight, TrendingUp
+  ArrowRight, CheckCircle, DollarSign, Users, Award, ChevronRight, TrendingUp, X
 } from 'lucide-react';
 
 const SERVICE_CATEGORIES = [
@@ -20,10 +20,10 @@ const SERVICE_CATEGORIES = [
 ];
 
 const FEATURES = [
-  { icon: Shield, title: 'Verified Providers', desc: 'All providers are vetted and approved', color: 'emerald' },
-  { icon: MapPin, title: 'Local Services', desc: 'Find skilled workers nearby', color: 'blue' },
-  { icon: Clock, title: 'Fast Booking', desc: 'Book services in minutes', color: 'purple' },
-  { icon: DollarSign, title: 'Fair Pricing', desc: 'Transparent rates, no hidden fees', color: 'amber' },
+  { icon: Shield, title: 'Verified Providers', desc: 'All providers are vetted and approved', color: '#10B981', bg: 'bg-emerald-50' },
+  { icon: MapPin, title: 'Local Services', desc: 'Find skilled workers nearby', color: '#3B82F6', bg: 'bg-blue-50' },
+  { icon: Clock, title: 'Fast Booking', desc: 'Book services in minutes', color: '#8B5CF6', bg: 'bg-violet-50' },
+  { icon: DollarSign, title: 'Fair Pricing', desc: 'Transparent rates, no hidden fees', color: '#F59E0B', bg: 'bg-amber-50' },
 ];
 
 interface Provider {
@@ -61,7 +61,7 @@ export default function GuestHomePage() {
   useEffect(() => {
     setIsLoading(true);
     const providersQuery = query(collection(db, 'users'), where('role', '==', 'PROVIDER'));
-    
+
     const unsubscribe = onSnapshot(providersQuery, (querySnapshot) => {
       const providersList: Provider[] = [];
       querySnapshot.forEach((doc) => {
@@ -111,103 +111,104 @@ export default function GuestHomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
-      {/* Hero Header */}
-      <div className="relative bg-gradient-to-br from-emerald-500 via-green-500 to-teal-500 overflow-hidden">
-        {/* Decorative Elements */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-        <div className="absolute top-20 right-20 opacity-20">
-          <Wrench className="w-16 h-16 text-white animate-bounce" style={{ animationDuration: '3s' }} />
+      {/* ─── Hero Header ─────────────────────────────────────────── */}
+      <div className="relative bg-gradient-to-br from-emerald-500 via-green-500 to-teal-600 overflow-hidden">
+        {/* Decorative blobs */}
+        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/[0.07] rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
+        <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/[0.06] rounded-full blur-3xl translate-y-1/2 -translate-x-1/3" />
+        <div className="absolute top-24 right-24 opacity-15 animate-bounce" style={{ animationDuration: '4s' }}>
+          <Wrench className="w-14 h-14 text-white" />
         </div>
-        <div className="absolute bottom-10 right-32 opacity-20">
-          <Zap className="w-12 h-12 text-white animate-pulse" />
+        <div className="absolute bottom-16 right-36 opacity-15 animate-pulse">
+          <Zap className="w-10 h-10 text-white" />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 py-8">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-8 pb-12">
           {/* Top Bar */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-10">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
-                <Wrench className="w-7 h-7 text-white" />
+              <div className="w-11 h-11 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                <Wrench className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-white">GSS Maasin</h1>
-                <p className="text-emerald-100 text-xs">General Service System</p>
+                <h1 className="text-xl font-extrabold text-white tracking-tight">GSS Maasin</h1>
+                <p className="text-emerald-100 text-xs font-medium">General Service System</p>
               </div>
             </div>
-            <Link href="/login" className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-xl text-white font-medium hover:bg-white/30 transition-colors">
+            <Link href="/login" className="px-5 py-2.5 bg-white/20 backdrop-blur-sm rounded-xl text-white font-semibold hover:bg-white/30 transition-all duration-200">
               Sign In
             </Link>
           </div>
 
-          {/* Hero Content */}
-          <div className="max-w-2xl mb-8">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">
+          {/* Hero Copy */}
+          <div className="max-w-2xl mb-10">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-4 tracking-tight leading-tight">
               Find Trusted Service Providers in Maasin City
             </h2>
-            <p className="text-emerald-100 text-lg mb-6">
+            <p className="text-emerald-100 text-base sm:text-lg mb-8 leading-relaxed max-w-xl">
               Connect with verified electricians, plumbers, carpenters, and cleaners near you.
             </p>
             <Link href="/register"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-white text-emerald-600 rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all hover:scale-105">
+              className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-white text-emerald-600 rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]">
               <span>Get Started Free</span>
               <ArrowRight className="w-5 h-5" />
             </Link>
           </div>
 
-          {/* Stats */}
+          {/* Stats Row */}
           <div className="grid grid-cols-3 gap-3 max-w-lg">
-            <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-3 text-center">
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <Users className="w-4 h-4 text-white/80" />
-                <span className="text-xl font-bold text-white">{providers.length}+</span>
+            {[
+              { icon: Users, value: `${providers.length}+`, label: 'Providers' },
+              { icon: Award, value: '100%', label: 'Verified' },
+              { icon: TrendingUp, value: '4.8', label: 'Avg Rating' },
+            ].map((stat) => (
+              <div key={stat.label} className="bg-white/[0.12] backdrop-blur-sm rounded-2xl p-3.5 text-center">
+                <div className="flex items-center justify-center gap-1.5 mb-1">
+                  <stat.icon className="w-4 h-4 text-white/70" />
+                  <span className="text-xl font-extrabold text-white">{stat.value}</span>
+                </div>
+                <p className="text-[11px] text-white/60 font-medium">{stat.label}</p>
               </div>
-              <p className="text-xs text-white/70">Providers</p>
-            </div>
-            <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-3 text-center">
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <Award className="w-4 h-4 text-white/80" />
-                <span className="text-xl font-bold text-white">100%</span>
-              </div>
-              <p className="text-xs text-white/70">Verified</p>
-            </div>
-            <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-3 text-center">
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <TrendingUp className="w-4 h-4 text-white/80" />
-                <span className="text-xl font-bold text-white">4.8</span>
-              </div>
-              <p className="text-xs text-white/70">Avg Rating</p>
-            </div>
+            ))}
           </div>
         </div>
+
+        {/* Rounded bottom edge */}
+        <div className="absolute bottom-0 left-0 right-0 h-6 bg-white rounded-t-[28px]" />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 -mt-6 relative z-10">
+      {/* ─── Content ─────────────────────────────────────────────── */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 -mt-1 relative z-10">
         {/* Search Bar */}
-        <div className="bg-white rounded-2xl shadow-xl p-2 mb-6">
+        <div className="bg-white rounded-2xl shadow-xl p-2 mb-8 border border-gray-100">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input type="text" placeholder="Search for services or providers..."
               value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-900" />
+              className="w-full pl-12 pr-12 py-4 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-900 placeholder-gray-400 transition-colors" />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2">
+                <X className="w-5 h-5 text-gray-400 hover:text-gray-600:text-gray-300 transition-colors" />
+              </button>
+            )}
           </div>
         </div>
 
         {/* Service Categories */}
         <div className="mb-8">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Browse by Category</h3>
-          <div className="flex gap-3 overflow-x-auto pb-2">
+          <h3 className="text-lg font-extrabold text-gray-900 mb-4 tracking-tight">Browse by Category</h3>
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
             {SERVICE_CATEGORIES.map((category) => {
               const Icon = category.icon;
               const isSelected = selectedCategory === category.id;
               return (
                 <button key={category.id} onClick={() => setSelectedCategory(isSelected ? null : category.id)}
-                  className={`flex flex-col items-center min-w-[90px] p-4 rounded-2xl transition-all ${
-                    isSelected ? 'bg-gradient-to-br from-emerald-500 to-green-500 shadow-lg scale-105' : 'bg-white shadow-md hover:shadow-lg'
-                  }`}>
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-2 ${
-                    isSelected ? 'bg-white/20' : ''
-                  }`} style={{ backgroundColor: isSelected ? undefined : `${category.color}15` }}>
+                  className={`flex flex-col items-center min-w-[90px] p-4 rounded-2xl transition-all duration-200 border ${isSelected
+                    ? 'bg-gradient-to-br from-emerald-500 to-green-500 shadow-lg shadow-emerald-500/25 scale-105 border-emerald-500'
+                    : 'bg-white shadow-md hover:shadow-lg border-gray-100 hover:scale-[1.03]'
+                    }`}>
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-2 ${isSelected ? 'bg-white/20' : ''
+                    }`} style={{ backgroundColor: isSelected ? undefined : `${category.color}15` }}>
                     <Icon className="w-7 h-7" style={{ color: isSelected ? 'white' : category.color }} />
                   </div>
                   <span className={`text-sm font-semibold ${isSelected ? 'text-white' : 'text-gray-700'}`}>{category.name}</span>
@@ -215,9 +216,10 @@ export default function GuestHomePage() {
               );
             })}
             <button onClick={() => setSelectedCategory(null)}
-              className={`flex flex-col items-center min-w-[90px] p-4 rounded-2xl transition-all ${
-                !selectedCategory ? 'bg-gradient-to-br from-emerald-500 to-green-500 shadow-lg scale-105' : 'bg-white shadow-md hover:shadow-lg'
-              }`}>
+              className={`flex flex-col items-center min-w-[90px] p-4 rounded-2xl transition-all duration-200 border ${!selectedCategory
+                ? 'bg-gradient-to-br from-emerald-500 to-green-500 shadow-lg shadow-emerald-500/25 scale-105 border-emerald-500'
+                : 'bg-white shadow-md hover:shadow-lg border-gray-100 hover:scale-[1.03]'
+                }`}>
               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-2 ${!selectedCategory ? 'bg-white/20' : 'bg-emerald-50'}`}>
                 <Grid className="w-7 h-7" style={{ color: !selectedCategory ? 'white' : '#10B981' }} />
               </div>
@@ -227,17 +229,19 @@ export default function GuestHomePage() {
         </div>
 
         {/* Providers Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-gray-900">Service Providers</h3>
-            <span className="text-sm text-gray-500">{filteredProviders.length} available</span>
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="text-lg font-extrabold text-gray-900 tracking-tight">Service Providers</h3>
+              <p className="text-sm text-gray-500 mt-0.5">{filteredProviders.length} available nearby</p>
+            </div>
           </div>
 
           {isLoading ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {[1, 2, 3, 4].map(i => (
-                <div key={i} className="bg-white rounded-2xl p-4 animate-pulse">
-                  <div className="w-12 h-12 bg-gray-200 rounded-xl mb-3" />
+                <div key={i} className="bg-white rounded-2xl p-4 animate-pulse border border-gray-100">
+                  <div className="w-13 h-13 bg-gray-200 rounded-2xl mb-3" />
                   <div className="h-4 bg-gray-200 rounded w-2/3 mb-2" />
                   <div className="h-3 bg-gray-100 rounded w-1/2" />
                 </div>
@@ -249,13 +253,14 @@ export default function GuestHomePage() {
                 const categoryConfig = getCategoryConfig(provider.serviceCategory);
                 const CategoryIcon = categoryConfig.icon;
                 return (
-                  <div key={provider.id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all overflow-hidden border border-gray-100 group">
+                  <div key={provider.id}
+                    className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group hover:-translate-y-1">
                     <div className="p-4">
                       {/* Header */}
                       <div className="flex items-start justify-between mb-3">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${categoryConfig.color}15` }}>
+                        <div className="w-13 h-13 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${categoryConfig.color}15` }}>
                           {provider.profilePhoto ? (
-                            <Image src={provider.profilePhoto} alt="" width={48} height={48} className="w-full h-full rounded-xl object-cover" />
+                            <Image src={provider.profilePhoto} alt="" width={52} height={52} className="w-full h-full rounded-2xl object-cover" />
                           ) : (
                             <CategoryIcon className="w-6 h-6" style={{ color: categoryConfig.color }} />
                           )}
@@ -270,7 +275,7 @@ export default function GuestHomePage() {
 
                       {/* Info */}
                       <div className="flex items-center gap-1 mb-1">
-                        <h4 className="font-semibold text-gray-900 text-sm truncate">{provider.name}</h4>
+                        <h4 className="font-bold text-gray-900 text-sm truncate">{provider.name}</h4>
                         {provider.providerStatus === 'approved' && (
                           <CheckCircle className="w-4 h-4 text-blue-500 flex-shrink-0" />
                         )}
@@ -278,7 +283,7 @@ export default function GuestHomePage() {
 
                       {/* Category Badge */}
                       <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold mb-2"
-                        style={{ backgroundColor: `${categoryConfig.color}15`, color: categoryConfig.color }}>
+                        style={{ backgroundColor: `${categoryConfig.color}12`, color: categoryConfig.color }}>
                         <span>{categoryConfig.emoji}</span>
                         {categoryConfig.name}
                       </div>
@@ -287,9 +292,9 @@ export default function GuestHomePage() {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1">
                           <Star className={`w-4 h-4 ${provider.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`} />
-                          <span className="text-sm font-medium text-gray-700">{provider.rating ? provider.rating.toFixed(1) : 'New'}</span>
+                          <span className="text-sm font-semibold text-gray-700">{provider.rating ? provider.rating.toFixed(1) : 'New'}</span>
                         </div>
-                        <span className="text-sm font-bold text-emerald-600">
+                        <span className="text-sm font-extrabold text-emerald-600">
                           {provider.fixedPrice ? `₱${provider.fixedPrice}` : 'Contact'}
                         </span>
                       </div>
@@ -302,7 +307,7 @@ export default function GuestHomePage() {
 
                       {/* CTA */}
                       <Link href="/login"
-                        className="block w-full py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-center rounded-xl text-sm font-semibold hover:shadow-lg transition-all">
+                        className="block w-full py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-center rounded-xl text-sm font-bold hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-300 active:scale-[0.98]">
                         Contact Us
                       </Link>
                     </div>
@@ -311,7 +316,7 @@ export default function GuestHomePage() {
               })}
             </div>
           ) : (
-            <div className="bg-white rounded-3xl shadow-xl p-12 text-center">
+            <div className="bg-white rounded-3xl shadow-xl p-12 text-center border border-gray-100">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Search className="w-10 h-10 text-gray-300" />
               </div>
@@ -322,13 +327,13 @@ export default function GuestHomePage() {
         </div>
 
         {/* Features Section */}
-        <div className="mb-8">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Why Choose GSS Maasin?</h3>
+        <div className="mb-10">
+          <h3 className="text-lg font-extrabold text-gray-900 mb-5 tracking-tight">Why Choose GSS Maasin?</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {FEATURES.map((feature, index) => (
-              <div key={index} className="bg-white rounded-2xl shadow-lg p-5 text-center hover:shadow-xl transition-all">
-                <div className={`w-14 h-14 bg-${feature.color}-100 rounded-2xl flex items-center justify-center mx-auto mb-3`}>
-                  <feature.icon className={`w-7 h-7 text-${feature.color}-500`} />
+              <div key={index} className="bg-white rounded-2xl shadow-lg p-5 text-center hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 group">
+                <div className={`w-14 h-14 ${feature.bg} rounded-2xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform duration-300`}>
+                  <feature.icon className="w-7 h-7" style={{ color: feature.color }} />
                 </div>
                 <h4 className="font-bold text-gray-900 mb-1">{feature.title}</h4>
                 <p className="text-sm text-gray-500">{feature.desc}</p>
@@ -337,32 +342,36 @@ export default function GuestHomePage() {
           </div>
         </div>
 
-        {/* CTA Section */}
-        <div className="bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 rounded-3xl p-8 text-center mb-8">
-          <h3 className="text-2xl font-bold text-white mb-2">Ready to get started?</h3>
-          <p className="text-emerald-100 mb-6">Join thousands of satisfied customers in Maasin City</p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/register"
-              className="px-8 py-3 bg-white text-emerald-600 rounded-xl font-bold hover:shadow-lg transition-all">
-              Create Account
-            </Link>
-            <Link href="/login"
-              className="px-8 py-3 bg-white/20 text-white rounded-xl font-bold hover:bg-white/30 transition-all">
-              Sign In
-            </Link>
+        {/* CTA Banner */}
+        <div className="relative bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 rounded-3xl p-8 sm:p-10 text-center mb-10 overflow-hidden">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
+          <div className="relative">
+            <h3 className="text-2xl sm:text-3xl font-extrabold text-white mb-3 tracking-tight">Ready to get started?</h3>
+            <p className="text-emerald-100 mb-7 text-base sm:text-lg">Join thousands of satisfied customers in Maasin City</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link href="/register"
+                className="px-8 py-3.5 bg-white text-emerald-600 rounded-xl font-bold hover:shadow-lg transition-all duration-300 hover:scale-[1.03]">
+                Create Account
+              </Link>
+              <Link href="/login"
+                className="px-8 py-3.5 bg-white/20 text-white rounded-xl font-bold hover:bg-white/30 transition-all duration-300">
+                Sign In
+              </Link>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Fixed Bottom Bar */}
+      {/* ─── Fixed Bottom Bar ────────────────────────────────────── */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 p-4 z-50">
         <div className="max-w-7xl mx-auto flex gap-3">
           <Link href="/register"
-            className="flex-1 py-3.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-center rounded-xl font-bold shadow-lg hover:shadow-xl transition-all">
+            className="flex-1 py-3.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-center rounded-xl font-bold shadow-lg hover:shadow-xl hover:shadow-emerald-500/25 transition-all duration-300 active:scale-[0.98]">
             Sign Up Free
           </Link>
           <Link href="/login"
-            className="flex-1 py-3.5 bg-gray-100 text-gray-700 text-center rounded-xl font-bold hover:bg-gray-200 transition-all">
+            className="flex-1 py-3.5 bg-gray-100 text-gray-700 text-center rounded-xl font-bold hover:bg-gray-200:bg-gray-700 transition-all duration-300">
             Log In
           </Link>
         </div>

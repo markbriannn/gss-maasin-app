@@ -3,17 +3,18 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import Link from 'next/link';
-import { 
-  ArrowLeft, User, Bell, Shield, Moon, HelpCircle, FileText, 
+import {
+  ArrowLeft, User, Bell, Shield, Moon, HelpCircle, FileText,
   Info, LogOut, ChevronRight, Mail, Phone, Wallet,
   Receipt, CreditCard
 } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user, isLoading, logout } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const router = useRouter();
-  const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -37,7 +38,7 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="spinner"></div>
       </div>
     );
@@ -95,19 +96,17 @@ export default function SettingsPage() {
     {
       title: 'Preferences',
       items: [
-        { 
-          icon: Bell, 
-          label: 'Notifications', 
+        {
+          icon: Bell,
+          label: 'Notifications',
           href: '/notifications',
         },
-        { 
-          icon: Moon, 
-          label: 'Dark Mode', 
-          toggle: true, 
-          value: darkMode,
-          onChange: () => setDarkMode(!darkMode),
-          disabled: true,
-          note: 'Coming soon'
+        {
+          icon: Moon,
+          label: 'Dark Mode',
+          toggle: true,
+          value: isDark,
+          onChange: toggleTheme,
         },
       ],
     },
@@ -123,20 +122,20 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 transition-colors duration-300">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href={getDashboardUrl()} className="p-2 hover:bg-gray-100 rounded-full">
-            <ArrowLeft className="w-5 h-5" />
+          <Link href={getDashboardUrl()} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+            <ArrowLeft className="w-5 h-5 text-gray-900 dark:text-white" />
           </Link>
-          <h1 className="text-xl font-bold text-gray-900">Settings</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Settings</h1>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6">
         {/* User Info Card */}
-        <div className="bg-white rounded-xl p-4 shadow-sm mb-6 flex items-center gap-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm mb-6 flex items-center gap-4 transition-colors duration-300">
           {user?.profilePhoto ? (
             <img src={user.profilePhoto} alt="" className="w-16 h-16 rounded-full object-cover" />
           ) : (
@@ -145,63 +144,58 @@ export default function SettingsPage() {
             </div>
           )}
           <div className="flex-1">
-            <p className="font-semibold text-gray-900 text-lg">
+            <p className="font-semibold text-gray-900 dark:text-white text-lg">
               {user?.firstName} {user?.lastName}
             </p>
-            <p className="text-gray-500 text-sm capitalize">{user?.role?.toLowerCase()}</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm capitalize">{user?.role?.toLowerCase()}</p>
           </div>
         </div>
 
         {/* Menu Sections */}
         {menuSections.map((section) => (
           <div key={section.title} className="mb-6">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">
+            <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 px-1">
               {section.title}
             </h2>
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-300">
               {section.items.map((item, index) => (
                 <div key={item.label}>
                   {item.href ? (
                     <Link
                       href={item.href}
-                      className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 transition-colors"
+                      className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     >
-                      <item.icon className="w-5 h-5 text-gray-400" />
-                      <span className="flex-1 text-gray-900">{item.label}</span>
-                      <ChevronRight className="w-5 h-5 text-gray-300" />
+                      <item.icon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                      <span className="flex-1 text-gray-900 dark:text-white">{item.label}</span>
+                      <ChevronRight className="w-5 h-5 text-gray-300 dark:text-gray-600" />
                     </Link>
                   ) : item.toggle ? (
                     <div className="flex items-center gap-4 px-4 py-3.5">
-                      <item.icon className="w-5 h-5 text-gray-400" />
-                      <span className="flex-1 text-gray-900">
+                      <item.icon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                      <span className="flex-1 text-gray-900 dark:text-white">
                         {item.label}
-                        {item.note && (
-                          <span className="text-xs text-gray-400 ml-2">({item.note})</span>
-                        )}
                       </span>
                       <button
                         onClick={item.onChange}
                         disabled={item.disabled}
-                        className={`w-12 h-7 rounded-full transition-colors relative ${
-                          item.value ? 'bg-[#00B14F]' : 'bg-gray-200'
-                        } ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`w-12 h-7 rounded-full transition-colors relative ${item.value ? 'bg-[#00B14F]' : 'bg-gray-200 dark:bg-gray-600'
+                          } ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         <span
-                          className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                            item.value ? 'translate-x-6' : 'translate-x-1'
-                          }`}
+                          className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${item.value ? 'translate-x-6' : 'translate-x-1'
+                            }`}
                         />
                       </button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-4 px-4 py-3.5">
-                      <item.icon className="w-5 h-5 text-gray-400" />
-                      <span className="flex-1 text-gray-900">{item.label}</span>
-                      <span className="text-gray-500 text-sm">{item.value}</span>
+                      <item.icon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                      <span className="flex-1 text-gray-900 dark:text-white">{item.label}</span>
+                      <span className="text-gray-500 dark:text-gray-400 text-sm">{item.value}</span>
                     </div>
                   )}
                   {index < section.items.length - 1 && (
-                    <div className="border-b border-gray-100 ml-14" />
+                    <div className="border-b border-gray-100 dark:border-gray-700 ml-14" />
                   )}
                 </div>
               ))}
@@ -212,17 +206,18 @@ export default function SettingsPage() {
         {/* Logout Button */}
         <button
           onClick={handleLogout}
-          className="w-full bg-white rounded-xl shadow-sm px-4 py-3.5 flex items-center gap-4 text-red-600 hover:bg-red-50 transition-colors"
+          className="w-full bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-3.5 flex items-center gap-4 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
         >
           <LogOut className="w-5 h-5" />
           <span className="font-medium">Logout</span>
         </button>
 
         {/* Version */}
-        <p className="text-center text-gray-400 text-sm mt-8">
+        <p className="text-center text-gray-400 dark:text-gray-500 text-sm mt-8">
           GSS Maasin Web v1.0.0
         </p>
       </div>
     </div>
   );
 }
+

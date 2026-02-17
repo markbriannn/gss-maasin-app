@@ -4,7 +4,7 @@
  * Supports GCash, Maya, and Cash options
  */
 
-import React, {useEffect, useRef, useState} from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -19,16 +19,23 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 
-const {width: SCREEN_WIDTH} = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Payment method configurations
 const PAYMENT_METHODS = {
+  qrph: {
+    name: 'QR Ph',
+    icon: 'qr-code',
+    colors: ['#7C3AED', '#6D28D9'],
+    description: 'Scan QR with any bank/e-wallet',
+    logo: null,
+  },
   gcash: {
     name: 'GCash',
     icon: 'phone-portrait',
     colors: ['#007DFE', '#0066CC'],
     description: 'Pay with GCash e-wallet',
-    logo: null, // Can add logo URI
+    logo: null,
   },
   maya: {
     name: 'Maya',
@@ -61,6 +68,7 @@ const PaymentModal = ({
   const backdropAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(300)).current;
   const itemAnims = useRef([
+    new Animated.Value(0),
     new Animated.Value(0),
     new Animated.Value(0),
     new Animated.Value(0),
@@ -104,7 +112,7 @@ const PaymentModal = ({
 
   const handleClose = () => {
     if (isProcessing) return;
-    
+
     Animated.parallel([
       Animated.timing(backdropAnim, {
         toValue: 0,
@@ -126,9 +134,9 @@ const PaymentModal = ({
     onSelectMethod?.(method);
   };
 
-  const methods = showCash 
-    ? ['gcash', 'maya', 'cash'] 
-    : ['gcash', 'maya'];
+  const methods = showCash
+    ? ['qrph', 'gcash', 'maya', 'cash']
+    : ['qrph', 'gcash', 'maya'];
 
   return (
     <Modal
@@ -137,22 +145,22 @@ const PaymentModal = ({
       animationType="none"
       onRequestClose={handleClose}
       statusBarTranslucent>
-      <Animated.View style={[styles.overlay, {opacity: backdropAnim}]}>
+      <Animated.View style={[styles.overlay, { opacity: backdropAnim }]}>
         <TouchableOpacity
           style={styles.overlayTouch}
           activeOpacity={1}
           onPress={handleClose}
         />
-        
+
         <Animated.View
           style={[
             styles.container,
-            {transform: [{translateY: slideAnim}]},
+            { transform: [{ translateY: slideAnim }] },
           ]}>
           <LinearGradient
             colors={['#FFFFFF', '#F8FAFC']}
             style={styles.gradient}>
-            
+
             {/* Handle */}
             <View style={styles.handle} />
 
@@ -206,8 +214,8 @@ const PaymentModal = ({
                       <LinearGradient
                         colors={isSelected ? method.colors : ['#F3F4F6', '#E5E7EB']}
                         style={styles.methodIcon}
-                        start={{x: 0, y: 0}}
-                        end={{x: 1, y: 1}}>
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}>
                         {isLoading ? (
                           <ActivityIndicator color="#FFFFFF" size="small" />
                         ) : (
@@ -233,12 +241,12 @@ const PaymentModal = ({
 
                       <View style={[
                         styles.radioOuter,
-                        isSelected && {borderColor: method.colors[0]},
+                        isSelected && { borderColor: method.colors[0] },
                       ]}>
                         {isSelected && (
                           <View style={[
                             styles.radioInner,
-                            {backgroundColor: method.colors[0]},
+                            { backgroundColor: method.colors[0] },
                           ]} />
                         )}
                       </View>
@@ -276,7 +284,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: -10},
+    shadowOffset: { width: 0, height: -10 },
     shadowOpacity: 0.2,
     shadowRadius: 20,
     elevation: 25,

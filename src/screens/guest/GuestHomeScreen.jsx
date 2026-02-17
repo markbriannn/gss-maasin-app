@@ -1,4 +1,4 @@
-import {useState, useEffect, useRef} from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,247 +8,132 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Dimensions,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {SERVICE_CATEGORIES} from '../../config/constants';
+import { SERVICE_CATEGORIES } from '../../config/constants';
 import locationService from '../../services/locationService';
-import {db} from '../../config/firebase';
-import {collection, query, where, onSnapshot} from 'firebase/firestore';
-import {guestHomeStyles as styles} from '../../css/profileStyles';
+import { db } from '../../config/firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { guestHomeStyles as styles } from '../../css/profileStyles';
 
-// Animated Header Banner with floating icons
-const AnimatedHeaderBanner = ({onSignUp}) => {
-  const floatAnim1 = useRef(new Animated.Value(0)).current;
-  const floatAnim2 = useRef(new Animated.Value(0)).current;
-  const floatAnim3 = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const sparkleAnim = useRef(new Animated.Value(0)).current;
+const { width } = Dimensions.get('window');
 
-  useEffect(() => {
-    // Floating animations for icons
-    const createFloatAnimation = (anim, duration, delay) => {
-      return Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(anim, {
-            toValue: -15,
-            duration: duration,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(anim, {
-            toValue: 0,
-            duration: duration,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ])
-      );
-    };
-
-    createFloatAnimation(floatAnim1, 2000, 0).start();
-    createFloatAnimation(floatAnim2, 2500, 300).start();
-    createFloatAnimation(floatAnim3, 1800, 600).start();
-
-    // Pulse animation for CTA
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Sparkle animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(sparkleAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(sparkleAnim, {
-          toValue: 0,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, []);
-
-  return (
-    <View style={styles.headerBanner}>
-      {/* Floating service icons */}
-      <Animated.View
-        style={{
-          position: 'absolute',
-          top: 15,
-          right: 20,
-          transform: [{translateY: floatAnim1}],
-          opacity: 0.6,
-        }}>
-        <Icon name="construct" size={30} color="rgba(255,255,255,0.5)" />
-      </Animated.View>
-      <Animated.View
-        style={{
-          position: 'absolute',
-          top: 50,
-          right: 60,
-          transform: [{translateY: floatAnim2}],
-          opacity: 0.5,
-        }}>
-        <Icon name="flash" size={24} color="rgba(255,255,255,0.4)" />
-      </Animated.View>
-      <Animated.View
-        style={{
-          position: 'absolute',
-          bottom: 30,
-          right: 30,
-          transform: [{translateY: floatAnim3}],
-          opacity: 0.4,
-        }}>
-        <Icon name="water" size={28} color="rgba(255,255,255,0.4)" />
-      </Animated.View>
-
-      {/* Sparkle effect */}
-      <Animated.View
-        style={{
-          position: 'absolute',
-          top: 25,
-          right: 100,
-          opacity: sparkleAnim,
-        }}>
-        <Icon name="sparkles" size={16} color="rgba(255,255,255,0.7)" />
-      </Animated.View>
-
-      <View style={styles.headerContent}>
-        <Text style={styles.headerTitle}>Here for the first time?</Text>
-        <Animated.View style={{transform: [{scale: pulseAnim}]}}>
-          <TouchableOpacity style={styles.signUpPrompt} onPress={onSignUp}>
-            <Text style={styles.signUpPromptText}>
-              Sign up to get started with GSS!
-            </Text>
-            <Icon name="arrow-forward-circle" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-        </Animated.View>
-      </View>
-      <View style={styles.headerImageContainer}>
-        <Icon name="construct" size={80} color="rgba(255,255,255,0.3)" />
-      </View>
-    </View>
-  );
-};
-
-// Animated Category Item
-const AnimatedCategoryItem = ({category, isSelected, onPress, index}) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    // Entrance animation
-    scaleAnim.setValue(0);
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      tension: 50,
-      friction: 7,
-      delay: index * 80,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.7}
-      style={{marginRight: 12}}>
-      <Animated.View
-        style={[
-          styles.categoryItem,
-          isSelected && styles.categoryItemActive,
-          {
-            transform: [{scale: scaleAnim}],
-          },
-        ]}>
-        <View
-          style={[
-            styles.categoryIconContainer,
-            {backgroundColor: category.color + '20'},
-          ]}>
-          <Icon name={category.icon} size={28} color={category.color} />
-        </View>
-        <Text style={styles.categoryName}>{category.name}</Text>
-      </Animated.View>
-    </TouchableOpacity>
-  );
-};
-
-// Simple Category Item (non-animated fallback)
-const SimpleCategoryItem = ({category, isSelected, onPress}) => {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.7}
-      style={{marginRight: 12}}>
-      <View
-        style={[
-          styles.categoryItem,
-          isSelected && styles.categoryItemActive,
-        ]}>
-        <View
-          style={[
-            styles.categoryIconContainer,
-            {backgroundColor: category.color + '20'},
-          ]}>
-          <Icon name={category.icon} size={28} color={category.color} />
-        </View>
-        <Text style={styles.categoryName}>{category.name}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-};
-
-// Animated Provider Card
-const AnimatedProviderCard = ({
-  provider,
-  index,
-  onPress,
-  onHire,
-  getCategoryIcon,
-  getCategoryColor,
-  getCategoryName,
-}) => {
-  const slideAnim = useRef(new Animated.Value(50)).current;
+// ─── Premium Header with Gradient ───────────────────────────────────────
+const HeroHeader = ({ onSignUp, providerCount }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 400,
-        delay: index * 100,
+        duration: 700,
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: 400,
-        delay: index * 100,
+        duration: 700,
         easing: Easing.out(Easing.back(1)),
         useNativeDriver: true,
       }),
     ]).start();
   }, []);
 
+  return (
+    <LinearGradient
+      colors={['#00C853', '#00B14F', '#009D45']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.headerBanner}>
+      {/* Decorative blur circles */}
+      <View
+        style={{
+          position: 'absolute',
+          top: -40,
+          right: -30,
+          width: 160,
+          height: 160,
+          borderRadius: 80,
+          backgroundColor: 'rgba(255,255,255,0.08)',
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          bottom: -20,
+          left: -40,
+          width: 120,
+          height: 120,
+          borderRadius: 60,
+          backgroundColor: 'rgba(255,255,255,0.06)',
+        }}
+      />
+
+      {/* Top Bar */}
+      <View style={styles.headerTopRow}>
+        <View style={styles.headerLogo}>
+          <View style={styles.headerLogoCircle}>
+            <Icon name="construct" size={20} color="#FFFFFF" />
+          </View>
+          <View>
+            <Text style={styles.headerLogoText}>GSS Maasin</Text>
+            <Text style={styles.headerLogoSub}>General Service System</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Hero Content */}
+      <Animated.View
+        style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+        <Text style={styles.headerTitle}>
+          Find Trusted{'\n'}Services Near You
+        </Text>
+        <Text style={styles.headerSubtitle}>
+          Connect with verified electricians, plumbers, carpenters & cleaners in
+          Maasin City.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.headerCTA}
+          onPress={onSignUp}
+          activeOpacity={0.85}>
+          <Text style={styles.headerCTAText}>Get Started Free</Text>
+          <Icon name="arrow-forward-circle" size={20} color="#00B14F" />
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* Stats */}
+      <View style={styles.statsRow}>
+        <View style={styles.statBadge}>
+          <Text style={styles.statValue}>{providerCount}+</Text>
+          <Text style={styles.statLabel}>Providers</Text>
+        </View>
+        <View style={styles.statBadge}>
+          <Text style={styles.statValue}>100%</Text>
+          <Text style={styles.statLabel}>Verified</Text>
+        </View>
+        <View style={styles.statBadge}>
+          <Text style={styles.statValue}>4.8</Text>
+          <Text style={styles.statLabel}>Avg Rating</Text>
+        </View>
+      </View>
+    </LinearGradient>
+  );
+};
+
+// ─── Category Tile ──────────────────────────────────────────────────────
+const CategoryTile = ({ category, isSelected, onPress }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.95,
+      toValue: 0.93,
       useNativeDriver: true,
     }).start();
   };
@@ -270,64 +155,176 @@ const AnimatedProviderCard = ({
       activeOpacity={1}>
       <Animated.View
         style={[
+          styles.categoryItem,
+          isSelected && styles.categoryItemActive,
+          { transform: [{ scale: scaleAnim }] },
+        ]}>
+        <View
+          style={[
+            styles.categoryIconContainer,
+            {
+              backgroundColor: isSelected
+                ? 'rgba(255,255,255,0.25)'
+                : category.color + '18',
+            },
+          ]}>
+          <Icon
+            name={category.icon}
+            size={24}
+            color={isSelected ? '#FFFFFF' : category.color}
+          />
+        </View>
+        <Text
+          style={[
+            styles.categoryName,
+            isSelected && styles.categoryNameActive,
+          ]}>
+          {category.name}
+        </Text>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
+// ─── Provider Card ──────────────────────────────────────────────────────
+const ProviderCard = ({
+  provider,
+  index,
+  onPress,
+  onHire,
+  getCategoryIcon,
+  getCategoryColor,
+  getCategoryName,
+}) => {
+  const slideAnim = useRef(new Animated.Value(40)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        delay: index * 80,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 400,
+        delay: index * 80,
+        easing: Easing.out(Easing.back(1)),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      onPressIn={() =>
+        Animated.spring(scaleAnim, {
+          toValue: 0.96,
+          useNativeDriver: true,
+        }).start()
+      }
+      onPressOut={() =>
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }).start()
+      }
+      activeOpacity={1}>
+      <Animated.View
+        style={[
           styles.providerCard,
           {
             opacity: fadeAnim,
-            transform: [{translateY: slideAnim}, {scale: scaleAnim}],
+            transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
           },
         ]}>
+        {/* Avatar + Online */}
         <View style={styles.providerCardHeader}>
           <View
             style={[
               styles.providerAvatar,
-              {backgroundColor: getCategoryColor(provider.serviceCategory) + '20'},
+              {
+                backgroundColor:
+                  getCategoryColor(provider.serviceCategory) + '18',
+              },
             ]}>
             <Icon
               name={getCategoryIcon(provider.serviceCategory)}
-              size={24}
+              size={26}
               color={getCategoryColor(provider.serviceCategory)}
             />
           </View>
-          {provider.isOnline && <PulsingOnlineIndicator />}
+          {provider.isOnline && (
+            <View style={styles.onlineIndicator}>
+              <View
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: '#10B981',
+                }}
+              />
+            </View>
+          )}
         </View>
-        <View style={{flexDirection: 'row', alignItems: 'center'}}>
-          <Text style={[styles.providerName, {flex: 1}]} numberOfLines={1}>
+
+        {/* Name + Verified */}
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={[styles.providerName, { flex: 1 }]} numberOfLines={1}>
             {provider.name}
           </Text>
           {(provider.status === 'approved' ||
             provider.providerStatus === 'approved') && (
-            <View
-              style={{
-                backgroundColor: '#3B82F6',
-                borderRadius: 6,
-                paddingHorizontal: 4,
-                paddingVertical: 2,
-                marginLeft: 4,
-              }}>
-              <Icon name="checkmark-circle" size={10} color="#FFFFFF" />
-            </View>
-          )}
+              <View
+                style={{
+                  backgroundColor: '#3B82F6',
+                  borderRadius: 6,
+                  padding: 2,
+                  marginLeft: 4,
+                }}>
+                <Icon name="checkmark-circle" size={10} color="#FFFFFF" />
+              </View>
+            )}
         </View>
+
+        {/* Category */}
         <Text style={styles.providerCategory}>
           {getCategoryName(provider.serviceCategory)}
         </Text>
+
+        {/* Rating */}
         <View style={styles.providerRating}>
           <Icon
             name="star"
-            size={14}
+            size={13}
             color={provider.rating ? '#F59E0B' : '#D1D5DB'}
           />
           <Text style={styles.ratingText}>
             {provider.rating ? provider.rating.toFixed(1) : 'New'}
           </Text>
           {provider.rating ? (
-            <Text style={styles.reviewCount}>({provider.reviewCount || 0})</Text>
+            <Text style={styles.reviewCount}>
+              ({provider.reviewCount || 0})
+            </Text>
           ) : null}
         </View>
+
+        {/* Price */}
         <Text style={styles.providerRate}>
-          <Text>₱{provider.fixedPrice || provider.hourlyRate || 0}</Text><Text style={{fontSize: 11, color: '#6B7280'}}>{provider.priceType === 'per_hire' ? '/hire' : '/job'}</Text>
+          <Text>₱{provider.fixedPrice || provider.hourlyRate || 0}</Text>
+          <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '400' }}>
+            {provider.priceType === 'per_hire' ? '/hire' : '/job'}
+          </Text>
         </Text>
-        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+
+        {/* Location */}
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Icon name="location-outline" size={12} color="#9CA3AF" />
           <Text style={styles.providerDistance}>
             {provider.barangay
@@ -337,162 +334,58 @@ const AnimatedProviderCard = ({
                 : 'Nearby'}
           </Text>
         </View>
-        <AnimatedHireButton onPress={onHire} />
+
+        {/* CTA */}
+        <TouchableOpacity
+          onPress={onHire}
+          activeOpacity={0.85}
+          style={styles.hireButton}>
+          <Text style={styles.hireButtonText}>Contact Us</Text>
+        </TouchableOpacity>
       </Animated.View>
     </TouchableOpacity>
   );
 };
 
-// Pulsing Online Indicator
-const PulsingOnlineIndicator = () => {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const opacityAnim = useRef(new Animated.Value(1)).current;
+// ─── Feature Card ───────────────────────────────────────────────────────
+const FeatureCard = ({ icon, title, desc, color, index }) => {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.loop(
-      Animated.parallel([
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.8,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.sequence([
-          Animated.timing(opacityAnim, {
-            toValue: 0.3,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(opacityAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ]),
-      ])
-    ).start();
-  }, []);
-
-  return (
-    <View style={styles.onlineIndicator}>
-      <Animated.View
-        style={{
-          position: 'absolute',
-          width: 10,
-          height: 10,
-          borderRadius: 5,
-          backgroundColor: '#10B981',
-          opacity: opacityAnim,
-          transform: [{scale: pulseAnim}],
-        }}
-      />
-      <View
-        style={{
-          width: 10,
-          height: 10,
-          borderRadius: 5,
-          backgroundColor: '#10B981',
-        }}
-      />
-    </View>
-  );
-};
-
-// Animated Hire Button
-const AnimatedHireButton = ({onPress}) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.95,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
     Animated.spring(scaleAnim, {
       toValue: 1,
       tension: 50,
       friction: 7,
+      delay: index * 100,
       useNativeDriver: true,
     }).start();
-  };
-
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      activeOpacity={1}>
-      <Animated.View
-        style={[styles.hireButton, {transform: [{scale: scaleAnim}]}]}>
-        <Text style={styles.hireButtonText}>Contact Us</Text>
-      </Animated.View>
-    </TouchableOpacity>
-  );
-};
-
-// Animated Feature Item
-const AnimatedFeatureItem = ({icon, title, desc, index}) => {
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        delay: index * 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 500,
-        delay: index * 150,
-        useNativeDriver: true,
-      }),
-    ]).start();
   }, []);
 
-  const rotate = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['-10deg', '0deg'],
-  });
-
   return (
-    <Animated.View
-      style={[
-        styles.featureItem,
-        {
-          transform: [{scale: scaleAnim}, {rotate}],
-        },
-      ]}>
-      <Icon name={icon} size={32} color="#00B14F" />
+    <Animated.View style={[styles.featureItem, { transform: [{ scale: scaleAnim }] }]}>
+      <View
+        style={[
+          styles.featureIconContainer,
+          { backgroundColor: color + '15' },
+        ]}>
+        <Icon name={icon} size={24} color={color} />
+      </View>
       <Text style={styles.featureTitle}>{title}</Text>
       <Text style={styles.featureDesc}>{desc}</Text>
     </Animated.View>
   );
 };
 
-// Animated Bottom Buttons
-const AnimatedBottomButtons = ({onSignUp, onLogin}) => {
+// ─── Bottom Auth Bar ────────────────────────────────────────────────────
+const BottomAuthBar = ({ onSignUp, onLogin }) => {
   const slideAnim = useRef(new Animated.Value(100)).current;
-  const signUpScale = useRef(new Animated.Value(1)).current;
-  const loginScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.spring(slideAnim, {
       toValue: 0,
       tension: 50,
       friction: 8,
-      delay: 300,
+      delay: 400,
       useNativeDriver: true,
     }).start();
   }, []);
@@ -501,68 +394,40 @@ const AnimatedBottomButtons = ({onSignUp, onLogin}) => {
     <Animated.View
       style={[
         styles.bottomAuthContainer,
-        {transform: [{translateY: slideAnim}]},
+        { transform: [{ translateY: slideAnim }] },
       ]}>
       <TouchableOpacity
-        style={{flex: 1}}
+        style={{ flex: 1 }}
         onPress={onSignUp}
-        onPressIn={() =>
-          Animated.spring(signUpScale, {
-            toValue: 0.95,
-            useNativeDriver: true,
-          }).start()
-        }
-        onPressOut={() =>
-          Animated.spring(signUpScale, {
-            toValue: 1,
-            useNativeDriver: true,
-          }).start()
-        }
-        activeOpacity={1}>
-        <Animated.View
-          style={[styles.signUpButton, {transform: [{scale: signUpScale}]}]}>
+        activeOpacity={0.7}>
+        <View style={styles.signUpButton}>
           <Text style={styles.signUpButtonText}>Sign Up</Text>
-        </Animated.View>
+        </View>
       </TouchableOpacity>
       <TouchableOpacity
-        style={{flex: 1}}
+        style={{ flex: 1 }}
         onPress={onLogin}
-        onPressIn={() =>
-          Animated.spring(loginScale, {
-            toValue: 0.95,
-            useNativeDriver: true,
-          }).start()
-        }
-        onPressOut={() =>
-          Animated.spring(loginScale, {
-            toValue: 1,
-            useNativeDriver: true,
-          }).start()
-        }
-        activeOpacity={1}>
-        <Animated.View
-          style={[styles.logInButton, {transform: [{scale: loginScale}]}]}>
+        activeOpacity={0.7}>
+        <View style={styles.logInButton}>
           <Text style={styles.logInButtonText}>Log In</Text>
-        </Animated.View>
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
 };
 
-
-const GuestHomeScreen = ({navigation}) => {
+// ═══ MAIN COMPONENT ═════════════════════════════════════════════════════
+const GuestHomeScreen = ({ navigation }) => {
   const [providers, setProviders] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
 
-  // Main entrance animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
   useEffect(() => {
-    // Entrance animation
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -581,70 +446,70 @@ const GuestHomeScreen = ({navigation}) => {
   }, []);
 
   useEffect(() => {
-    // Set up real-time listener for providers
     const providersQuery = query(
       collection(db, 'users'),
       where('role', '==', 'PROVIDER'),
     );
 
     setIsLoading(true);
-    const unsubscribe = onSnapshot(providersQuery, (querySnapshot) => {
-      const providersList = [];
+    const unsubscribe = onSnapshot(
+      providersQuery,
+      querySnapshot => {
+        const providersList = [];
 
-      querySnapshot.forEach(docSnapshot => {
-        try {
-          const data = docSnapshot.data();
+        querySnapshot.forEach(docSnapshot => {
+          try {
+            const data = docSnapshot.data();
 
-          const isApproved =
-            data.providerStatus === 'approved' || data.status === 'approved';
-          if (!isApproved) {
-            return;
+            const isApproved =
+              data.providerStatus === 'approved' || data.status === 'approved';
+            if (!isApproved) return;
+
+            if (selectedCategory && data.serviceCategory !== selectedCategory)
+              return;
+
+            let distance = 0;
+            if (userLocation && data.latitude && data.longitude) {
+              distance = calculateDistance(
+                userLocation.latitude,
+                userLocation.longitude,
+                data.latitude,
+                data.longitude,
+              );
+            }
+
+            providersList.push({
+              id: docSnapshot.id,
+              name:
+                `${data.firstName || ''} ${data.lastName || ''}`.trim() ||
+                'Provider',
+              serviceCategory: data.serviceCategory || '',
+              rating: data.rating || null,
+              reviewCount: data.reviewCount || 0,
+              distance: distance.toFixed(1),
+              priceType: data.priceType || 'per_job',
+              fixedPrice: data.fixedPrice || 0,
+              hourlyRate: data.hourlyRate || data.fixedPrice || 200,
+              isOnline: data.isOnline || false,
+              ...data,
+            });
+          } catch (docError) {
+            console.error('Error processing provider doc:', docError);
           }
+        });
 
-          if (selectedCategory && data.serviceCategory !== selectedCategory) {
-            return;
-          }
-
-          let distance = 0;
-          if (userLocation && data.latitude && data.longitude) {
-            distance = calculateDistance(
-              userLocation.latitude,
-              userLocation.longitude,
-              data.latitude,
-              data.longitude,
-            );
-          }
-
-          providersList.push({
-            id: docSnapshot.id,
-            name:
-              `${data.firstName || ''} ${data.lastName || ''}`.trim() ||
-              'Provider',
-            serviceCategory: data.serviceCategory || '',
-            rating: data.rating || null,
-            reviewCount: data.reviewCount || 0,
-            distance: distance.toFixed(1),
-            priceType: data.priceType || 'per_job',
-            fixedPrice: data.fixedPrice || 0,
-            hourlyRate: data.hourlyRate || data.fixedPrice || 200,
-            isOnline: data.isOnline || false,
-            ...data,
-          });
-        } catch (docError) {
-          console.error('Error processing provider doc:', docError);
-        }
-      });
-
-      providersList.sort(
-        (a, b) => parseFloat(a.distance) - parseFloat(b.distance),
-      );
-      setProviders(providersList);
-      setIsLoading(false);
-    }, (error) => {
-      console.error('Error loading providers:', error);
-      setProviders([]);
-      setIsLoading(false);
-    });
+        providersList.sort(
+          (a, b) => parseFloat(a.distance) - parseFloat(b.distance),
+        );
+        setProviders(providersList);
+        setIsLoading(false);
+      },
+      error => {
+        console.error('Error loading providers:', error);
+        setProviders([]);
+        setIsLoading(false);
+      },
+    );
 
     return () => unsubscribe();
   }, [selectedCategory, userLocation]);
@@ -665,9 +530,9 @@ const GuestHomeScreen = ({navigation}) => {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
@@ -679,14 +544,14 @@ const GuestHomeScreen = ({navigation}) => {
   const handleProviderPress = provider => {
     navigation.navigate('Login', {
       returnTo: 'ProviderProfile',
-      returnParams: {providerId: provider.id, provider},
+      returnParams: { providerId: provider.id, provider },
     });
   };
 
   const handleHirePress = provider => {
     navigation.navigate('Login', {
       returnTo: 'HireProvider',
-      returnParams: {providerId: provider.id, provider},
+      returnParams: { providerId: provider.id, provider },
     });
   };
 
@@ -723,21 +588,25 @@ const GuestHomeScreen = ({navigation}) => {
       icon: 'shield-checkmark',
       title: 'Verified Providers',
       desc: 'All service providers are vetted and approved',
+      color: '#10B981',
     },
     {
       icon: 'location',
       title: 'Local Services',
       desc: 'Find skilled workers in Maasin City',
+      color: '#3B82F6',
     },
     {
       icon: 'time',
       title: 'Fast Booking',
       desc: 'Book services quickly and easily',
+      color: '#8B5CF6',
     },
     {
       icon: 'cash',
       title: 'Fair Pricing',
       desc: 'Transparent rates with no hidden fees',
+      color: '#F59E0B',
     },
   ];
 
@@ -746,44 +615,55 @@ const GuestHomeScreen = ({navigation}) => {
       <Animated.ScrollView
         style={[
           styles.scrollView,
-          {opacity: fadeAnim, transform: [{translateY: slideAnim}]},
+          { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
         ]}
         showsVerticalScrollIndicator={false}>
-        {/* Animated Header Banner */}
-        <AnimatedHeaderBanner
+        {/* Hero Header */}
+        <HeroHeader
           onSignUp={() => navigation.navigate('RoleSelection')}
+          providerCount={providers.length}
         />
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
-            <Icon name="search" size={20} color="#6B7280" />
+            <Icon name="search" size={20} color="#9CA3AF" />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search for services or providers"
+              placeholder="Search for services or providers..."
               placeholderTextColor="#9CA3AF"
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Icon name="close-circle" size={18} color="#D1D5DB" />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
-        {/* Animated Service Categories */}
+        {/* Service Categories */}
         <View style={styles.categoriesSection}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesScroll}>
-            {SERVICE_CATEGORIES.map((category) => (
-              <SimpleCategoryItem
+            {SERVICE_CATEGORIES.map(category => (
+              <CategoryTile
                 key={category.id}
                 category={category}
                 isSelected={selectedCategory === category.id}
                 onPress={() => handleCategorySelect(category.id)}
               />
             ))}
-            <SimpleCategoryItem
-              category={{id: 'all', name: 'All', icon: 'grid', color: '#00B14F'}}
+            <CategoryTile
+              category={{
+                id: 'all',
+                name: 'All',
+                icon: 'grid',
+                color: '#00B14F',
+              }}
               isSelected={!selectedCategory}
               onPress={() => setSelectedCategory(null)}
             />
@@ -792,12 +672,16 @@ const GuestHomeScreen = ({navigation}) => {
 
         {/* Providers Section */}
         <View style={styles.providersSection}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.sectionHeader}
             onPress={() => navigation.navigate('Login')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.sectionTitle}>Service Providers</Text>
+            activeOpacity={0.7}>
+            <View>
+              <Text style={styles.sectionTitle}>Service Providers</Text>
+              <Text style={styles.sectionSubtitle}>
+                {filteredProviders.length} available nearby
+              </Text>
+            </View>
             <Icon name="arrow-forward" size={20} color="#00B14F" />
           </TouchableOpacity>
 
@@ -808,7 +692,7 @@ const GuestHomeScreen = ({navigation}) => {
           ) : filteredProviders.length > 0 ? (
             <View style={styles.providersGrid}>
               {filteredProviders.map((provider, index) => (
-                <AnimatedProviderCard
+                <ProviderCard
                   key={provider.id}
                   provider={provider}
                   index={index}
@@ -831,28 +715,29 @@ const GuestHomeScreen = ({navigation}) => {
           )}
         </View>
 
-        {/* Why Choose GSS Section with Animated Features */}
+        {/* Why Choose GSS */}
         <View style={styles.whySection}>
           <Text style={styles.sectionTitle}>Why Choose GSS Maasin?</Text>
           <View style={styles.featuresGrid}>
             {features.map((feature, index) => (
-              <AnimatedFeatureItem
+              <FeatureCard
                 key={feature.title}
                 icon={feature.icon}
                 title={feature.title}
                 desc={feature.desc}
+                color={feature.color}
                 index={index}
               />
             ))}
           </View>
         </View>
 
-        {/* Spacer for bottom buttons */}
-        <View style={{height: 120}} />
+        {/* Spacer */}
+        <View style={{ height: 130 }} />
       </Animated.ScrollView>
 
-      {/* Animated Bottom Auth Buttons */}
-      <AnimatedBottomButtons
+      {/* Bottom Auth Bar */}
+      <BottomAuthBar
         onSignUp={() => navigation.navigate('RoleSelection')}
         onLogin={() => navigation.navigate('Login')}
       />

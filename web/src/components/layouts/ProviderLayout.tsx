@@ -6,10 +6,10 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { 
-  LayoutDashboard, 
-  Briefcase, 
-  MessageSquare, 
+import {
+  LayoutDashboard,
+  Briefcase,
+  MessageSquare,
   Wallet,
   User,
   Wrench,
@@ -58,16 +58,16 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
   // Listen for badge counts (jobs and messages)
   useEffect(() => {
     if (!user?.uid) return;
-    
+
     const unsubscribers: (() => void)[] = [];
-    
+
     // Listen to pending/new jobs for this provider
     const jobsQuery = query(
       collection(db, 'bookings'),
       where('providerId', '==', user.uid),
       where('status', 'in', ['pending', 'accepted'])
     );
-    
+
     unsubscribers.push(onSnapshot(jobsQuery, (snapshot) => {
       // Count jobs that need attention (pending or recently accepted)
       const count = snapshot.docs.filter(doc => {
@@ -78,13 +78,13 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
     }, (error) => {
       console.log('Jobs badge error:', error.code);
     }));
-    
+
     // Listen to unread messages
     const messagesQuery = query(
       collection(db, 'conversations'),
       where('participants', 'array-contains', user.uid)
     );
-    
+
     unsubscribers.push(onSnapshot(messagesQuery, (snapshot) => {
       let unreadMessages = 0;
       snapshot.docs.forEach(doc => {
@@ -94,26 +94,26 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
       });
       setBadgeCounts(prev => ({ ...prev, messages: unreadMessages }));
     }));
-    
+
     return () => unsubscribers.forEach(unsub => unsub());
   }, [user?.uid]);
 
   // Listen for unread notifications count (from bookings like mobile app)
   useEffect(() => {
     if (!user?.uid) return;
-    
+
     const unsubscribers: (() => void)[] = [];
     let latestAvailableSnapshot: any = null;
     let latestMyJobsSnapshot: any = null;
-    
+
     const calculateUnreadCount = () => {
       // Always get fresh read IDs from localStorage
       const stored = localStorage.getItem(`read_notifications_${user.uid}`);
       const readIds = stored ? new Set(JSON.parse(stored)) : new Set();
-      
+
       let availableCount = 0;
       let myJobsCount = 0;
-      
+
       if (latestAvailableSnapshot) {
         latestAvailableSnapshot.forEach((docSnap: any) => {
           const data = docSnap.data();
@@ -123,48 +123,48 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
           }
         });
       }
-      
+
       if (latestMyJobsSnapshot) {
         latestMyJobsSnapshot.forEach((docSnap: any) => {
           const data = docSnap.data();
           const status = data.status;
           const notifId = `myjob_${status}_${docSnap.id}`;
-          const hasNotification = ['accepted', 'traveling', 'arrived', 'in_progress', 
+          const hasNotification = ['accepted', 'traveling', 'arrived', 'in_progress',
             'pending_completion', 'pending_payment', 'payment_received', 'completed'].includes(status);
           if (hasNotification && !readIds.has(notifId)) myJobsCount++;
         });
       }
-      
+
       setUnreadCount(availableCount + myJobsCount);
     };
-    
+
     // Listen to available jobs
     const availableJobsQuery = query(
       collection(db, 'bookings'),
       where('status', 'in', ['pending', 'pending_negotiation'])
     );
-    
+
     unsubscribers.push(onSnapshot(availableJobsQuery, (snapshot) => {
       latestAvailableSnapshot = snapshot;
       calculateUnreadCount();
     }));
-    
+
     // Listen to provider's own jobs
     const myJobsQuery = query(
       collection(db, 'bookings'),
       where('providerId', '==', user.uid)
     );
-    
+
     unsubscribers.push(onSnapshot(myJobsQuery, (snapshot) => {
       latestMyJobsSnapshot = snapshot;
       calculateUnreadCount();
     }));
-    
+
     // Listen for localStorage changes (when dropdown marks as read)
     const handleStorageChange = () => calculateUnreadCount();
     window.addEventListener('notificationsRead', handleStorageChange);
     window.addEventListener('storage', handleStorageChange);
-    
+
     return () => {
       unsubscribers.forEach(unsub => unsub());
       window.removeEventListener('notificationsRead', handleStorageChange);
@@ -173,9 +173,9 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
   }, [user?.uid]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       {/* Top Navigation */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
+      <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-50 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
@@ -183,7 +183,7 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
                 <div className="w-10 h-10 bg-[#00B14F] rounded-lg flex items-center justify-center">
                   <Wrench className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-xl font-bold text-gray-900 hidden sm:block">GSS Provider</span>
+                <span className="text-xl font-bold text-gray-900 dark:text-white hidden sm:block">GSS Provider</span>
               </Link>
             </div>
 
@@ -195,11 +195,10 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`relative flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                      pathname === item.href
+                    className={`relative flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${pathname === item.href
                         ? 'text-[#00B14F] bg-[#00B14F]/10'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                    }`}
+                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
                   >
                     <item.icon className="w-5 h-5" />
                     <span className="font-medium text-sm">{item.label}</span>
@@ -215,10 +214,10 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
 
             <div className="flex items-center gap-4">
               <div className="relative">
-                <button 
+                <button
                   ref={notificationBtnRef}
                   onClick={() => setNotificationOpen(!notificationOpen)}
-                  className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+                  className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
                   <Bell className="w-6 h-6" />
                   {unreadCount > 0 && (
@@ -227,34 +226,34 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
                     </span>
                   )}
                 </button>
-                <NotificationDropdown 
+                <NotificationDropdown
                   isOpen={notificationOpen}
                   onClose={() => setNotificationOpen(false)}
                   anchorRef={notificationBtnRef}
                 />
               </div>
-              
+
               <div className="hidden md:flex items-center gap-3">
-                <div className="w-9 h-9 bg-gray-200 rounded-full overflow-hidden">
+                <div className="w-9 h-9 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                   {user?.profilePhoto ? (
                     <img src={user.profilePhoto} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-500 font-semibold">
+                    <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-300 font-semibold">
                       {user?.firstName?.[0] || 'P'}
                     </div>
                   )}
                 </div>
-                <button 
+                <button
                   onClick={logout}
-                  className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  className="p-2 text-gray-600 dark:text-gray-300 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                 >
                   <LogOut className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Mobile menu button */}
-              <button 
-                className="md:hidden p-2 text-gray-600"
+              <button
+                className="md:hidden p-2 text-gray-600 dark:text-gray-300"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               >
                 {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -265,7 +264,7 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t bg-white">
+          <div className="md:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
             <nav className="px-4 py-2 space-y-1">
               {navItems.map((item) => {
                 const badgeCount = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
@@ -274,11 +273,10 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
                     key={item.href}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center justify-between gap-3 px-3 py-3 rounded-lg ${
-                      pathname === item.href
+                    className={`flex items-center justify-between gap-3 px-3 py-3 rounded-lg ${pathname === item.href
                         ? 'text-[#00B14F] bg-[#00B14F]/10'
-                        : 'text-gray-600'
-                    }`}
+                        : 'text-gray-600 dark:text-gray-300'
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <item.icon className="w-5 h-5" />
@@ -292,7 +290,7 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
                   </Link>
                 );
               })}
-              <button 
+              <button
                 onClick={logout}
                 className="flex items-center gap-3 px-3 py-3 rounded-lg text-red-600 w-full"
               >
@@ -306,7 +304,7 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
 
       {/* Main Content */}
       <main>{children}</main>
-      
+
       {/* Toast Notifications */}
       <ToastNotification />
     </div>

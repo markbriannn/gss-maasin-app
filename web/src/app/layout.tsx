@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { NotificationProvider } from "@/context/NotificationContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import ToastNotification from "@/components/ToastNotification";
 import NotificationPermissionBanner from "@/components/NotificationPermissionBanner";
 import { Toaster } from "sonner";
@@ -22,26 +23,25 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
-        <AuthProvider>
-          <NotificationProvider>
-            {children}
-            <ToastNotification />
-            <NotificationPermissionBanner />
-            <Toaster 
-              position="top-right" 
-              richColors 
-              closeButton
-              toastOptions={{
-                duration: 5000,
-                style: {
-                  background: 'white',
-                  border: '1px solid #e5e7eb',
-                },
-              }}
-            />
-          </NotificationProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <NotificationProvider>
+              {children}
+              <ToastNotification />
+              <NotificationPermissionBanner />
+              <Toaster
+                position="top-right"
+                richColors
+                closeButton
+                toastOptions={{
+                  duration: 5000,
+                }}
+              />
+            </NotificationProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
 }
+

@@ -126,7 +126,7 @@ export default function ProvidersPage() {
             );
             const bookingsSnap = await getDocs(bookingsQuery);
             completedJobsCount = bookingsSnap.size;
-          } catch (e) {}
+          } catch (e) { }
 
           return {
             id: docSnap.id,
@@ -208,20 +208,20 @@ export default function ProvidersPage() {
         updatedAt: new Date(),
         ...additionalData,
       });
-      
+
       // Send SMS and Email notifications
       try {
         const providerDoc = await getDoc(providerRef);
         const providerData = providerDoc.data();
-        
+
         if (providerData && (newStatus === 'approved' || newStatus === 'rejected')) {
           const API_URL = 'https://gss-maasin-app.onrender.com/api';
-          
+
           // Send SMS notification
-          const smsEndpoint = newStatus === 'approved' 
+          const smsEndpoint = newStatus === 'approved'
             ? `${API_URL}/sms/provider-status`
             : `${API_URL}/sms/provider-status`;
-          
+
           await fetch(smsEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -232,12 +232,12 @@ export default function ProvidersPage() {
               reason: newStatus === 'rejected' ? 'Application did not meet requirements' : undefined,
             }),
           }).catch(err => console.error('SMS notification failed:', err));
-          
+
           // Send Email notification
           const emailEndpoint = newStatus === 'approved'
             ? `${API_URL}/email/provider-approved`
             : `${API_URL}/email/provider-rejected`;
-          
+
           await fetch(emailEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -247,14 +247,14 @@ export default function ProvidersPage() {
               reason: newStatus === 'rejected' ? 'Application did not meet requirements' : undefined,
             }),
           }).catch(err => console.error('Email notification failed:', err));
-          
+
           console.log(`Notifications sent to provider (${newStatus})`);
         }
       } catch (notifError) {
         console.error('Notification error:', notifError);
         // Don't fail the whole operation if notifications fail
       }
-      
+
       return true;
     } catch (error) {
       console.error('Error updating provider:', error);
@@ -273,20 +273,20 @@ export default function ProvidersPage() {
 
   const handleConfirmAction = async () => {
     if (!confirmProvider || !confirmAction) return;
-    
+
     if (confirmAction === 'approve') {
       const success = await updateProviderStatus(confirmProvider.id, 'approved', { isOnline: true });
       if (success) {
         setShowModal(false);
         setShowConfirmModal(false);
-        try { await sendProviderApprovalEmail(confirmProvider.email, confirmProvider.name, true); } catch (e) {}
+        try { await sendProviderApprovalEmail(confirmProvider.email, confirmProvider.name, true); } catch (e) { }
       }
     } else if (confirmAction === 'reject') {
       const success = await updateProviderStatus(confirmProvider.id, 'rejected');
       if (success) {
         setShowModal(false);
         setShowConfirmModal(false);
-        try { await sendProviderApprovalEmail(confirmProvider.email, confirmProvider.name, false); } catch (e) {}
+        try { await sendProviderApprovalEmail(confirmProvider.email, confirmProvider.name, false); } catch (e) { }
       }
     } else if (confirmAction === 'reactivate') {
       const success = await updateProviderStatus(confirmProvider.id, 'approved', { isOnline: true, suspensionReason: null, suspendedAt: null });
@@ -297,7 +297,7 @@ export default function ProvidersPage() {
           await sendNotificationEmail(confirmProvider.email, confirmProvider.name, 'Account Reactivated',
             'Great news! Your provider account has been reactivated. You can now start receiving job requests again.',
             'Open the GSS Maasin app to view available jobs.');
-        } catch (e) {}
+        } catch (e) { }
       }
     }
     setConfirmAction(null);
@@ -324,7 +324,7 @@ export default function ProvidersPage() {
       try {
         await sendNotificationEmail(selectedProvider.email, selectedProvider.name, 'Account Suspended',
           `Your provider account has been suspended. Reason: ${reasonText}`, 'Please contact support if you believe this is an error.');
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
@@ -354,12 +354,12 @@ export default function ProvidersPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/30">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900">
         {/* Premium Header */}
         <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-          
+
           <div className="relative max-w-7xl mx-auto px-6 py-8">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-4">
@@ -428,7 +428,7 @@ export default function ProvidersPage() {
 
         <div className="max-w-7xl mx-auto px-6 py-6">
           {/* Search & Filters */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 mb-6">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -437,7 +437,7 @@ export default function ProvidersPage() {
                   placeholder="Search by name, email, or service..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 text-gray-900 placeholder-gray-400"
+                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 dark:bg-gray-700 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 text-gray-900 dark:text-white placeholder-gray-400"
                 />
               </div>
               <div className="flex gap-2">
@@ -447,17 +447,15 @@ export default function ProvidersPage() {
                     <button
                       key={filter.id}
                       onClick={() => setActiveFilter(filter.id)}
-                      className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 ${
-                        isActive
-                          ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-500/30'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                      className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 ${isActive
+                        ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-500/30'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
                     >
                       {filter.label}
                       {filter.id !== 'all' && (
-                        <span className={`min-w-[20px] h-5 rounded-full text-xs flex items-center justify-center ${
-                          isActive ? 'bg-white/20' : 'bg-gray-200'
-                        }`}>
+                        <span className={`min-w-[20px] h-5 rounded-full text-xs flex items-center justify-center ${isActive ? 'bg-white/20' : 'bg-gray-200'
+                          }`}>
                           {stats[filter.id]}
                         </span>
                       )}
@@ -470,12 +468,12 @@ export default function ProvidersPage() {
 
           {/* Providers Grid */}
           {providers.length === 0 ? (
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-12 text-center">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-12 text-center">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Users className="w-10 h-10 text-gray-300" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">No providers found</h3>
-              <p className="text-gray-500">Try adjusting your search or filter criteria</p>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No providers found</h3>
+              <p className="text-gray-500 dark:text-gray-400">Try adjusting your search or filter criteria</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -486,7 +484,7 @@ export default function ProvidersPage() {
                   <div
                     key={provider.id}
                     onClick={() => { setSelectedProvider(provider); setShowModal(true); }}
-                    className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer group flex flex-col"
+                    className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer group flex flex-col"
                   >
                     {/* Card Header with Gradient */}
                     <div className={`bg-gradient-to-r ${catStyle.bg} p-4 relative overflow-hidden`}>
@@ -520,43 +518,43 @@ export default function ProvidersPage() {
                           {provider.status.charAt(0).toUpperCase() + provider.status.slice(1)}
                         </span>
                         {provider.rating > 0 && (
-                          <div className="flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-full">
+                          <div className="flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 px-2.5 py-1 rounded-full">
                             <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                            <span className="text-amber-700 font-bold text-sm">{provider.rating.toFixed(1)}</span>
+                            <span className="text-amber-700 dark:text-amber-400 font-bold text-sm">{provider.rating.toFixed(1)}</span>
                           </div>
                         )}
                       </div>
 
                       {/* Stats Row - Always show for consistent height */}
                       <div className="grid grid-cols-2 gap-2 mb-4">
-                        <div className="bg-emerald-50 rounded-xl p-2.5 text-center">
-                          <p className="text-emerald-600 font-bold text-lg">{provider.completedJobs}</p>
-                          <p className="text-emerald-600/70 text-xs font-medium">Jobs Done</p>
+                        <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-xl p-2.5 text-center">
+                          <p className="text-emerald-600 dark:text-emerald-400 font-bold text-lg">{provider.completedJobs}</p>
+                          <p className="text-emerald-600/70 dark:text-emerald-500/70 text-xs font-medium">Jobs Done</p>
                         </div>
-                        <div className="bg-violet-50 rounded-xl p-2.5 text-center">
-                          <p className="text-violet-600 font-bold text-lg">{provider.rating > 0 ? provider.rating.toFixed(1) : '-'}</p>
-                          <p className="text-violet-600/70 text-xs font-medium">Rating</p>
+                        <div className="bg-violet-50 dark:bg-violet-900/30 rounded-xl p-2.5 text-center">
+                          <p className="text-violet-600 dark:text-violet-400 font-bold text-lg">{provider.rating > 0 ? provider.rating.toFixed(1) : '-'}</p>
+                          <p className="text-violet-600/70 dark:text-violet-500/70 text-xs font-medium">Rating</p>
                         </div>
                       </div>
 
                       {/* Contact Info */}
                       <div className="space-y-2 text-sm flex-1">
-                        <div className="flex items-center gap-2 text-gray-600">
+                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                           <Mail className="w-4 h-4 text-gray-400" />
                           <span className="truncate">{provider.email}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-gray-600">
+                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                           <Phone className="w-4 h-4 text-gray-400" />
                           <span>{provider.phone}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-gray-600">
+                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                           <Calendar className="w-4 h-4 text-gray-400" />
                           <span className="text-xs">{provider.registeredDate}</span>
                         </div>
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-2">
+                      <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 grid grid-cols-2 gap-2">
                         {provider.status === 'pending' && (
                           <>
                             <button
@@ -609,7 +607,7 @@ export default function ProvidersPage() {
         {/* Detail Modal */}
         {showModal && selectedProvider && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4" onClick={() => setShowModal(false)}>
-            <div className="bg-white rounded-t-3xl md:rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white dark:bg-gray-900 rounded-t-3xl md:rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
               {/* Modal Header with Gradient */}
               <div className={`bg-gradient-to-r ${getCategoryStyle(selectedProvider.service).bg} p-6 relative overflow-hidden`}>
                 <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
@@ -645,12 +643,12 @@ export default function ProvidersPage() {
                   <div className="grid grid-cols-2 gap-4 mb-6">
                     <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-2xl p-4 text-center border border-amber-100">
                       <Star className="w-8 h-8 text-amber-500 mx-auto mb-2" />
-                      <p className="text-3xl font-bold text-gray-900">{selectedProvider.rating.toFixed(1)}</p>
+                      <p className="text-3xl font-bold text-gray-900 dark:text-white">{selectedProvider.rating.toFixed(1)}</p>
                       <p className="text-amber-600 text-sm font-medium">Rating</p>
                     </div>
                     <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-4 text-center border border-emerald-100">
                       <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                      <p className="text-3xl font-bold text-gray-900">{selectedProvider.completedJobs}</p>
+                      <p className="text-3xl font-bold text-gray-900 dark:text-white">{selectedProvider.completedJobs}</p>
                       <p className="text-emerald-600 text-sm font-medium">Jobs Completed</p>
                     </div>
                   </div>
@@ -669,72 +667,72 @@ export default function ProvidersPage() {
                 )}
 
                 {/* Contact Info */}
-                <div className="bg-gray-50 rounded-2xl p-4 mb-4">
-                  <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 mb-4">
+                  <h4 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                     <Mail className="w-5 h-5 text-violet-500" /> Contact Information
                   </h4>
                   <div className="space-y-3">
-                    <div className="flex items-center gap-3 bg-white rounded-xl p-3">
+                    <div className="flex items-center gap-3 bg-white dark:bg-gray-700 rounded-xl p-3">
                       <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center">
                         <Mail className="w-5 h-5 text-violet-600" />
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Email</p>
-                        <p className="font-medium text-gray-900">{selectedProvider.email}</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{selectedProvider.email}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 bg-white rounded-xl p-3">
+                    <div className="flex items-center gap-3 bg-white dark:bg-gray-700 rounded-xl p-3">
                       <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
                         <Phone className="w-5 h-5 text-emerald-600" />
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Phone</p>
-                        <p className="font-medium text-gray-900">{selectedProvider.phone}</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{selectedProvider.phone}</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Address */}
-                <div className="bg-gray-50 rounded-2xl p-4 mb-4">
-                  <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 mb-4">
+                  <h4 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                     <MapPin className="w-5 h-5 text-violet-500" /> Address
                   </h4>
                   <div className="space-y-2">
                     {selectedProvider.houseNumber && (
-                      <div className="flex items-center gap-3 bg-white rounded-xl p-3">
+                      <div className="flex items-center gap-3 bg-white dark:bg-gray-700 rounded-xl p-3">
                         <Home className="w-5 h-5 text-gray-400" />
-                        <span className="text-gray-700">House/Bldg: {selectedProvider.houseNumber}</span>
+                        <span className="text-gray-700 dark:text-gray-300">House/Bldg: {selectedProvider.houseNumber}</span>
                       </div>
                     )}
                     {selectedProvider.streetAddress && (
-                      <div className="flex items-center gap-3 bg-white rounded-xl p-3">
+                      <div className="flex items-center gap-3 bg-white dark:bg-gray-700 rounded-xl p-3">
                         <Navigation className="w-5 h-5 text-gray-400" />
-                        <span className="text-gray-700">Street: {selectedProvider.streetAddress}</span>
+                        <span className="text-gray-700 dark:text-gray-300">Street: {selectedProvider.streetAddress}</span>
                       </div>
                     )}
                     {selectedProvider.barangay && (
-                      <div className="flex items-center gap-3 bg-white rounded-xl p-3">
+                      <div className="flex items-center gap-3 bg-white dark:bg-gray-700 rounded-xl p-3">
                         <Building className="w-5 h-5 text-gray-400" />
-                        <span className="text-gray-700">Barangay: {selectedProvider.barangay}</span>
+                        <span className="text-gray-700 dark:text-gray-300">Barangay: {selectedProvider.barangay}</span>
                       </div>
                     )}
                     {selectedProvider.landmark && (
-                      <div className="flex items-center gap-3 bg-white rounded-xl p-3">
+                      <div className="flex items-center gap-3 bg-white dark:bg-gray-700 rounded-xl p-3">
                         <Flag className="w-5 h-5 text-gray-400" />
-                        <span className="text-gray-700">Landmark: {selectedProvider.landmark}</span>
+                        <span className="text-gray-700 dark:text-gray-300">Landmark: {selectedProvider.landmark}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-3 bg-white rounded-xl p-3">
+                    <div className="flex items-center gap-3 bg-white dark:bg-gray-700 rounded-xl p-3">
                       <MapPin className="w-5 h-5 text-gray-400" />
-                      <span className="text-gray-700">{selectedProvider.location}</span>
+                      <span className="text-gray-700 dark:text-gray-300">{selectedProvider.location}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Documents */}
-                <div className="bg-gray-50 rounded-2xl p-4 mb-4">
-                  <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 mb-4">
+                  <h4 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                     <Shield className="w-5 h-5 text-violet-500" /> Verification Documents
                   </h4>
                   <div className="grid grid-cols-2 gap-3">
@@ -818,7 +816,7 @@ export default function ProvidersPage() {
                 {/* View Full Details */}
                 <button
                   onClick={() => router.push(`/admin/providers/${selectedProvider.id}`)}
-                  className="w-full py-3 bg-gray-100 text-violet-600 rounded-xl font-semibold hover:bg-gray-200 transition-colors mb-4 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-violet-600 dark:text-violet-400 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors mb-4 flex items-center justify-center gap-2"
                 >
                   View Full Details <ChevronRight className="w-5 h-5" />
                 </button>
@@ -858,33 +856,32 @@ export default function ProvidersPage() {
         {/* Suspend Modal */}
         {showSuspendModal && selectedProvider && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowSuspendModal(false)}>
-            <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
               <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/30">
                 <PauseCircle className="w-8 h-8 text-white" />
               </div>
-              <h2 className="text-xl font-bold text-center text-gray-900 mb-2">Suspend Provider</h2>
-              <p className="text-center text-gray-500 mb-6">Select a reason for suspending <span className="font-semibold text-gray-900">{selectedProvider.name}</span></p>
-              
+              <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white mb-2">Suspend Provider</h2>
+              <p className="text-center text-gray-500 dark:text-gray-400 mb-6">Select a reason for suspending <span className="font-semibold text-gray-900 dark:text-white">{selectedProvider.name}</span></p>
+
               <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
                 {SUSPENSION_REASONS.map((reason) => (
-                  <label key={reason.id} className={`flex items-center gap-3 p-3.5 border-2 rounded-xl cursor-pointer transition-all ${
-                    suspendReason === reason.id ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}>
+                  <label key={reason.id} className={`flex items-center gap-3 p-3.5 border-2 rounded-xl cursor-pointer transition-all ${suspendReason === reason.id ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}>
                     <input type="radio" name="suspendReason" value={reason.id} checked={suspendReason === reason.id}
                       onChange={(e) => setSuspendReason(e.target.value)} className="w-4 h-4 text-orange-500 focus:ring-orange-500" />
-                    <span className="font-medium text-gray-700">{reason.label}</span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300">{reason.label}</span>
                   </label>
                 ))}
               </div>
-              
+
               {suspendReason === 'other' && (
                 <textarea placeholder="Please specify the reason..." value={customReason} onChange={(e) => setCustomReason(e.target.value)}
                   className="w-full p-3.5 border-2 border-gray-200 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none" rows={3} />
               )}
-              
+
               <div className="flex gap-3">
                 <button onClick={() => { setShowSuspendModal(false); setSuspendReason(''); setCustomReason(''); }}
-                  className="flex-1 py-3.5 border-2 border-gray-200 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
+                  className="flex-1 py-3.5 border-2 border-gray-200 dark:border-gray-700 rounded-xl font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                   Cancel
                 </button>
                 <button onClick={handleSuspend} disabled={updating}
@@ -899,18 +896,17 @@ export default function ProvidersPage() {
         {/* Confirmation Modal */}
         {showConfirmModal && confirmProvider && confirmAction && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowConfirmModal(false)}>
-            <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg ${
-                confirmAction === 'approve' ? 'bg-gradient-to-br from-emerald-500 to-teal-500 shadow-emerald-500/30' :
+            <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg ${confirmAction === 'approve' ? 'bg-gradient-to-br from-emerald-500 to-teal-500 shadow-emerald-500/30' :
                 confirmAction === 'reject' ? 'bg-gradient-to-br from-red-500 to-rose-500 shadow-red-500/30' :
-                'bg-gradient-to-br from-blue-500 to-indigo-500 shadow-blue-500/30'
-              }`}>
+                  'bg-gradient-to-br from-blue-500 to-indigo-500 shadow-blue-500/30'
+                }`}>
                 {confirmAction === 'approve' && <CheckCircle className="w-8 h-8 text-white" />}
                 {confirmAction === 'reject' && <XCircle className="w-8 h-8 text-white" />}
                 {confirmAction === 'reactivate' && <PlayCircle className="w-8 h-8 text-white" />}
               </div>
 
-              <h3 className="text-xl font-bold text-center text-gray-900 mb-2">
+              <h3 className="text-xl font-bold text-center text-gray-900 dark:text-white mb-2">
                 {confirmAction === 'approve' && 'Approve Provider'}
                 {confirmAction === 'reject' && 'Reject Provider'}
                 {confirmAction === 'reactivate' && 'Reactivate Provider'}
@@ -922,7 +918,7 @@ export default function ProvidersPage() {
                 {confirmAction === 'reactivate' && <>Are you sure you want to reactivate <span className="font-semibold text-gray-900">{confirmProvider.name}</span>&apos;s account?</>}
               </p>
 
-              <div className="bg-gray-50 rounded-2xl p-4 mb-6">
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 mb-6">
                 <div className="flex items-center gap-3">
                   <div className={`w-14 h-14 bg-gradient-to-br ${getCategoryStyle(confirmProvider.service).bg} rounded-xl flex items-center justify-center text-white font-bold text-lg overflow-hidden`}>
                     {confirmProvider.profilePhoto ? (
@@ -932,7 +928,7 @@ export default function ProvidersPage() {
                     )}
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900">{confirmProvider.name}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{confirmProvider.name}</p>
                     <p className="text-sm text-violet-600 font-medium">{confirmProvider.service}</p>
                   </div>
                 </div>
@@ -940,18 +936,17 @@ export default function ProvidersPage() {
 
               <div className="flex gap-3">
                 <button onClick={() => { setShowConfirmModal(false); setConfirmAction(null); setConfirmProvider(null); }}
-                  className="flex-1 py-3.5 border-2 border-gray-200 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
+                  className="flex-1 py-3.5 border-2 border-gray-200 dark:border-gray-700 rounded-xl font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                   Cancel
                 </button>
                 <button onClick={handleConfirmAction} disabled={updating}
-                  className={`flex-1 py-3.5 text-white rounded-xl font-bold transition-all disabled:opacity-50 ${
-                    confirmAction === 'approve' ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-lg hover:shadow-emerald-500/30' :
+                  className={`flex-1 py-3.5 text-white rounded-xl font-bold transition-all disabled:opacity-50 ${confirmAction === 'approve' ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-lg hover:shadow-emerald-500/30' :
                     confirmAction === 'reject' ? 'bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/30' :
-                    'bg-gradient-to-r from-blue-500 to-indigo-500 hover:shadow-lg hover:shadow-blue-500/30'
-                  }`}>
+                      'bg-gradient-to-r from-blue-500 to-indigo-500 hover:shadow-lg hover:shadow-blue-500/30'
+                    }`}>
                   {updating ? 'Processing...' : (
                     confirmAction === 'approve' ? 'Yes, Approve' :
-                    confirmAction === 'reject' ? 'Yes, Reject' : 'Yes, Reactivate'
+                      confirmAction === 'reject' ? 'Yes, Reject' : 'Yes, Reactivate'
                   )}
                 </button>
               </div>

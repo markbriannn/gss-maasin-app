@@ -1,0 +1,204 @@
+# PROCESS 1: USER REGISTRATION AND AUTHENTICATION
+
+## Level 1 DFD - User Registration and Authentication
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                      PROCESS 1: USER REGISTRATION AND AUTHENTICATION                     │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────┐                                                          ┌──────────────┐
+│              │                                                          │              │
+│    CLIENT    │                                                          │   PROVIDER   │
+│              │                                                          │              │
+└──────┬───────┘                                                          └──────┬───────┘
+       │                                                                         │
+       │ Login/Register                                                          │ Login/Register
+       │                                                                         │
+       ▼                                                                         ▼
+╭───────────────╮                                                        ╭───────────────╮
+│      1.1      │                                                        │      1.1      │
+│     LOGIN     │────────┐                                       ┌───────│     LOGIN     │
+│               │        │                                       │       │               │
+╰───────────────╯        │                                       │       ╰───────────────╯
+                         │                                       │
+                         │ Query                                 │ Query
+                         │                                       │
+                         ▼                                       ▼
+                  ╔═══════════════╗                      ╔═══════════════╗
+                  ║               ║                      ║               ║
+                  ║    USERS      ║◀─────────────────────║    USERS      ║
+                  ║  (Firestore)  ║                      ║  (Firestore)  ║
+                  ║               ║                      ║               ║
+                  ╚═══════╤═══════╝                      ╚═══════╤═══════╝
+                          │                                      │
+                          │ Validate                             │ Validate
+                          │                                      │
+                          ▼                                      ▼
+                  ╭───────────────╮                      ╭───────────────╮
+                  │      1.4      │                      │      1.4      │
+                  │AUTHENTICATION │                      │AUTHENTICATION │
+                  │               │                      │               │
+                  ╰───────┬───────╯                      ╰───────┬───────╯
+                          │                                      │
+              ┌───────────┼───────────┐                ┌─────────┼─────────┐
+              │           │           │                │         │         │
+              │ Valid     │ Invalid   │ New            │ Valid   │ Invalid │ New
+              │           │           │                │         │         │
+              ▼           ▼           ▼                ▼         ▼         ▼
+      ╭───────────╮ ╭─────────╮ ╭───────────╮  ╭───────────╮ ╭─────────╮ ╭───────────╮
+      │    1.2    │ │  ERROR  │ │    1.3    │  │    1.2    │ │  ERROR  │ │    1.3    │
+      │  CLIENT   │ │ MESSAGE │ │ REGISTER  │  │ PROVIDER  │ │ MESSAGE │ │ REGISTER  │
+      │ DASHBOARD │ │         │ │  CLIENT   │  │ DASHBOARD │ │         │ │ PROVIDER  │
+      ╰─────┬─────╯ ╰────┬────╯ ╰─────┬─────╯  ╰─────┬─────╯ ╰────┬────╯ ╰─────┬─────╯
+            │            │            │                │            │            │
+            │            │            │ Save           │            │            │ Save
+            │            │            ▼                │            │            ▼
+            │            │     ╔═══════════╗           │            │     ╔═══════════╗
+            │            │     ║   USERS   ║           │            │     ║   USERS   ║
+            │            │     ║(Firestore)║           │            │     ║(Firestore)║
+            │            │     ╚═════╤═════╝           │            │     ╚═════╤═════╝
+            │            │           │                 │            │           │
+            ▼            ▼           ▼                 ▼            ▼           ▼
+      ┌──────────┐ ┌──────────┐ ┌──────────┐    ┌──────────┐ ┌──────────┐ ┌──────────┐
+      │  CLIENT  │ │  CLIENT  │ │  CLIENT  │    │ PROVIDER │ │ PROVIDER │ │ PROVIDER │
+      │(Dashboard│ │(Try Again│ │(Dashboard│    │(Dashboard│ │(Try Again│ │(Dashboard│
+      └──────────┘ └──────────┘ └──────────┘    └──────────┘ └──────────┘ └──────────┘
+
+
+                                    ┌──────────────┐
+                                    │              │
+                                    │    ADMIN     │
+                                    │              │
+                                    └──────┬───────┘
+                                           │
+                                           │ Login
+                                           │
+                                           ▼
+                                    ╭───────────────╮
+                                    │      1.1      │
+                                    │     LOGIN     │
+                                    │               │
+                                    ╰───────┬───────╯
+                                            │
+                                            │ Query
+                                            │
+                                            ▼
+                                     ╔═══════════════╗
+                                     ║               ║
+                                     ║    USERS      ║
+                                     ║  (Firestore)  ║
+                                     ║               ║
+                                     ╚═══════╤═══════╝
+                                             │
+                                             │ Validate
+                                             │
+                                             ▼
+                                     ╭───────────────╮
+                                     │      1.4      │
+                                     │AUTHENTICATION │
+                                     │               │
+                                     ╰───────┬───────╯
+                                             │
+                                   ┌─────────┼─────────┐
+                                   │         │         │
+                                   │ Valid   │ Invalid │
+                                   │         │         │
+                                   ▼         ▼         ▼
+                           ╭───────────╮ ╭─────────╮
+                           │    1.2    │ │  ERROR  │
+                           │   ADMIN   │ │ MESSAGE │
+                           │ DASHBOARD │ │         │
+                           ╰─────┬─────╯ ╰────┬────╯
+                                 │            │
+                                 ▼            ▼
+                           ┌──────────┐ ┌──────────┐
+                           │  ADMIN   │ │  ADMIN   │
+                           │(Dashboard│ │(Try Again│
+                           └──────────┘ └──────────┘
+```
+
+---
+
+## Process Descriptions
+
+| Process | Name | Description |
+|---------|------|-------------|
+| **1.1** | Login | User enters login credentials (email/password) |
+| **1.2** | Dashboard | Successfully authenticated, redirect to role-specific dashboard |
+| **1.3** | Registration | New Client/Provider completes registration with profile details |
+| **1.4** | Authentication | System validates credentials against database |
+
+---
+
+## User Roles and Access
+
+| Role | Registration | Dashboard Access | Key Features |
+|------|--------------|------------------|--------------|
+| **CLIENT** | Yes | Client Dashboard | Browse providers, book services, track jobs, leave reviews |
+| **PROVIDER** | Yes | Provider Dashboard | Receive job requests, accept/decline jobs, track earnings |
+| **ADMIN** | No (Pre-created) | Admin Dashboard | Approve providers, manage bookings, view analytics |
+
+---
+
+## Data Dictionary - Process 1
+
+| Data Element | Description | Source | Destination |
+|--------------|-------------|--------|-------------|
+| **email** | Email address | User Input | Firestore (users) |
+| **password** | Password (hashed) | User Input | Firestore (users) |
+| **role** | User role (CLIENT/PROVIDER/ADMIN) | Registration Selection | Firestore (users) |
+| **firstName** | First name | User Input | Firestore (users) |
+| **lastName** | Last name | User Input | Firestore (users) |
+| **phoneNumber** | Phone number | User Input | Firestore (users) |
+| **createdAt** | Account creation timestamp | System | Firestore (users) |
+
+---
+
+## Authentication Flow Summary
+
+**CLIENT Flow:**
+1. Client enters login credentials OR chooses to register
+2. System validates against database
+3. If valid → Client Dashboard
+4. If invalid → Error message, try again
+5. If new user → Complete registration → Save to database → Client Dashboard
+
+**PROVIDER Flow:**
+1. Provider enters login credentials OR chooses to register
+2. System validates against database
+3. If valid → Provider Dashboard
+4. If invalid → Error message, try again
+5. If new user → Complete registration (with documents) → Save to database → Provider Dashboard
+
+**ADMIN Flow:**
+1. Admin enters login credentials (no registration option)
+2. System validates against database
+3. If valid → Admin Dashboard
+4. If invalid → Error message, try again
+
+---
+
+## Legend
+
+```
+┌───────────────┐
+│               │     External Entity
+│    ENTITY     │
+│               │
+└───────────────┘
+
+╭───────────────╮
+│     1.X       │     Process
+│   PROCESS     │
+│               │
+╰───────────────╯
+
+╔═══════════════╗
+║               ║     Data Store
+║  DATA STORE   ║
+║               ║
+╚═══════════════╝
+
+─────────────────▶    Data Flow
+```

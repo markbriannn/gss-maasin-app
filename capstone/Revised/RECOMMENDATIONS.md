@@ -1,116 +1,59 @@
-# Recommendations
+# RECOMMENDATIONS
 
-Based on the findings of the study and the evaluation results of the General Service System (GSS), the following recommendations are proposed to further improve the system and to guide future research, development, and implementation.
+Based on the findings of the study and the evaluation results of the General Service System (GSS), the following recommendations are proposed to further improve the system and to guide future research, development, and implementation. These recommendations are directed toward future developers, researchers, local government units, and other stakeholders who may seek to enhance or replicate the platform in similar contexts.
 
-## 1. System Enhancement and Feature Expansion
+## System Enhancement and Feature Expansion
 
-Future developers are encouraged to enhance the system by adding features that can further improve usability and overall functionality. The current implementation already includes in-app messaging, push notifications, and online payment integration. Recommended additional features include:
+Future developers are encouraged to enhance the system by adding features that can further improve usability and overall functionality. One recommended feature is an enhanced in-app messaging system that would allow direct communication between clients and service providers with support for image sharing and voice messages, reducing the need to rely on external messaging platforms. The current system includes basic text messaging, but expanding this functionality would provide users with more comprehensive communication tools.
 
-- **Voice/Video Calling** - Integration of real-time voice or video call features to allow direct communication between clients and service providers for complex service discussions
-- **Service Scheduling Calendar** - A calendar-based booking system that allows clients to schedule services in advance and providers to manage their availability more effectively
-- **Service History Analytics** - Detailed analytics for providers showing their performance trends, peak booking times, and earnings patterns
-- **Favorite Providers List** - Enhanced functionality allowing clients to save and quickly access their preferred service providers
-- **Service Package Bundles** - Allow providers to offer bundled services at discounted rates
+In addition, real-time notifications through SMS or push notifications may be further enhanced to keep users informed about job requests, provider responses, booking confirmations, and service completion updates. While the system currently implements push notifications, expanding notification channels would ensure that users receive timely updates even when they are not actively using the application.
 
-Additional payment options may also be considered, such as bank transfers and other e-wallet platforms beyond GCash, to provide users with more flexible and convenient transaction methods.
+The inclusion of additional payment options beyond the current PayMongo integration is also recommended. Future versions may support direct bank transfers, other e-wallet providers, and installment payment options for higher-value services. This would provide users with more flexible and convenient transaction methods while maintaining the security and transparency of the current payment system.
 
-## 2. Improved Security and Verification Mechanisms
+## Improved Security and Verification Mechanisms
 
-Although the existing verification process effectively promotes trust between users through document submission (ID, Selfie with ID, Barangay Clearance, Police Clearance) and admin review, future versions of the system may benefit from stronger security measures:
+Although the existing verification process, which includes government-issued IDs, profile photographs, barangay clearance, and police clearance, effectively promotes trust between users, future versions of the system may benefit from stronger security measures. These may include two-factor authentication (2FA) for account login, biometric verification using fingerprint or facial recognition, or enhanced identity verification such as requiring a selfie holding the ID document to match the person with the submitted ID. Automated fraud detection tools that identify suspicious patterns in user behavior or transaction activities would also further protect user accounts and personal data from unauthorized access and fraudulent activities.
 
-- **Two-Factor Authentication (2FA)** - Additional security layer for user login using SMS or authenticator apps
-- **Biometric Verification** - Fingerprint or facial recognition for mobile app authentication
-- **Automated Fraud Detection** - Machine learning-based systems to detect suspicious activities and fraudulent accounts
-- **Document Verification API** - Integration with government databases for automated document authenticity verification
-- **End-to-End Encryption** - Enhanced encryption for in-app messaging and sensitive data transmission
+Conducting regular security audits and ensuring compliance with data privacy regulations such as the Data Privacy Act of 2012 are also recommended. These practices would help maintain system integrity and increase user confidence as the platform continues to grow and handle increasing volumes of sensitive personal and financial information. Implementing automated security monitoring tools that alert administrators to potential vulnerabilities would also strengthen the platform's overall security posture.
 
-Conducting regular security audits and ensuring compliance with data privacy regulations (such as the Philippine Data Privacy Act) are also recommended. These practices would help maintain system integrity and increase user confidence as the platform continues to grow.
+## Performance Optimization and Offline Support
 
-## 3. Performance Optimization and Offline Support
+To reduce the system's dependence on stable internet connectivity, future enhancements may focus on performance optimization techniques such as data caching, lightweight interface designs, progressive image loading, and offline request queuing. These improvements would allow users to continue performing basic system functions such as viewing provider profiles, browsing service categories, and preparing booking requests even during periods of weak or unstable internet access, especially in remote or underserved areas within Maasin City.
 
-To reduce the system's dependence on stable internet connectivity, future enhancements may focus on performance optimization techniques:
+Additionally, scalability testing is recommended to ensure that the system can handle increased user traffic and transaction volume without performance degradation. Load testing should be conducted to identify potential bottlenecks in the database, server infrastructure, and payment processing systems. Implementing content delivery networks (CDNs) and database optimization strategies would help maintain system responsiveness as the user base grows.
 
-- **Data Caching** - Store frequently accessed data locally to reduce server requests and improve load times
-- **Lightweight Interface Designs** - Optimize images and assets for faster loading on slower connections
-- **Offline Request Queuing** - Allow users to queue job requests and messages that automatically sync when connectivity is restored
-- **Progressive Web App (PWA)** - Enhance the web application with PWA features for better offline functionality
-- **Image Compression** - Automatic compression of uploaded images to reduce bandwidth usage
+## Expansion to Other Localities
 
-These improvements would allow users to continue performing basic system functions even during periods of weak or unstable internet access, especially in remote or underserved areas of Maasin City.
+Since the current implementation of the General Service System is limited to Maasin City, Southern Leyte, future researchers may consider adapting and deploying the system in other municipalities or provinces with similar informal labor market characteristics. Expanding the system to different locations would allow for comparative studies that examine its adaptability and effectiveness across various socio-economic environments, infrastructure conditions, and cultural contexts.
 
-Additionally, scalability testing is recommended to ensure that the system can handle increased user traffic and transaction volume without performance degradation as the platform grows.
+Incorporating localization features, such as multilingual support for Cebuano, Tagalog, and English, and region-specific service categories that reflect local economic activities, may further encourage adoption in other communities. Customizable verification requirements that align with local government documentation practices would also facilitate expansion to areas with different administrative procedures. Such expansion would provide valuable insights into how digital labor platforms can be scaled across diverse rural contexts in the Philippines.
 
-## 4. Expansion to Other Localities
+## Policy Integration and Institutional Collaboration
 
-Since the current implementation of the General Service System is limited to Maasin City, Southern Leyte, future researchers may consider adapting and deploying the system in other municipalities or provinces. Expansion considerations include:
+Future development efforts may explore partnerships with local government units (LGUs), barangay offices, and livelihood programs to strengthen the system's credibility and sustainability. Integrating the platform with existing local employment initiatives, skills development programs, and microenterprise support services could help formalize verification processes and increase public trust. Collaboration with the Department of Labor and Employment (DOLE) regional offices and the Technical Education and Skills Development Authority (TESDA) could provide additional credibility and access to certified skilled workers.
 
-- **Multi-Region Support** - Architecture modifications to support multiple service areas with region-specific providers
-- **Localization Features** - Multilingual support (Cebuano, Tagalog, English) for broader accessibility
-- **Region-Specific Service Categories** - Customizable service categories based on local needs and available skills
-- **Local Payment Methods** - Integration with region-specific payment options and local banks
-- **Comparative Studies** - Research examining the system's adaptability and effectiveness across various socio-economic environments
+Such collaborations may also contribute to broader community-based economic development by providing service providers with more consistent job opportunities, access to skills training, and pathways to formalize their businesses. Local government endorsement and promotion of the platform through barangay assemblies and community events would accelerate adoption and establish the system as a trusted community resource. Exploring possibilities for government subsidies or incentives for verified service providers could further strengthen the platform's role in local economic development.
 
-Expanding the system to different locations would allow for comparative studies and help refine the platform for diverse community needs.
+## Long-Term Impact Assessment
 
-## 5. Policy Integration and Institutional Collaboration
+Future studies are encouraged to conduct long-term or longitudinal research to evaluate the sustained economic and social impact of the system beyond the initial implementation period. Assessing factors such as income stability, frequency of job opportunities, changes in provider earnings over time, client satisfaction trends, and broader community economic indicators would provide deeper insights into the system's effectiveness and sustainability. Research examining how the platform affects traditional word-of-mouth networks and whether it complements or replaces existing social practices would also contribute valuable knowledge about technology adoption in informal labor markets.
 
-Future development efforts may explore partnerships with local government units (LGUs), barangay offices, and livelihood programs to strengthen the system's credibility and sustainability:
+Comparative studies between service providers who use the platform and those who rely solely on traditional methods would help quantify the economic benefits of platform participation. Additionally, examining the platform's impact on women's economic participation, youth employment, and vulnerable populations would provide insights into its role in promoting inclusive economic development.
 
-- **LGU Partnership** - Collaboration with Maasin City government for official endorsement and promotion
-- **TESDA Integration** - Link with Technical Education and Skills Development Authority for skills certification verification
-- **Barangay Coordination** - Partnership with barangay offices for community-based promotion and verification support
-- **Livelihood Programs** - Integration with existing government livelihood and employment programs
-- **Business Registration** - Assistance for providers in formalizing their services through business registration
+## Enhancement of User Training and Support
 
-Such collaborations may also contribute to broader community-based economic development by providing service providers with more consistent job opportunities and official recognition.
+To further improve system adoption and effective use, future implementations may include comprehensive user onboarding tutorials, context-sensitive help guides, video demonstrations, and community-based training sessions. Providing technical support through multiple channels such as phone hotlines, in-app chat support, and community help desks can help users, especially those with limited technological experience, fully utilize the system's features.
 
-## 6. Long-Term Impact Assessment
+Developing digital literacy programs in partnership with local libraries, community centers, or educational institutions would address fundamental barriers to technology adoption. Training programs specifically designed for older adults and individuals with minimal smartphone experience would ensure that the platform remains accessible to all segments of the community. Creating a network of community ambassadors or super users who can provide peer support and assistance would also strengthen adoption and sustained engagement.
 
-Future studies are encouraged to conduct long-term or longitudinal research to evaluate the sustained economic and social impact of the system:
+## Software Quality Model Extension
 
-- **Income Stability Analysis** - Track provider earnings over extended periods to assess income improvement
-- **Job Frequency Metrics** - Monitor the frequency and consistency of job opportunities for providers
-- **User Satisfaction Trends** - Conduct periodic surveys to measure satisfaction changes over time
-- **Economic Impact Study** - Assess the platform's contribution to local economic activity in Maasin City
-- **Social Impact Evaluation** - Examine changes in employment patterns and community trust levels
+While this study used the ISO/IEC 9126 software quality model for system evaluation, future research may adopt the updated ISO/IEC 25010 model, also known as SQuaRE (System and Software Quality Requirements and Evaluation). This newer framework provides a more comprehensive assessment of software quality by including additional attributes such as security, compatibility, and maintainability as distinct quality characteristics rather than sub-characteristics. Applying ISO/IEC 25010 would provide more detailed evaluation criteria and align the assessment with current international standards for software quality evaluation.
 
-Assessing these factors over an extended period would provide deeper insights into the system's effectiveness beyond its initial implementation.
-
-## 7. Enhancement of User Training and Support
-
-To further improve system adoption and effective use, future implementations may include:
-
-- **Onboarding Tutorials** - Interactive walkthroughs for new users explaining key features and workflows
-- **Help Center** - Comprehensive FAQ section and troubleshooting guides within the application
-- **Video Tutorials** - Step-by-step video guides for common tasks like registration, booking, and payment
-- **Community Training Sessions** - Barangay-level training programs for service providers and clients
-- **Digital Literacy Programs** - Basic smartphone and internet usage training for users with limited technical experience
-- **In-App Support Chat** - Real-time customer support for immediate assistance with system issues
-
-Providing technical support and digital literacy programs can help users, especially those with limited technological experience, fully utilize the system's features.
-
-## 8. Software Quality Model Extension
-
-While this study used the ISO/IEC 9126 software quality model for system evaluation, future research may adopt the updated ISO/IEC 25010 model. This newer framework provides a more comprehensive assessment of software quality by including additional attributes:
-
-- **Security** - Protection of information and data
-- **Compatibility** - Ability to exchange information with other systems
-- **Maintainability** - Ease of modification and updates
-- **Portability** - Ability to transfer from one environment to another
-- **Performance Efficiency** - Resource utilization and response times
-- **Functional Suitability** - Degree to which functions meet stated needs
-
-Adopting the ISO/IEC 25010 model would provide a more thorough evaluation framework for future system assessments.
+Future evaluations may also incorporate user experience (UX) metrics, accessibility standards compliance, and mobile application performance benchmarks to provide a more holistic assessment of system quality. Conducting comparative evaluations using multiple quality frameworks would strengthen the validity of quality assessments and provide richer insights into system strengths and areas for improvement.
 
 ## Recommendation Summary
 
-The General Service System demonstrates strong potential as a digital platform for improving access to sideline services within informal labor markets. The current implementation successfully addresses the core objectives of the study by providing:
+The General Service System demonstrates strong potential as a digital platform for improving access to sideline services within informal labor markets in rural contexts. The system successfully addresses key challenges in Maasin City's service economy by providing centralized access to verified providers, secure payment processing, and transparent feedback mechanisms. By implementing the recommended enhancements in security, functionality, performance, and institutional collaboration, future versions of the system can further improve reliability, scalability, and user satisfaction.
 
-- Comprehensive user registration and verification
-- Real-time GPS tracking and navigation
-- Online payment processing with transparent fee structure
-- In-app messaging and push notifications
-- Admin approval workflow for quality control
-- Rating and review system for accountability
-
-By implementing the recommended enhancements, future versions of the system can further improve security, reliability, scalability, and user satisfaction. These recommendations aim to guide future researchers, developers, and stakeholders in maximizing the system's long-term impact and sustainability within Maasin City and potentially other communities in the Philippines.
+These recommendations aim to guide future researchers, developers, and stakeholders in maximizing the system's long-term impact and sustainability. The successful implementation of these recommendations would not only improve the platform's technical capabilities but also strengthen its role as a tool for inclusive economic development and community empowerment. As digital labor platforms continue to evolve, the lessons learned from the General Service System can inform similar initiatives in other rural and informal labor market contexts, contributing to broader efforts to leverage technology for social and economic development.

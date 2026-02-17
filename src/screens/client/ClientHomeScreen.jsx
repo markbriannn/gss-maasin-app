@@ -15,7 +15,7 @@ import {
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { SERVICE_CATEGORIES } from '../../config/constants';
@@ -24,6 +24,7 @@ import { db } from '../../config/firebase';
 import { collection, query, where, onSnapshot, doc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { useNotifications } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { showInfoModal, showErrorModal } from '../../utils/modalManager';
 import FastImage from 'react-native-fast-image';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
@@ -33,8 +34,11 @@ import Animated, {
   withSpring,
   withRepeat,
   withTiming,
+  withSequence,
+  withDelay,
   runOnJS,
   Easing,
+  interpolate,
 } from 'react-native-reanimated';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -53,6 +57,21 @@ const FILTERS = [
   { id: 'recommended', label: 'Recommended', icon: 'car' },
   { id: 'cheapest', label: 'Cheapest', icon: 'wallet-outline' },
   { id: 'nearest', label: 'Nearest', icon: 'location' },
+];
+
+// Clean Grab/iOS-inspired map style - subtle, less visual clutter
+const mapStyle = [
+  { elementType: 'geometry', stylers: [{ color: '#f5f5f5' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#f5f5f5' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#616161' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#e9e9e9' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#dadada' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#c9e7f2' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#9e9e9e' }] },
+  { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#e5f5e0' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
 ];
 
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -165,7 +184,53 @@ const fetchDirections = async (origin, destination) => {
   ];
 };
 
-// Custom Provider Marker that tracks view changes until image loads
+// Animated User Location Pulse - Grab-style radar effect
+const UserLocationPulse = memo(({ latitude, longitude }) => {
+  const pulseOpacity = useSharedValue(0.6);
+  const pulseScale = useSharedValue(0);
+
+  useEffect(() => {
+    pulseScale.value = withRepeat(
+      withSequence(
+        withTiming(0, { duration: 0 }),
+        withTiming(1, { duration: 2000, easing: Easing.out(Easing.ease) }),
+      ),
+      -1,
+      false,
+    );
+    pulseOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.5, { duration: 0 }),
+        withTiming(0, { duration: 2000, easing: Easing.out(Easing.ease) }),
+      ),
+      -1,
+      false,
+    );
+  }, []);
+
+  if (!latitude || !longitude) return null;
+
+  return (
+    <>
+      <Circle
+        center={{ latitude, longitude }}
+        radius={120}
+        fillColor="rgba(0,177,79,0.08)"
+        strokeColor="rgba(0,177,79,0.2)"
+        strokeWidth={1}
+      />
+      <Circle
+        center={{ latitude, longitude }}
+        radius={50}
+        fillColor="rgba(0,177,79,0.12)"
+        strokeColor="rgba(0,177,79,0.25)"
+        strokeWidth={1.5}
+      />
+    </>
+  );
+});
+
+// Custom Provider Marker with Grab/iOS-style design
 const ProviderMarker = memo(({ provider, isSelected, onPress }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const isPressingRef = useRef(false);
@@ -191,8 +256,14 @@ const ProviderMarker = memo(({ provider, isSelected, onPress }) => {
       tracksViewChanges={!imageLoaded}
       zIndex={isSelected ? 999 : 1}
       anchor={{ x: 0.5, y: 0.5 }}>
-      <View style={{ padding: 5 }}>
-        <View style={[markerStyles.marker, isSelected && markerStyles.markerSelected]}>
+      <View style={markerStyles.markerOuter}>
+        {/* Outer glow ring for selected */}
+        {isSelected && <View style={markerStyles.selectedGlow} />}
+        <View style={[
+          markerStyles.marker,
+          isSelected && markerStyles.markerSelected,
+          provider.isOnline && markerStyles.markerOnline,
+        ]}>
           {provider.profilePhoto ? (
             <FastImage
               source={{ uri: provider.profilePhoto, priority: FastImage.priority.high }}
@@ -201,22 +272,85 @@ const ProviderMarker = memo(({ provider, isSelected, onPress }) => {
               onLoad={() => setImageLoaded(true)}
             />
           ) : (
-            <Text style={markerStyles.markerInitial}>
-              {provider.name?.charAt(0)?.toUpperCase() || 'P'}
-            </Text>
+            <View style={markerStyles.markerInitialBg}>
+              <Text style={markerStyles.markerInitial}>
+                {provider.name?.charAt(0)?.toUpperCase() || 'P'}
+              </Text>
+            </View>
           )}
         </View>
+        {/* Online indicator dot */}
+        {provider.isOnline && <View style={markerStyles.onlineDot} />}
       </View>
     </Marker>
   );
 });
 
-// Marker styles (separate to avoid recreation)
+// Marker styles - Grab/iOS inspired
 const markerStyles = StyleSheet.create({
-  marker: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#00B14F', overflow: 'hidden' },
-  markerSelected: { borderColor: '#00B14F', borderWidth: 4, transform: [{ scale: 1.15 }] },
-  markerImg: { width: 38, height: 38, borderRadius: 19 },
-  markerInitial: { fontSize: 18, fontWeight: '700', color: '#00B14F' },
+  markerOuter: {
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedGlow: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(0,177,79,0.15)',
+    borderWidth: 2,
+    borderColor: 'rgba(0,177,79,0.3)',
+  },
+  marker: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  markerOnline: {
+    borderColor: '#00B14F',
+  },
+  markerSelected: {
+    borderColor: '#00B14F',
+    borderWidth: 3.5,
+    transform: [{ scale: 1.1 }],
+    shadowColor: '#00B14F',
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  markerImg: { width: 42, height: 42, borderRadius: 21 },
+  markerInitialBg: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#F0FDF4',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  markerInitial: { fontSize: 18, fontWeight: '800', color: '#00B14F' },
+  onlineDot: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#00B14F',
+    borderWidth: 2.5,
+    borderColor: '#FFF',
+  },
 });
 
 // Animated Progress Bar Component - Professional Shimmer with LinearGradient
@@ -335,6 +469,8 @@ const ProviderCard = memo(({ provider, isSelected, onPress }) => {
 const ClientHomeScreen = ({ navigation }) => {
   const { unreadCount } = useNotifications();
   const { user } = useAuth();
+  const { isDark, theme } = useTheme();
+  const colors = theme.colors;
   const mapRef = useRef(null);
   const isSelectingRef = useRef(false); // Prevent double-tap crashes
 
@@ -735,8 +871,8 @@ const ClientHomeScreen = ({ navigation }) => {
   }));
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
 
       {/* Map */}
       <View style={styles.mapContainer}>
@@ -746,7 +882,17 @@ const ClientHomeScreen = ({ navigation }) => {
           style={styles.map}
           initialRegion={region}
           showsUserLocation
-          showsMyLocationButton={false}>
+          showsMyLocationButton={false}
+          customMapStyle={isDark ? undefined : mapStyle}>
+
+          {/* Grab-style user location pulse rings */}
+          {userLocation && (
+            <UserLocationPulse
+              latitude={userLocation.latitude}
+              longitude={userLocation.longitude}
+            />
+          )}
+
           {providers.map((p) => {
             // Validate coordinates before rendering marker
             if (!p.latitude || !p.longitude || isNaN(p.latitude) || isNaN(p.longitude)) {
@@ -763,13 +909,23 @@ const ClientHomeScreen = ({ navigation }) => {
             );
           })}
 
-          {/* Route line when provider selected */}
+          {/* Route line - Grab-style blue with glow */}
           {routeCoordinates.length > 1 && (
-            <Polyline
-              coordinates={routeCoordinates}
-              strokeColor="#1A73E8"
-              strokeWidth={5}
-            />
+            <>
+              {/* Shadow/glow line */}
+              <Polyline
+                coordinates={routeCoordinates}
+                strokeColor="rgba(26,115,232,0.25)"
+                strokeWidth={10}
+              />
+              {/* Main route line */}
+              <Polyline
+                coordinates={routeCoordinates}
+                strokeColor="#1A73E8"
+                strokeWidth={5}
+                lineDashPattern={[0]}
+              />
+            </>
           )}
         </MapView>
 
@@ -781,8 +937,8 @@ const ClientHomeScreen = ({ navigation }) => {
             <Text style={styles.liveSep}>•</Text>
             <Text style={styles.liveText}>Avg. {avgResponseTime} min response</Text>
           </View>
-          <TouchableOpacity style={styles.notifBtn} onPress={() => navigation.navigate('Notifications')}>
-            <Icon name="notifications" size={22} color="#374151" />
+          <TouchableOpacity style={[styles.notifBtn, { backgroundColor: colors.card }]} onPress={() => navigation.navigate('Notifications')}>
+            <Icon name="notifications" size={22} color={colors.text} />
             {unreadCount > 0 && (
               <View style={styles.badge}><Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View>
             )}
@@ -794,22 +950,22 @@ const ClientHomeScreen = ({ navigation }) => {
           {SERVICE_CATEGORIES.map((cat) => (
             <TouchableOpacity
               key={cat.id}
-              style={[styles.catPill, selectedCategory === cat.id && { backgroundColor: cat.color }]}
+              style={[styles.catPill, { backgroundColor: isDark ? 'rgba(31,41,55,0.92)' : 'rgba(255,255,255,0.92)' }, selectedCategory === cat.id && { backgroundColor: cat.color }]}
               onPress={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}>
               <Icon name={cat.icon} size={18} color={selectedCategory === cat.id ? '#FFF' : cat.color} />
-              <Text style={[styles.catText, selectedCategory === cat.id && { color: '#FFF' }]}>{cat.name}</Text>
+              <Text style={[styles.catText, { color: isDark ? '#D1D5DB' : '#374151' }, selectedCategory === cat.id && { color: '#FFF' }]}>{cat.name}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
         {/* My Location */}
-        <TouchableOpacity style={styles.locBtn} onPress={() => userLocation && mapRef.current?.animateToRegion({ latitude: userLocation.latitude, longitude: userLocation.longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 500)}>
+        <TouchableOpacity style={[styles.locBtn, { backgroundColor: isDark ? 'rgba(31,41,55,0.92)' : 'rgba(255,255,255,0.92)' }]} onPress={() => userLocation && mapRef.current?.animateToRegion({ latitude: userLocation.latitude, longitude: userLocation.longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 500)}>
           <Icon name="locate" size={22} color="#00B14F" />
         </TouchableOpacity>
       </View>
 
       {/* Bottom Sheet */}
-      <Animated.View style={[styles.sheet, animatedSheetStyle]}>
+      <Animated.View style={[styles.sheet, { backgroundColor: isDark ? 'rgba(17,24,39,0.95)' : 'rgba(255,255,255,0.95)' }, animatedSheetStyle]}>
         {/* Draggable Handle - Hold and drag to move up/down */}
         <GestureDetector gesture={gesture}>
           <Animated.View style={styles.handleArea}>
@@ -822,10 +978,10 @@ const ClientHomeScreen = ({ navigation }) => {
           {FILTERS.map((f) => (
             <TouchableOpacity
               key={f.id}
-              style={[styles.filterBtn, activeFilter === f.id && styles.filterActive]}
+              style={[styles.filterBtn, { backgroundColor: isDark ? '#1F2937' : '#F3F4F6', borderColor: isDark ? '#374151' : '#E5E7EB' }, activeFilter === f.id && styles.filterActive]}
               onPress={() => setActiveFilter(f.id)}>
-              <Icon name={f.icon} size={16} color={activeFilter === f.id ? '#FFF' : '#6B7280'} />
-              <Text style={[styles.filterText, activeFilter === f.id && { color: '#FFF' }]}>{f.label}</Text>
+              <Icon name={f.icon} size={16} color={activeFilter === f.id ? '#FFF' : colors.textSecondary} />
+              <Text style={[styles.filterText, { color: colors.textSecondary }, activeFilter === f.id && { color: '#FFF' }]}>{f.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -837,18 +993,18 @@ const ClientHomeScreen = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#00B14F']} />}>
           {providers.length === 0 ? (
-            <View style={styles.empty}>
+            <View style={[styles.empty, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}>
               {isLoadingProviders ? (
                 <>
                   <ActivityIndicator size="large" color="#00B14F" />
-                  <Text style={styles.emptyTitle}>Loading providers...</Text>
-                  <Text style={styles.emptyText}>Please wait while we find available providers</Text>
+                  <Text style={[styles.emptyTitle, { color: colors.text }]}>Loading providers...</Text>
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Please wait while we find available providers</Text>
                 </>
               ) : (
                 <>
                   <Icon name="person-outline" size={48} color="#D1D5DB" />
-                  <Text style={styles.emptyTitle}>No providers available</Text>
-                  <Text style={styles.emptyText}>Try selecting a different category</Text>
+                  <Text style={[styles.emptyTitle, { color: colors.text }]}>No providers available</Text>
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Try selecting a different category</Text>
                 </>
               )}
             </View>
@@ -879,7 +1035,7 @@ const ClientHomeScreen = ({ navigation }) => {
           style={styles.modalOverlay}
           activeOpacity={1}
           onPress={() => setShowProviderModal(false)}>
-          <View style={styles.providerModal}>
+          <View style={[styles.providerModal, { backgroundColor: colors.card }]}>
             {/* Close button */}
             <TouchableOpacity
               style={styles.modalCloseBtn}
@@ -1333,7 +1489,7 @@ const ClientHomeScreen = ({ navigation }) => {
 
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
+  container: { flex: 1 },
 
   // Map
   mapContainer: { flex: 1 },
@@ -1370,7 +1526,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: SCREEN_HEIGHT,
-    backgroundColor: 'rgba(255,255,255,0.95)',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     shadowColor: '#000',
@@ -1456,7 +1611,7 @@ const styles = StyleSheet.create({
 
   // Provider Info Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
-  providerModal: { backgroundColor: '#FFF', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40, alignItems: 'center' },
+  providerModal: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40, alignItems: 'center' },
   modalCloseBtn: { position: 'absolute', top: 16, right: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' },
   modalAvatarWrap: { position: 'relative', marginBottom: 16 },
   modalAvatar: { width: 110, height: 110, borderRadius: 55, borderWidth: 4, borderColor: '#00B14F' },

@@ -1,290 +1,162 @@
-# PROCESS 2: PROVIDER APPROVAL
+# PROCESS 2: PROVIDER REGISTRATION
 
-## Level 1 DFD - Provider Approval Process
+## Level 1 DFD - Provider Registration Process
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                              PROCESS 2: PROVIDER APPROVAL                                │
+│                          PROCESS 2: PROVIDER REGISTRATION                                │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 
-
-    ┌──────────────┐                                                    ┌──────────────┐
-    │              │                                                    │              │
-    │   PROVIDER   │                                                    │    ADMIN     │
-    │              │                                                    │              │
-    └──────┬───────┘                                                    └──────┬───────┘
-           │                                                                   │
-           │ [FROM PROCESS 2 REGISTRATION]                                     │
-           │ Registration complete                                             │
-           │ (providerStatus: 'pending')                                       │
-           ▼                                                                   │
-    ╭───────────────╮                                                          │
-    │      2.1      │                                                          │
-    │    PENDING    │                                                          │
-    │   APPROVAL    │                                                          │
-    │    SCREEN     │                                                          │
-    ╰───────┬───────╯                                                          │
-            │                                                                  │
-            │ [STORE]                                                          │
-            │ Provider data in database                                        │
-            ▼                                                                  │
-    ╔═══════════════╗                                                          │
-    ║               ║                                                          │
-    ║    USERS      ║◀─────────────────────────────────────────────────────────┘
-    ║  (Firestore)  ║         [QUERY] Fetch pending providers
-    ║               ║
-    ╚═══════╤═══════╝
-            │
-            │ [DATA]
-            │ List of pending providers
-            ▼
-    ╭───────────────╮
-    │      2.2      │
-    │     VIEW      │
-    │   PROVIDER    │
-    │     LIST      │
-    ╰───────┬───────╯
-            │
-            │ [ACTION]
-            │ Admin selects provider
-            ▼
-    ╭───────────────╮
-    │      2.3      │
-    │     VIEW      │
-    │   PROVIDER    │
-    │    DETAILS    │
-    ╰───────┬───────╯
-            │
-            │ [DISPLAY]
-            │ Provider info + documents
-            ▼
-    ╭───────────────╮
-    │      2.4      │
-    │    VERIFY     │
-    │   DOCUMENTS   │
-    ╰───────┬───────╯
-            │
-            │ [DECISION]
-            ├───────────────────────────────────────┐
-            │                                       │
-            ▼                                       ▼
-    ╭───────────────╮                       ╭───────────────╮
-    │      2.5      │                       │      2.6      │
-    │    APPROVE    │                       │    REJECT     │
-    │   PROVIDER    │                       │   PROVIDER    │
-    ╰───────┬───────╯                       ╰───────┬───────╯
-            │                                       │
-            │ [UPDATE]                              │ [UPDATE]
-            │ Set providerStatus='approved'         │ Set providerStatus='rejected'
-            ▼                                       ▼
-    ╔═══════════════╗                       ╔═══════════════╗
-    ║               ║                       ║               ║
-    ║    USERS      ║                       ║    USERS      ║
-    ║  (Firestore)  ║                       ║  (Firestore)  ║
-    ║               ║                       ║               ║
-    ║ providerStatus║                       ║ providerStatus║
-    ║  : 'approved' ║                       ║  : 'rejected' ║
-    ║ isOnline: true║                       ║               ║
-    ╚═══════╤═══════╝                       ╚═══════╤═══════╝
-            │                                       │
-            │ [TRIGGER]                             │ [TRIGGER]
-            │ Send notification                     │ Send notification
-            ▼                                       ▼
-    ╭───────────────╮                       ╭───────────────╮
-    │      2.7      │                       │      2.8      │
-    │    NOTIFY     │                       │    NOTIFY     │
-    │   PROVIDER    │                       │   PROVIDER    │
-    │  (APPROVED)   │                       │  (REJECTED)   │
-    ╰───────┬───────╯                       ╰───────┬───────╯
-            │                                       │
-            │ [NOTIFICATION]                        │ [NOTIFICATION]
-            │ Push notification + Email             │ Push notification + Email
-            ▼                                       ▼
-    ┌───────────────┐                       ┌───────────────┐
-    │               │                       │               │
-    │   PROVIDER    │                       │   PROVIDER    │
-    │   DASHBOARD   │                       │   REJECTED    │
-    │               │                       │    SCREEN     │
-    │  (Can go      │                       │               │
-    │   online)     │                       │  (Can re-     │
-    │               │                       │   apply)      │
-    └───────────────┘                       └───────────────┘
-
-
-                            SUSPEND FLOW
-                            ────────────
-
-    ╭───────────────╮
-    │      2.9      │
-    │    SUSPEND    │
-    │   PROVIDER    │
-    ╰───────┬───────╯
-            │
-            │ [UPDATE]
-            │ Set providerStatus='suspended'
-            ▼
-    ╔═══════════════╗
-    ║               ║
-    ║    USERS      ║
-    ║  (Firestore)  ║
-    ║               ║
-    ║ providerStatus║
-    ║ : 'suspended' ║
-    ║isOnline: false║
-    ╚═══════╤═══════╝
-            │
-            │ [TRIGGER]
-            │ Send notification
-            ▼
-    ╭───────────────╮
-    │     2.10      │
-    │    NOTIFY     │
-    │   PROVIDER    │
-    │  (SUSPENDED)  │
-    ╰───────────────╯
+    ┌──────────────┐                                                    
+    │              │                                                    
+    │   PROVIDER   │                                                    
+    │              │                                                    
+    └──────┬───────┘                                                    
+           │                                                            
+           │ Registration Info                                          
+           │ (Name, Email, Phone)                                       
+           │                                                            
+           ▼                                                            
+    ╭───────────────╮                                                   
+    │      2.1      │                                                   
+    │ COLLECT INFO  │                                                   
+    │               │                                                   
+    ╰───────┬───────╯                                                   
+            │                                                           
+            │ Personal Details                                          
+            │                                                           
+            ▼                                                           
+    ╭───────────────╮                                                   
+    │      2.2      │                                                   
+    │ VERIFY EMAIL  │──────────────┐                                   
+    │               │              │ Request Code                       
+    ╰───────┬───────╯              │                                   
+            │                      ▼                                   
+            │              ╔═══════════════╗                           
+            │              ║               ║                           
+            │              ║ EMAIL SERVICE ║                           
+            │              ║    (Brevo)    ║                           
+            │              ║               ║                           
+            │              ╚═══════╤═══════╝                           
+            │                      │                                   
+            │                      │ Send Code                         
+            │                      │                                   
+            │                      ▼                                   
+            │              ┌──────────────┐                            
+            │              │              │                            
+            │              │   PROVIDER   │                            
+            │              │              │                            
+            │              └──────┬───────┘                            
+            │                     │                                    
+            │ Verification Code   │                                    
+            │◄────────────────────┘                                    
+            │                                                           
+            │ Verified Email                                            
+            │                                                           
+            ▼                                                           
+    ╭───────────────╮                                                   
+    │      2.3      │                                                   
+    │ VERIFY PHONE  │──────────────┐                                   
+    │               │              │ Request OTP                        
+    ╰───────┬───────╯              │                                   
+            │                      ▼                                   
+            │              ╔═══════════════╗                           
+            │              ║               ║                           
+            │              ║  SMS SERVICE  ║                           
+            │              ║  (Semaphore)  ║                           
+            │              ║               ║                           
+            │              ╚═══════╤═══════╝                           
+            │                      │                                   
+            │                      │ Send OTP                          
+            │                      │                                   
+            │                      ▼                                   
+            │              ┌──────────────┐                            
+            │              │              │                            
+            │              │   PROVIDER   │                            
+            │              │              │                            
+            │              └──────┬───────┘                            
+            │                     │                                    
+            │ OTP Code            │                                    
+            │◄────────────────────┘                                   
+            │                                                           
+            │ Verified Phone                                            
+            │                                                           
+            ▼                                                           
+    ╭───────────────╮                                                   
+    │      2.4      │                                                   
+    │UPLOAD DOCUMENTS│                                                  
+    │               │                                                   
+    ╰───────┬───────╯                                                   
+            │                                                           
+            │ Documents (ID, Selfie,                                    
+            │ Clearances, Profile Photo)                                
+            │                                                           
+            ▼                                                           
+    ╭───────────────╮                                                   
+    │      2.5      │                                                   
+    │SELECT SERVICES│                                                   
+    │               │                                                   
+    ╰───────┬───────╯                                                   
+            │                                                           
+            │ Service Categories                                        
+            │                                                           
+            ▼                                                           
+    ╭───────────────╮                                                   
+    │      2.6      │                                                   
+    │ CREATE ACCOUNT│──────────────┐                                   
+    │               │              │ Store Data                         
+    ╰───────┬───────╯              │                                   
+            │                      ▼                                   
+            │              ╔═══════════════╗                           
+            │              ║               ║                           
+            │              ║    USERS      ║                           
+            │              ║  (Firestore)  ║                           
+            │              ║               ║                           
+            │              ╚═══════════════╝                           
+            │                      │                                   
+            │ Pending Status       │ Confirmation                      
+            │                      │                                   
+            ▼                      ▼                                   
+    ┌──────────────┐       ┌──────────────┐                           
+    │              │       │              │                           
+    │   PROVIDER   │◄──────│   PROVIDER   │                           
+    │              │       │              │                           
+    └──────────────┘       └──────────────┘                           
+    Awaiting Approval      Pending Message                             
 ```
-
----
 
 ## Process Descriptions
 
 | Process | Name | Description |
 |---------|------|-------------|
-| **2.1** | Pending Approval Screen | Provider waits on this screen after registration |
-| **2.2** | View Provider List | Admin views list of pending providers |
-| **2.3** | View Provider Details | Admin views provider's full profile and documents |
-| **2.4** | Verify Documents | Admin reviews Valid ID, Barangay Clearance, Police Clearance, Selfie with ID |
-| **2.5** | Approve Provider | Admin approves provider (providerStatus: 'approved', isOnline: true) |
-| **2.6** | Reject Provider | Admin rejects provider (providerStatus: 'rejected') |
-| **2.7** | Notify Provider (Approved) | System sends push notification and email to approved provider |
-| **2.8** | Notify Provider (Rejected) | System sends push notification and email to rejected provider |
-| **2.9** | Suspend Provider | Admin suspends an approved provider (providerStatus: 'suspended', isOnline: false) |
-| **2.10** | Notify Provider (Suspended) | System sends notification to suspended provider |
+| **2.1** | Collect Info | Provider enters personal information (name, email, phone, password) |
+| **2.2** | Verify Email | System sends verification code to email, provider enters code to verify |
+| **2.3** | Verify Phone | System sends OTP to phone number, provider enters OTP to verify |
+| **2.4** | Upload Documents | Provider uploads required documents (Valid ID, Selfie with ID, Barangay Clearance, Police Clearance, Profile Photo) |
+| **2.5** | Select Services | Provider selects service categories they can provide |
+| **2.6** | Create Account | System creates provider account with "PENDING" status and stores data in Firestore |
 
----
+## Data Flows
 
-## Provider Approval Flow
+- **Registration Info**: Name, email, phone number, password from provider
+- **Personal Details**: Validated registration information
+- **Request Code**: System requests email verification code from Brevo Email Service
+- **Send Code**: Brevo Email Service sends 6-digit verification code to provider's email
+- **Verification Code**: Provider enters 6-digit code received via email
+- **Verified Email**: Confirmation that email is verified
+- **Request OTP**: System requests SMS OTP from Semaphore SMS Service
+- **Send OTP**: Semaphore SMS Service sends 6-digit OTP to provider's phone
+- **OTP Code**: Provider enters 6-digit OTP received via SMS
+- **Verified Phone**: Confirmation that phone is verified
+- **Documents**: Valid ID, Selfie with ID, Barangay Clearance, Police Clearance, Profile Photo
+- **Service Categories**: List of services provider can offer
+- **Store Data**: Save provider account data to Firestore with PENDING status
+- **Pending Status**: Account created but awaiting admin approval
+- **Confirmation**: Database confirms data stored
+- **Awaiting Approval**: Provider notified account is pending admin review
+- **Pending Message**: System sends notification that account is under review
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                              PROVIDER APPROVAL FLOW                                      │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
+## External Services
 
-    PROVIDER                    SYSTEM                          ADMIN
-      │                            │                               │
-      │  2.1 Wait on Pending       │                               │
-      │      Approval Screen       │                               │
-      │◀───────────────────────────│                               │
-      │                            │                               │
-      │                            │  2.2 View Provider List       │
-      │                            │◀──────────────────────────────│
-      │                            │                               │
-      │                            │  2.3 Select Provider          │
-      │                            │◀──────────────────────────────│
-      │                            │                               │
-      │                            │  2.4 View Documents           │
-      │                            │      • Valid ID               │
-      │                            │      • Barangay Clearance     │
-      │                            │      • Police Clearance       │
-      │                            │      • Selfie with ID         │
-      │                            │◀──────────────────────────────│
-      │                            │                               │
-      │                            │  2.5 Approve Provider         │
-      │                            │◀──────────────────────────────│
-      │                            │                               │
-      │                            │  Update Firestore:            │
-      │                            │  • providerStatus: 'approved' │
-      │                            │  • isOnline: true             │
-      │                            │──────────┐                    │
-      │                            │          │                    │
-      │                            │◀─────────┘                    │
-      │                            │                               │
-      │  2.7 Receive Notification  │                               │
-      │      "Your account has     │                               │
-      │       been approved!"      │                               │
-      │◀───────────────────────────│                               │
-      │                            │                               │
-      │  Navigate to Dashboard     │                               │
-      │  (Can now receive jobs)    │                               │
-      │◀───────────────────────────│                               │
-      │                            │                               │
-```
-
----
-
-## Data Dictionary - Process 2
-
-| Data Element | Description | Source | Destination |
-|--------------|-------------|--------|-------------|
-| **providerStatus** | Provider approval status | Admin Action | Firestore (users) |
-| **isOnline** | Provider availability flag | System | Firestore (users) |
-| **approvedAt** | Timestamp of approval | System | Firestore (users) |
-| **approvedBy** | Admin who approved | Admin | Firestore (users) |
-| **rejectedAt** | Timestamp of rejection | System | Firestore (users) |
-| **rejectedBy** | Admin who rejected | Admin | Firestore (users) |
-| **rejectReason** | Reason for rejection | Admin | Firestore (users) |
-| **suspendedAt** | Timestamp of suspension | System | Firestore (users) |
-| **suspendReason** | Reason for suspension | Admin | Firestore (users) |
-
----
-
-## Provider Status Values
-
-| Status | Description | Can Go Online | Visible to Clients |
-|--------|-------------|---------------|-------------------|
-| **pending** | Waiting for admin approval | No | No |
-| **approved** | Admin approved, can work | Yes | Yes (if online) |
-| **rejected** | Admin rejected application | No | No |
-| **suspended** | Admin suspended account | No | No |
-
----
-
-## Document Verification Requirements
-
-### Required Documents for Provider Approval
-
-1. **Valid Government-Issued ID**
-   - National ID, Driver's License, Passport, SSS, PhilHealth, Postal ID, Voter's ID, PRC ID, UMID, or TIN ID
-   - Must be clear and readable
-   - Must not be expired
-
-2. **Barangay Clearance**
-   - Issued by the provider's barangay
-   - Must be recent (within 6 months)
-   - Must show provider's name and address
-
-3. **Police Clearance**
-   - Issued by PNP (Philippine National Police)
-   - Must be recent (within 6 months)
-   - Must show "No Criminal Record" or equivalent
-
-4. **Selfie with ID**
-   - Provider holding their valid ID next to their face
-   - Face and ID must be clearly visible
-   - Used for identity verification
-
----
-
-## Legend
-
-```
-┌───────────────┐
-│               │     External Entity
-│    ENTITY     │
-│               │
-└───────────────┘
-
-╭───────────────╮
-│     2.X       │     Process
-│   PROCESS     │
-│               │
-╰───────────────╯
-
-╔═══════════════╗
-║               ║     Data Store
-║  DATA STORE   ║
-║               ║
-╚═══════════════╝
-
-─────────────────▶    Data Flow
-```
+- **Email Service (Brevo)**: Third-party service that sends verification codes to provider's email address
+- **SMS Service (Semaphore)**: Third-party service that sends OTP codes to provider's phone number via SMS

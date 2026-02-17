@@ -1,4 +1,4 @@
-import {useState, useEffect, useRef} from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,28 +12,28 @@ import {
   TextInput,
   AppState,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {globalStyles} from '../../css/globalStyles';
-import {jobDetailsStyles as styles} from '../../css/jobDetailsStyles';
-import {db} from '../../config/firebase';
-import {doc, getDoc, updateDoc, serverTimestamp, onSnapshot, collection, setDoc} from 'firebase/firestore';
+import { globalStyles } from '../../css/globalStyles';
+import { jobDetailsStyles as styles } from '../../css/jobDetailsStyles';
+import { db } from '../../config/firebase';
+import { doc, getDoc, updateDoc, serverTimestamp, onSnapshot, collection, setDoc } from 'firebase/firestore';
 import notificationService from '../../services/notificationService';
 import paymentService from '../../services/paymentService';
-import {useAuth} from '../../context/AuthContext';
-import {useTheme} from '../../context/ThemeContext';
-import {sendPaymentReceipt} from '../../services/emailService';
-import {APP_CONFIG} from '../../config/constants';
-import {getProviderBadges, getProviderTier} from '../../utils/gamification';
-import {BadgeList, TierBadge} from '../../components/gamification';
-import {PremiumModal, ConfirmModal, PaymentModal as PremiumPaymentModal} from '../../components/common';
-import {showInfoModal, showErrorModal, showSuccessModal} from '../../utils/modalManager';
+import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { sendPaymentReceipt } from '../../services/emailService';
+import { APP_CONFIG } from '../../config/constants';
+import { getProviderBadges, getProviderTier } from '../../utils/gamification';
+import { BadgeList, TierBadge } from '../../components/gamification';
+import { PremiumModal, ConfirmModal, PaymentModal as PremiumPaymentModal } from '../../components/common';
+import { showInfoModal, showErrorModal, showSuccessModal } from '../../utils/modalManager';
 
-const JobDetailsScreen = ({navigation, route}) => {
-  const {job, jobId} = route.params || {};
-  const {user} = useAuth();
-  const {isDark, theme} = useTheme();
-  
+const JobDetailsScreen = ({ navigation, route }) => {
+  const { job, jobId } = route.params || {};
+  const { user } = useAuth();
+  const { isDark, theme } = useTheme();
+
   // Helper function to safely convert Firestore timestamps
   const formatTimestamp = (timestamp, type = 'date') => {
     if (!timestamp) return null;
@@ -55,7 +55,7 @@ const JobDetailsScreen = ({navigation, route}) => {
     }
     return null;
   };
-  
+
   // Format initial job data from route params
   const formatJobData = (data) => {
     if (!data) return null;
@@ -66,7 +66,7 @@ const JobDetailsScreen = ({navigation, route}) => {
       createdAt: formatTimestamp(data.createdAt, 'date') || new Date().toLocaleDateString(),
     };
   };
-  
+
   const [jobData, setJobData] = useState(formatJobData(job) || null);
   const [isLoading, setIsLoading] = useState(!job);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -84,36 +84,36 @@ const JobDetailsScreen = ({navigation, route}) => {
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
   const appState = useRef(AppState.currentState);
-  
+
   // Premium modal states
-  const [premiumModal, setPremiumModal] = useState({visible: false, variant: 'success', title: '', message: ''});
-  const [confirmModal, setConfirmModal] = useState({visible: false, type: 'confirm', title: '', message: '', onConfirm: null});
+  const [premiumModal, setPremiumModal] = useState({ visible: false, variant: 'success', title: '', message: '' });
+  const [confirmModal, setConfirmModal] = useState({ visible: false, type: 'confirm', title: '', message: '', onConfirm: null });
   const [showPremiumPayment, setShowPremiumPayment] = useState(false);
 
   // Manual verify payment function
   const handleVerifyPayment = async () => {
     const bookingId = jobData?.id || jobId;
     if (!bookingId) return;
-    
+
     setIsCheckingPayment(true);
     setPaymentError(null);
-    
+
     try {
       const result = await paymentService.verifyAndProcessPayment(bookingId);
       console.log('Payment verification result:', result);
-      
+
       if (result.success && result.status === 'paid') {
         // Update local state to reflect payment - check if it's upfront payment
         if (jobData.paymentPreference === 'pay_first' && !jobData.isPaidUpfront) {
-          setJobData(prev => ({...prev, isPaidUpfront: true, upfrontPaidAmount: prev.totalAmount || prev.price}));
+          setJobData(prev => ({ ...prev, isPaidUpfront: true, upfrontPaidAmount: prev.totalAmount || prev.price }));
         } else {
-          setJobData(prev => ({...prev, status: 'payment_received'}));
+          setJobData(prev => ({ ...prev, status: 'payment_received' }));
         }
-        setPremiumModal({visible: true, variant: 'success', title: 'Payment Successful! 💰', message: 'Your payment has been processed successfully!'});
+        setPremiumModal({ visible: true, variant: 'success', title: 'Payment Successful! 💰', message: 'Your payment has been processed successfully!' });
       } else if (result.status === 'failed') {
         setPaymentError('Payment failed or expired. Please try again.');
       } else if (result.status === 'pending') {
-        setPremiumModal({visible: true, variant: 'warning', title: 'Payment Pending', message: 'Your payment is still being processed. Please complete the payment in GCash/Maya app.'});
+        setPremiumModal({ visible: true, variant: 'warning', title: 'Payment Pending', message: 'Your payment is still being processed. Please complete the payment in GCash/Maya app.' });
       } else if (result.status === 'error') {
         setPaymentError(result.error || 'Could not verify payment. Please try again.');
       }
@@ -131,27 +131,27 @@ const JobDetailsScreen = ({navigation, route}) => {
       if (
         appState.current.match(/inactive|background/) &&
         nextAppState === 'active' &&
-        (jobData?.status === 'pending_payment' || jobData?.status === 'pending_completion' || 
-         (jobData?.paymentPreference === 'pay_first' && !jobData?.isPaidUpfront))
+        (jobData?.status === 'pending_payment' || jobData?.status === 'pending_completion' ||
+          (jobData?.paymentPreference === 'pay_first' && !jobData?.isPaidUpfront))
       ) {
         // App came back to foreground, verify and process payment
         setIsCheckingPayment(true);
         const bookingId = jobData.id || jobId;
-        
+
         try {
           // Use verify-and-process to handle webhook failures
           const result = await paymentService.verifyAndProcessPayment(bookingId);
           console.log('Payment verification result:', result);
-          
+
           if (result.success && result.status === 'paid') {
             setPaymentError(null);
             // Update local state for upfront payment
             if (jobData.paymentPreference === 'pay_first' && !jobData.isPaidUpfront) {
-              setJobData(prev => ({...prev, isPaidUpfront: true, upfrontPaidAmount: prev.totalAmount || prev.price}));
+              setJobData(prev => ({ ...prev, isPaidUpfront: true, upfrontPaidAmount: prev.totalAmount || prev.price }));
             } else {
-              setJobData(prev => ({...prev, status: 'payment_received'}));
+              setJobData(prev => ({ ...prev, status: 'payment_received' }));
             }
-            setPremiumModal({visible: true, variant: 'success', title: 'Payment Successful! 💰', message: 'Your payment has been processed successfully!'});
+            setPremiumModal({ visible: true, variant: 'success', title: 'Payment Successful! 💰', message: 'Your payment has been processed successfully!' });
           } else if (result.status === 'failed') {
             setPaymentError('Payment failed or expired. Please try again.');
           } else if (result.status === 'pending') {
@@ -195,7 +195,7 @@ const JobDetailsScreen = ({navigation, route}) => {
       (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          
+
           // Build full location string from address fields
           let fullLocation = '';
           if (data.houseNumber) fullLocation += data.houseNumber + ', ';
@@ -265,7 +265,7 @@ const JobDetailsScreen = ({navigation, route}) => {
           const providerRating = pData.rating || pData.averageRating || 0;
           const providerReviewCount = pData.reviewCount || pData.totalReviews || 0;
           const completedJobs = pData.completedJobs || pData.jobsCompleted || 0;
-          
+
           // Calculate provider badges
           const providerBadges = getProviderBadges({
             completedJobs,
@@ -274,8 +274,8 @@ const JobDetailsScreen = ({navigation, route}) => {
             avgResponseTime: pData.avgResponseTime || pData.responseTime || 999,
             isVerified: pData.isVerified || pData.status === 'approved',
           });
-          
-          console.log('[JobDetails] Provider data:', {rating: providerRating, reviewCount: providerReviewCount, badges: providerBadges.length});
+
+          console.log('[JobDetails] Provider data:', { rating: providerRating, reviewCount: providerReviewCount, badges: providerBadges.length });
           setJobData(prev => ({
             ...prev,
             provider: {
@@ -404,7 +404,7 @@ const JobDetailsScreen = ({navigation, route}) => {
       // Notify provider about cancellation
       if (jobData.providerId) {
         notificationService.notifyJobCancelled(jobData, 'client', reason);
-        
+
         // Send FCM push notification to provider (works when app is closed)
         notificationService.sendPushToUser(
           jobData.providerId,
@@ -412,7 +412,7 @@ const JobDetailsScreen = ({navigation, route}) => {
           `Client cancelled the ${jobData.serviceCategory || 'service'} job.${reason ? ` Reason: ${reason}` : ''}`,
           { type: 'job_cancelled', jobId: jobData.id || jobId }
         );
-        
+
         // Create Firestore notification for provider
         try {
           const notifRef = doc(collection(db, 'notifications'));
@@ -447,15 +447,15 @@ const JobDetailsScreen = ({navigation, route}) => {
     // Check if there are approved additional charges that need to be paid
     const additionalChargesTotal = jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || 0), 0) || 0;
     const hasAdditionalToPay = additionalChargesTotal > 0;
-    
+
     // Check if this is an escrow payment that needs to be released
     const isEscrowPayment = jobData.paymentStatus === 'held';
-    
+
     // For Pay First: if already paid upfront and no additional charges, go straight to payment_received
     const isPayFirstComplete = jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront && !hasAdditionalToPay;
-    
+
     let message, buttonText;
-    
+
     if (isEscrowPayment) {
       message = 'Are you satisfied with the work? This will release the payment from escrow to the provider.';
       buttonText = 'Yes, Release Payment';
@@ -469,18 +469,18 @@ const JobDetailsScreen = ({navigation, route}) => {
       message = 'Are you satisfied with the work? This will proceed to payment.';
       buttonText = 'Yes, Proceed to Pay';
     }
-    
+
     Alert.alert(
       isEscrowPayment ? 'Release Payment to Provider?' : 'Confirm Work Complete',
       message,
       [
-        {text: 'Not Yet', style: 'cancel'},
+        { text: 'Not Yet', style: 'cancel' },
         {
           text: buttonText,
           onPress: async () => {
             try {
               setIsUpdating(true);
-              
+
               if (isEscrowPayment) {
                 // Call backend to release escrow
                 const apiUrl = APP_CONFIG?.API_URL || 'https://gss-maasin-app.onrender.com/api';
@@ -489,11 +489,11 @@ const JobDetailsScreen = ({navigation, route}) => {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ clientId: user?.uid || user?.id }),
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
-                  setJobData(prev => ({...prev, status: 'completed', paymentStatus: 'released'}));
+                  setJobData(prev => ({ ...prev, status: 'completed', paymentStatus: 'released' }));
                   showSuccessModal('Payment Released', `₱${result.providerShare?.toLocaleString() || ''} has been released to the provider. Thank you!`);
                 } else {
                   showErrorModal('Error', result.error || 'Failed to release payment. Please try again.');
@@ -505,7 +505,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                   clientConfirmedAt: serverTimestamp(),
                   updatedAt: serverTimestamp(),
                 });
-                setJobData(prev => ({...prev, status: 'payment_received'}));
+                setJobData(prev => ({ ...prev, status: 'payment_received' }));
                 showSuccessModal('Completed', 'Job marked as complete. Waiting for provider confirmation.');
               } else {
                 // Pay Later OR Pay First with additional charges - need payment
@@ -514,7 +514,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                   clientConfirmedAt: serverTimestamp(),
                   updatedAt: serverTimestamp(),
                 });
-                setJobData(prev => ({...prev, status: 'pending_payment'}));
+                setJobData(prev => ({ ...prev, status: 'pending_payment' }));
                 showSuccessModal('Confirmed', 'Please proceed to pay the provider.');
               }
             } catch (error) {
@@ -540,7 +540,7 @@ const JobDetailsScreen = ({navigation, route}) => {
       'Pay Now',
       `Pay ₱${(jobData?.totalAmount || jobData?.amount || 0).toLocaleString()} now before the service starts?`,
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Pay Now',
           onPress: () => setShowPaymentModal(true),
@@ -553,32 +553,32 @@ const JobDetailsScreen = ({navigation, route}) => {
   const processPayment = async (method) => {
     // Prevent double-click
     if (isProcessingPayment || isUpdating) return;
-    
+
     // Calculate total including approved additional charges
     const baseAmount = jobData?.totalAmount || jobData?.amount || 0;
     const additionalChargesTotal = jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || 0), 0) || 0;
-    
+
     // For Pay First: if already paid upfront, only charge additional charges
     const isPayFirstWithAdditional = jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront && additionalChargesTotal > 0;
     const amount = isPayFirstWithAdditional ? additionalChargesTotal : (baseAmount + additionalChargesTotal);
-    
+
     const bookingId = jobData.id || jobId;
     const userId = user?.uid || user?.id;
-    
-    // PayMongo minimum amount is ₱100 for GCash/Maya
-    if ((method === 'gcash' || method === 'maya') && amount < 100) {
+
+    // PayMongo minimum amount is ₱100 for QRPh/GCash/Maya
+    if ((method === 'qrph' || method === 'gcash' || method === 'maya') && amount < 100) {
       Alert.alert(
         'Minimum Amount Required',
-        `The minimum payment amount for ${method === 'gcash' ? 'GCash' : 'Maya'} is ₱100. Your total is ₱${amount.toLocaleString()}.`,
-        [{text: 'OK'}]
+        `The minimum payment amount for ${method === 'qrph' ? 'QR Ph' : method === 'gcash' ? 'GCash' : 'Maya'} is ₱100. Your total is ₱${amount.toLocaleString()}.`,
+        [{ text: 'OK' }]
       );
       return;
     }
-    
+
     // Check if this is an upfront payment (Pay First flow - initial payment before work starts)
-    const isUpfrontPayment = jobData.paymentPreference === 'pay_first' && 
-                             !jobData.isPaidUpfront && 
-                             (jobData.status === 'accepted' || jobData.status === 'traveling' || jobData.status === 'arrived');
+    const isUpfrontPayment = jobData.paymentPreference === 'pay_first' &&
+      !jobData.isPaidUpfront &&
+      (jobData.status === 'accepted' || jobData.status === 'traveling' || jobData.status === 'arrived');
 
     setIsProcessingPayment(true);
     setSelectedPaymentMethod(method);
@@ -605,7 +605,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               paymentMethod: 'cash',
               updatedAt: serverTimestamp(),
             });
-            setJobData(prev => ({...prev, isPaidUpfront: true, upfrontPaidAmount: amount}));
+            setJobData(prev => ({ ...prev, isPaidUpfront: true, upfrontPaidAmount: amount }));
             setShowPaymentModal(false);
             showSuccessModal('Payment Complete', 'Thank you! The provider can now start working on your job.');
           } else if (isPayFirstWithAdditional) {
@@ -619,7 +619,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               paymentMethod: 'cash',
               updatedAt: serverTimestamp(),
             });
-            setJobData(prev => ({...prev, status: 'payment_received', additionalChargesPaid: true}));
+            setJobData(prev => ({ ...prev, status: 'payment_received', additionalChargesPaid: true }));
             notificationService.notifyPaymentReceived?.(jobData);
             setShowPaymentModal(false);
             showSuccessModal('Additional Payment Complete', 'The provider will confirm receipt to complete the job.');
@@ -631,12 +631,12 @@ const JobDetailsScreen = ({navigation, route}) => {
               paymentMethod: 'cash',
               updatedAt: serverTimestamp(),
             });
-            setJobData(prev => ({...prev, status: 'payment_received'}));
+            setJobData(prev => ({ ...prev, status: 'payment_received' }));
             notificationService.notifyPaymentReceived?.(jobData);
             setShowPaymentModal(false);
             showSuccessModal('Payment Recorded', 'The provider will confirm receipt of payment to complete the job.');
           }
-          
+
           // Send payment receipt email to client via Brevo
           if (user?.email) {
             const clientName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Client';
@@ -653,10 +653,19 @@ const JobDetailsScreen = ({navigation, route}) => {
           showErrorModal('Error', result.error || 'Failed to record payment');
         }
       } else {
-        // GCash or Maya - create payment source
-        const createPayment = method === 'gcash' 
-          ? paymentService.createGCashPayment 
-          : paymentService.createPayMayaPayment;
+        // QRPh, GCash, or Maya - create payment
+        let createPayment;
+        let methodLabel;
+        if (method === 'qrph') {
+          createPayment = paymentService.createQRPhPayment;
+          methodLabel = 'QR Ph';
+        } else if (method === 'gcash') {
+          createPayment = paymentService.createGCashPayment;
+          methodLabel = 'GCash';
+        } else {
+          createPayment = paymentService.createPayMayaPayment;
+          methodLabel = 'Maya';
+        }
 
         const result = await createPayment(
           bookingId,
@@ -667,16 +676,19 @@ const JobDetailsScreen = ({navigation, route}) => {
 
         if (result.success && result.checkoutUrl) {
           setShowPaymentModal(false);
-          
+
           // Open checkout URL
           const openResult = await paymentService.openPaymentCheckout(result.checkoutUrl);
-          
+
           if (openResult.success) {
             // Show info that they need to complete payment
+            const instructions = method === 'qrph'
+              ? 'Please scan the QR code with your banking or e-wallet app (GCash, Maya, BPI, etc.) to complete payment.'
+              : `Please complete your ${methodLabel} payment in the browser.`;
             Alert.alert(
               'Complete Payment',
-              `Please complete your ${method === 'gcash' ? 'GCash' : 'Maya'} payment in the browser.\n\nIf the page appears blank or doesn't load, please wait a few seconds and refresh the page.\n\nOnce payment is complete, return to the app and tap "Verify Payment" to confirm.`,
-              [{text: 'OK'}]
+              `${instructions}\n\nIf the page appears blank or doesn't load, please wait a few seconds and refresh the page.\n\nOnce payment is complete, return to the app and tap "Verify Payment" to confirm.`,
+              [{ text: 'OK' }]
             );
           } else {
             // Show URL so user can copy it manually
@@ -684,7 +696,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               'Open in Browser',
               `Could not open automatically. Please copy this link and open in your browser:\n\n${result.checkoutUrl}`,
               [
-                {text: 'OK'},
+                { text: 'OK' },
               ]
             );
           }
@@ -719,7 +731,7 @@ const JobDetailsScreen = ({navigation, route}) => {
       'Accept Counter Offer',
       `Accept provider's offer of ₱${counterPrice.toLocaleString()}?\n\nTotal with fee: ₱${totalAmount.toLocaleString()}`,
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Accept',
           onPress: async () => {
@@ -812,16 +824,16 @@ const JobDetailsScreen = ({navigation, route}) => {
       'Approve Additional Charge',
       `Approve additional payment of ₱${charge.total?.toLocaleString()} for:\n\n"${charge.reason}"`,
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Approve',
           onPress: async () => {
             try {
               setIsUpdating(true);
-              const updatedCharges = jobData.additionalCharges.map(c => 
-                c.id === chargeId ? {...c, status: 'approved', approvedAt: new Date().toISOString()} : c
+              const updatedCharges = jobData.additionalCharges.map(c =>
+                c.id === chargeId ? { ...c, status: 'approved', approvedAt: new Date().toISOString() } : c
               );
-              
+
               // Check if any more pending
               const hasPending = updatedCharges.some(c => c.status === 'pending');
 
@@ -854,17 +866,17 @@ const JobDetailsScreen = ({navigation, route}) => {
       'Reject Additional Charge',
       'Are you sure you want to reject this additional charge?',
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Reject',
           style: 'destructive',
           onPress: async () => {
             try {
               setIsUpdating(true);
-              const updatedCharges = jobData.additionalCharges.map(c => 
-                c.id === chargeId ? {...c, status: 'rejected', rejectedAt: new Date().toISOString()} : c
+              const updatedCharges = jobData.additionalCharges.map(c =>
+                c.id === chargeId ? { ...c, status: 'rejected', rejectedAt: new Date().toISOString() } : c
               );
-              
+
               const hasPending = updatedCharges.some(c => c.status === 'pending');
 
               await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
@@ -892,7 +904,7 @@ const JobDetailsScreen = ({navigation, route}) => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]}>
+      <SafeAreaView style={[globalStyles.container, isDark && { backgroundColor: theme.colors.background }]}>
         <View style={globalStyles.centerContainer}>
           <ActivityIndicator size="large" color="#00B14F" />
         </View>
@@ -902,44 +914,44 @@ const JobDetailsScreen = ({navigation, route}) => {
 
   if (!jobData) {
     return (
-      <SafeAreaView style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]}>
-        <View style={[styles.header, isDark && {backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border}]}>
+      <SafeAreaView style={[globalStyles.container, isDark && { backgroundColor: theme.colors.background }]}>
+        <View style={[styles.header, isDark && { backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border }]}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Icon name="arrow-back" size={24} color={isDark ? theme.colors.text : '#1F2937'} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, isDark && {color: theme.colors.text}]}>Job Details</Text>
-          <View style={{width: 24}} />
+          <Text style={[styles.headerTitle, isDark && { color: theme.colors.text }]}>Job Details</Text>
+          <View style={{ width: 24 }} />
         </View>
         <View style={globalStyles.centerContainer}>
-          <Text style={[globalStyles.bodyMedium, isDark && {color: theme.colors.text}]}>Job not found</Text>
+          <Text style={[globalStyles.bodyMedium, isDark && { color: theme.colors.text }]}>Job not found</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]} edges={['top']}>
+    <SafeAreaView style={[globalStyles.container, isDark && { backgroundColor: theme.colors.background }]} edges={['top']}>
       {/* Header */}
-      <View style={[styles.header, isDark && {backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border}]}>
+      <View style={[styles.header, isDark && { backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color={isDark ? theme.colors.text : '#1F2937'} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, isDark && {color: theme.colors.text}]}>Job Details</Text>
-        <View style={{width: 24}} />
+        <Text style={[styles.headerTitle, isDark && { color: theme.colors.text }]}>Job Details</Text>
+        <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={{flex: 1}} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
         {/* Status Banner */}
-        <View style={[styles.statusBanner, {backgroundColor: getStatusColor(jobData.status) + '15'}]}>
-          <View style={[styles.statusDot, {backgroundColor: getStatusColor(jobData.status)}]} />
-          <Text style={[styles.statusText, {color: getStatusColor(jobData.status)}]}>
+        <View style={[styles.statusBanner, { backgroundColor: getStatusColor(jobData.status) + '15' }]}>
+          <View style={[styles.statusDot, { backgroundColor: getStatusColor(jobData.status) }]} />
+          <Text style={[styles.statusText, { color: getStatusColor(jobData.status) }]}>
             {getStatusLabel(jobData.status)}
           </Text>
         </View>
 
         {/* Provider Traveling Banner - Prominent tracking CTA */}
         {(jobData.status === 'traveling' || jobData.status === 'arrived') ? (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={{
               backgroundColor: jobData.status === 'traveling' ? '#3B82F6' : '#10B981',
               marginHorizontal: 16,
@@ -960,11 +972,11 @@ const JobDetailsScreen = ({navigation, route}) => {
             }}>
               <Icon name={jobData.status === 'traveling' ? 'car' : 'checkmark-circle'} size={24} color="#FFFFFF" />
             </View>
-            <View style={{flex: 1, marginLeft: 12}}>
-              <Text style={{fontSize: 15, fontWeight: '700', color: '#FFFFFF'}}>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>
                 {jobData.status === 'traveling' ? 'Provider is on the way!' : 'Provider has arrived!'}
               </Text>
-              <Text style={{fontSize: 13, color: 'rgba(255,255,255,0.9)', marginTop: 2}}>
+              <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', marginTop: 2 }}>
                 Tap to track their location in real-time
               </Text>
             </View>
@@ -985,11 +997,11 @@ const JobDetailsScreen = ({navigation, route}) => {
             borderColor: '#BFDBFE',
           }}>
             <Icon name="time" size={22} color="#3B82F6" />
-            <View style={{marginLeft: 12, flex: 1}}>
-              <Text style={{fontSize: 13, fontWeight: '600', color: '#1E40AF', marginBottom: 2}}>
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#1E40AF', marginBottom: 2 }}>
                 Under Admin Review
               </Text>
-              <Text style={{fontSize: 12, color: '#3B82F6'}}>
+              <Text style={{ fontSize: 12, color: '#3B82F6' }}>
                 Your request is being reviewed by our team. We'll notify you once it's sent to the provider.
               </Text>
             </View>
@@ -1009,11 +1021,11 @@ const JobDetailsScreen = ({navigation, route}) => {
             borderColor: '#BBF7D0',
           }}>
             <Icon name="checkmark-circle" size={22} color="#10B981" />
-            <View style={{marginLeft: 12, flex: 1}}>
-              <Text style={{fontSize: 13, fontWeight: '600', color: '#065F46', marginBottom: 2}}>
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#065F46', marginBottom: 2 }}>
                 Sent to Provider
               </Text>
-              <Text style={{fontSize: 12, color: '#047857'}}>
+              <Text style={{ fontSize: 12, color: '#047857' }}>
                 Your request has been approved and sent to the provider. Waiting for their response.
               </Text>
             </View>
@@ -1026,7 +1038,7 @@ const JobDetailsScreen = ({navigation, route}) => {
             <Icon name="construct" size={14} color="#00B14F" />
             <Text style={styles.categoryText}>{jobData.serviceCategory}</Text>
           </View>
-          
+
           {jobData.description ? (
             <Text style={styles.description}>{jobData.description}</Text>
           ) : null}
@@ -1050,7 +1062,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               }}>
                 <Icon name="location" size={20} color="#EF4444" />
               </View>
-              <View style={{flex: 1}}>
+              <View style={{ flex: 1 }}>
                 <Text style={{
                   fontSize: 15,
                   fontWeight: '600',
@@ -1078,7 +1090,7 @@ const JobDetailsScreen = ({navigation, route}) => {
             <View style={styles.personCard}>
               <View style={styles.personAvatar}>
                 {jobData.provider?.photo ? (
-                  <Image source={{uri: jobData.provider.photo}} style={styles.avatarImage} />
+                  <Image source={{ uri: jobData.provider.photo }} style={styles.avatarImage} />
                 ) : (
                   <Icon name="person" size={30} color="#6B7280" />
                 )}
@@ -1088,28 +1100,28 @@ const JobDetailsScreen = ({navigation, route}) => {
                 <View style={styles.ratingRow}>
                   <Icon name="star" size={14} color={(jobData.provider?.rating > 0 || jobData.provider?.reviewCount > 0) ? "#F59E0B" : "#D1D5DB"} />
                   <Text style={styles.ratingText}>
-                    {(jobData.provider?.rating > 0 || jobData.provider?.reviewCount > 0) 
-                      ? `${(jobData.provider.rating || 0).toFixed(1)} (${jobData.provider.reviewCount || 0} ${jobData.provider.reviewCount === 1 ? 'review' : 'reviews'})` 
+                    {(jobData.provider?.rating > 0 || jobData.provider?.reviewCount > 0)
+                      ? `${(jobData.provider.rating || 0).toFixed(1)} (${jobData.provider.reviewCount || 0} ${jobData.provider.reviewCount === 1 ? 'review' : 'reviews'})`
                       : 'New Provider'}
                   </Text>
                 </View>
                 {/* Provider Tier */}
                 {(jobData.provider?.tier || jobData.provider?.points > 0) ? (
-                  <View style={{marginTop: 4}}>
+                  <View style={{ marginTop: 4 }}>
                     <TierBadge tier={jobData.provider?.tier || getProviderTier(jobData.provider.points)} size="small" />
                   </View>
                 ) : null}
               </View>
             </View>
-            
+
             {/* Provider Badges */}
             {jobData.provider?.badges?.length > 0 ? (
-              <View style={{marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E5E7EB'}}>
-                <Text style={{fontSize: 12, color: '#6B7280', marginBottom: 6}}>Provider Badges</Text>
+              <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E5E7EB' }}>
+                <Text style={{ fontSize: 12, color: '#6B7280', marginBottom: 6 }}>Provider Badges</Text>
                 <BadgeList badges={jobData.provider.badges} maxDisplay={4} size="small" />
               </View>
             ) : null}
-            
+
             {/* Contact Buttons - Only show after admin approval */}
             {jobData.adminApproved ? (
               <View>
@@ -1125,7 +1137,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                 </View>
                 {/* Track Provider Button - Show when traveling or arrived */}
                 {(jobData.status === 'traveling' || jobData.status === 'arrived') ? (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={{
                       backgroundColor: '#3B82F6',
                       borderRadius: 12,
@@ -1140,7 +1152,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                       job: jobData,
                     })}>
                     <Icon name="location" size={20} color="#FFFFFF" />
-                    <Text style={{color: '#FFFFFF', fontWeight: '600', fontSize: 15, marginLeft: 8}}>
+                    <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 15, marginLeft: 8 }}>
                       {jobData.status === 'traveling' ? 'Track Provider Location' : 'View Provider Location'}
                     </Text>
                   </TouchableOpacity>
@@ -1156,7 +1168,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                 alignItems: 'center',
               }}>
                 <Icon name="time-outline" size={18} color="#F59E0B" />
-                <Text style={{fontSize: 13, color: '#92400E', marginLeft: 8, flex: 1}}>
+                <Text style={{ fontSize: 13, color: '#92400E', marginLeft: 8, flex: 1 }}>
                   Contact options will be available once admin approves your request.
                 </Text>
               </View>
@@ -1171,7 +1183,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               {jobData.mediaFiles.map((file, index) => (
                 <View key={index} style={styles.mediaItem}>
                   {(file.url || file.uri) ? (
-                    <Image source={{uri: file.url || file.uri}} style={styles.mediaImage} />
+                    <Image source={{ uri: file.url || file.uri }} style={styles.mediaImage} />
                   ) : null}
                   {file.isVideo ? (
                     <View style={styles.videoOverlay}>
@@ -1193,25 +1205,25 @@ const JobDetailsScreen = ({navigation, route}) => {
             borderWidth: 1,
             borderColor: '#A7F3D0',
           }}>
-            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
-              <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                <Icon 
-                  name="wallet" 
-                  size={24} 
-                  color="#059669" 
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Icon
+                  name="wallet"
+                  size={24}
+                  color="#059669"
                 />
-                <View style={{marginLeft: 12}}>
-                  <Text style={{fontSize: 16, fontWeight: '700', color: '#059669'}}>
+                <View style={{ marginLeft: 12 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#059669' }}>
                     {jobData.paymentMethod === 'maya' ? 'Maya' : 'GCash'}
                   </Text>
-                  <Text style={{fontSize: 12, color: '#047857'}}>
+                  <Text style={{ fontSize: 12, color: '#047857' }}>
                     Pay First • Protected Payment
                   </Text>
                 </View>
               </View>
               {jobData.isPaidUpfront ? (
-                <View style={{backgroundColor: '#10B981', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8}}>
-                  <Text style={{fontSize: 12, fontWeight: '700', color: '#FFFFFF'}}>PAID</Text>
+                <View style={{ backgroundColor: '#10B981', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>PAID</Text>
                 </View>
               ) : null}
             </View>
@@ -1231,19 +1243,19 @@ const JobDetailsScreen = ({navigation, route}) => {
             }}>
               {/* Show negotiation info */}
               {jobData.isNegotiable ? (
-                <View style={{marginBottom: 12}}>
-                  <Text style={{fontSize: 12, color: '#6B7280', marginBottom: 4}}>
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>
                     Provider's Fixed Price: ₱{(jobData.providerFixedPrice || 0).toLocaleString()}
                   </Text>
-                  <Text style={{fontSize: 12, color: '#6B7280'}}>
+                  <Text style={{ fontSize: 12, color: '#6B7280' }}>
                     Your Offer: ₱{(jobData.offeredPrice || 0).toLocaleString()}
                   </Text>
                 </View>
               ) : null}
 
-              <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
-                <Text style={{fontSize: 14, color: '#4B5563'}}>Service Price</Text>
-                <Text style={{fontSize: 14, fontWeight: '600', color: '#1F2937'}}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ fontSize: 14, color: '#4B5563' }}>Service Price</Text>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#1F2937' }}>
                   ₱{(jobData.providerPrice || jobData.offeredPrice || jobData.price || 0).toLocaleString()}
                 </Text>
               </View>
@@ -1256,51 +1268,51 @@ const JobDetailsScreen = ({navigation, route}) => {
                   padding: 10,
                   marginBottom: 8,
                 }}>
-                  <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <Icon name="pricetag" size={16} color="#059669" />
-                      <Text style={{fontSize: 13, color: '#065F46', marginLeft: 6, fontWeight: '600'}}>
+                      <Text style={{ fontSize: 13, color: '#065F46', marginLeft: 6, fontWeight: '600' }}>
                         Provider Discount
                       </Text>
                     </View>
-                    <Text style={{fontSize: 14, fontWeight: '700', color: '#059669'}}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#059669' }}>
                       -₱{jobData.discountAmount.toLocaleString()}
                     </Text>
                   </View>
                   {jobData.discountReason ? (
-                    <Text style={{fontSize: 12, color: '#065F46', marginTop: 4, fontStyle: 'italic'}}>
+                    <Text style={{ fontSize: 12, color: '#065F46', marginTop: 4, fontStyle: 'italic' }}>
                       "{jobData.discountReason}"
                     </Text>
                   ) : null}
                 </View>
               ) : null}
 
-              <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
-                <Text style={{fontSize: 14, color: '#4B5563'}}>System Fee ({APP_CONFIG.SERVICE_FEE_PERCENTAGE}%)</Text>
-                <Text style={{fontSize: 14, fontWeight: '600', color: '#1F2937'}}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ fontSize: 14, color: '#4B5563' }}>System Fee ({APP_CONFIG.SERVICE_FEE_PERCENTAGE}%)</Text>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#1F2937' }}>
                   {APP_CONFIG.CURRENCY_SYMBOL}{(jobData.systemFee || 0).toLocaleString()}
                 </Text>
               </View>
 
               {/* Show additional charges */}
               {(jobData.additionalCharges && jobData.additionalCharges.length > 0) ? (
-                <View style={{marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#BBF7D0'}}>
-                  <Text style={{fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8}}>
+                <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#BBF7D0' }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
                     Additional Charges
                   </Text>
                   {jobData.additionalCharges.map((charge, index) => (
-                    <View key={charge.id || index} style={{marginBottom: 8}}>
-                      <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                        <Text style={{fontSize: 13, color: '#4B5563', flex: 1}} numberOfLines={1}>
+                    <View key={charge.id || index} style={{ marginBottom: 8 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ fontSize: 13, color: '#4B5563', flex: 1 }} numberOfLines={1}>
                           {charge.reason}
                         </Text>
-                        <Text style={{fontSize: 13, fontWeight: '500', color: '#1F2937'}}>
+                        <Text style={{ fontSize: 13, fontWeight: '500', color: '#1F2937' }}>
                           +₱{(charge.total || 0).toLocaleString()}
                         </Text>
                       </View>
                       {charge.status === 'pending' ? (
-                        <View style={{flexDirection: 'row', marginTop: 8}}>
-                          <TouchableOpacity 
+                        <View style={{ flexDirection: 'row', marginTop: 8 }}>
+                          <TouchableOpacity
                             style={{
                               flex: 1,
                               backgroundColor: '#FEE2E2',
@@ -1310,9 +1322,9 @@ const JobDetailsScreen = ({navigation, route}) => {
                               alignItems: 'center',
                             }}
                             onPress={() => handleRejectAdditional(charge.id)}>
-                            <Text style={{fontSize: 12, color: '#DC2626', fontWeight: '600'}}>Reject</Text>
+                            <Text style={{ fontSize: 12, color: '#DC2626', fontWeight: '600' }}>Reject</Text>
                           </TouchableOpacity>
-                          <TouchableOpacity 
+                          <TouchableOpacity
                             style={{
                               flex: 1,
                               backgroundColor: '#D1FAE5',
@@ -1321,15 +1333,15 @@ const JobDetailsScreen = ({navigation, route}) => {
                               alignItems: 'center',
                             }}
                             onPress={() => handleApproveAdditional(charge.id)}>
-                            <Text style={{fontSize: 12, color: '#059669', fontWeight: '600'}}>Approve</Text>
+                            <Text style={{ fontSize: 12, color: '#059669', fontWeight: '600' }}>Approve</Text>
                           </TouchableOpacity>
                         </View>
                       ) : null}
                       {charge.status === 'approved' ? (
-                        <Text style={{fontSize: 11, color: '#059669', marginTop: 2}}>✓ Approved</Text>
+                        <Text style={{ fontSize: 11, color: '#059669', marginTop: 2 }}>✓ Approved</Text>
                       ) : null}
                       {charge.status === 'rejected' ? (
-                        <Text style={{fontSize: 11, color: '#DC2626', marginTop: 2}}>✗ Rejected</Text>
+                        <Text style={{ fontSize: 11, color: '#DC2626', marginTop: 2 }}>✗ Rejected</Text>
                       ) : null}
                     </View>
                   ))}
@@ -1344,8 +1356,8 @@ const JobDetailsScreen = ({navigation, route}) => {
                 justifyContent: 'space-between',
                 marginTop: 8,
               }}>
-                <Text style={{fontSize: 16, fontWeight: '700', color: '#1F2937'}}>Total Amount</Text>
-                <Text style={{fontSize: 18, fontWeight: '700', color: '#00B14F'}}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1F2937' }}>Total Amount</Text>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#00B14F' }}>
                   ₱{(
                     (jobData.totalAmount || jobData.price || 0) +
                     (jobData.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + c.total, 0) || 0)
@@ -1365,26 +1377,26 @@ const JobDetailsScreen = ({navigation, route}) => {
               borderWidth: 1,
               borderColor: '#8B5CF6',
             }}>
-              <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                 <Icon name="pricetag" size={20} color="#8B5CF6" />
-                <Text style={{fontSize: 16, fontWeight: '700', color: '#5B21B6', marginLeft: 8}}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#5B21B6', marginLeft: 8 }}>
                   Provider's Counter Offer
                 </Text>
               </View>
-              <Text style={{fontSize: 28, fontWeight: '700', color: '#8B5CF6'}}>
+              <Text style={{ fontSize: 28, fontWeight: '700', color: '#8B5CF6' }}>
                 ₱{(jobData.counterOfferPrice || 0).toLocaleString()}
               </Text>
-              <Text style={{fontSize: 13, color: '#6B7280', marginTop: 4}}>
+              <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>
                 Total with fee: ₱{((jobData.counterOfferPrice || 0) * 1.05).toLocaleString()}
               </Text>
               {jobData.counterOfferNote ? (
-                <Text style={{fontSize: 14, color: '#5B21B6', marginTop: 8, fontStyle: 'italic'}}>
+                <Text style={{ fontSize: 14, color: '#5B21B6', marginTop: 8, fontStyle: 'italic' }}>
                   "{jobData.counterOfferNote}"
                 </Text>
               ) : null}
-              
-              <View style={{flexDirection: 'row', marginTop: 16}}>
-                <TouchableOpacity 
+
+              <View style={{ flexDirection: 'row', marginTop: 16 }}>
+                <TouchableOpacity
                   style={{
                     flex: 1,
                     backgroundColor: '#FFFFFF',
@@ -1396,9 +1408,9 @@ const JobDetailsScreen = ({navigation, route}) => {
                     borderColor: '#8B5CF6',
                   }}
                   onPress={() => setShowNewOfferModal(true)}>
-                  <Text style={{fontSize: 14, color: '#8B5CF6', fontWeight: '600'}}>Make New Offer</Text>
+                  <Text style={{ fontSize: 14, color: '#8B5CF6', fontWeight: '600' }}>Make New Offer</Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={{
                     flex: 1,
                     backgroundColor: '#8B5CF6',
@@ -1407,7 +1419,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                     alignItems: 'center',
                   }}
                   onPress={handleAcceptCounterOffer}>
-                  <Text style={{fontSize: 14, color: '#FFFFFF', fontWeight: '600'}}>Accept</Text>
+                  <Text style={{ fontSize: 14, color: '#FFFFFF', fontWeight: '600' }}>Accept</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1423,16 +1435,16 @@ const JobDetailsScreen = ({navigation, route}) => {
             borderWidth: 1,
             borderColor: '#FCD34D',
           }}>
-            <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
               <Icon name="star" size={28} color="#F59E0B" />
-              <Text style={{fontSize: 18, fontWeight: '700', color: '#92400E', marginLeft: 10}}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: '#92400E', marginLeft: 10 }}>
                 How was your experience?
               </Text>
             </View>
-            <Text style={{fontSize: 14, color: '#B45309', marginBottom: 16, lineHeight: 20}}>
+            <Text style={{ fontSize: 14, color: '#B45309', marginBottom: 16, lineHeight: 20 }}>
               Your feedback helps other clients and rewards great providers. Take a moment to share your experience!
             </Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={{
                 backgroundColor: '#F59E0B',
                 borderRadius: 12,
@@ -1447,7 +1459,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                 providerName: jobData.provider?.name || 'Provider',
               })}>
               <Icon name="create" size={18} color="#FFFFFF" />
-              <Text style={{color: '#FFFFFF', fontSize: 16, fontWeight: '700', marginLeft: 8}}>
+              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700', marginLeft: 8 }}>
                 Leave a Review
               </Text>
             </TouchableOpacity>
@@ -1466,20 +1478,20 @@ const JobDetailsScreen = ({navigation, route}) => {
             borderColor: '#BBF7D0',
           }}>
             <Icon name="checkmark-circle" size={24} color="#10B981" />
-            <View style={{marginLeft: 12, flex: 1}}>
-              <Text style={{fontSize: 14, fontWeight: '600', color: '#065F46'}}>
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#065F46' }}>
                 Review Submitted
               </Text>
-              <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 4}}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                 {[1, 2, 3, 4, 5].map((star) => (
-                  <Icon 
+                  <Icon
                     key={star}
-                    name={star <= (jobData.reviewRating || 0) ? "star" : "star-outline"} 
-                    size={16} 
+                    name={star <= (jobData.reviewRating || 0) ? "star" : "star-outline"}
+                    size={16}
                     color="#F59E0B"
                   />
                 ))}
-                <Text style={{fontSize: 13, color: '#047857', marginLeft: 8}}>
+                <Text style={{ fontSize: 13, color: '#047857', marginLeft: 8 }}>
                   Thank you for your feedback!
                 </Text>
               </View>
@@ -1488,8 +1500,8 @@ const JobDetailsScreen = ({navigation, route}) => {
         ) : null}
         {/* View Receipt Button - Show for completed jobs */}
         {jobData.status === 'completed' ? (
-          <View style={{marginHorizontal: 16, marginBottom: 16}}>
-            <TouchableOpacity 
+          <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
+            <TouchableOpacity
               style={{
                 backgroundColor: '#F3F4F6',
                 borderRadius: 12,
@@ -1529,7 +1541,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                 isProvider: false,
               })}>
               <Icon name="receipt-outline" size={20} color="#374151" />
-              <Text style={{color: '#374151', fontSize: 16, fontWeight: '600', marginLeft: 8}}>
+              <Text style={{ color: '#374151', fontSize: 16, fontWeight: '600', marginLeft: 8 }}>
                 View Receipt
               </Text>
             </TouchableOpacity>
@@ -1551,8 +1563,8 @@ const JobDetailsScreen = ({navigation, route}) => {
           </View>
         ) : null}
         {/* Payment already made during booking - show confirmation */}
-        {(jobData.isPaidUpfront && 
-         (jobData.status === 'accepted' || jobData.status === 'traveling' || jobData.status === 'arrived' || jobData.status === 'in_progress')) ? (
+        {(jobData.isPaidUpfront &&
+          (jobData.status === 'accepted' || jobData.status === 'traveling' || jobData.status === 'arrived' || jobData.status === 'in_progress')) ? (
           <View style={styles.actionSection}>
             <View style={{
               backgroundColor: '#D1FAE5',
@@ -1563,20 +1575,20 @@ const JobDetailsScreen = ({navigation, route}) => {
               borderColor: '#A7F3D0',
             }}>
               <Icon name="checkmark-circle" size={32} color="#059669" />
-              <Text style={{fontSize: 16, fontWeight: '700', color: '#065F46', marginTop: 8}}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#065F46', marginTop: 8 }}>
                 Payment Complete
               </Text>
-              <Text style={{fontSize: 14, color: '#047857', marginTop: 4}}>
+              <Text style={{ fontSize: 14, color: '#047857', marginTop: 4 }}>
                 ₱{(jobData.upfrontPaidAmount || jobData.totalAmount || 0).toLocaleString()} paid
               </Text>
-              <Text style={{fontSize: 13, color: '#059669', marginTop: 8, textAlign: 'center'}}>
-                {jobData.status === 'in_progress' 
+              <Text style={{ fontSize: 13, color: '#059669', marginTop: 8, textAlign: 'center' }}>
+                {jobData.status === 'in_progress'
                   ? 'Provider is working on your job. You\'ll be notified when complete.'
                   : jobData.status === 'arrived'
-                  ? 'Provider has arrived and will start working soon.'
-                  : jobData.status === 'traveling'
-                  ? 'Provider is on the way to your location.'
-                  : 'Provider has accepted. They will start traveling soon.'}
+                    ? 'Provider has arrived and will start working soon.'
+                    : jobData.status === 'traveling'
+                      ? 'Provider is on the way to your location.'
+                      : 'Provider has accepted. They will start traveling soon.'}
               </Text>
             </View>
           </View>
@@ -1592,10 +1604,10 @@ const JobDetailsScreen = ({navigation, route}) => {
               alignItems: 'center',
             }}>
               <Icon name="construct" size={32} color="#F59E0B" />
-              <Text style={{fontSize: 16, fontWeight: '600', color: '#92400E', marginTop: 8}}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: '#92400E', marginTop: 8 }}>
                 Provider Marked Work Complete
               </Text>
-              <Text style={{fontSize: 13, color: '#B45309', marginTop: 4, textAlign: 'center'}}>
+              <Text style={{ fontSize: 13, color: '#B45309', marginTop: 4, textAlign: 'center' }}>
                 Please confirm if you're satisfied with the work to proceed to payment.
               </Text>
             </View>
@@ -1609,13 +1621,13 @@ const JobDetailsScreen = ({navigation, route}) => {
                 borderWidth: 1,
                 borderColor: '#FECACA',
               }}>
-                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                   <Icon name="alert-circle" size={20} color="#DC2626" />
-                  <Text style={{fontSize: 14, fontWeight: '600', color: '#991B1B', marginLeft: 8}}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#991B1B', marginLeft: 8 }}>
                     Additional Charges Pending
                   </Text>
                 </View>
-                <Text style={{fontSize: 13, color: '#DC2626', marginBottom: 12}}>
+                <Text style={{ fontSize: 13, color: '#DC2626', marginBottom: 12 }}>
                   The provider has requested additional charges. Please review and approve or reject before confirming completion.
                 </Text>
                 {jobData.additionalCharges.filter(c => c.status === 'pending').map((charge, index) => (
@@ -1625,12 +1637,12 @@ const JobDetailsScreen = ({navigation, route}) => {
                     borderRadius: 8,
                     marginBottom: 8,
                   }}>
-                    <Text style={{fontSize: 13, color: '#374151', marginBottom: 4}}>{charge.reason}</Text>
-                    <Text style={{fontSize: 16, fontWeight: '700', color: '#DC2626'}}>
+                    <Text style={{ fontSize: 13, color: '#374151', marginBottom: 4 }}>{charge.reason}</Text>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#DC2626' }}>
                       +₱{charge.total?.toLocaleString()}
                     </Text>
-                    <View style={{flexDirection: 'row', marginTop: 10, gap: 8}}>
-                      <TouchableOpacity 
+                    <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
+                      <TouchableOpacity
                         style={{
                           flex: 1,
                           backgroundColor: '#FEE2E2',
@@ -1639,9 +1651,9 @@ const JobDetailsScreen = ({navigation, route}) => {
                           alignItems: 'center',
                         }}
                         onPress={() => handleRejectAdditional(charge.id)}>
-                        <Text style={{fontSize: 14, color: '#DC2626', fontWeight: '600'}}>Reject</Text>
+                        <Text style={{ fontSize: 14, color: '#DC2626', fontWeight: '600' }}>Reject</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={{
                           flex: 1,
                           backgroundColor: '#D1FAE5',
@@ -1650,14 +1662,14 @@ const JobDetailsScreen = ({navigation, route}) => {
                           alignItems: 'center',
                         }}
                         onPress={() => handleApproveAdditional(charge.id)}>
-                        <Text style={{fontSize: 14, color: '#059669', fontWeight: '600'}}>Approve</Text>
+                        <Text style={{ fontSize: 14, color: '#059669', fontWeight: '600' }}>Approve</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
                 ))}
               </View>
             ) : null}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={{
                 backgroundColor: jobData.hasAdditionalPending ? '#9CA3AF' : '#10B981',
                 borderRadius: 12,
@@ -1669,7 +1681,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               disabled={jobData.hasAdditionalPending}
               onPress={handleConfirmCompletion}>
               <Icon name="checkmark-circle" size={20} color="#FFFFFF" />
-              <Text style={{color: '#FFFFFF', fontWeight: '600', fontSize: 16, marginLeft: 8}}>
+              <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>
                 {(() => {
                   if (jobData.hasAdditionalPending) return 'Review Additional Charges First';
                   const approvedCharges = jobData.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || c.amount || 0), 0) || 0;
@@ -1698,9 +1710,9 @@ const JobDetailsScreen = ({navigation, route}) => {
                 borderColor: '#FECACA',
               }}>
                 <Icon name="alert-circle" size={22} color="#DC2626" />
-                <View style={{flex: 1, marginLeft: 10}}>
-                  <Text style={{fontSize: 13, fontWeight: '600', color: '#991B1B'}}>Payment Failed</Text>
-                  <Text style={{fontSize: 12, color: '#DC2626'}}>{paymentError}</Text>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#991B1B' }}>Payment Failed</Text>
+                  <Text style={{ fontSize: 12, color: '#DC2626' }}>{paymentError}</Text>
                 </View>
                 <TouchableOpacity onPress={() => setPaymentError(null)}>
                   <Icon name="close" size={18} color="#DC2626" />
@@ -1718,7 +1730,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                 alignItems: 'center',
               }}>
                 <ActivityIndicator size="small" color="#F59E0B" />
-                <Text style={{fontSize: 13, color: '#92400E', marginLeft: 10}}>
+                <Text style={{ fontSize: 13, color: '#92400E', marginLeft: 10 }}>
                   Checking payment status...
                 </Text>
               </View>
@@ -1731,12 +1743,12 @@ const JobDetailsScreen = ({navigation, route}) => {
               alignItems: 'center',
             }}>
               <Icon name="card" size={32} color="#3B82F6" />
-              <Text style={{fontSize: 16, fontWeight: '600', color: '#1E40AF', marginTop: 8}}>
-                {jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront 
-                  ? 'Additional Payment Required' 
+              <Text style={{ fontSize: 16, fontWeight: '600', color: '#1E40AF', marginTop: 8 }}>
+                {jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront
+                  ? 'Additional Payment Required'
                   : 'Payment Required'}
               </Text>
-              <Text style={{fontSize: 22, fontWeight: '700', color: '#1E40AF', marginTop: 8}}>
+              <Text style={{ fontSize: 22, fontWeight: '700', color: '#1E40AF', marginTop: 8 }}>
                 ₱{(() => {
                   const baseAmount = jobData?.totalAmount || jobData?.amount || 0;
                   const additionalTotal = jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || 0), 0) || 0;
@@ -1748,17 +1760,17 @@ const JobDetailsScreen = ({navigation, route}) => {
                 })().toLocaleString()}
               </Text>
               {(jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront) ? (
-                <Text style={{fontSize: 12, color: '#3B82F6', marginTop: 2}}>
+                <Text style={{ fontSize: 12, color: '#3B82F6', marginTop: 2 }}>
                   (Original ₱{(jobData.upfrontPaidAmount || jobData.totalAmount || 0).toLocaleString()} already paid)
                 </Text>
               ) : null}
-              <Text style={{fontSize: 13, color: '#3B82F6', marginTop: 4, textAlign: 'center'}}>
-                {jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront 
+              <Text style={{ fontSize: 13, color: '#3B82F6', marginTop: 4, textAlign: 'center' }}>
+                {jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront
                   ? 'Please pay the additional charges to complete this job.'
                   : 'Please pay the provider to complete this job.'}
               </Text>
             </View>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={{
                 backgroundColor: paymentError ? '#EF4444' : '#3B82F6',
                 borderRadius: 12,
@@ -1770,13 +1782,13 @@ const JobDetailsScreen = ({navigation, route}) => {
               onPress={paymentError ? handleRetryPayment : handleMakePayment}
               disabled={isCheckingPayment}>
               <Icon name={paymentError ? 'refresh' : 'wallet'} size={20} color="#FFFFFF" />
-              <Text style={{color: '#FFFFFF', fontWeight: '600', fontSize: 16, marginLeft: 8}}>
+              <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>
                 {paymentError ? 'Retry Payment' : 'Pay Now'}
               </Text>
             </TouchableOpacity>
 
             {/* Manual Verify Payment Button - for when user already paid but status not updated */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={{
                 backgroundColor: '#F3F4F6',
                 borderRadius: 12,
@@ -1795,7 +1807,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               ) : (
                 <>
                   <Icon name="checkmark-circle-outline" size={18} color="#6B7280" />
-                  <Text style={{color: '#6B7280', fontWeight: '600', fontSize: 14, marginLeft: 8}}>
+                  <Text style={{ color: '#6B7280', fontWeight: '600', fontSize: 14, marginLeft: 8 }}>
                     Already Paid? Verify Payment
                   </Text>
                 </>
@@ -1813,16 +1825,16 @@ const JobDetailsScreen = ({navigation, route}) => {
               alignItems: 'center',
             }}>
               <Icon name="checkmark-done-circle" size={32} color="#059669" />
-              <Text style={{fontSize: 16, fontWeight: '600', color: '#065F46', marginTop: 8}}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: '#065F46', marginTop: 8 }}>
                 Payment Sent!
               </Text>
-              <Text style={{fontSize: 13, color: '#047857', marginTop: 4, textAlign: 'center'}}>
+              <Text style={{ fontSize: 13, color: '#047857', marginTop: 4, textAlign: 'center' }}>
                 Waiting for provider to confirm receipt of payment.
               </Text>
             </View>
           </View>
         ) : null}
-        <View style={{height: 40}} />
+        <View style={{ height: 40 }} />
       </ScrollView>
 
       {/* Cancellation Modal */}
@@ -1831,7 +1843,7 @@ const JobDetailsScreen = ({navigation, route}) => {
         transparent={true}
         animationType="slide"
         onRequestClose={() => setShowCancelModal(false)}>
-        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end'}}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
           <View style={{
             backgroundColor: '#FFFFFF',
             borderTopLeftRadius: 20,
@@ -1839,14 +1851,14 @@ const JobDetailsScreen = ({navigation, route}) => {
             padding: 20,
             maxHeight: '80%',
           }}>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20}}>
-              <Text style={{fontSize: 18, fontWeight: '700', color: '#1F2937'}}>Cancel Job</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: '#1F2937' }}>Cancel Job</Text>
               <TouchableOpacity onPress={() => setShowCancelModal(false)}>
                 <Icon name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
             </View>
 
-            <Text style={{fontSize: 14, color: '#6B7280', marginBottom: 16}}>
+            <Text style={{ fontSize: 14, color: '#6B7280', marginBottom: 16 }}>
               Please let us know why you're cancelling this job request.
             </Text>
 
@@ -1865,14 +1877,14 @@ const JobDetailsScreen = ({navigation, route}) => {
                   borderColor: selectedCancelReason === reason ? '#EF4444' : '#E5E7EB',
                 }}
                 onPress={() => setSelectedCancelReason(reason)}>
-                <Icon 
-                  name={selectedCancelReason === reason ? 'radio-button-on' : 'radio-button-off'} 
-                  size={20} 
-                  color={selectedCancelReason === reason ? '#EF4444' : '#9CA3AF'} 
+                <Icon
+                  name={selectedCancelReason === reason ? 'radio-button-on' : 'radio-button-off'}
+                  size={20}
+                  color={selectedCancelReason === reason ? '#EF4444' : '#9CA3AF'}
                 />
                 <Text style={{
-                  marginLeft: 12, 
-                  fontSize: 15, 
+                  marginLeft: 12,
+                  fontSize: 15,
                   color: selectedCancelReason === reason ? '#DC2626' : '#374151',
                   fontWeight: selectedCancelReason === reason ? '600' : '400',
                 }}>
@@ -1902,8 +1914,8 @@ const JobDetailsScreen = ({navigation, route}) => {
               />
             ) : null}
 
-            <View style={{flexDirection: 'row', marginTop: 20}}>
-              <TouchableOpacity 
+            <View style={{ flexDirection: 'row', marginTop: 20 }}>
+              <TouchableOpacity
                 style={{
                   flex: 1,
                   backgroundColor: '#F3F4F6',
@@ -1913,9 +1925,9 @@ const JobDetailsScreen = ({navigation, route}) => {
                   marginRight: 8,
                 }}
                 onPress={() => setShowCancelModal(false)}>
-                <Text style={{color: '#6B7280', fontSize: 16, fontWeight: '600'}}>Keep Job</Text>
+                <Text style={{ color: '#6B7280', fontSize: 16, fontWeight: '600' }}>Keep Job</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={{
                   flex: 1,
                   backgroundColor: '#EF4444',
@@ -1929,7 +1941,7 @@ const JobDetailsScreen = ({navigation, route}) => {
                 {isUpdating ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={{color: '#FFFFFF', fontSize: 16, fontWeight: '600'}}>Cancel Job</Text>
+                  <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>Cancel Job</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1943,26 +1955,26 @@ const JobDetailsScreen = ({navigation, route}) => {
         transparent={true}
         animationType="slide"
         onRequestClose={() => setShowNewOfferModal(false)}>
-        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end'}}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
           <View style={{
             backgroundColor: '#FFFFFF',
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
             padding: 20,
           }}>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20}}>
-              <Text style={{fontSize: 18, fontWeight: '700', color: '#1F2937'}}>Make New Offer</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: '#1F2937' }}>Make New Offer</Text>
               <TouchableOpacity onPress={() => setShowNewOfferModal(false)}>
                 <Icon name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
             </View>
 
-            <Text style={{fontSize: 13, color: '#6B7280', marginBottom: 12}}>
-              Provider's counter: ₱{(jobData?.counterOfferPrice || 0).toLocaleString()} | 
+            <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>
+              Provider's counter: ₱{(jobData?.counterOfferPrice || 0).toLocaleString()} |
               Your last offer: ₱{(jobData?.offeredPrice || 0).toLocaleString()}
             </Text>
 
-            <Text style={{fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8}}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
               Your New Offer (₱)
             </Text>
             <View style={{
@@ -1975,9 +1987,9 @@ const JobDetailsScreen = ({navigation, route}) => {
               paddingHorizontal: 12,
               marginBottom: 16,
             }}>
-              <Text style={{fontSize: 18, color: '#00B14F', fontWeight: '700'}}>₱</Text>
+              <Text style={{ fontSize: 18, color: '#00B14F', fontWeight: '700' }}>₱</Text>
               <TextInput
-                style={{flex: 1, fontSize: 18, color: '#1F2937', paddingVertical: 14, paddingHorizontal: 8}}
+                style={{ flex: 1, fontSize: 18, color: '#1F2937', paddingVertical: 14, paddingHorizontal: 8 }}
                 placeholder="Enter your offer"
                 keyboardType="numeric"
                 value={newOfferPrice}
@@ -1985,7 +1997,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               />
             </View>
 
-            <Text style={{fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8}}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
               Note (optional)
             </Text>
             <TextInput
@@ -2008,15 +2020,15 @@ const JobDetailsScreen = ({navigation, route}) => {
             />
 
             {newOfferPrice ? (
-              <View style={{backgroundColor: '#F0FDF4', borderRadius: 12, padding: 12, marginBottom: 16}}>
-                <Text style={{fontSize: 13, color: '#6B7280'}}>Your total with fee:</Text>
-                <Text style={{fontSize: 20, fontWeight: '700', color: '#00B14F'}}>
+              <View style={{ backgroundColor: '#F0FDF4', borderRadius: 12, padding: 12, marginBottom: 16 }}>
+                <Text style={{ fontSize: 13, color: '#6B7280' }}>Your total with fee:</Text>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: '#00B14F' }}>
                   ₱{(parseFloat(newOfferPrice || 0) * 1.05).toLocaleString()}
                 </Text>
               </View>
             ) : null}
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={{
                 backgroundColor: '#00B14F',
                 borderRadius: 12,
@@ -2028,7 +2040,7 @@ const JobDetailsScreen = ({navigation, route}) => {
               {isUpdating ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={{color: '#FFFFFF', fontSize: 16, fontWeight: '700'}}>Send Offer</Text>
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Send Offer</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -2041,7 +2053,7 @@ const JobDetailsScreen = ({navigation, route}) => {
         transparent={true}
         animationType="slide"
         onRequestClose={() => setShowPaymentModal(false)}>
-        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end'}}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
           <View style={{
             backgroundColor: '#FFFFFF',
             borderTopLeftRadius: 20,
@@ -2049,15 +2061,15 @@ const JobDetailsScreen = ({navigation, route}) => {
             padding: 20,
             paddingBottom: 40,
           }}>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20}}>
-              <Text style={{fontSize: 18, fontWeight: '700', color: '#1F2937'}}>Select Payment Method</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: '#1F2937' }}>Select Payment Method</Text>
               <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
                 <Icon name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
             </View>
 
-            <Text style={{fontSize: 14, color: '#6B7280', marginBottom: 16}}>
-              Amount to pay: <Text style={{fontWeight: '700', color: '#00B14F'}}>
+            <Text style={{ fontSize: 14, color: '#6B7280', marginBottom: 16 }}>
+              Amount to pay: <Text style={{ fontWeight: '700', color: '#00B14F' }}>
                 ₱{(jobData?.totalAmount || jobData?.amount || 0).toLocaleString()}
               </Text>
             </Text>
@@ -2084,11 +2096,11 @@ const JobDetailsScreen = ({navigation, route}) => {
                 justifyContent: 'center',
                 alignItems: 'center',
               }}>
-                <Text style={{fontSize: 18, fontWeight: '700', color: '#FFFFFF'}}>G</Text>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFFFFF' }}>G</Text>
               </View>
-              <View style={{flex: 1, marginLeft: 12}}>
-                <Text style={{fontSize: 16, fontWeight: '600', color: '#1F2937'}}>GCash</Text>
-                <Text style={{fontSize: 13, color: '#6B7280'}}>Pay with your GCash wallet</Text>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#1F2937' }}>GCash</Text>
+                <Text style={{ fontSize: 13, color: '#6B7280' }}>Pay with your GCash wallet</Text>
               </View>
               {isProcessingPayment && selectedPaymentMethod === 'gcash' ? (
                 <ActivityIndicator color="#007DFE" />
@@ -2119,11 +2131,11 @@ const JobDetailsScreen = ({navigation, route}) => {
                 justifyContent: 'center',
                 alignItems: 'center',
               }}>
-                <Text style={{fontSize: 18, fontWeight: '700', color: '#FFFFFF'}}>M</Text>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFFFFF' }}>M</Text>
               </View>
-              <View style={{flex: 1, marginLeft: 12}}>
-                <Text style={{fontSize: 16, fontWeight: '600', color: '#1F2937'}}>Maya</Text>
-                <Text style={{fontSize: 13, color: '#6B7280'}}>Pay with your Maya wallet</Text>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#1F2937' }}>Maya</Text>
+                <Text style={{ fontSize: 13, color: '#6B7280' }}>Pay with your Maya wallet</Text>
               </View>
               {isProcessingPayment && selectedPaymentMethod === 'maya' ? (
                 <ActivityIndicator color="#00D66C" />
@@ -2134,25 +2146,25 @@ const JobDetailsScreen = ({navigation, route}) => {
 
             {/* Cash option removed - only GCash and Maya allowed */}
 
-            <Text style={{fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginTop: 16}}>
+            <Text style={{ fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginTop: 16 }}>
               Secure payment powered by PayMongo
             </Text>
           </View>
         </View>
       </Modal>
-      
+
       {/* Premium Success/Error/Info Modal */}
       <PremiumModal
         visible={premiumModal.visible}
         variant={premiumModal.variant}
         title={premiumModal.title}
         message={premiumModal.message}
-        primaryButton={{text: 'OK', onPress: () => setPremiumModal(prev => ({...prev, visible: false}))}}
-        onClose={() => setPremiumModal(prev => ({...prev, visible: false}))}
+        primaryButton={{ text: 'OK', onPress: () => setPremiumModal(prev => ({ ...prev, visible: false })) }}
+        onClose={() => setPremiumModal(prev => ({ ...prev, visible: false }))}
         autoClose={premiumModal.variant === 'success'}
         autoCloseDelay={3000}
       />
-      
+
       {/* Premium Confirm Modal */}
       <ConfirmModal
         visible={confirmModal.visible}
@@ -2160,10 +2172,10 @@ const JobDetailsScreen = ({navigation, route}) => {
         title={confirmModal.title}
         message={confirmModal.message}
         onConfirm={() => {
-          setConfirmModal(prev => ({...prev, visible: false}));
+          setConfirmModal(prev => ({ ...prev, visible: false }));
           confirmModal.onConfirm?.();
         }}
-        onCancel={() => setConfirmModal(prev => ({...prev, visible: false}))}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
         isLoading={isUpdating}
       />
     </SafeAreaView>

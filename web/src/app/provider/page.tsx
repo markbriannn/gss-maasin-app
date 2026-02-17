@@ -79,12 +79,12 @@ export default function ProviderDashboard() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [points, setPoints] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // Live location status: 'live' = green, 'stale' = yellow, 'off' = hidden
   const [liveStatus, setLiveStatus] = useState<'live' | 'stale' | 'off'>('off');
   const [lastLocationUpdate, setLastLocationUpdate] = useState<Date | null>(null);
   const [currentCoords, setCurrentCoords] = useState<{ lat: number; lng: number } | null>(null);
-  
+
   // Ref for live location interval
   const liveLocationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -96,7 +96,7 @@ export default function ProviderDashboard() {
         clearInterval(liveLocationIntervalRef.current);
         liveLocationIntervalRef.current = null;
       }
-      
+
       if (!isOnline || !user?.uid) {
         setLiveStatus('off');
         return;
@@ -105,10 +105,10 @@ export default function ProviderDashboard() {
         setLiveStatus('stale');
         return;
       }
-      
+
       console.log('[Provider Web] Starting live location tracking (every 12s)');
       setLiveStatus('stale'); // Start as stale until first successful update
-      
+
       // Update location function
       const updateLocation = () => {
         navigator.geolocation.getCurrentPosition(
@@ -140,16 +140,16 @@ export default function ProviderDashboard() {
           { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
         );
       };
-      
+
       // Update immediately
       updateLocation();
-      
+
       // Then update every 12 seconds
       liveLocationIntervalRef.current = setInterval(updateLocation, LIVE_LOCATION_INTERVAL);
     };
-    
+
     startLiveLocationTracking();
-    
+
     // Cleanup on unmount or when going offline
     return () => {
       if (liveLocationIntervalRef.current) {
@@ -178,7 +178,7 @@ export default function ProviderDashboard() {
   useEffect(() => {
     if (user?.uid && user?.role?.toUpperCase() === 'PROVIDER') {
       fetchData();
-      
+
       // Update location when provider opens the app (if they're online)
       const updateLocationOnLoad = async () => {
         try {
@@ -207,7 +207,7 @@ export default function ProviderDashboard() {
         }
       };
       updateLocationOnLoad();
-      
+
       const notifQuery = query(collection(db, 'notifications'), where('userId', '==', user.uid), where('read', '==', false));
       const unsubNotif = onSnapshot(notifQuery, (snapshot) => setUnreadCount(snapshot.size));
       return () => unsubNotif();
@@ -231,14 +231,14 @@ export default function ProviderDashboard() {
 
       const myJobsQuery = query(collection(db, 'bookings'), where('providerId', '==', user.uid));
       const myJobsSnapshot = await getDocs(myJobsQuery);
-      
+
       let todayEarnings = 0, weekEarnings = 0, totalEarnings = 0, jobsToday = 0, activeJobs = 0, completedJobs = 0;
 
       myJobsSnapshot.forEach((doc) => {
         const data = doc.data();
         if (data.status === 'completed' || (data.status === 'payment_received' && data.isPaidUpfront)) {
           const approvedCharges = data.additionalCharges?.filter((c: { status: string }) => c.status === 'approved').reduce((sum: number, c: { amount: number }) => sum + (c.amount || 0), 0) || 0;
-          
+
           // IMPORTANT: providerPrice is the provider's actual price (before 5% fee added to client)
           // Only divide by 1.05 if we're using totalAmount (which includes the fee)
           let providerEarnings: number;
@@ -251,7 +251,7 @@ export default function ProviderDashboard() {
           } else {
             providerEarnings = (data.price || 0) + approvedCharges;
           }
-          
+
           totalEarnings += providerEarnings;
           completedJobs++;
           const completedAt = data.completedAt?.toDate?.() || data.clientConfirmedAt?.toDate?.();
@@ -268,7 +268,7 @@ export default function ProviderDashboard() {
       const availableQuery = query(collection(db, 'bookings'), where('status', 'in', ['pending', 'approved', 'pending_negotiation']));
       const availableSnapshot = await getDocs(availableQuery);
       const available: Job[] = [];
-      
+
       for (const docSnap of availableSnapshot.docs) {
         const data = docSnap.data();
         if (!data.providerId && data.adminApproved) {
@@ -296,11 +296,11 @@ export default function ProviderDashboard() {
     setIsOnline(newStatus);
     try {
       if (user?.uid) {
-        const updateData: Record<string, unknown> = { 
-          isOnline: newStatus, 
-          lastOnline: new Date() 
+        const updateData: Record<string, unknown> = {
+          isOnline: newStatus,
+          lastOnline: new Date()
         };
-        
+
         // When going online, also update current location so clients can see provider on map
         if (newStatus && navigator.geolocation) {
           try {
@@ -319,7 +319,7 @@ export default function ProviderDashboard() {
             // Continue without location update - don't block going online
           }
         }
-        
+
         await updateDoc(doc(db, 'users', user.uid), updateData);
       }
     } catch (error) {
@@ -333,7 +333,7 @@ export default function ProviderDashboard() {
   if (isLoading || loadingData) {
     return (
       <ProviderLayout>
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
         </div>
       </ProviderLayout>
@@ -347,7 +347,7 @@ export default function ProviderDashboard() {
         <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-          
+
           <div className="relative max-w-7xl mx-auto px-4 py-6">
             {/* Top Row */}
             <div className="flex items-center justify-between mb-6">
@@ -364,32 +364,29 @@ export default function ProviderDashboard() {
                   <h1 className="text-xl font-bold text-white">{user?.firstName} {user?.lastName}</h1>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 {/* Live Indicator with Hover Dropdown - Shows when online and tracking location */}
                 {isOnline && (
                   <div className="relative group">
-                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-default ${
-                      liveStatus === 'live' 
-                        ? 'bg-emerald-500/20 border border-emerald-500/30' 
+                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-default ${liveStatus === 'live'
+                        ? 'bg-emerald-500/20 border border-emerald-500/30'
                         : 'bg-amber-500/20 border border-amber-500/30'
-                    }`}>
-                      <div className={`relative w-2 h-2 rounded-full ${
-                        liveStatus === 'live' ? 'bg-emerald-400' : 'bg-amber-400'
                       }`}>
+                      <div className={`relative w-2 h-2 rounded-full ${liveStatus === 'live' ? 'bg-emerald-400' : 'bg-amber-400'
+                        }`}>
                         {liveStatus === 'live' && (
                           <div className="absolute inset-0 bg-emerald-400 rounded-full animate-ping" />
                         )}
                       </div>
-                      <span className={`text-xs font-bold ${
-                        liveStatus === 'live' ? 'text-emerald-400' : 'text-amber-400'
-                      }`}>
+                      <span className={`text-xs font-bold ${liveStatus === 'live' ? 'text-emerald-400' : 'text-amber-400'
+                        }`}>
                         {liveStatus === 'live' ? 'LIVE' : 'GPS...'}
                       </span>
                     </div>
-                    
+
                     {/* Hover Dropdown */}
-                    <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    <div className="absolute top-full right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                       <div className="p-4">
                         <div className="flex items-center gap-2 mb-3">
                           <div className={`w-3 h-3 rounded-full ${liveStatus === 'live' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
@@ -397,7 +394,7 @@ export default function ProviderDashboard() {
                             {liveStatus === 'live' ? 'Location Active' : 'Getting Location...'}
                           </span>
                         </div>
-                        
+
                         <div className="space-y-2 text-sm">
                           <div className="flex justify-between">
                             <span className="text-gray-500">Status</span>
@@ -405,12 +402,12 @@ export default function ProviderDashboard() {
                               {liveStatus === 'live' ? '✓ Tracking' : '⏳ Waiting'}
                             </span>
                           </div>
-                          
+
                           <div className="flex justify-between">
                             <span className="text-gray-500">Update Interval</span>
                             <span className="font-medium text-gray-700">Every 12s</span>
                           </div>
-                          
+
                           {lastLocationUpdate && (
                             <div className="flex justify-between">
                               <span className="text-gray-500">Last Update</span>
@@ -419,7 +416,7 @@ export default function ProviderDashboard() {
                               </span>
                             </div>
                           )}
-                          
+
                           {currentCoords && (
                             <div className="pt-2 border-t border-gray-100">
                               <p className="text-gray-500 text-xs mb-1">Coordinates</p>
@@ -429,10 +426,10 @@ export default function ProviderDashboard() {
                             </div>
                           )}
                         </div>
-                        
+
                         <div className="mt-3 pt-3 border-t border-gray-100">
                           <p className="text-xs text-gray-400">
-                            {liveStatus === 'live' 
+                            {liveStatus === 'live'
                               ? 'Your location is visible to clients on the map'
                               : 'Enable location access for accurate tracking'}
                           </p>
@@ -441,7 +438,7 @@ export default function ProviderDashboard() {
                     </div>
                   </div>
                 )}
-                
+
                 <button onClick={handleToggleOnline}
                   className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${isOnline ? 'bg-green-500 text-white' : 'bg-white/15 backdrop-blur-sm text-white/80'}`}>
                   <div className={`relative w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-white' : 'bg-gray-400'}`}>
@@ -488,40 +485,40 @@ export default function ProviderDashboard() {
         <div className="max-w-7xl mx-auto px-4 -mt-4 relative z-10">
           {/* Stats Grid */}
           <div className="grid grid-cols-4 gap-3 mb-6">
-            <button onClick={() => router.push('/provider/jobs')} className="bg-white rounded-2xl p-4 shadow-lg hover:shadow-xl transition-all text-left">
+            <button onClick={() => router.push('/provider/jobs')} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg hover:shadow-xl transition-all text-left">
               <div className="w-11 h-11 bg-blue-100 rounded-xl flex items-center justify-center mb-3">
                 <Briefcase className="w-5 h-5 text-blue-600" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">{stats.activeJobs}</p>
-              <p className="text-xs text-gray-500">Active Jobs</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.activeJobs}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Active Jobs</p>
             </button>
-            <button onClick={() => router.push('/provider/history')} className="bg-white rounded-2xl p-4 shadow-lg hover:shadow-xl transition-all text-left">
+            <button onClick={() => router.push('/provider/history')} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg hover:shadow-xl transition-all text-left">
               <div className="w-11 h-11 bg-emerald-100 rounded-xl flex items-center justify-center mb-3">
                 <Calendar className="w-5 h-5 text-emerald-600" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">{stats.completedJobs}</p>
-              <p className="text-xs text-gray-500">Completed</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.completedJobs}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Completed</p>
             </button>
-            <div className="bg-white rounded-2xl p-4 shadow-lg">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg">
               <div className="w-11 h-11 bg-amber-100 rounded-xl flex items-center justify-center mb-3">
                 <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">{stats.rating > 0 ? stats.rating.toFixed(1) : 'New'}</p>
-              <p className="text-xs text-gray-500">Rating</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.rating > 0 ? stats.rating.toFixed(1) : 'New'}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Rating</p>
             </div>
-            <button onClick={() => router.push('/leaderboard')} className="bg-white rounded-2xl p-4 shadow-lg hover:shadow-xl transition-all text-left">
+            <button onClick={() => router.push('/leaderboard')} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg hover:shadow-xl transition-all text-left">
               <div className="w-11 h-11 bg-purple-100 rounded-xl flex items-center justify-center mb-3">
                 <Trophy className="w-5 h-5 text-purple-600" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">{points}</p>
-              <p className="text-xs text-gray-500">Points</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{points}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Points</p>
             </button>
           </div>
 
           {/* Tier Progress Card */}
-          <div className="bg-white rounded-2xl shadow-lg p-5 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-gray-900">Your Progress</h2>
+              <h2 className="font-bold text-gray-900 dark:text-white">Your Progress</h2>
               <button onClick={() => router.push('/leaderboard')} className="flex items-center gap-1 text-purple-600 text-sm font-semibold hover:underline">
                 <Trophy className="w-4 h-4" /> Leaderboard
               </button>
@@ -532,7 +529,7 @@ export default function ProviderDashboard() {
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-bold text-gray-900">{tierInfo.name} Tier</span>
+                  <span className="font-bold text-gray-900 dark:text-white">{tierInfo.name} Tier</span>
                   <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs font-semibold text-gray-600">{points.toLocaleString()} pts</span>
                 </div>
                 {tierInfo.nextTier && (
@@ -552,7 +549,7 @@ export default function ProviderDashboard() {
 
           {/* Quick Actions */}
           <div className="mb-6">
-            <h2 className="font-bold text-gray-900 mb-3">Quick Actions</h2>
+            <h2 className="font-bold text-gray-900 dark:text-white mb-3">Quick Actions</h2>
             <div className="grid grid-cols-4 gap-3">
               {[
                 { icon: Briefcase, label: 'My Jobs', href: '/provider/jobs', color: 'blue' },
@@ -561,7 +558,7 @@ export default function ProviderDashboard() {
                 { icon: Bell, label: 'Alerts', href: '/notifications', color: 'amber', badge: unreadCount },
               ].map((action, i) => (
                 <button key={i} onClick={() => router.push(action.href)}
-                  className="bg-white rounded-2xl p-4 shadow-lg hover:shadow-xl transition-all flex flex-col items-center gap-2 relative">
+                  className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg hover:shadow-xl transition-all flex flex-col items-center gap-2 relative">
                   <div className={`w-12 h-12 bg-${action.color}-100 rounded-xl flex items-center justify-center`}>
                     <action.icon className={`w-6 h-6 text-${action.color}-600`} />
                   </div>
@@ -579,7 +576,7 @@ export default function ProviderDashboard() {
           {/* Available Jobs */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-gray-900">Available Jobs</h2>
+              <h2 className="font-bold text-gray-900 dark:text-white">Available Jobs</h2>
               <div className="flex items-center gap-2">
                 <button onClick={handleRefresh} disabled={refreshing} className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50">
                   <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
@@ -591,18 +588,18 @@ export default function ProviderDashboard() {
             </div>
 
             {availableJobs.length === 0 ? (
-              <div className="bg-white rounded-2xl shadow-lg p-10 text-center">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-10 text-center">
                 <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Briefcase className="w-10 h-10 text-gray-300" />
                 </div>
-                <h3 className="font-bold text-gray-900 mb-1">No available jobs</h3>
-                <p className="text-gray-500 text-sm">New jobs will appear here when clients post them</p>
+                <h3 className="font-bold text-gray-900 dark:text-white mb-1">No available jobs</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm">New jobs will appear here when clients post them</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {availableJobs.map((job) => (
                   <div key={job.id} onClick={() => router.push(`/provider/jobs/${job.id}`)}
-                    className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all cursor-pointer overflow-hidden border border-gray-100">
+                    className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all cursor-pointer overflow-hidden border border-gray-100 dark:border-gray-700">
                     <div className="p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
@@ -618,8 +615,8 @@ export default function ProviderDashboard() {
                           {job.isNegotiable && <p className="text-xs text-gray-500">Client&apos;s offer</p>}
                         </div>
                       </div>
-                      <h3 className="font-semibold text-gray-900 mb-2">{job.title}</h3>
-                      <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
+                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2">{job.title}</h3>
+                      <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-3">
                         <div className="flex items-center gap-1"><User className="w-4 h-4" />{job.clientName}</div>
                         <div className="flex items-center gap-1"><MapPin className="w-4 h-4" />{job.location}</div>
                       </div>

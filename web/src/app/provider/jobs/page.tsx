@@ -134,13 +134,13 @@ export default function JobsPage() {
 
   useEffect(() => {
     if (!user?.uid) return;
-    
+
     const userId = user.uid;
     let unsubscribe: () => void;
 
     const setupListener = () => {
       setLoadingData(true);
-      
+
       // Determine which statuses to listen for based on active tab
       let statuses: string[];
       if (activeTab === 'available') {
@@ -162,7 +162,7 @@ export default function JobsPage() {
 
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data();
-          
+
           // Skip rejected jobs in available tab
           if (activeTab === 'available' && data.adminRejected) continue;
 
@@ -178,7 +178,7 @@ export default function JobsPage() {
                 const gamDoc = await getDoc(doc(db, 'gamification', data.clientId));
                 if (gamDoc.exists()) clientInfo.tier = getClientTier(gamDoc.data().points || 0);
               }
-            } catch (e) {}
+            } catch (e) { }
           }
 
           let fullLocation = '';
@@ -282,7 +282,7 @@ export default function JobsPage() {
   if (isLoading || loadingData) {
     return (
       <ProviderLayout>
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
         </div>
       </ProviderLayout>
@@ -296,7 +296,7 @@ export default function JobsPage() {
         <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-          
+
           <div className="relative max-w-7xl mx-auto px-4 py-6">
             <div className="flex items-center justify-between">
               <div>
@@ -312,21 +312,19 @@ export default function JobsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="bg-white shadow-sm sticky top-0 z-20">
+        <div className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-20">
           <div className="max-w-7xl mx-auto">
             <div className="flex">
               {tabs.map((tab) => (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                  className={`flex-1 py-4 text-center font-semibold text-sm transition-all relative flex items-center justify-center gap-2 ${
-                    activeTab === tab.key ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'
-                  }`}>
+                  className={`flex-1 py-4 text-center font-semibold text-sm transition-all relative flex items-center justify-center gap-2 ${activeTab === tab.key ? 'text-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}>
                   {tab.label}
                   {tabCounts[tab.key] > 0 && (
-                    <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center ${
-                      activeTab === tab.key 
-                        ? 'bg-blue-600 text-white' 
+                    <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center ${activeTab === tab.key
+                        ? 'bg-blue-600 text-white'
                         : 'bg-gray-200 text-gray-600'
-                    }`}>
+                      }`}>
                       {tabCounts[tab.key]}
                     </span>
                   )}
@@ -342,14 +340,14 @@ export default function JobsPage() {
         {/* Jobs List */}
         <div className="max-w-4xl mx-auto px-4 py-6">
           {jobs.length === 0 ? (
-            <div className="bg-white rounded-3xl shadow-lg p-12 text-center">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-12 text-center">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Briefcase className="w-10 h-10 text-gray-300" />
               </div>
-              <h3 className="font-bold text-gray-900 text-lg mb-2">
+              <h3 className="font-bold text-gray-900 dark:text-white text-lg mb-2">
                 {activeTab === 'available' ? 'No Available Jobs' : activeTab === 'my_jobs' ? 'No Active Jobs' : 'No Completed Jobs'}
               </h3>
-              <p className="text-gray-500 text-sm">
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
                 {activeTab === 'available' ? 'New jobs will appear here when clients post them' : activeTab === 'my_jobs' ? 'Accept jobs to see them here' : 'Complete jobs to build your history'}
               </p>
             </div>
@@ -360,8 +358,8 @@ export default function JobsPage() {
                 const statusStyle = getStatusStyle(job.status, job.adminApproved);
                 return (
                   <div key={job.id} onClick={() => router.push(`/provider/jobs/${job.id}`)}
-                    className={`bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all cursor-pointer overflow-hidden border border-gray-100 ${!job.adminApproved ? 'opacity-90' : ''}`}>
-                    
+                    className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all cursor-pointer overflow-hidden border border-gray-100 dark:border-gray-700 ${!job.adminApproved ? 'opacity-90' : ''}`}>
+
                     {/* Admin Approval Banner */}
                     {!job.adminApproved && (job.status === 'pending' || job.status === 'pending_negotiation') && (
                       <div className="bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-2.5 flex items-center gap-2 border-b border-amber-100">
@@ -391,7 +389,7 @@ export default function JobsPage() {
                       </div>
 
                       {/* Title */}
-                      <h3 className="font-bold text-gray-900 text-lg mb-3">{job.title}</h3>
+                      <h3 className="font-bold text-gray-900 dark:text-white text-lg mb-3">{job.title}</h3>
 
                       {/* Media Indicator */}
                       {job.hasMedia && (
@@ -447,7 +445,7 @@ export default function JobsPage() {
                       </div>
 
                       {/* Footer */}
-                      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
                         <div className="flex items-center gap-2">
                           <span className="text-2xl font-bold text-blue-600">₱{job.amount?.toLocaleString() || 0}</span>
                           <span className={`px-2 py-1 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-700`}>

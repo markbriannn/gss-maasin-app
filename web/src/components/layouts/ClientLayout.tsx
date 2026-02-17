@@ -169,9 +169,9 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
   }, [user?.uid]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       {/* Top Navigation */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
+      <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-50 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
@@ -179,7 +179,7 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
                 <div className="w-10 h-10 bg-[#00B14F] rounded-lg flex items-center justify-center">
                   <Wrench className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-xl font-bold text-gray-900 hidden sm:block">GSS Maasin</span>
+                <span className="text-xl font-bold text-gray-900 dark:text-white hidden sm:block">GSS Maasin</span>
               </Link>
             </div>
 
@@ -192,8 +192,8 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
                     key={item.href}
                     href={item.href}
                     className={`relative flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${pathname === item.href
-                        ? 'text-[#00B14F] bg-[#00B14F]/10'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      ? 'text-[#00B14F] bg-[#00B14F]/10'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
                   >
                     <item.icon className="w-5 h-5" />
@@ -213,7 +213,7 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
                 <button
                   ref={notificationBtnRef}
                   onClick={() => setNotificationOpen(!notificationOpen)}
-                  className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+                  className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
                   <Bell className="w-6 h-6" />
                   {unreadCount > 0 && (
@@ -230,18 +230,18 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
               </div>
 
               <div className="hidden md:flex items-center gap-3">
-                <div className="w-9 h-9 bg-gray-200 rounded-full overflow-hidden">
+                <div className="w-9 h-9 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                   {user?.profilePhoto ? (
                     <img src={user.profilePhoto} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-500 font-semibold">
+                    <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-300 font-semibold">
                       {user?.firstName?.[0] || 'U'}
                     </div>
                   )}
                 </div>
                 <button
                   onClick={logout}
-                  className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  className="p-2 text-gray-600 dark:text-gray-300 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                 >
                   <LogOut className="w-5 h-5" />
                 </button>
@@ -249,7 +249,7 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
 
               {/* Mobile menu button */}
               <button
-                className="md:hidden p-2 text-gray-600"
+                className="md:hidden p-2 text-gray-600 dark:text-gray-300"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               >
                 {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -260,7 +260,7 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t bg-white">
+          <div className="md:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
             <nav className="px-4 py-2 space-y-1">
               {navItems.map((item) => {
                 const badgeCount = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
@@ -270,8 +270,8 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center justify-between gap-3 px-3 py-3 rounded-lg ${pathname === item.href
-                        ? 'text-[#00B14F] bg-[#00B14F]/10'
-                        : 'text-gray-600'
+                      ? 'text-[#00B14F] bg-[#00B14F]/10'
+                      : 'text-gray-600 dark:text-gray-300'
                       }`}
                   >
                     <div className="flex items-center gap-3">
@@ -302,7 +302,7 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
       <main className="md:pb-0 pb-20">{children}</main>
 
       {/* Mobile Bottom Tab Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-strong border-t border-white/60 pb-safe">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-strong border-t border-white/60 dark:border-gray-700/60 pb-safe">
         <div className="flex items-center justify-around px-2 py-2">
           {mobileTabItems.map((item) => {
             const isActive = pathname === item.href;
@@ -312,8 +312,8 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
                 key={item.href}
                 href={item.href}
                 className={`relative flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-2xl transition-all duration-200 ${isActive
-                    ? 'text-[#00B14F]'
-                    : 'text-gray-400 hover:text-gray-600'
+                  ? 'text-[#00B14F]'
+                  : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
                   }`}
               >
                 <div className="relative">

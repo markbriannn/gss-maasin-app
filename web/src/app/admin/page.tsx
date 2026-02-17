@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/layouts/AdminLayout';
-import { 
+import {
   Users, Briefcase, DollarSign, Clock, Map, BarChart3, UserPlus, ClipboardList,
   Zap, CheckCircle, Wallet, ChevronRight, TrendingUp, ArrowUpRight, RefreshCw,
   Shield, Activity, Eye, Sparkles, Crown, Target, Award
@@ -90,9 +90,9 @@ export default function AdminDashboard() {
 
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
-      const allJobs: { id: string; [key: string]: unknown }[] = [];
-      const completedJobsList: { id: string; [key: string]: unknown }[] = [];
-      const pendingJobsList: { id: string; [key: string]: unknown }[] = [];
+      const allJobs: { id: string;[key: string]: unknown }[] = [];
+      const completedJobsList: { id: string;[key: string]: unknown }[] = [];
+      const pendingJobsList: { id: string;[key: string]: unknown }[] = [];
 
       bookingsSnapshot.forEach((doc) => {
         const data = doc.data();
@@ -115,12 +115,12 @@ export default function AdminDashboard() {
         }
         const systemFee = (job.systemFee as number) || (amount * 0.05 / 1.05);
         totalRevenue += amount; totalSystemFees += systemFee;
-        
+
         let completedDate: Date | null = null;
         const completedAt = job.completedAt as { toDate?: () => Date } | string | undefined;
         if (completedAt && typeof completedAt === 'object' && 'toDate' in completedAt) completedDate = completedAt.toDate?.() || null;
         else if (completedAt) completedDate = new Date(completedAt as string);
-        
+
         if (completedDate) {
           if (completedDate >= today) { todayRevenue += amount; todaySystemFees += systemFee; }
           if (completedDate >= weekAgo) { weekRevenue += amount; weekSystemFees += systemFee; }
@@ -139,12 +139,12 @@ export default function AdminDashboard() {
         }
         const systemFee = (job.systemFee as number) || (amount * 0.05 / 1.05);
         totalRevenue += amount; totalSystemFees += systemFee;
-        
+
         let confirmedDate: Date | null = null;
         const clientConfirmedAt = job.clientConfirmedAt as { toDate?: () => Date } | string | undefined;
         if (clientConfirmedAt && typeof clientConfirmedAt === 'object' && 'toDate' in clientConfirmedAt) confirmedDate = clientConfirmedAt.toDate?.() || null;
         else if (clientConfirmedAt) confirmedDate = new Date(clientConfirmedAt as string);
-        
+
         if (confirmedDate) {
           if (confirmedDate >= today) { todayRevenue += amount; todaySystemFees += systemFee; }
           if (confirmedDate >= weekAgo) { weekRevenue += amount; weekSystemFees += systemFee; }
@@ -203,12 +203,12 @@ export default function AdminDashboard() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/30">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900">
         {/* Premium Header with Gradient */}
         <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-          
+
           <div className="relative max-w-7xl mx-auto px-6 py-8">
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-4">
@@ -250,7 +250,7 @@ export default function AdminDashboard() {
                   </span>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-4 gap-4">
                 <div className="bg-white/10 rounded-2xl p-4">
                   <p className="text-purple-200 text-xs font-medium mb-1">This Week</p>
@@ -329,7 +329,7 @@ export default function AdminDashboard() {
 
           {/* Stats Grid */}
           <div className="grid grid-cols-4 gap-4 mb-6">
-            <div className="bg-white rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all border border-gray-100 group cursor-pointer" onClick={() => router.push('/admin/providers')}>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all border border-gray-100 dark:border-gray-700 group cursor-pointer" onClick={() => router.push('/admin/providers')}>
               <div className="flex items-center justify-between mb-4">
                 <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl flex items-center justify-center shadow-lg shadow-red-500/30">
                   <Clock className="w-7 h-7 text-white" />
@@ -338,14 +338,14 @@ export default function AdminDashboard() {
                   <span className="px-3 py-1 bg-red-100 text-red-600 rounded-full text-xs font-bold animate-pulse">Action needed</span>
                 )}
               </div>
-              <p className="text-4xl font-bold text-gray-900 mb-1">{stats.pendingProviders}</p>
-              <p className="text-gray-500 text-sm font-medium">Pending Providers</p>
-              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-1 text-violet-600 text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+              <p className="text-4xl font-bold text-gray-900 dark:text-white mb-1">{stats.pendingProviders}</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Pending Providers</p>
+              <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-1 text-violet-600 text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
                 <Eye className="w-4 h-4" /> Review now
               </div>
             </div>
-            
-            <div className="bg-white rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all border border-gray-100 group cursor-pointer" onClick={() => router.push('/admin/jobs')}>
+
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all border border-gray-100 dark:border-gray-700 group cursor-pointer" onClick={() => router.push('/admin/jobs')}>
               <div className="flex items-center justify-between mb-4">
                 <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/30">
                   <ClipboardList className="w-7 h-7 text-white" />
@@ -354,31 +354,31 @@ export default function AdminDashboard() {
                   <span className="px-3 py-1 bg-amber-100 text-amber-600 rounded-full text-xs font-bold">New</span>
                 )}
               </div>
-              <p className="text-4xl font-bold text-gray-900 mb-1">{stats.pendingJobs}</p>
-              <p className="text-gray-500 text-sm font-medium">Pending Jobs</p>
-              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-1 text-violet-600 text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+              <p className="text-4xl font-bold text-gray-900 dark:text-white mb-1">{stats.pendingJobs}</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Pending Jobs</p>
+              <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-1 text-violet-600 text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
                 <Eye className="w-4 h-4" /> Review now
               </div>
             </div>
-            
-            <div className="bg-white rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all border border-gray-100">
+
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all border border-gray-100 dark:border-gray-700">
               <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30 mb-4">
                 <Zap className="w-7 h-7 text-white" />
               </div>
-              <p className="text-4xl font-bold text-gray-900 mb-1">{stats.activeJobs}</p>
-              <p className="text-gray-500 text-sm font-medium">Active Jobs</p>
-              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-1 text-blue-600 text-sm font-semibold">
+              <p className="text-4xl font-bold text-gray-900 dark:text-white mb-1">{stats.activeJobs}</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Active Jobs</p>
+              <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-1 text-blue-600 text-sm font-semibold">
                 <Activity className="w-4 h-4" /> In progress
               </div>
             </div>
-            
-            <div className="bg-white rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all border border-gray-100">
+
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all border border-gray-100 dark:border-gray-700">
               <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/30 mb-4">
                 <Users className="w-7 h-7 text-white" />
               </div>
-              <p className="text-4xl font-bold text-gray-900 mb-1">{stats.totalProviders}</p>
-              <p className="text-gray-500 text-sm font-medium">Total Providers</p>
-              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-1 text-emerald-600 text-sm font-semibold">
+              <p className="text-4xl font-bold text-gray-900 dark:text-white mb-1">{stats.totalProviders}</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Total Providers</p>
+              <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-1 text-emerald-600 text-sm font-semibold">
                 <Target className="w-4 h-4" /> {stats.totalClients} clients
               </div>
             </div>
@@ -386,19 +386,19 @@ export default function AdminDashboard() {
 
           {/* Quick Actions */}
           <div className="mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-violet-500" /> Quick Actions
             </h2>
             <div className="grid grid-cols-4 gap-4">
               {quickActions.map((action) => (
                 <button key={action.id} onClick={() => router.push(action.path)}
-                  className="group relative bg-white rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all border border-gray-100 text-left overflow-hidden">
+                  className="group relative bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all border border-gray-100 dark:border-gray-700 text-left overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-5 transition-opacity" style={{ backgroundImage: `linear-gradient(to bottom right, var(--tw-gradient-stops))` }} />
                   <div className={`w-14 h-14 bg-gradient-to-br ${action.color} rounded-2xl flex items-center justify-center shadow-lg mb-4 group-hover:scale-110 transition-transform`}>
                     <action.icon className="w-7 h-7 text-white" />
                   </div>
-                  <h3 className="font-bold text-gray-900 text-lg mb-1">{action.title}</h3>
-                  <p className="text-gray-500 text-sm">{action.subtitle}</p>
+                  <h3 className="font-bold text-gray-900 dark:text-white text-lg mb-1">{action.title}</h3>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">{action.subtitle}</p>
                   {action.badge && action.badge > 0 && (
                     <span className="absolute top-4 right-4 min-w-[24px] h-6 bg-red-500 rounded-full text-white text-xs font-bold flex items-center justify-center px-2 shadow-lg">
                       {action.badge}
@@ -415,18 +415,18 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-2 gap-6 mb-8">
             {/* Needs Attention */}
             <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <Shield className="w-5 h-5 text-red-500" /> Needs Attention
               </h2>
               <div className="space-y-3">
                 <button onClick={() => router.push('/admin/providers')}
-                  className="w-full bg-white rounded-2xl p-4 flex items-center shadow-lg hover:shadow-xl transition-all border border-gray-100 group">
+                  className="w-full bg-white dark:bg-gray-800 rounded-2xl p-4 flex items-center shadow-lg hover:shadow-xl transition-all border border-gray-100 dark:border-gray-700 group">
                   <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center mr-4 shadow-lg shadow-violet-500/30">
                     <UserPlus className="w-7 h-7 text-white" />
                   </div>
                   <div className="flex-1 text-left">
-                    <p className="font-bold text-gray-900">Pending Provider Approvals</p>
-                    <p className="text-gray-500 text-sm">{stats.pendingProviders} providers waiting for review</p>
+                    <p className="font-bold text-gray-900 dark:text-white">Pending Provider Approvals</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">{stats.pendingProviders} providers waiting for review</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="bg-gradient-to-r from-red-500 to-rose-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg">
@@ -435,15 +435,15 @@ export default function AdminDashboard() {
                     <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-violet-500 transition-colors" />
                   </div>
                 </button>
-                
+
                 <button onClick={() => router.push('/admin/jobs')}
-                  className="w-full bg-white rounded-2xl p-4 flex items-center shadow-lg hover:shadow-xl transition-all border border-gray-100 group">
+                  className="w-full bg-white dark:bg-gray-800 rounded-2xl p-4 flex items-center shadow-lg hover:shadow-xl transition-all border border-gray-100 dark:border-gray-700 group">
                   <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mr-4 shadow-lg shadow-blue-500/30">
                     <ClipboardList className="w-7 h-7 text-white" />
                   </div>
                   <div className="flex-1 text-left">
-                    <p className="font-bold text-gray-900">Pending Job Requests</p>
-                    <p className="text-gray-500 text-sm">{stats.pendingJobs} jobs awaiting approval</p>
+                    <p className="font-bold text-gray-900 dark:text-white">Pending Job Requests</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">{stats.pendingJobs} jobs awaiting approval</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg">
@@ -457,20 +457,20 @@ export default function AdminDashboard() {
 
             {/* Recent Activity */}
             <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <Activity className="w-5 h-5 text-violet-500" /> Recent Activity
               </h2>
-              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
                 {recentActivity.length > 0 ? (
                   recentActivity.map((activity, index) => (
                     <div key={activity.id}
-                      className={`flex items-center p-4 hover:bg-gray-50 transition-colors ${index < recentActivity.length - 1 ? 'border-b border-gray-100' : ''}`}>
+                      className={`flex items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${index < recentActivity.length - 1 ? 'border-b border-gray-100 dark:border-gray-700' : ''}`}>
                       <div className="w-12 h-12 rounded-xl flex items-center justify-center mr-4"
                         style={{ backgroundColor: `${activity.color}15` }}>
                         <span style={{ color: activity.color }}>{getActivityIcon(activity.type)}</span>
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900 text-sm">{activity.message}</p>
+                        <p className="font-medium text-gray-900 dark:text-white text-sm">{activity.message}</p>
                         <p className="text-gray-400 text-xs mt-0.5">{activity.time}</p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-gray-300" />

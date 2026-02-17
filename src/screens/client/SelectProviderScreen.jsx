@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,20 +10,21 @@ import {
   StyleSheet,
   StatusBar,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import MapView, {Marker, Polyline, PROVIDER_GOOGLE} from 'react-native-maps';
-import {collection, query, where, getDocs} from 'firebase/firestore';
-import {db} from '../../config/firebase';
-import {useAuth} from '../../context/AuthContext';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../../config/firebase';
+import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const MAP_HEIGHT = height * 0.38;
 
 const FILTERS = [
-  {id: 'recommended', label: 'Recommended', icon: 'car'},
-  {id: 'cheapest', label: 'Cheapest', icon: 'wallet-outline'},
-  {id: 'nearest', label: 'Fastest', icon: 'location'},
+  { id: 'recommended', label: 'Recommended', icon: 'car' },
+  { id: 'cheapest', label: 'Cheapest', icon: 'wallet-outline' },
+  { id: 'nearest', label: 'Fastest', icon: 'location' },
 ];
 
 const getServiceImage = (category) => {
@@ -39,9 +40,9 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
@@ -54,10 +55,12 @@ const getEstimatedTime = (distance) => {
   return `Est. ${minTime} - ${maxTime} mins away`;
 };
 
-const SelectProviderScreen = ({navigation, route}) => {
-  const {user} = useAuth();
+const SelectProviderScreen = ({ navigation, route }) => {
+  const { user } = useAuth();
+  const { isDark, theme } = useTheme();
+  const colors = theme.colors;
   const mapRef = useRef(null);
-  const {serviceCategory, clientLocation, clientAddress} = route.params || {};
+  const { serviceCategory, clientLocation, clientAddress } = route.params || {};
 
   const [providers, setProviders] = useState([]);
   const [filteredProviders, setFilteredProviders] = useState([]);
@@ -161,15 +164,15 @@ const SelectProviderScreen = ({navigation, route}) => {
       }
       return;
     }
-    
+
     setSelectedProvider(provider);
     if (mapRef.current && provider.latitude && provider.longitude) {
       mapRef.current.fitToCoordinates(
         [
-          {latitude: clientLat, longitude: clientLng},
-          {latitude: provider.latitude, longitude: provider.longitude},
+          { latitude: clientLat, longitude: clientLng },
+          { latitude: provider.latitude, longitude: provider.longitude },
         ],
-        {edgePadding: {top: 80, right: 50, bottom: 50, left: 50}, animated: true},
+        { edgePadding: { top: 80, right: 50, bottom: 50, left: 50 }, animated: true },
       );
     }
   };
@@ -193,8 +196,8 @@ const SelectProviderScreen = ({navigation, route}) => {
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
 
       {/* Map Section */}
       <View style={styles.mapContainer}>
@@ -209,7 +212,7 @@ const SelectProviderScreen = ({navigation, route}) => {
             longitudeDelta: 0.02,
           }}>
           {/* Client Location Marker */}
-          <Marker coordinate={{latitude: clientLat, longitude: clientLng}}>
+          <Marker coordinate={{ latitude: clientLat, longitude: clientLng }}>
             <View style={styles.clientMarker}>
               <View style={styles.clientMarkerDot} />
             </View>
@@ -229,8 +232,8 @@ const SelectProviderScreen = ({navigation, route}) => {
               </Marker>
               <Polyline
                 coordinates={[
-                  {latitude: clientLat, longitude: clientLng},
-                  {latitude: selectedProvider.latitude, longitude: selectedProvider.longitude},
+                  { latitude: clientLat, longitude: clientLng },
+                  { latitude: selectedProvider.latitude, longitude: selectedProvider.longitude },
                 ]}
                 strokeColor="#1A73E8"
                 strokeWidth={4}
@@ -242,13 +245,13 @@ const SelectProviderScreen = ({navigation, route}) => {
         {/* Top Location Bar */}
         <View style={styles.locationBar}>
           <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
-            <Icon name="close" size={24} color="#1F2937" />
+            <Icon name="close" size={24} color={colors.text} />
           </TouchableOpacity>
           <View style={styles.locationContent}>
             <Text style={styles.locationFrom} numberOfLines={1}>
               {clientAddress || 'Your Location'}
             </Text>
-            <Icon name="arrow-forward" size={14} color="#9CA3AF" style={{marginHorizontal: 8}} />
+            <Icon name="arrow-forward" size={14} color="#9CA3AF" style={{ marginHorizontal: 8 }} />
             <Text style={styles.locationTo} numberOfLines={1}>
               {selectedProvider?.name || 'Select Provider'}
             </Text>
@@ -257,7 +260,7 @@ const SelectProviderScreen = ({navigation, route}) => {
       </View>
 
       {/* Bottom Sheet */}
-      <View style={styles.bottomSheet}>
+      <View style={[styles.bottomSheet, { backgroundColor: colors.card }]}>
         <View style={styles.handle} />
 
         {/* Filter Tabs */}
@@ -267,13 +270,14 @@ const SelectProviderScreen = ({navigation, route}) => {
               key={filter.id}
               style={[
                 styles.filterBtn,
+                { backgroundColor: isDark ? '#1F2937' : '#F3F4F6' },
                 activeFilter === filter.id && styles.filterBtnActive,
               ]}
               onPress={() => setActiveFilter(filter.id)}>
               <Icon
                 name={filter.icon}
                 size={16}
-                color={activeFilter === filter.id ? '#FFF' : '#6B7280'}
+                color={activeFilter === filter.id ? '#FFF' : colors.textSecondary}
               />
               <Text
                 style={[
@@ -289,7 +293,7 @@ const SelectProviderScreen = ({navigation, route}) => {
         {/* Provider List */}
         <ScrollView
           style={styles.listContainer}
-          contentContainerStyle={{paddingBottom: selectedProvider ? 130 : 20}}
+          contentContainerStyle={{ paddingBottom: selectedProvider ? 130 : 20 }}
           showsVerticalScrollIndicator={false}>
           {filteredProviders.length === 0 ? (
             <View style={styles.emptyState}>
@@ -317,7 +321,7 @@ const SelectProviderScreen = ({navigation, route}) => {
                     {/* Service Image/Avatar */}
                     <View style={styles.avatarContainer}>
                       {provider.profilePhoto ? (
-                        <Image source={{uri: provider.profilePhoto}} style={styles.avatar} />
+                        <Image source={{ uri: provider.profilePhoto }} style={styles.avatar} />
                       ) : (
                         <View style={styles.avatarPlaceholder}>
                           <Icon name="construct" size={28} color="#00B14F" />
@@ -331,7 +335,7 @@ const SelectProviderScreen = ({navigation, route}) => {
                         <Text style={[styles.providerName, isBusy && styles.textMuted]}>
                           {provider.serviceCategory}
                         </Text>
-                        <Icon name="star" size={14} color="#F59E0B" style={{marginLeft: 6}} />
+                        <Icon name="star" size={14} color="#F59E0B" style={{ marginLeft: 6 }} />
                         <Text style={styles.ratingText}>{provider.rating.toFixed(1)}</Text>
                         <TouchableOpacity style={styles.infoIcon}>
                           <Icon name="information-circle-outline" size={18} color="#9CA3AF" />
@@ -372,7 +376,7 @@ const SelectProviderScreen = ({navigation, route}) => {
 
         {/* Bottom Action */}
         {selectedProvider && (
-          <View style={styles.bottomAction}>
+          <View style={[styles.bottomAction, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
             <View style={styles.paymentRow}>
               <View style={styles.paymentMethod}>
                 <Icon name="cash-outline" size={20} color="#00B14F" />
@@ -398,13 +402,13 @@ const SelectProviderScreen = ({navigation, route}) => {
 
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#FFF'},
-  loadingContainer: {flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF'},
-  loadingText: {marginTop: 12, fontSize: 15, color: '#6B7280'},
+  container: { flex: 1, backgroundColor: '#FFF' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' },
+  loadingText: { marginTop: 12, fontSize: 15, color: '#6B7280' },
 
   // Map
-  mapContainer: {height: MAP_HEIGHT},
-  map: {flex: 1},
+  mapContainer: { height: MAP_HEIGHT },
+  map: { flex: 1 },
   clientMarker: {
     width: 20,
     height: 20,
@@ -415,7 +419,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#FFF',
   },
-  clientMarkerDot: {width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFF'},
+  clientMarkerDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFF' },
   providerMarker: {
     width: 32,
     height: 32,
@@ -440,15 +444,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 8,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
-  closeBtn: {padding: 8},
-  locationContent: {flex: 1, flexDirection: 'row', alignItems: 'center'},
-  locationFrom: {flex: 1, fontSize: 14, color: '#1F2937', fontWeight: '500'},
-  locationTo: {flex: 1, fontSize: 14, color: '#1F2937', fontWeight: '500'},
+  closeBtn: { padding: 8 },
+  locationContent: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  locationFrom: { flex: 1, fontSize: 14, color: '#1F2937', fontWeight: '500' },
+  locationTo: { flex: 1, fontSize: 14, color: '#1F2937', fontWeight: '500' },
 
   // Bottom Sheet
   bottomSheet: {
@@ -484,15 +488,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     gap: 6,
   },
-  filterBtnActive: {backgroundColor: '#1F2937'},
-  filterLabel: {fontSize: 13, fontWeight: '600', color: '#6B7280'},
-  filterLabelActive: {color: '#FFF'},
+  filterBtnActive: { backgroundColor: '#1F2937' },
+  filterLabel: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+  filterLabelActive: { color: '#FFF' },
 
   // List
-  listContainer: {flex: 1},
-  emptyState: {alignItems: 'center', paddingVertical: 60},
-  emptyTitle: {fontSize: 16, fontWeight: '600', color: '#374151', marginTop: 12},
-  emptyText: {fontSize: 14, color: '#9CA3AF', marginTop: 4},
+  listContainer: { flex: 1 },
+  emptyState: { alignItems: 'center', paddingVertical: 60 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', color: '#374151', marginTop: 12 },
+  emptyText: { fontSize: 14, color: '#9CA3AF', marginTop: 4 },
 
   // Provider Card
   providerCard: {
@@ -507,7 +511,7 @@ const styles = StyleSheet.create({
     borderColor: '#00B14F',
     backgroundColor: '#F0FDF4',
   },
-  providerCardBusy: {opacity: 0.6},
+  providerCardBusy: { opacity: 0.6 },
   cardContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -515,8 +519,8 @@ const styles = StyleSheet.create({
   },
 
   // Avatar
-  avatarContainer: {marginRight: 12},
-  avatar: {width: 56, height: 56, borderRadius: 12},
+  avatarContainer: { marginRight: 12 },
+  avatar: { width: 56, height: 56, borderRadius: 12 },
   avatarPlaceholder: {
     width: 56,
     height: 56,
@@ -527,14 +531,14 @@ const styles = StyleSheet.create({
   },
 
   // Info
-  infoContainer: {flex: 1},
-  nameRow: {flexDirection: 'row', alignItems: 'center', marginBottom: 4},
-  providerName: {fontSize: 16, fontWeight: '700', color: '#1F2937'},
-  ratingText: {fontSize: 13, color: '#1F2937', fontWeight: '500', marginLeft: 2},
-  infoIcon: {marginLeft: 4},
-  estimatedTime: {fontSize: 13, color: '#6B7280', marginBottom: 4},
-  textMuted: {color: '#9CA3AF'},
-  badgeRow: {flexDirection: 'row', alignItems: 'center'},
+  infoContainer: { flex: 1 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  providerName: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
+  ratingText: { fontSize: 13, color: '#1F2937', fontWeight: '500', marginLeft: 2 },
+  infoIcon: { marginLeft: 4 },
+  estimatedTime: { fontSize: 13, color: '#6B7280', marginBottom: 4 },
+  textMuted: { color: '#9CA3AF' },
+  badgeRow: { flexDirection: 'row', alignItems: 'center' },
   ecoBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -544,12 +548,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 4,
   },
-  ecoBadgeText: {fontSize: 11, color: '#059669', fontWeight: '500'},
+  ecoBadgeText: { fontSize: 11, color: '#059669', fontWeight: '500' },
 
   // Price
-  priceContainer: {alignItems: 'flex-end', marginLeft: 8},
-  priceText: {fontSize: 16, fontWeight: '700', color: '#1F2937'},
-  priceLabel: {fontSize: 11, color: '#9CA3AF'},
+  priceContainer: { alignItems: 'flex-end', marginLeft: 8 },
+  priceText: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
+  priceLabel: { fontSize: 11, color: '#9CA3AF' },
 
   // Bottom Action
   bottomAction: {
@@ -570,17 +574,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  paymentMethod: {flexDirection: 'row', alignItems: 'center', gap: 8},
-  paymentText: {fontSize: 14, fontWeight: '500', color: '#1F2937'},
-  offersBtn: {flexDirection: 'row', alignItems: 'center', gap: 6},
-  offersText: {fontSize: 14, color: '#6B7280'},
+  paymentMethod: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  paymentText: { fontSize: 14, fontWeight: '500', color: '#1F2937' },
+  offersBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  offersText: { fontSize: 14, color: '#6B7280' },
   bookBtn: {
     backgroundColor: '#00B14F',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
   },
-  bookBtnText: {fontSize: 16, fontWeight: '700', color: '#FFF'},
+  bookBtnText: { fontSize: 16, fontWeight: '700', color: '#FFF' },
 });
 
 export default SelectProviderScreen;

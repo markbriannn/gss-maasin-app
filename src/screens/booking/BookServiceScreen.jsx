@@ -1,4 +1,4 @@
-import {useState, useEffect, useRef} from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,35 +13,35 @@ import {
   Modal,
   Dimensions,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {Picker} from '@react-native-picker/picker';
-import {launchImageLibrary, launchCamera} from 'react-native-image-picker';
-import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
-import {authStyles} from '../../css/authStyles';
-import {globalStyles} from '../../css/globalStyles';
-import {SERVICE_CATEGORIES, MAASIN_BARANGAYS} from '../../config/constants';
-import {jobService} from '../../services/jobService';
-import {useAuth} from '../../context/AuthContext';
-import {useTheme} from '../../context/ThemeContext';
+import { Picker } from '@react-native-picker/picker';
+import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { authStyles } from '../../css/authStyles';
+import { globalStyles } from '../../css/globalStyles';
+import { SERVICE_CATEGORIES, MAASIN_BARANGAYS } from '../../config/constants';
+import { jobService } from '../../services/jobService';
+import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import smsEmailService from '../../services/smsEmailService';
-import {sendBookingConfirmation} from '../../services/emailService';
-import {attemptBooking, resetBookingLimit} from '../../utils/rateLimiter';
-import {uploadImage} from '../../services/imageUploadService';
+import { sendBookingConfirmation } from '../../services/emailService';
+import { attemptBooking, resetBookingLimit } from '../../utils/rateLimiter';
+import { uploadImage } from '../../services/imageUploadService';
 import locationService from '../../services/locationService';
 import paymentService from '../../services/paymentService';
 import notificationService from '../../services/notificationService';
-import {collection, query, where, getDocs} from 'firebase/firestore';
-import {db} from '../../config/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 
-const {width: SCREEN_WIDTH} = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const API_URL = 'https://gss-maasin-app.onrender.com/api';
 
-const BookServiceScreen = ({navigation, route}) => {
-  const {user} = useAuth();
-  const {isDark, theme} = useTheme();
-  const {providerId, providerName, provider} = route.params || {};
+const BookServiceScreen = ({ navigation, route }) => {
+  const { user } = useAuth();
+  const { isDark, theme } = useTheme();
+  const { providerId, providerName, provider } = route.params || {};
   const mapRef = useRef(null);
 
   const displayProviderName = providerName || provider?.name;
@@ -51,11 +51,11 @@ const BookServiceScreen = ({navigation, route}) => {
 
   const [serviceCategory, setServiceCategory] = useState(providerService);
   const [additionalNotes, setAdditionalNotes] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('gcash'); // 'gcash' or 'maya'
+  const [paymentMethod, setPaymentMethod] = useState('qrph'); // 'qrph', 'gcash', or 'maya'
   const [isLoading, setIsLoading] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [mediaFiles, setMediaFiles] = useState([]);
-  
+
   // Address state
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
@@ -123,7 +123,7 @@ const BookServiceScreen = ({navigation, route}) => {
     try {
       const location = await locationService.getCurrentLocation();
       if (location) {
-        const {latitude, longitude} = location;
+        const { latitude, longitude } = location;
         mapRef.current?.animateToRegion({ latitude, longitude, latitudeDelta: 0.005, longitudeDelta: 0.005 }, 1000);
         const geocodedAddress = await getAddressFromCoordinates(latitude, longitude);
         setAddressData(prev => ({
@@ -149,7 +149,7 @@ const BookServiceScreen = ({navigation, route}) => {
 
   // Handle map press
   const handleMapPress = async (event) => {
-    const {latitude, longitude} = event.nativeEvent.coordinate;
+    const { latitude, longitude } = event.nativeEvent.coordinate;
     setAddressData(prev => ({ ...prev, latitude, longitude }));
     setIsGeocoding(true);
     try {
@@ -167,7 +167,7 @@ const BookServiceScreen = ({navigation, route}) => {
 
   // Handle marker drag end
   const handleMarkerDragEnd = async (event) => {
-    const {latitude, longitude} = event.nativeEvent.coordinate;
+    const { latitude, longitude } = event.nativeEvent.coordinate;
     setAddressData(prev => ({ ...prev, latitude, longitude }));
     setIsGeocoding(true);
     try {
@@ -227,10 +227,10 @@ const BookServiceScreen = ({navigation, route}) => {
 
   const handleAddMedia = () => {
     Alert.alert('Add Photo/Video', 'Choose how you want to add media', [
-      {text: 'Take Photo', onPress: () => handleCameraCapture('photo')},
-      {text: 'Record Video', onPress: () => handleCameraCapture('video')},
-      {text: 'Choose from Gallery', onPress: handlePickFromGallery},
-      {text: 'Cancel', style: 'cancel'},
+      { text: 'Take Photo', onPress: () => handleCameraCapture('photo') },
+      { text: 'Record Video', onPress: () => handleCameraCapture('video') },
+      { text: 'Choose from Gallery', onPress: handlePickFromGallery },
+      { text: 'Cancel', style: 'cancel' },
     ]);
   };
 
@@ -300,7 +300,7 @@ const BookServiceScreen = ({navigation, route}) => {
   const handleSubmit = async () => {
     // Prevent double-click
     if (isLoading || processingPayment) return;
-    
+
     if (!serviceCategory) {
       Alert.alert('Required', 'Please select a service category');
       return;
@@ -322,12 +322,12 @@ const BookServiceScreen = ({navigation, route}) => {
           where('status', 'in', activeStatuses)
         );
         const existingBookingsSnap = await getDocs(existingBookingsQuery);
-        
+
         if (!existingBookingsSnap.empty) {
           Alert.alert(
             'Active Booking Exists',
             `You already have an active booking with ${displayProviderName || 'this provider'}. Please wait for it to complete or cancel it before booking again.`,
-            [{text: 'OK'}]
+            [{ text: 'OK' }]
           );
           return;
         }
@@ -410,34 +410,54 @@ const BookServiceScreen = ({navigation, route}) => {
 
       // Send FCM push notification to admins about new booking
       const clientName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Client';
-      notificationService.pushNewJobToAdmins({...jobData, id: bookingId}, clientName)
+      notificationService.pushNewJobToAdmins({ ...jobData, id: bookingId }, clientName)
         .catch(err => console.log('FCM push to admins failed:', err));
 
       // Now redirect to payment
       setProcessingPayment(true);
-      
-      try {
-        const response = await fetch(`${API_URL}/payments/create-source`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            amount: totalAmount,
-            bookingId: bookingId,
-            userId: user?.uid,
-            description: `${serviceCategory} Service - ${displayProviderName || 'Provider'}`,
-            type: paymentMethod,
-          }),
-        });
 
-        const paymentResult = await response.json();
+      try {
+        let paymentResult;
+
+        if (paymentMethod === 'qrph') {
+          // Use QRPh endpoint
+          const response = await fetch(`${API_URL}/payments/create-qrph-payment`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              amount: totalAmount,
+              bookingId: bookingId,
+              userId: user?.uid,
+              description: `${serviceCategory} Service - ${displayProviderName || 'Provider'}`,
+              platform: 'mobile',
+            }),
+          });
+          paymentResult = await response.json();
+        } else {
+          // Use Sources endpoint for GCash/Maya
+          const response = await fetch(`${API_URL}/payments/create-source`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              amount: totalAmount,
+              bookingId: bookingId,
+              userId: user?.uid,
+              description: `${serviceCategory} Service - ${displayProviderName || 'Provider'}`,
+              type: paymentMethod,
+            }),
+          });
+          paymentResult = await response.json();
+        }
 
         if (paymentResult.success && paymentResult.checkoutUrl) {
           // Open PayMongo checkout in in-app browser
           try {
             const openResult = await paymentService.openPaymentCheckout(paymentResult.checkoutUrl);
-            
+
             if (openResult.success) {
               // Navigate back to ClientMain - booking details will show inline in the modal
               navigation.replace('ClientMain');
@@ -463,9 +483,9 @@ const BookServiceScreen = ({navigation, route}) => {
       // Send notifications
       smsEmailService
         .sendBookingConfirmation(
-          {...jobData, id: bookingId},
+          { ...jobData, id: bookingId },
           user,
-          {name: displayProviderName || 'Provider'},
+          { name: displayProviderName || 'Provider' },
         )
         .catch(err => console.log('SMS/Email notification failed:', err));
 
@@ -485,7 +505,7 @@ const BookServiceScreen = ({navigation, route}) => {
   };
 
   return (
-    <SafeAreaView style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]}>
+    <SafeAreaView style={[globalStyles.container, isDark && { backgroundColor: theme.colors.background }]}>
       {/* Header */}
       <View
         style={{
@@ -499,12 +519,12 @@ const BookServiceScreen = ({navigation, route}) => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color={isDark ? theme.colors.text : '#1F2937'} />
         </TouchableOpacity>
-        <Text style={[globalStyles.heading3, {marginLeft: 16, flex: 1, color: isDark ? theme.colors.text : '#1F2937'}]}>
+        <Text style={[globalStyles.heading3, { marginLeft: 16, flex: 1, color: isDark ? theme.colors.text : '#1F2937' }]}>
           Book Service
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={{padding: 20}}>
+      <ScrollView contentContainerStyle={{ padding: 20 }}>
         {/* Provider Info Card */}
         {displayProviderName && (
           <View
@@ -514,16 +534,16 @@ const BookServiceScreen = ({navigation, route}) => {
               borderRadius: 12,
               marginBottom: 20,
             }}>
-            <Text style={{fontSize: 14, color: isDark ? '#9CA3AF' : '#6B7280', marginBottom: 4}}>
+            <Text style={{ fontSize: 14, color: isDark ? '#9CA3AF' : '#6B7280', marginBottom: 4 }}>
               Requesting service from
             </Text>
-            <Text style={{fontSize: 16, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937'}}>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937' }}>
               {displayProviderName}
             </Text>
             {providerService && (
-              <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 8}}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
                 <Icon name="construct" size={16} color="#00B14F" />
-                <Text style={{fontSize: 14, color: '#00B14F', fontWeight: '500', marginLeft: 6}}>
+                <Text style={{ fontSize: 14, color: '#00B14F', fontWeight: '500', marginLeft: 6 }}>
                   {providerService}
                 </Text>
               </View>
@@ -537,22 +557,22 @@ const BookServiceScreen = ({navigation, route}) => {
                   borderTopWidth: 1,
                   borderTopColor: isDark ? '#065F46' : '#BBF7D0',
                 }}>
-                <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', marginBottom: 12}}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', marginBottom: 12 }}>
                   Price Breakdown
                 </Text>
-                <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
-                  <Text style={{fontSize: 14, color: isDark ? theme.colors.textSecondary : '#4B5563'}}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 14, color: isDark ? theme.colors.textSecondary : '#4B5563' }}>
                     Provider's Price
                   </Text>
-                  <Text style={{fontSize: 14, fontWeight: '500', color: isDark ? theme.colors.text : '#1F2937'}}>
+                  <Text style={{ fontSize: 14, fontWeight: '500', color: isDark ? theme.colors.text : '#1F2937' }}>
                     ₱{providerFixedPrice.toLocaleString()}
                   </Text>
                 </View>
-                <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
-                  <Text style={{fontSize: 14, color: isDark ? theme.colors.textSecondary : '#4B5563'}}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 14, color: isDark ? theme.colors.textSecondary : '#4B5563' }}>
                     System Fee (5%)
                   </Text>
-                  <Text style={{fontSize: 14, fontWeight: '500', color: isDark ? theme.colors.text : '#1F2937'}}>
+                  <Text style={{ fontSize: 14, fontWeight: '500', color: isDark ? theme.colors.text : '#1F2937' }}>
                     ₱{((providerFixedPrice || 0) * 0.05).toLocaleString()}
                   </Text>
                 </View>
@@ -564,10 +584,10 @@ const BookServiceScreen = ({navigation, route}) => {
                     borderTopWidth: 1,
                     borderTopColor: isDark ? '#065F46' : '#BBF7D0',
                   }}>
-                  <Text style={{fontSize: 16, fontWeight: '700', color: isDark ? theme.colors.text : '#1F2937'}}>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: isDark ? theme.colors.text : '#1F2937' }}>
                     Total
                   </Text>
-                  <Text style={{fontSize: 16, fontWeight: '700', color: '#00B14F'}}>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#00B14F' }}>
                     ₱{((providerFixedPrice || 0) * 1.05).toLocaleString()}
                   </Text>
                 </View>
@@ -577,7 +597,7 @@ const BookServiceScreen = ({navigation, route}) => {
         )}
 
         {/* Service Address Section */}
-        <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8}}>
+        <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8 }}>
           Service Address *
         </Text>
         <TouchableOpacity
@@ -603,11 +623,11 @@ const BookServiceScreen = ({navigation, route}) => {
           }}>
             <Icon name="location" size={22} color="#00B14F" />
           </View>
-          <View style={{flex: 1}}>
-            <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', marginBottom: 2}}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', marginBottom: 2 }}>
               {addressData.barangay ? `Brgy. ${addressData.barangay}` : 'Set your address'}
             </Text>
-            <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280'}} numberOfLines={1}>
+            <Text style={{ fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280' }} numberOfLines={1}>
               {getDisplayAddress()}
             </Text>
           </View>
@@ -617,7 +637,7 @@ const BookServiceScreen = ({navigation, route}) => {
             paddingVertical: 6,
             borderRadius: 8,
           }}>
-            <Text style={{fontSize: 12, fontWeight: '600', color: '#3B82F6'}}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#3B82F6' }}>
               {addressData.barangay ? 'Change' : 'Set'}
             </Text>
           </View>
@@ -626,20 +646,20 @@ const BookServiceScreen = ({navigation, route}) => {
         {/* Service Category - only show if not from provider */}
         {!providerService && (
           <>
-            <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8}}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8 }}>
               Service Category *
             </Text>
             <View
               style={[
                 authStyles.inputContainer,
-                {marginBottom: 20},
-                isDark && {backgroundColor: theme.colors.card, borderColor: theme.colors.border},
+                { marginBottom: 20 },
+                isDark && { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
               ]}>
               <Icon name="construct-outline" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} style={authStyles.inputIcon} />
               <Picker
                 selectedValue={serviceCategory}
                 onValueChange={value => setServiceCategory(value)}
-                style={{flex: 1, color: isDark ? theme.colors.text : '#1F2937'}}
+                style={{ flex: 1, color: isDark ? theme.colors.text : '#1F2937' }}
                 dropdownIconColor={isDark ? theme.colors.text : '#1F2937'}>
                 <Picker.Item label="Select a service" value="" />
                 {SERVICE_CATEGORIES.map(category => (
@@ -651,14 +671,14 @@ const BookServiceScreen = ({navigation, route}) => {
         )}
 
         {/* Photo/Video Upload Section - REQUIRED */}
-        <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8}}>
+        <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8 }}>
           Upload Photos/Videos of the Problem *
         </Text>
-        <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginBottom: 12}}>
+        <Text style={{ fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginBottom: 12 }}>
           Add up to 5 photos or videos showing what needs to be fixed
         </Text>
 
-        <View style={{flexDirection: 'row', flexWrap: 'wrap', marginBottom: 20}}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 20 }}>
           {mediaFiles.map((file, index) => (
             <View
               key={index}
@@ -673,9 +693,9 @@ const BookServiceScreen = ({navigation, route}) => {
                 backgroundColor: isDark ? theme.colors.card : '#F3F4F6',
               }}>
               {file.uri ? (
-                <Image source={{uri: file.uri}} style={{width: '100%', height: '100%'}} resizeMode="cover" />
+                <Image source={{ uri: file.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
               ) : (
-                <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                   <Icon name="image-outline" size={24} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
                 </View>
               )}
@@ -727,7 +747,7 @@ const BookServiceScreen = ({navigation, route}) => {
               }}
               onPress={handleAddMedia}>
               <Icon name="camera-outline" size={28} color={mediaFiles.length === 0 ? '#EF4444' : isDark ? theme.colors.textSecondary : '#9CA3AF'} />
-              <Text style={{fontSize: 10, color: mediaFiles.length === 0 ? '#EF4444' : isDark ? theme.colors.textSecondary : '#9CA3AF', marginTop: 4}}>
+              <Text style={{ fontSize: 10, color: mediaFiles.length === 0 ? '#EF4444' : isDark ? theme.colors.textSecondary : '#9CA3AF', marginTop: 4 }}>
                 Add
               </Text>
             </TouchableOpacity>
@@ -735,16 +755,16 @@ const BookServiceScreen = ({navigation, route}) => {
         </View>
 
         {mediaFiles.length === 0 && (
-          <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 16}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
             <Icon name="alert-circle" size={16} color="#EF4444" />
-            <Text style={{fontSize: 12, color: '#EF4444', marginLeft: 6}}>
+            <Text style={{ fontSize: 12, color: '#EF4444', marginLeft: 6 }}>
               At least one photo or video is required
             </Text>
           </View>
         )}
 
         {/* Additional Notes - OPTIONAL */}
-        <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8}}>
+        <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8 }}>
           Additional Notes (Optional)
         </Text>
         <TextInput
@@ -769,10 +789,10 @@ const BookServiceScreen = ({navigation, route}) => {
         />
 
         {/* Payment Method - Escrow System */}
-        <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8}}>
+        <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8 }}>
           Payment Method *
         </Text>
-        
+
         {/* Escrow Info Banner */}
         <View style={{
           backgroundColor: isDark ? '#064E3B' : '#ECFDF5',
@@ -785,17 +805,66 @@ const BookServiceScreen = ({navigation, route}) => {
           borderColor: isDark ? '#065F46' : '#A7F3D0',
         }}>
           <Icon name="shield-checkmark" size={20} color="#10B981" />
-          <View style={{marginLeft: 10, flex: 1}}>
-            <Text style={{fontSize: 13, fontWeight: '600', color: isDark ? '#A7F3D0' : '#065F46', marginBottom: 2}}>
+          <View style={{ marginLeft: 10, flex: 1 }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: isDark ? '#A7F3D0' : '#065F46', marginBottom: 2 }}>
               Protected Payment
             </Text>
-            <Text style={{fontSize: 12, color: isDark ? '#6EE7B7' : '#047857', lineHeight: 18}}>
+            <Text style={{ fontSize: 12, color: isDark ? '#6EE7B7' : '#047857', lineHeight: 18 }}>
               Your payment is held securely until the job is completed and you confirm satisfaction.
             </Text>
           </View>
         </View>
 
-        <View style={{flexDirection: 'row', gap: 12, marginBottom: 20}}>
+        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              padding: 16,
+              borderRadius: 12,
+              borderWidth: 2,
+              borderColor: paymentMethod === 'qrph' ? '#7C3AED' : isDark ? theme.colors.border : '#E5E7EB',
+              backgroundColor: paymentMethod === 'qrph' ? (isDark ? '#2E1065' : '#F5F3FF') : (isDark ? theme.colors.card : '#FFFFFF'),
+              alignItems: 'center',
+            }}
+            onPress={() => setPaymentMethod('qrph')}>
+            <View style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              backgroundColor: '#7C3AED',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: 8,
+            }}>
+              <Icon name="qr-code" size={22} color="#FFFFFF" />
+            </View>
+            <Text style={{
+              fontSize: 13,
+              fontWeight: '600',
+              color: paymentMethod === 'qrph' ? '#7C3AED' : isDark ? theme.colors.text : '#1F2937',
+            }}>
+              QR Ph
+            </Text>
+            <Text style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>Scan to Pay</Text>
+            {paymentMethod === 'qrph' && (
+              <View style={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                width: 20,
+                height: 20,
+                borderRadius: 10,
+                backgroundColor: '#7C3AED',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+                <Icon name="checkmark" size={12} color="#FFFFFF" />
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
           <TouchableOpacity
             style={{
               flex: 1,
@@ -816,7 +885,7 @@ const BookServiceScreen = ({navigation, route}) => {
               alignItems: 'center',
               marginBottom: 8,
             }}>
-              <Text style={{color: '#FFFFFF', fontWeight: 'bold', fontSize: 18}}>G</Text>
+              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 18 }}>G</Text>
             </View>
             <Text style={{
               fontSize: 14,
@@ -862,7 +931,7 @@ const BookServiceScreen = ({navigation, route}) => {
               alignItems: 'center',
               marginBottom: 8,
             }}>
-              <Text style={{color: '#FFFFFF', fontWeight: 'bold', fontSize: 18}}>M</Text>
+              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 18 }}>M</Text>
             </View>
             <Text style={{
               fontSize: 14,
@@ -899,27 +968,30 @@ const BookServiceScreen = ({navigation, route}) => {
           alignItems: 'flex-start',
         }}>
           <Icon name="information-circle" size={18} color={isDark ? '#60A5FA' : '#F59E0B'} />
-          <Text style={{fontSize: 12, color: isDark ? '#93C5FD' : '#92400E', marginLeft: 8, flex: 1, lineHeight: 18}}>
-            You&apos;ll be redirected to {paymentMethod === 'gcash' ? 'GCash' : 'Maya'} to complete payment. Money will be held until the provider completes the job and you confirm.
+          <Text style={{ fontSize: 12, color: isDark ? '#93C5FD' : '#92400E', marginLeft: 8, flex: 1, lineHeight: 18 }}>
+            {paymentMethod === 'qrph'
+              ? 'You\'ll be shown a QR code to scan with any banking or e-wallet app. Money will be held until the provider completes the job and you confirm.'
+              : `You'll be redirected to ${paymentMethod === 'gcash' ? 'GCash' : 'Maya'} to complete payment. Money will be held until the provider completes the job and you confirm.`
+            }
           </Text>
         </View>
 
         {/* Submit Button */}
         <TouchableOpacity
-          style={[authStyles.button, authStyles.buttonPrimary, {marginTop: 10}]}
+          style={[authStyles.button, authStyles.buttonPrimary, { marginTop: 10 }]}
           onPress={handleSubmit}
           disabled={isLoading || processingPayment}>
           {isLoading || processingPayment ? (
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <ActivityIndicator size="small" color="#FFFFFF" />
-              <Text style={[authStyles.buttonText, authStyles.buttonTextPrimary, {marginLeft: 8}]}>
+              <Text style={[authStyles.buttonText, authStyles.buttonTextPrimary, { marginLeft: 8 }]}>
                 {processingPayment ? 'Redirecting to Payment...' : 'Processing...'}
               </Text>
             </View>
           ) : (
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Icon name="card" size={20} color="#FFFFFF" />
-              <Text style={[authStyles.buttonText, authStyles.buttonTextPrimary, {marginLeft: 8}]}>
+              <Text style={[authStyles.buttonText, authStyles.buttonTextPrimary, { marginLeft: 8 }]}>
                 Pay ₱{((providerFixedPrice || 0) * 1.05).toLocaleString()} & Book
               </Text>
             </View>
@@ -933,21 +1005,21 @@ const BookServiceScreen = ({navigation, route}) => {
           borderRadius: 12,
           marginTop: 16,
         }}>
-          <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
             <Icon name="shield-checkmark" size={18} color="#00B14F" />
-            <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginLeft: 8}}>
+            <Text style={{ fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginLeft: 8 }}>
               Payment held until job completion
             </Text>
           </View>
-          <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
             <Icon name="checkmark-circle" size={18} color="#00B14F" />
-            <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginLeft: 8}}>
+            <Text style={{ fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginLeft: 8 }}>
               Money released only after you confirm
             </Text>
           </View>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Icon name="lock-closed" size={18} color="#00B14F" />
-            <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginLeft: 8}}>
+            <Text style={{ fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginLeft: 8 }}>
               100% Secure with PayMongo
             </Text>
           </View>
@@ -956,7 +1028,7 @@ const BookServiceScreen = ({navigation, route}) => {
 
       {/* Address Modal */}
       <Modal visible={showAddressModal} animationType="slide" transparent>
-        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)'}}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <View style={{
             flex: 1,
             marginTop: 60,
@@ -973,7 +1045,7 @@ const BookServiceScreen = ({navigation, route}) => {
               borderBottomWidth: 1,
               borderBottomColor: isDark ? theme.colors.border : '#E5E7EB',
             }}>
-              <Text style={{fontSize: 18, fontWeight: '700', color: isDark ? theme.colors.text : '#1F2937'}}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: isDark ? theme.colors.text : '#1F2937' }}>
                 Update Service Address
               </Text>
               <TouchableOpacity onPress={() => setShowAddressModal(false)}>
@@ -981,7 +1053,7 @@ const BookServiceScreen = ({navigation, route}) => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 20}}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
               {/* Use Current Location Button */}
               <TouchableOpacity
                 style={{
@@ -1002,7 +1074,7 @@ const BookServiceScreen = ({navigation, route}) => {
                 ) : (
                   <>
                     <Icon name="locate" size={20} color="#00B14F" />
-                    <Text style={{fontSize: 14, fontWeight: '600', color: '#00B14F', marginLeft: 8}}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#00B14F', marginLeft: 8 }}>
                       Use My Current Location
                     </Text>
                   </>
@@ -1020,7 +1092,7 @@ const BookServiceScreen = ({navigation, route}) => {
               }}>
                 <MapView
                   ref={mapRef}
-                  style={{flex: 1}}
+                  style={{ flex: 1 }}
                   provider={PROVIDER_GOOGLE}
                   initialRegion={{
                     latitude: addressData.latitude,
@@ -1056,16 +1128,16 @@ const BookServiceScreen = ({navigation, route}) => {
                     alignItems: 'center',
                   }}>
                     <ActivityIndicator size="small" color="#FFFFFF" />
-                    <Text style={{color: '#FFFFFF', fontSize: 12, marginLeft: 6}}>Getting address...</Text>
+                    <Text style={{ color: '#FFFFFF', fontSize: 12, marginLeft: 6 }}>Getting address...</Text>
                   </View>
                 )}
               </View>
-              <Text style={{fontSize: 11, color: isDark ? theme.colors.textSecondary : '#9CA3AF', textAlign: 'center', marginBottom: 16}}>
+              <Text style={{ fontSize: 11, color: isDark ? theme.colors.textSecondary : '#9CA3AF', textAlign: 'center', marginBottom: 16 }}>
                 Tap on map or drag marker to set your exact location
               </Text>
 
               {/* Barangay Picker */}
-              <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8}}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8 }}>
                 Barangay *
               </Text>
               <View style={{
@@ -1077,11 +1149,11 @@ const BookServiceScreen = ({navigation, route}) => {
                 flexDirection: 'row',
                 alignItems: 'center',
               }}>
-                <Icon name="location-outline" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} style={{marginLeft: 12}} />
+                <Icon name="location-outline" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} style={{ marginLeft: 12 }} />
                 <Picker
                   selectedValue={addressData.barangay}
-                  onValueChange={(value) => setAddressData(prev => ({...prev, barangay: value}))}
-                  style={{flex: 1, color: isDark ? theme.colors.text : '#1F2937'}}
+                  onValueChange={(value) => setAddressData(prev => ({ ...prev, barangay: value }))}
+                  style={{ flex: 1, color: isDark ? theme.colors.text : '#1F2937' }}
                   dropdownIconColor={isDark ? theme.colors.text : '#1F2937'}>
                   <Picker.Item label="Select Barangay" value="" />
                   {MAASIN_BARANGAYS.map((barangay) => (
@@ -1091,7 +1163,7 @@ const BookServiceScreen = ({navigation, route}) => {
               </View>
 
               {/* Street Address */}
-              <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8}}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8 }}>
                 Street Address *
               </Text>
               <View style={{
@@ -1103,18 +1175,18 @@ const BookServiceScreen = ({navigation, route}) => {
                 flexDirection: 'row',
                 alignItems: 'center',
               }}>
-                <Icon name="navigate-outline" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} style={{marginLeft: 12}} />
+                <Icon name="navigate-outline" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} style={{ marginLeft: 12 }} />
                 <TextInput
-                  style={{flex: 1, padding: 14, fontSize: 14, color: isDark ? theme.colors.text : '#1F2937'}}
+                  style={{ flex: 1, padding: 14, fontSize: 14, color: isDark ? theme.colors.text : '#1F2937' }}
                   placeholder="e.g., Rizal Street, Purok 1"
                   placeholderTextColor={isDark ? theme.colors.textSecondary : '#9CA3AF'}
                   value={addressData.streetAddress}
-                  onChangeText={(text) => setAddressData(prev => ({...prev, streetAddress: text}))}
+                  onChangeText={(text) => setAddressData(prev => ({ ...prev, streetAddress: text }))}
                 />
               </View>
 
               {/* House/Building Number */}
-              <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8}}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8 }}>
                 House/Building Number
               </Text>
               <View style={{
@@ -1126,18 +1198,18 @@ const BookServiceScreen = ({navigation, route}) => {
                 flexDirection: 'row',
                 alignItems: 'center',
               }}>
-                <Icon name="home-outline" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} style={{marginLeft: 12}} />
+                <Icon name="home-outline" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} style={{ marginLeft: 12 }} />
                 <TextInput
-                  style={{flex: 1, padding: 14, fontSize: 14, color: isDark ? theme.colors.text : '#1F2937'}}
+                  style={{ flex: 1, padding: 14, fontSize: 14, color: isDark ? theme.colors.text : '#1F2937' }}
                   placeholder="e.g., 123, Bldg. A"
                   placeholderTextColor={isDark ? theme.colors.textSecondary : '#9CA3AF'}
                   value={addressData.houseNumber}
-                  onChangeText={(text) => setAddressData(prev => ({...prev, houseNumber: text}))}
+                  onChangeText={(text) => setAddressData(prev => ({ ...prev, houseNumber: text }))}
                 />
               </View>
 
               {/* Landmark */}
-              <Text style={{fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8}}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8 }}>
                 Nearby Landmark (Optional)
               </Text>
               <View style={{
@@ -1149,13 +1221,13 @@ const BookServiceScreen = ({navigation, route}) => {
                 flexDirection: 'row',
                 alignItems: 'center',
               }}>
-                <Icon name="flag-outline" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} style={{marginLeft: 12}} />
+                <Icon name="flag-outline" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} style={{ marginLeft: 12 }} />
                 <TextInput
-                  style={{flex: 1, padding: 14, fontSize: 14, color: isDark ? theme.colors.text : '#1F2937'}}
+                  style={{ flex: 1, padding: 14, fontSize: 14, color: isDark ? theme.colors.text : '#1F2937' }}
                   placeholder="e.g., Near Maasin Cathedral"
                   placeholderTextColor={isDark ? theme.colors.textSecondary : '#9CA3AF'}
                   value={addressData.landmark}
-                  onChangeText={(text) => setAddressData(prev => ({...prev, landmark: text}))}
+                  onChangeText={(text) => setAddressData(prev => ({ ...prev, landmark: text }))}
                 />
               </View>
 
@@ -1170,7 +1242,7 @@ const BookServiceScreen = ({navigation, route}) => {
                   alignItems: 'center',
                 }}>
                   <Icon name="checkmark-circle" size={20} color="#00B14F" />
-                  <Text style={{fontSize: 13, color: isDark ? '#A7F3D0' : '#065F46', marginLeft: 8, flex: 1}}>
+                  <Text style={{ fontSize: 13, color: isDark ? '#A7F3D0' : '#065F46', marginLeft: 8, flex: 1 }}>
                     {addressData.houseNumber ? `${addressData.houseNumber}, ` : ''}
                     {addressData.streetAddress}, Brgy. {addressData.barangay}, Maasin City
                     {addressData.landmark ? ` (Near ${addressData.landmark})` : ''}
@@ -1195,7 +1267,7 @@ const BookServiceScreen = ({navigation, route}) => {
                   setShowAddressModal(false);
                 }}
                 disabled={!addressData.barangay || !addressData.streetAddress}>
-                <Text style={{fontSize: 16, fontWeight: '600', color: '#FFFFFF'}}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
                   Confirm Address
                 </Text>
               </TouchableOpacity>

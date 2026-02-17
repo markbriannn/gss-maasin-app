@@ -47,7 +47,7 @@ export const paymentService = {
     console.log('Creating GCash payment:', { bookingId, userId, amount, description });
     console.log('API URL:', PAYMENT_API_URL);
     try {
-      const response = await withRetry(() => 
+      const response = await withRetry(() =>
         apiClient.post('/payments/create-gcash-source', {
           amount,
           bookingId,
@@ -93,6 +93,33 @@ export const paymentService = {
     }
   },
 
+  createQRPhPayment: async (bookingId, userId, amount, description) => {
+    console.log('Creating QRPh payment:', { bookingId, userId, amount, description });
+    try {
+      const response = await withRetry(() =>
+        apiClient.post('/payments/create-qrph-payment', {
+          amount,
+          bookingId,
+          userId,
+          description,
+          platform: 'mobile',
+        })
+      );
+
+      console.log('QRPh payment response:', response.data);
+      return {
+        success: true,
+        sourceId: response.data.sourceId,
+        checkoutUrl: response.data.checkoutUrl,
+        existing: response.data.existing || false,
+      };
+    } catch (error) {
+      console.error('Error creating QRPh payment:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      return { success: false, error: getErrorMessage(error) };
+    }
+  },
+
   openPaymentCheckout: async (checkoutUrl) => {
     console.log('Opening checkout URL:', checkoutUrl);
     try {
@@ -131,7 +158,7 @@ export const paymentService = {
           browserPackage: undefined,
           showInRecents: true,
         });
-        
+
         console.log('InAppBrowser result:', result);
         return { success: true, checkoutUrl, result };
       } else {
@@ -298,6 +325,7 @@ export const paymentService = {
     return {
       success: true,
       methods: [
+        { id: 'qrph', name: 'QR Ph', icon: 'qr-code', type: 'qrph' },
         { id: 'gcash', name: 'GCash', icon: 'wallet', type: 'ewallet' },
         { id: 'paymaya', name: 'PayMaya', icon: 'wallet', type: 'ewallet' },
         { id: 'cash', name: 'Cash', icon: 'cash', type: 'cash' },
@@ -366,11 +394,11 @@ export const paymentService = {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         const result = await paymentService.checkPaymentStatus(bookingId);
-        
+
         if (result.success && result.status === 'paid') {
           return { success: true, status: 'paid', ...result };
         }
-        
+
         if (result.success && result.status === 'failed') {
           return { success: false, status: 'failed', error: 'Payment failed' };
         }
@@ -383,7 +411,7 @@ export const paymentService = {
         console.error('Poll attempt failed:', error);
       }
     }
-    
+
     return { success: false, status: 'timeout', error: 'Payment status check timed out' };
   },
 
@@ -424,7 +452,7 @@ export const paymentService = {
       const params = new URLSearchParams();
       if (startDate) params.append('startDate', startDate.toISOString());
       if (endDate) params.append('endDate', endDate.toISOString());
-      
+
       const response = await axios.get(`${PAYMENT_API_URL}/payments/admin/earnings?${params}`);
       return {
         success: true,

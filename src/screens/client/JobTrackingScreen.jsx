@@ -1,4 +1,4 @@
-import {useState, useEffect, useRef} from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,21 +8,24 @@ import {
   Image,
   Linking,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import MapView, {Marker, Polyline, PROVIDER_GOOGLE, AnimatedRegion} from 'react-native-maps';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE, AnimatedRegion } from 'react-native-maps';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {db} from '../../config/firebase';
-import {doc, onSnapshot, getDoc} from 'firebase/firestore';
+import { db } from '../../config/firebase';
+import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import locationService from '../../services/locationService';
+import { useTheme } from '../../context/ThemeContext';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBpGzpP1vVxZBIsw6gzkUPPDABSl8FktL4';
 const ANIMATION_DURATION = 1000; // 1 second smooth animation
 
-const JobTrackingScreen = ({navigation, route}) => {
-  const {jobId, job} = route.params || {};
+const JobTrackingScreen = ({ navigation, route }) => {
+  const { jobId, job } = route.params || {};
+  const { isDark, theme } = useTheme();
+  const colors = theme.colors;
   const mapRef = useRef(null);
   const markerRef = useRef(null);
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [jobData, setJobData] = useState(job || null);
   const [clientLocation, setClientLocation] = useState(null);
@@ -86,11 +89,11 @@ const JobTrackingScreen = ({navigation, route}) => {
       async (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          setJobData({...data, id: docSnap.id});
+          setJobData({ ...data, id: docSnap.id });
 
           // Navigate to JobDetails when provider marks work as done (client needs to confirm)
           if (data.status === 'pending_completion' || data.status === 'pending_payment' || data.status === 'payment_received' || data.status === 'completed') {
-            navigation.replace('JobDetails', {jobId: docId, job: {...data, id: docSnap.id}});
+            navigation.replace('JobDetails', { jobId: docId, job: { ...data, id: docSnap.id } });
             return;
           }
 
@@ -134,10 +137,10 @@ const JobTrackingScreen = ({navigation, route}) => {
                   phone: pData.phone,
                   photo: pData.profilePhoto,
                 });
-                
+
                 // Use provider's profile location if booking doesn't have it
                 if (!data.providerLocation && pData.latitude && pData.longitude) {
-                  const newLoc = {latitude: pData.latitude, longitude: pData.longitude};
+                  const newLoc = { latitude: pData.latitude, longitude: pData.longitude };
                   providerCoordinate.setValue({
                     latitude: newLoc.latitude,
                     longitude: newLoc.longitude,
@@ -174,10 +177,10 @@ const JobTrackingScreen = ({navigation, route}) => {
               latitude: data.latitude,
               longitude: data.longitude,
             };
-            
+
             // Animate to new position smoothly
             animateMarker(newLoc);
-            
+
             setProviderInfo(prev => ({
               ...prev,
               id: docSnap.id,
@@ -224,15 +227,15 @@ const JobTrackingScreen = ({navigation, route}) => {
   const fetchRoute = async (origin, dest) => {
     try {
       const url = `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson`;
-      
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
-      
+
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
-      
+
       const data = await response.json();
-      
+
       if (data.code === 'Ok' && data.routes?.[0]) {
         const route = data.routes[0];
         const points = route.geometry.coordinates.map(coord => ({
@@ -276,7 +279,7 @@ const JobTrackingScreen = ({navigation, route}) => {
         shift += 5;
       } while (b >= 0x20);
       lng += (result & 1 ? ~(result >> 1) : result >> 1);
-      points.push({latitude: lat / 1e5, longitude: lng / 1e5});
+      points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
     }
     return points;
   };
@@ -284,7 +287,7 @@ const JobTrackingScreen = ({navigation, route}) => {
   const fitMapToMarkers = () => {
     if (mapRef.current && providerLocation && clientLocation) {
       mapRef.current.fitToCoordinates([providerLocation, clientLocation], {
-        edgePadding: {top: 100, right: 50, bottom: 280, left: 50},
+        edgePadding: { top: 100, right: 50, bottom: 280, left: 50 },
         animated: true,
       });
     }
@@ -334,10 +337,10 @@ const JobTrackingScreen = ({navigation, route}) => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={{flex: 1, backgroundColor: '#FFFFFF'}}>
-        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color="#00B14F" />
-          <Text style={{marginTop: 16, color: '#6B7280'}}>Loading tracking...</Text>
+          <Text style={{ marginTop: 16, color: colors.textSecondary }}>Loading tracking...</Text>
         </View>
       </SafeAreaView>
     );
@@ -345,22 +348,22 @@ const JobTrackingScreen = ({navigation, route}) => {
 
   if (!jobData) {
     return (
-      <SafeAreaView style={{flex: 1, backgroundColor: '#FFFFFF'}}>
-        <View style={{padding: 16}}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <View style={{ padding: 16 }}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Icon name="arrow-back" size={24} color="#1F2937" />
+            <Icon name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
-        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="alert-circle-outline" size={48} color="#EF4444" />
-          <Text style={{marginTop: 16, color: '#6B7280'}}>Job not found</Text>
+          <Text style={{ marginTop: 16, color: colors.textSecondary }}>Job not found</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#FFFFFF'}} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
       {/* Header */}
       <View style={{
         flexDirection: 'row',
@@ -372,11 +375,11 @@ const JobTrackingScreen = ({navigation, route}) => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <View style={{flex: 1, marginLeft: 16}}>
-          <Text style={{fontSize: 18, fontWeight: '600', color: '#FFFFFF'}}>
+        <View style={{ flex: 1, marginLeft: 16 }}>
+          <Text style={{ fontSize: 18, fontWeight: '600', color: '#FFFFFF' }}>
             Track Provider
           </Text>
-          <Text style={{fontSize: 13, color: '#FFFFFF', opacity: 0.9}}>
+          <Text style={{ fontSize: 13, color: '#FFFFFF', opacity: 0.9 }}>
             {getStatusText()}
           </Text>
         </View>
@@ -388,7 +391,7 @@ const JobTrackingScreen = ({navigation, route}) => {
       {/* Map */}
       <MapView
         ref={mapRef}
-        style={{flex: 1}}
+        style={{ flex: 1 }}
         provider={PROVIDER_GOOGLE}
         initialRegion={{
           latitude: providerLocation?.latitude || clientLocation?.latitude || 10.1301,
@@ -398,14 +401,14 @@ const JobTrackingScreen = ({navigation, route}) => {
         }}
         showsUserLocation={false}
         showsMyLocationButton={false}>
-        
+
         {/* Provider Marker - Same style as ClientHomeScreen */}
         {providerLocation && (
           <Marker.Animated
             ref={markerRef}
             coordinate={providerCoordinate}
             title={providerInfo?.name || 'Provider'}
-            anchor={{x: 0.5, y: 0.5}}
+            anchor={{ x: 0.5, y: 0.5 }}
             flat={true}
             rotation={heading}>
             <View style={{
@@ -420,17 +423,17 @@ const JobTrackingScreen = ({navigation, route}) => {
               overflow: 'hidden',
               elevation: 5,
               shadowColor: '#000',
-              shadowOffset: {width: 0, height: 2},
+              shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.3,
               shadowRadius: 4,
             }}>
               {providerInfo?.photo ? (
-                <Image 
-                  source={{uri: providerInfo.photo}} 
-                  style={{width: 38, height: 38, borderRadius: 19}} 
+                <Image
+                  source={{ uri: providerInfo.photo }}
+                  style={{ width: 38, height: 38, borderRadius: 19 }}
                 />
               ) : (
-                <Text style={{fontSize: 18, fontWeight: '700', color: '#00B14F'}}>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#00B14F' }}>
                   {providerInfo?.name?.charAt(0)?.toUpperCase() || 'P'}
                 </Text>
               )}
@@ -456,7 +459,7 @@ const JobTrackingScreen = ({navigation, route}) => {
               overflow: 'hidden',
               elevation: 5,
               shadowColor: '#000',
-              shadowOffset: {width: 0, height: 2},
+              shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.3,
               shadowRadius: 4,
             }}>
@@ -481,38 +484,38 @@ const JobTrackingScreen = ({navigation, route}) => {
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: colors.card,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         padding: 20,
         shadowColor: '#000',
-        shadowOffset: {width: 0, height: -4},
+        shadowOffset: { width: 0, height: -4 },
         shadowOpacity: 0.1,
         shadowRadius: 8,
         elevation: 10,
       }}>
         {/* Provider Info */}
-        <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 16}}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
           <View style={{
             width: 56,
             height: 56,
             borderRadius: 28,
-            backgroundColor: '#F3F4F6',
+            backgroundColor: isDark ? '#374151' : '#F3F4F6',
             justifyContent: 'center',
             alignItems: 'center',
             overflow: 'hidden',
           }}>
             {providerInfo?.photo ? (
-              <Image source={{uri: providerInfo.photo}} style={{width: 56, height: 56}} />
+              <Image source={{ uri: providerInfo.photo }} style={{ width: 56, height: 56 }} />
             ) : (
-              <Icon name="person" size={28} color="#6B7280" />
+              <Icon name="person" size={28} color={colors.textSecondary} />
             )}
           </View>
-          <View style={{flex: 1, marginLeft: 12}}>
-            <Text style={{fontSize: 16, fontWeight: '600', color: '#1F2937'}}>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>
               {providerInfo?.name || 'Provider'}
             </Text>
-            <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 4}}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
               <View style={{
                 width: 10,
                 height: 10,
@@ -520,7 +523,7 @@ const JobTrackingScreen = ({navigation, route}) => {
                 backgroundColor: getStatusColor(),
                 marginRight: 6,
               }} />
-              <Text style={{fontSize: 13, color: getStatusColor(), fontWeight: '500'}}>
+              <Text style={{ fontSize: 13, color: getStatusColor(), fontWeight: '500' }}>
                 {getStatusText()}
               </Text>
             </View>
@@ -530,34 +533,34 @@ const JobTrackingScreen = ({navigation, route}) => {
         {/* ETA Info */}
         <View style={{
           flexDirection: 'row',
-          backgroundColor: '#F3F4F6',
+          backgroundColor: isDark ? '#374151' : '#F3F4F6',
           borderRadius: 12,
           padding: 16,
           marginBottom: 16,
         }}>
-          <View style={{flex: 1, alignItems: 'center'}}>
+          <View style={{ flex: 1, alignItems: 'center' }}>
             <Icon name="speedometer-outline" size={24} color="#00B14F" />
-            <Text style={{fontSize: 18, fontWeight: '700', color: '#1F2937', marginTop: 4}}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, marginTop: 4 }}>
               {distance ? `${distance} km` : '--'}
             </Text>
-            <Text style={{fontSize: 12, color: '#6B7280'}}>Distance</Text>
+            <Text style={{ fontSize: 12, color: colors.textSecondary }}>Distance</Text>
           </View>
-          <View style={{width: 1, backgroundColor: '#E5E7EB'}} />
-          <View style={{flex: 1, alignItems: 'center'}}>
+          <View style={{ width: 1, backgroundColor: colors.border }} />
+          <View style={{ flex: 1, alignItems: 'center' }}>
             <Icon name="time-outline" size={24} color="#00B14F" />
-            <Text style={{fontSize: 18, fontWeight: '700', color: '#1F2937', marginTop: 4}}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, marginTop: 4 }}>
               {duration ? `${duration} min` : '--'}
             </Text>
-            <Text style={{fontSize: 12, color: '#6B7280'}}>ETA</Text>
+            <Text style={{ fontSize: 12, color: colors.textSecondary }}>ETA</Text>
           </View>
         </View>
 
         {/* Contact Buttons */}
-        <View style={{flexDirection: 'row'}}>
+        <View style={{ flexDirection: 'row' }}>
           <TouchableOpacity
             style={{
               flex: 1,
-              backgroundColor: '#F3F4F6',
+              backgroundColor: isDark ? '#374151' : '#F3F4F6',
               paddingVertical: 14,
               borderRadius: 12,
               flexDirection: 'row',
@@ -567,7 +570,7 @@ const JobTrackingScreen = ({navigation, route}) => {
             }}
             onPress={handleCallProvider}>
             <Icon name="call" size={20} color="#00B14F" />
-            <Text style={{fontSize: 14, fontWeight: '600', color: '#1F2937', marginLeft: 8}}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text, marginLeft: 8 }}>
               Call
             </Text>
           </TouchableOpacity>
@@ -584,7 +587,7 @@ const JobTrackingScreen = ({navigation, route}) => {
             }}
             onPress={handleMessageProvider}>
             <Icon name="chatbubble" size={20} color="#FFFFFF" />
-            <Text style={{fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginLeft: 8}}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginLeft: 8 }}>
               Message
             </Text>
           </TouchableOpacity>

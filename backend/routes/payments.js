@@ -31,7 +31,7 @@ router.post('/create-source', async (req, res) => {
     }
 
     const paymentType = type?.toLowerCase() || 'gcash';
-    
+
     if (!['gcash', 'paymaya', 'maya'].includes(paymentType)) {
       return res.status(400).json({ error: 'Invalid payment type. Use gcash or paymaya' });
     }
@@ -62,16 +62,16 @@ router.post('/create-source', async (req, res) => {
     }
 
     // PayMongo requires valid HTTP/HTTPS URLs for redirects
-    const webUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
-      ? process.env.FRONTEND_URL 
+    const webUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*'
+      ? process.env.FRONTEND_URL
       : 'https://gss-maasin-app.vercel.app';
 
     // Use different redirect URLs based on platform
     const isWeb = platform === 'web';
-    const successUrl = isWeb 
+    const successUrl = isWeb
       ? `${webUrl}/client/bookings/${bookingId}?payment=success`
       : `${webUrl}/payment/success?bookingId=${bookingId}`;
-    const failedUrl = isWeb 
+    const failedUrl = isWeb
       ? `${webUrl}/client/bookings/${bookingId}?payment=failed`
       : `${webUrl}/payment/failed?bookingId=${bookingId}`;
 
@@ -121,9 +121,9 @@ router.post('/create-source', async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating payment source:', error.response?.data || error.message);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: error.response?.data?.errors?.[0]?.detail || error.message 
+      error: error.response?.data?.errors?.[0]?.detail || error.message
     });
   }
 });
@@ -134,28 +134,28 @@ const verifyWebhookSignature = (payload, signature, secret) => {
     console.warn('PAYMONGO_WEBHOOK_SECRET not configured, skipping signature verification');
     return true; // Skip verification if secret not configured (dev mode)
   }
-  
+
   try {
     // PayMongo signature format: t=timestamp,te=test_signature,li=live_signature
     const parts = signature.split(',');
     const timestampPart = parts.find(p => p.startsWith('t='));
     const testSigPart = parts.find(p => p.startsWith('te='));
     const liveSigPart = parts.find(p => p.startsWith('li='));
-    
+
     if (!timestampPart) return false;
-    
+
     const timestamp = timestampPart.split('=')[1];
     const expectedSig = testSigPart ? testSigPart.split('=')[1] : (liveSigPart ? liveSigPart.split('=')[1] : null);
-    
+
     if (!expectedSig) return false;
-    
+
     // Create signature: HMAC-SHA256 of timestamp + '.' + payload
     const signedPayload = `${timestamp}.${JSON.stringify(payload)}`;
     const computedSig = crypto
       .createHmac('sha256', secret)
       .update(signedPayload)
       .digest('hex');
-    
+
     return crypto.timingSafeEqual(
       Buffer.from(expectedSig),
       Buffer.from(computedSig)
@@ -214,16 +214,16 @@ router.post('/create-gcash-source', async (req, res) => {
     }
 
     // PayMongo requires valid HTTP/HTTPS URLs for redirects
-    const webUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
-      ? process.env.FRONTEND_URL 
+    const webUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*'
+      ? process.env.FRONTEND_URL
       : 'https://gss-maasin-app.vercel.app';
 
     // Use different redirect URLs based on platform
     const isWeb = platform === 'web';
-    const successUrl = isWeb 
+    const successUrl = isWeb
       ? `${webUrl}/client/bookings/${bookingId}?payment=success`
       : `${webUrl}/payment/success?bookingId=${bookingId}`;
-    const failedUrl = isWeb 
+    const failedUrl = isWeb
       ? `${webUrl}/client/bookings/${bookingId}?payment=failed`
       : `${webUrl}/payment/failed?bookingId=${bookingId}`;
 
@@ -307,16 +307,16 @@ router.post('/create-paymaya-source', async (req, res) => {
     }
 
     // PayMongo requires valid HTTP/HTTPS URLs for redirects
-    const webUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' 
-      ? process.env.FRONTEND_URL 
+    const webUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*'
+      ? process.env.FRONTEND_URL
       : 'https://gss-maasin-app.vercel.app';
 
     // Use different redirect URLs based on platform
     const isWeb = platform === 'web';
-    const successUrl = isWeb 
+    const successUrl = isWeb
       ? `${webUrl}/client/bookings/${bookingId}?payment=success`
       : `${webUrl}/payment/success?bookingId=${bookingId}`;
-    const failedUrl = isWeb 
+    const failedUrl = isWeb
       ? `${webUrl}/client/bookings/${bookingId}?payment=failed`
       : `${webUrl}/payment/failed?bookingId=${bookingId}`;
 
@@ -364,6 +364,155 @@ router.post('/create-paymaya-source', async (req, res) => {
   } catch (error) {
     console.error('Error creating PayMaya source:', error.response?.data || error.message);
     res.status(500).json({ error: error.response?.data?.errors?.[0]?.detail || error.message });
+  }
+});
+
+// QRPh Payment - uses Payment Intent workflow (not Sources)
+router.post('/create-qrph-payment', async (req, res) => {
+  try {
+    const { amount, bookingId, userId, description, platform } = req.body;
+
+    if (!amount || !bookingId) {
+      return res.status(400).json({ error: 'amount and bookingId are required' });
+    }
+
+    const db = getDb();
+
+    // Check for existing pending payment for this booking with same amount
+    try {
+      const existingPayments = await db.collection('payments')
+        .where('bookingId', '==', bookingId)
+        .get();
+
+      const pendingPayment = existingPayments.docs
+        .map(doc => doc.data())
+        .find(p => p.status === 'pending' && p.checkoutUrl && p.amount === amount);
+
+      if (pendingPayment) {
+        return res.json({
+          success: true,
+          sourceId: pendingPayment.sourceId,
+          checkoutUrl: pendingPayment.checkoutUrl,
+          status: 'pending',
+          existing: true,
+        });
+      }
+    } catch (queryError) {
+      console.log('Error checking existing QRPh payments:', queryError.message);
+    }
+
+    // PayMongo requires valid HTTP/HTTPS URLs for redirects
+    const webUrl = process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*'
+      ? process.env.FRONTEND_URL
+      : 'https://gss-maasin-app.vercel.app';
+
+    // Use different redirect URLs based on platform
+    const isWeb = platform === 'web';
+    const successUrl = isWeb
+      ? `${webUrl}/client/bookings/${bookingId}?payment=success`
+      : `${webUrl}/payment/success?bookingId=${bookingId}`;
+    const failedUrl = isWeb
+      ? `${webUrl}/client/bookings/${bookingId}?payment=failed`
+      : `${webUrl}/payment/failed?bookingId=${bookingId}`;
+
+    const amountInCentavos = Math.round(amount * 100);
+
+    // Step 1: Create Payment Intent with qrph as allowed method
+    const intentResponse = await axios.post(
+      `${PAYMONGO_API}/payment_intents`,
+      {
+        data: {
+          attributes: {
+            amount: amountInCentavos,
+            currency: 'PHP',
+            payment_method_allowed: ['qrph'],
+            description: description || 'Service Payment',
+            metadata: {
+              bookingId,
+              userId,
+            },
+          },
+        },
+      },
+      paymongoAuth
+    );
+
+    const paymentIntent = intentResponse.data.data;
+    const paymentIntentId = paymentIntent.id;
+    const clientKey = paymentIntent.attributes.client_key;
+
+    // Step 2: Create QRPh Payment Method
+    const methodResponse = await axios.post(
+      `${PAYMONGO_API}/payment_methods`,
+      {
+        data: {
+          attributes: {
+            type: 'qrph',
+          },
+        },
+      },
+      paymongoAuth
+    );
+
+    const paymentMethod = methodResponse.data.data;
+    const paymentMethodId = paymentMethod.id;
+
+    // Step 3: Attach Payment Method to Intent
+    const attachResponse = await axios.post(
+      `${PAYMONGO_API}/payment_intents/${paymentIntentId}/attach`,
+      {
+        data: {
+          attributes: {
+            payment_method: paymentMethodId,
+            client_key: clientKey,
+            return_url: successUrl,
+          },
+        },
+      },
+      paymongoAuth
+    );
+
+    const attachedIntent = attachResponse.data.data;
+    const nextAction = attachedIntent.attributes.next_action;
+
+    // The checkout URL is in next_action.redirect.url
+    const checkoutUrl = nextAction?.redirect?.url || null;
+
+    if (!checkoutUrl) {
+      console.error('No checkout URL returned from QRPh attach:', JSON.stringify(attachedIntent.attributes, null, 2));
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to generate QRPh checkout URL'
+      });
+    }
+
+    // Save payment record (use paymentIntentId as doc ID for QRPh)
+    await db.collection('payments').doc(paymentIntentId).set({
+      sourceId: paymentIntentId, // Use intent ID as sourceId for compatibility
+      paymentIntentId,
+      paymentMethodId,
+      bookingId,
+      userId: userId || null,
+      amount,
+      type: 'qrph',
+      status: 'pending',
+      checkoutUrl,
+      clientKey,
+      createdAt: new Date(),
+    });
+
+    res.json({
+      success: true,
+      sourceId: paymentIntentId,
+      checkoutUrl,
+      status: 'awaiting_next_action',
+    });
+  } catch (error) {
+    console.error('Error creating QRPh payment:', error.response?.data || error.message);
+    res.status(500).json({
+      success: false,
+      error: error.response?.data?.errors?.[0]?.detail || error.message
+    });
   }
 });
 
@@ -455,11 +604,11 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
       // Get booking to check if it needs status fix
       const bookingDoc = await db.collection('bookings').doc(bookingId).get();
       const bookingData = bookingDoc.data();
-      
+
       // Fix stuck "Pay First" jobs that are in pending_payment but already paid
-      if (bookingData?.paymentPreference === 'pay_first' && 
-          bookingData?.isPaidUpfront && 
-          bookingData?.status === 'pending_payment') {
+      if (bookingData?.paymentPreference === 'pay_first' &&
+        bookingData?.isPaidUpfront &&
+        bookingData?.status === 'pending_payment') {
         await db.collection('bookings').doc(bookingId).update({
           status: 'accepted',
           updatedAt: new Date(),
@@ -467,7 +616,7 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
         console.log(`Fixed stuck Pay First booking ${bookingId}: pending_payment -> accepted`);
         return res.json({ status: 'paid', message: 'Payment already processed, booking status fixed' });
       }
-      
+
       return res.json({ status: 'paid', message: 'Payment already processed' });
     }
 
@@ -484,7 +633,7 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
     if (sourceStatus === 'chargeable') {
       // Source is chargeable, create payment
       const amount = source.attributes.amount;
-      
+
       const paymentResponse = await axios.post(
         `${PAYMONGO_API}/payments`,
         {
@@ -587,7 +736,7 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
           const providerDoc = await providerRef.get();
           const currentBalance = providerDoc.data()?.availableBalance || 0;
           const currentEarnings = providerDoc.data()?.totalEarnings || 0;
-          
+
           await providerRef.update({
             availableBalance: currentBalance + providerShare,
             totalEarnings: currentEarnings + providerShare,
@@ -685,7 +834,7 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
           const providerDoc = await providerRef.get();
           const currentBalance = providerDoc.data()?.availableBalance || 0;
           const currentEarnings = providerDoc.data()?.totalEarnings || 0;
-          
+
           await providerRef.update({
             availableBalance: currentBalance + providerShare,
             totalEarnings: currentEarnings + providerShare,
@@ -717,7 +866,7 @@ router.post('/webhook', async (req, res) => {
   try {
     const signature = req.headers['paymongo-signature'];
     const db = getDb();
-    
+
     // Verify webhook signature (skip in dev if not configured)
     if (PAYMONGO_WEBHOOK_SECRET && !verifyWebhookSignature(req.body, signature, PAYMONGO_WEBHOOK_SECRET)) {
       console.error('Invalid webhook signature');
@@ -867,7 +1016,7 @@ router.post('/webhook', async (req, res) => {
           const providerDoc = await providerRef.get();
           const currentBalance = providerDoc.data()?.availableBalance || 0;
           const currentEarnings = providerDoc.data()?.totalEarnings || 0;
-          
+
           await providerRef.update({
             availableBalance: currentBalance + providerShare,
             totalEarnings: currentEarnings + providerShare,
@@ -883,6 +1032,119 @@ router.post('/webhook', async (req, res) => {
     if (eventType === 'payment.paid') {
       const payment = event.attributes.data;
       console.log('Payment completed:', payment.id);
+
+      // Handle QRPh (Payment Intent) completed payments
+      const paymentIntentId = payment.attributes.payment_intent_id;
+      if (paymentIntentId) {
+        // This is a Payment Intent payment (QRPh) - look up by paymentIntentId
+        const qrphPaymentDoc = await db.collection('payments').doc(paymentIntentId).get();
+        if (qrphPaymentDoc.exists) {
+          const paymentData = qrphPaymentDoc.data();
+
+          // Only process if not already paid
+          if (paymentData.status !== 'paid') {
+            const amount = payment.attributes.amount;
+            const amountInPesos = amount / 100;
+
+            // Update payment record
+            await db.collection('payments').doc(paymentIntentId).update({
+              paymentId: payment.id,
+              status: 'paid',
+              paidAt: new Date(),
+              webhookProcessed: true,
+              balanceUpdated: true,
+            });
+
+            if (paymentData.bookingId) {
+              // Check if transaction already exists to avoid duplicates
+              const existingTx = await db.collection('transactions')
+                .where('bookingId', '==', paymentData.bookingId)
+                .where('type', '==', 'payment')
+                .get();
+
+              if (!existingTx.empty) {
+                console.log(`Transaction already exists for QRPh booking ${paymentData.bookingId}, skipping`);
+                await markEventProcessed(db, eventId, eventType);
+                return res.json({ received: true, skipped: true, reason: 'transaction_exists' });
+              }
+
+              // Get booking to find providerId
+              const bookingDoc = await db.collection('bookings').doc(paymentData.bookingId).get();
+              const bookingData = bookingDoc.data();
+              const providerId = bookingData?.providerId;
+              const providerShare = bookingData?.providerPrice || bookingData?.providerFixedPrice || bookingData?.offeredPrice || Math.round(amountInPesos / 1.05);
+              const platformCommission = amountInPesos - providerShare;
+
+              const isPayFirstBooking = bookingData?.paymentPreference === 'pay_first';
+              const isUpfrontPayment = isPayFirstBooking && !bookingData?.isPaidUpfront;
+              const isEscrowPayment = bookingData?.status === 'awaiting_payment';
+
+              const bookingUpdate = {
+                paid: true,
+                paymentId: payment.id,
+                paymentMethod: 'qrph',
+                paidAt: new Date(),
+                updatedAt: new Date(),
+              };
+
+              if (isEscrowPayment) {
+                bookingUpdate.isPaidUpfront = true;
+                bookingUpdate.upfrontPaidAmount = amountInPesos;
+                bookingUpdate.upfrontPaidAt = new Date();
+                bookingUpdate.paymentStatus = 'held';
+                bookingUpdate.status = 'pending';
+                console.log(`QRPh escrow payment for booking ${paymentData.bookingId}: ₱${amountInPesos}`);
+              } else if (isUpfrontPayment) {
+                bookingUpdate.isPaidUpfront = true;
+                bookingUpdate.upfrontPaidAmount = amountInPesos;
+                bookingUpdate.upfrontPaidAt = new Date();
+                bookingUpdate.paymentStatus = 'held';
+                console.log(`QRPh Pay First payment for booking ${paymentData.bookingId}: ₱${amountInPesos}`);
+              } else if (isPayFirstBooking && bookingData?.isPaidUpfront) {
+                if (bookingData?.status === 'pending_payment' || bookingData?.status === 'pending_completion') {
+                  bookingUpdate.status = 'payment_received';
+                }
+              } else {
+                bookingUpdate.status = 'payment_received';
+              }
+
+              await db.collection('bookings').doc(paymentData.bookingId).update(bookingUpdate);
+
+              // Create transaction record
+              await db.collection('transactions').add({
+                bookingId: paymentData.bookingId,
+                clientId: paymentData.userId,
+                providerId: providerId,
+                type: isEscrowPayment ? 'escrow_payment' : 'payment',
+                amount: amountInPesos,
+                providerShare: providerShare,
+                platformCommission: platformCommission,
+                paymentId: payment.id,
+                paymentMethod: 'qrph',
+                status: isEscrowPayment ? 'held' : 'completed',
+                createdAt: new Date(),
+              });
+
+              // Update provider balance for non-escrow payments
+              if (!isEscrowPayment && providerId) {
+                const providerRef = db.collection('users').doc(providerId);
+                const providerDoc = await providerRef.get();
+                const currentBalance = providerDoc.data()?.availableBalance || 0;
+                const currentEarnings = providerDoc.data()?.totalEarnings || 0;
+
+                await providerRef.update({
+                  availableBalance: currentBalance + providerShare,
+                  totalEarnings: currentEarnings + providerShare,
+                  updatedAt: new Date(),
+                });
+                console.log(`QRPh webhook: Provider balance updated: +₱${providerShare}`);
+              }
+
+              console.log(`QRPh payment processed: ₱${amountInPesos} for booking ${paymentData.bookingId}`);
+            }
+          }
+        }
+      }
     }
 
     if (eventType === 'payment.failed') {
@@ -914,7 +1176,7 @@ router.get('/payment-status/:bookingId', async (req, res) => {
     const { bookingId } = req.params;
 
     const db = getDb();
-    
+
     // Query without orderBy to avoid needing composite index
     const paymentsSnapshot = await db
       .collection('payments')
@@ -930,7 +1192,7 @@ router.get('/payment-status/:bookingId', async (req, res) => {
       ...doc.data(),
       id: doc.id,
     }));
-    
+
     // Sort by createdAt descending (most recent first)
     payments.sort((a, b) => {
       const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt) || new Date(0);
@@ -1111,7 +1373,7 @@ router.post('/auto-refund/:bookingId', async (req, res) => {
         const providerShare = bookingData.providerPrice || bookingData.providerFixedPrice || bookingData.offeredPrice || Math.round(refundAmount / 1.05);
         const currentBalance = providerData.availableBalance || 0;
         const currentEarnings = providerData.totalEarnings || 0;
-        
+
         await providerRef.update({
           availableBalance: Math.max(0, currentBalance - providerShare),
           totalEarnings: Math.max(0, currentEarnings - providerShare),
@@ -1130,7 +1392,7 @@ router.post('/auto-refund/:bookingId', async (req, res) => {
         if (clientDoc.exists) {
           const clientData = clientDoc.data();
           const clientEmail = clientData.email;
-          
+
           if (clientEmail) {
             await sendRefundNotification(clientEmail, {
               amount: refund.attributes.amount / 100,
@@ -1157,7 +1419,7 @@ router.post('/auto-refund/:bookingId', async (req, res) => {
     });
   } catch (error) {
     console.error('Error processing auto-refund:', error.response?.data || error.message);
-    
+
     // If PayMongo refund fails, still mark as needing manual refund
     const db = getDb();
     try {
@@ -1169,7 +1431,7 @@ router.post('/auto-refund/:bookingId', async (req, res) => {
       console.error('Error updating booking with refund error:', updateError);
     }
 
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: error.response?.data?.errors?.[0]?.detail || error.message,
       message: 'Refund failed - marked for manual processing'
@@ -1185,19 +1447,19 @@ router.get('/provider-balance/:providerId', async (req, res) => {
 
     // Get provider's balance from user document
     const providerDoc = await db.collection('users').doc(providerId).get();
-    
+
     if (!providerDoc.exists) {
       return res.status(404).json({ error: 'Provider not found' });
     }
 
     const providerData = providerDoc.data();
-    
+
     // Calculate pending balance from incomplete jobs
     const pendingJobsSnapshot = await db.collection('bookings')
       .where('providerId', '==', providerId)
       .where('status', 'in', ['in_progress', 'pending_completion', 'pending_payment'])
       .get();
-    
+
     let pendingBalance = 0;
     pendingJobsSnapshot.docs.forEach(doc => {
       const job = doc.data();
@@ -1238,8 +1500,8 @@ router.post('/request-payout', async (req, res) => {
     const availableBalance = providerData.availableBalance || 0;
 
     if (amount > availableBalance) {
-      return res.status(400).json({ 
-        error: `Insufficient balance. Available: ₱${availableBalance.toFixed(2)}` 
+      return res.status(400).json({
+        error: `Insufficient balance. Available: ₱${availableBalance.toFixed(2)}`
       });
     }
 
@@ -1267,10 +1529,10 @@ router.post('/request-payout', async (req, res) => {
       const adminsSnapshot = await db.collection('users')
         .where('role', '==', 'ADMIN')
         .get();
-      
+
       const providerName = `${providerData.firstName || ''} ${providerData.lastName || ''}`.trim() || 'A provider';
       const payoutMethod = (accountMethod || providerData.payoutAccount?.method || 'wallet').toUpperCase();
-      
+
       const notificationPromises = adminsSnapshot.docs.map(adminDoc => {
         return db.collection('notifications').add({
           userId: adminDoc.id,
@@ -1289,7 +1551,7 @@ router.post('/request-payout', async (req, res) => {
           createdAt: new Date(),
         });
       });
-      
+
       await Promise.all(notificationPromises);
       console.log(`Sent payout request notification to ${adminsSnapshot.docs.length} admins`);
     } catch (notifError) {
@@ -1398,7 +1660,7 @@ router.post('/cash-payment', async (req, res) => {
       if (providerDoc.exists) {
         const currentBalance = providerDoc.data()?.availableBalance || 0;
         const currentEarnings = providerDoc.data()?.totalEarnings || 0;
-        
+
         await providerRef.update({
           availableBalance: currentBalance + providerShare,
           totalEarnings: currentEarnings + providerShare,
@@ -1423,10 +1685,10 @@ router.get('/admin/earnings', async (req, res) => {
 
     // Build query for transactions
     let query = db.collection('transactions').where('type', '==', 'payment');
-    
+
     // Get all completed transactions
     const transactionsSnapshot = await query.get();
-    
+
     let totalRevenue = 0;
     let totalCommission = 0;
     let transactionCount = 0;
@@ -1434,11 +1696,11 @@ router.get('/admin/earnings', async (req, res) => {
     transactionsSnapshot.docs.forEach(doc => {
       const tx = doc.data();
       const txDate = tx.createdAt?.toDate?.() || new Date(tx.createdAt);
-      
+
       // Filter by date if provided
       if (startDate && txDate < new Date(startDate)) return;
       if (endDate && txDate > new Date(endDate)) return;
-      
+
       totalRevenue += tx.amount || 0;
       totalCommission += tx.platformCommission || (tx.amount * 0.05) || 0;
       transactionCount++;
@@ -1448,7 +1710,7 @@ router.get('/admin/earnings', async (req, res) => {
     const pendingPayoutsSnapshot = await db.collection('payouts')
       .where('status', '==', 'pending')
       .get();
-    
+
     let pendingPayoutsAmount = 0;
     pendingPayoutsSnapshot.docs.forEach(doc => {
       pendingPayoutsAmount += doc.data().amount || 0;
@@ -1458,7 +1720,7 @@ router.get('/admin/earnings', async (req, res) => {
     const completedPayoutsSnapshot = await db.collection('payouts')
       .where('status', '==', 'completed')
       .get();
-    
+
     let completedPayoutsAmount = 0;
     completedPayoutsSnapshot.docs.forEach(doc => {
       completedPayoutsAmount += doc.data().amount || 0;
@@ -1502,12 +1764,12 @@ router.get('/admin/payouts', async (req, res) => {
     // Combine docs from both collections, track seen IDs to avoid duplicates
     const seenIds = new Set();
     const allDocs = [];
-    
+
     payoutsSnapshot.docs.forEach(doc => {
       seenIds.add(doc.id);
       allDocs.push({ doc, source: 'payouts' });
     });
-    
+
     payoutRequestsSnapshot.docs.forEach(doc => {
       if (!seenIds.has(doc.id)) {
         allDocs.push({ doc, source: 'payoutRequests' });
@@ -1518,7 +1780,7 @@ router.get('/admin/payouts', async (req, res) => {
     const payouts = await Promise.all(allDocs.map(async ({ doc, source }) => {
       const payout = doc.data();
       let providerName = payout.providerName || 'Unknown';
-      
+
       try {
         if (payout.providerId && !payout.providerName) {
           const providerDoc = await db.collection('users').doc(payout.providerId).get();
@@ -1742,7 +2004,7 @@ router.post('/release-escrow/:bookingId', async (req, res) => {
 
     const providerId = booking.providerId;
     const totalAmount = booking.escrowAmount || booking.totalAmount || 0;
-    
+
     // IMPORTANT: Provider keeps their FULL price - 5% fee is paid by client ON TOP
     // providerPrice is the provider's actual price, totalAmount includes the 5% fee
     const providerShare = booking.providerPrice || booking.providerFixedPrice || booking.offeredPrice || Math.round(totalAmount / 1.05);
@@ -1778,7 +2040,7 @@ router.post('/release-escrow/:bookingId', async (req, res) => {
       if (providerDoc.exists) {
         const currentBalance = providerDoc.data()?.availableBalance || 0;
         const currentEarnings = providerDoc.data()?.totalEarnings || 0;
-        
+
         await providerRef.update({
           availableBalance: currentBalance + providerShare,
           totalEarnings: currentEarnings + providerShare,
@@ -1830,7 +2092,7 @@ router.post('/release-escrow/:bookingId', async (req, res) => {
           updatedAt: new Date(),
         });
       }
-      
+
       console.log(`Gamification points awarded for escrow release - Provider: 100pts, Client: 50pts`);
     } catch (gamError) {
       console.error('Error awarding gamification points:', gamError);
