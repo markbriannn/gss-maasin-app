@@ -93,8 +93,8 @@ export const paymentService = {
     }
   },
 
-  createQRPhPayment: async (bookingId, userId, amount, description) => {
-    console.log('Creating QRPh payment:', { bookingId, userId, amount, description });
+  createQRPhPayment: async (bookingId, userId, amount, description, options = {}) => {
+    console.log('Creating QRPh payment:', { bookingId, userId, amount, description, options });
     try {
       const response = await withRetry(() =>
         apiClient.post('/payments/create-qrph-payment', {
@@ -103,6 +103,8 @@ export const paymentService = {
           userId,
           description,
           platform: 'mobile',
+          ...(options.chargeId && { chargeId: options.chargeId }),
+          ...(options.paymentType && { paymentType: options.paymentType }),
         })
       );
 

@@ -370,7 +370,7 @@ router.post('/create-paymaya-source', async (req, res) => {
 // QRPh Payment - uses Checkout Session (provides hosted checkout page with QR code)
 router.post('/create-qrph-payment', async (req, res) => {
   try {
-    const { amount, bookingId, userId, description, platform } = req.body;
+    const { amount, bookingId, userId, description, platform, chargeId, paymentType } = req.body;
 
     if (!amount || !bookingId) {
       return res.status(400).json({ error: 'amount and bookingId are required' });
@@ -441,6 +441,8 @@ router.post('/create-qrph-payment', async (req, res) => {
             metadata: {
               bookingId,
               userId: userId || '',
+              chargeId: chargeId || '',
+              paymentType: paymentType || 'booking',
             },
           },
         },
@@ -468,6 +470,8 @@ router.post('/create-qrph-payment', async (req, res) => {
       userId: userId || null,
       amount,
       type: 'qrph',
+      paymentType: paymentType || 'booking',
+      chargeId: chargeId || null,
       status: 'pending',
       checkoutUrl,
       createdAt: new Date(),
@@ -808,9 +812,9 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
           console.log(`Duplicate payment for Pay First booking ${bookingId}, status unchanged: ${bookingData?.status}`);
         }
       } else {
-        // Pay Later - mark as payment received
+        // Fallback - mark as payment received (system is pay_first only)
         bookingUpdate.status = 'payment_received';
-        console.log(`Pay Later payment processed for booking ${bookingId}: ₱${amountInPesos}`);
+        console.log(`Fallback payment processed for booking ${bookingId}: ₱${amountInPesos}`);
       }
 
       await db.collection('bookings').doc(bookingId).update(bookingUpdate);
@@ -907,9 +911,9 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
           console.log(`Duplicate/extra payment for Pay First booking ${bookingId}, status unchanged: ${bookingData?.status}`);
         }
       } else {
-        // Pay Later - mark as payment received
+        // Fallback - mark as payment received (system is pay_first only)
         bookingUpdate.status = 'payment_received';
-        console.log(`Pay Later payment synced for booking ${bookingId}: ₱${amountInPesos}`);
+        console.log(`Fallback payment synced for booking ${bookingId}: ₱${amountInPesos}`);
       }
 
       await db.collection('bookings').doc(bookingId).update(bookingUpdate);
@@ -1087,6 +1091,18 @@ router.post('/webhook', async (req, res) => {
             bookingUpdate.status = 'pending';
           }
           console.log(`Pay First upfront payment received for booking ${paymentData.bookingId}: ₱${amountInPesos}, status: ${bookingData?.status} -> ${bookingUpdate.status || bookingData?.status}`);
+        } else if (paymentData?.paymentType === 'additional_charge' && paymentData?.chargeId) {
+          // Additional charge payment - update the specific charge status to 'paid'
+          const charges = bookingData?.additionalCharges || [];
+          const updatedCharges = charges.map(c =>
+            c.id === paymentData.chargeId
+              ? { ...c, status: 'paid', paidAt: new Date().toISOString(), paymentId: payment.id }
+              : c
+          );
+          bookingUpdate.additionalCharges = updatedCharges;
+          bookingUpdate.additionalChargesPaid = true;
+          // Don't change the main booking status for additional charges
+          console.log(`Additional charge ${paymentData.chargeId} paid for booking ${paymentData.bookingId}: ₱${amountInPesos}`);
         } else if (isPayFirstBooking && bookingData?.isPaidUpfront) {
           // Pay First booking that's already paid - this is likely additional charges payment
           // Only change to payment_received if we're in pending_payment or pending_completion status
@@ -1098,9 +1114,9 @@ router.post('/webhook', async (req, res) => {
             console.log(`Duplicate/extra payment for Pay First booking ${paymentData.bookingId}, status unchanged: ${bookingData?.status}`);
           }
         } else {
-          // Pay Later - mark as payment received (this is the final payment after work is done)
+          // Fallback - mark as payment received (system is pay_first only)
           bookingUpdate.status = 'payment_received';
-          console.log(`Pay Later payment received for booking ${paymentData.bookingId}: ₱${amountInPesos}`);
+          console.log(`Fallback payment received for booking ${paymentData.bookingId}: ₱${amountInPesos}`);
         }
 
         await db.collection('bookings').doc(paymentData.bookingId).update(bookingUpdate);

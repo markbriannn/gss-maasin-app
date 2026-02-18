@@ -188,7 +188,7 @@ export default function AdminJobsPage() {
             providerFixedPrice: data.providerFixedPrice || 0,
             counterOfferPrice: data.counterOfferPrice || 0,
             adminApproved: data.adminApproved || false,
-            paymentPreference: data.paymentPreference || 'pay_later',
+            paymentPreference: data.paymentPreference || 'pay_first',
             isPaidUpfront: data.isPaidUpfront || false,
             upfrontPaidAmount: data.upfrontPaidAmount || 0,
           };
@@ -621,10 +621,10 @@ export default function AdminJobsPage() {
                       </div>
                       <div>
                         <p className={`font-bold ${selectedJob.paymentPreference === 'pay_first' ? 'text-emerald-700' : 'text-blue-700'}`}>
-                          {selectedJob.paymentPreference === 'pay_first' ? 'PAID' : 'Pay Later'}
+                          {selectedJob.isPaidUpfront ? 'PAID' : 'PENDING PAYMENT'}
                         </p>
                         <p className={`text-sm ${selectedJob.paymentPreference === 'pay_first' ? 'text-emerald-600' : 'text-blue-600'}`}>
-                          {selectedJob.paymentPreference === 'pay_first' ? 'Client pays before service' : 'Client pays after completion'}
+                          {'Client pays before service'}
                         </p>
                       </div>
                     </div>

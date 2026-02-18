@@ -535,16 +535,8 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
       return;
     }
 
-    // Prevent discount if client already paid upfront (Pay First)
-    if (jobData.isPaidUpfront) {
-      Alert.alert(
-        'Cannot Apply Discount',
-        'The client has already paid upfront. Discounts cannot be applied after payment. If needed, contact admin for a partial refund.',
-        [{ text: 'OK' }]
-      );
-      setShowDiscountModal(false);
-      return;
-    }
+    // For pay-first jobs, discount adjusts provider earnings
+    // The client's upfront payment stays the same - admin can process refund if needed
 
     const currentPrice = jobData.providerPrice || jobData.totalAmount || 0;
     const discount = parseFloat(discountAmount);

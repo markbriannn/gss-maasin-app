@@ -1047,7 +1047,7 @@ function JobDetailsContent() {
                       job.paymentStatus === 'released' ? 'Payment Released' :
                         job.isPaidUpfront ? 'Paid Upfront' :
                           job.status === 'awaiting_payment' ? 'Awaiting Payment' :
-                            job.paymentPreference === 'pay_first' ? 'PAID' : 'Pay Later'}
+                            job.isPaidUpfront ? 'PAID' : 'Pending Payment'}
                   </p>
                   <p className={`text-sm mt-0.5 ${job.paymentStatus === 'held' ? 'text-emerald-600' :
                     job.paymentStatus === 'released' ? 'text-blue-600' :

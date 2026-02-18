@@ -508,7 +508,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
                 setJobData(prev => ({ ...prev, status: 'payment_received' }));
                 showSuccessModal('Completed', 'Job marked as complete. Waiting for provider confirmation.');
               } else {
-                // Pay Later OR Pay First with additional charges - need payment
+                // Pay First with additional charges or pending balance - need payment
                 await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
                   status: 'pending_payment',
                   clientConfirmedAt: serverTimestamp(),
@@ -624,7 +624,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
             setShowPaymentModal(false);
             showSuccessModal('Additional Payment Complete', 'The provider will confirm receipt to complete the job.');
           } else {
-            // Pay Later - full payment after work
+            // Fallback payment - additional charges after work
             await updateDoc(doc(db, 'bookings', bookingId), {
               status: 'payment_received',
               clientPaidAt: serverTimestamp(),
