@@ -10,7 +10,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, Phone, MessageCircle, MapPin, Clock,
   CreditCard, CheckCircle, AlertCircle, Star, User,
-  Banknote, Loader2, Wallet, X, ChevronRight, Navigation, Tag
+  Banknote, Loader2, Wallet, X, ChevronRight, Navigation, Tag, QrCode
 } from 'lucide-react';
 import { pushNotifications } from '@/lib/pushNotifications';
 
@@ -435,7 +435,7 @@ function JobDetailsContent() {
     });
   };
 
-  const handlePayment = async (method: 'gcash' | 'maya' | 'cash') => {
+  const handlePayment = async (method: 'qrph' | 'cash') => {
     if (!job || !user) return;
     if (updating) return; // Prevent double-click
 
@@ -507,16 +507,15 @@ function JobDetailsContent() {
         setShowPaymentModal(false);
       } else {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
-        const response = await fetch(`${apiUrl}/payments/create-source`, {
+        const response = await fetch(`${apiUrl}/payments/create-qrph-payment`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             bookingId: job.id,
             userId: user.uid,
             amount,
-            type: method, // gcash or paymaya
             description: `Payment for ${job.title || job.serviceCategory}`,
-            platform: 'web', // Use web redirect URLs
+            platform: 'web',
           }),
         });
 
@@ -531,12 +530,7 @@ function JobDetailsContent() {
         if (result.success && result.checkoutUrl) {
           setShowPaymentModal(false);
           window.open(result.checkoutUrl, '_blank');
-          showAlert('payment', 'Complete Your Payment 💳', `A new tab has opened for ${method === 'gcash' ? 'GCash' : 'Maya'} payment. Complete the payment there, then return here.`);
-        } else if (result.checkoutUrl) {
-          // Handle legacy response format
-          setShowPaymentModal(false);
-          window.open(result.checkoutUrl, '_blank');
-          showAlert('payment', 'Complete Your Payment 💳', `A new tab has opened for ${method === 'gcash' ? 'GCash' : 'Maya'} payment. Complete the payment there, then return here.`);
+          showAlert('payment', 'Complete Your Payment 💳', 'A new tab has opened for QR Ph payment. Scan the QR code with any banking or e-wallet app (GCash, Maya, BPI, etc.) to complete payment, then return here.');
         } else {
           showAlert('error', 'Payment Failed', result.error || 'Failed to create payment. Please try again.');
         }
@@ -774,9 +768,9 @@ function JobDetailsContent() {
 
         {/* Status Banner - Enhanced */}
         <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl mb-5 shadow-sm border ${job.status === 'pending' ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200' :
-            job.status === 'completed' ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' :
-              job.status === 'cancelled' ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-200' :
-                `${statusConfig.bgColor} border-transparent`
+          job.status === 'completed' ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' :
+            job.status === 'cancelled' ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-200' :
+              `${statusConfig.bgColor} border-transparent`
           }`}>
           <div className={`w-3 h-3 rounded-full animate-pulse ${statusConfig.color.replace('text-', 'bg-')}`} />
           <span className={`font-bold text-base ${statusConfig.color}`}>{statusConfig.label}</span>
@@ -1024,15 +1018,15 @@ function JobDetailsContent() {
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Payment Status</h3>
           <div className={`rounded-xl p-5 border-2 ${job.paymentStatus === 'held' ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-300' :
-              job.paymentStatus === 'released' ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300' :
-                job.isPaidUpfront ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300' :
-                  'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300'
+            job.paymentStatus === 'released' ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300' :
+              job.isPaidUpfront ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300' :
+                'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300'
             }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className={`p-3 rounded-xl ${job.paymentStatus === 'held' ? 'bg-emerald-100' :
-                    job.paymentStatus === 'released' ? 'bg-blue-100' :
-                      job.isPaidUpfront ? 'bg-green-100' : 'bg-amber-100'
+                  job.paymentStatus === 'released' ? 'bg-blue-100' :
+                    job.isPaidUpfront ? 'bg-green-100' : 'bg-amber-100'
                   }`}>
                   {job.paymentStatus === 'held' ? (
                     <CheckCircle className="w-6 h-6 text-emerald-600" />
@@ -1046,8 +1040,8 @@ function JobDetailsContent() {
                 </div>
                 <div>
                   <p className={`font-bold text-base ${job.paymentStatus === 'held' ? 'text-emerald-700' :
-                      job.paymentStatus === 'released' ? 'text-blue-700' :
-                        job.isPaidUpfront ? 'text-green-700' : 'text-amber-700'
+                    job.paymentStatus === 'released' ? 'text-blue-700' :
+                      job.isPaidUpfront ? 'text-green-700' : 'text-amber-700'
                     }`}>
                     {job.paymentStatus === 'held' ? 'Payment Held in Escrow' :
                       job.paymentStatus === 'released' ? 'Payment Released' :
@@ -1056,8 +1050,8 @@ function JobDetailsContent() {
                             job.paymentPreference === 'pay_first' ? 'PAID' : 'Pay Later'}
                   </p>
                   <p className={`text-sm mt-0.5 ${job.paymentStatus === 'held' ? 'text-emerald-600' :
-                      job.paymentStatus === 'released' ? 'text-blue-600' :
-                        job.isPaidUpfront ? 'text-green-600' : 'text-amber-600'
+                    job.paymentStatus === 'released' ? 'text-blue-600' :
+                      job.isPaidUpfront ? 'text-green-600' : 'text-amber-600'
                     }`}>
                     {job.paymentStatus === 'held' ? 'Released when you confirm job completion' :
                       job.paymentStatus === 'released' ? 'Payment sent to provider' :
@@ -1385,8 +1379,8 @@ function JobDetailsContent() {
                 onClick={handleConfirmCompletion}
                 disabled={updating || job.hasAdditionalPending}
                 className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg ${job.hasAdditionalPending
-                    ? 'bg-gray-400 text-white cursor-not-allowed'
-                    : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600'
+                  ? 'bg-gray-400 text-white cursor-not-allowed'
+                  : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600'
                   }`}
               >
                 {updating ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
@@ -1492,8 +1486,8 @@ function JobDetailsContent() {
                   key={reason}
                   onClick={() => setSelectedCancelReason(reason)}
                   className={`w-full p-3 rounded-xl text-left border-2 transition-colors flex items-center gap-3 ${selectedCancelReason === reason
-                      ? 'border-red-500 bg-red-50 text-red-700'
-                      : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-red-500 bg-red-50 text-red-700'
+                    : 'border-gray-200 hover:border-gray-300'
                     }`}
                 >
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedCancelReason === reason ? 'border-red-500' : 'border-gray-300'
@@ -1608,34 +1602,18 @@ function JobDetailsContent() {
             </div>
 
             <div className="space-y-3 mb-6">
-              {/* GCash */}
+              {/* QR Ph */}
               <button
-                onClick={() => handlePayment('gcash')}
+                onClick={() => handlePayment('qrph')}
                 disabled={updating}
-                className="w-full p-4 border-2 border-gray-200 rounded-xl flex items-center gap-4 hover:border-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                className="w-full p-4 border-2 border-gray-200 rounded-xl flex items-center gap-4 hover:border-violet-500 hover:bg-violet-50 transition-colors disabled:opacity-50"
               >
-                <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">G</span>
+                <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-full flex items-center justify-center">
+                  <QrCode className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="font-semibold text-gray-900">GCash</p>
-                  <p className="text-sm text-gray-500">Pay with your GCash wallet</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </button>
-
-              {/* Maya */}
-              <button
-                onClick={() => handlePayment('maya')}
-                disabled={updating}
-                className="w-full p-4 border-2 border-gray-200 rounded-xl flex items-center gap-4 hover:border-green-500 hover:bg-green-50 transition-colors disabled:opacity-50"
-              >
-                <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">M</span>
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-semibold text-gray-900">Maya</p>
-                  <p className="text-sm text-gray-500">Pay with your Maya wallet</p>
+                  <p className="font-semibold text-gray-900">QR Ph</p>
+                  <p className="text-sm text-gray-500">Scan to pay with any banking or e-wallet app</p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-400" />
               </button>
@@ -1691,9 +1669,9 @@ function JobDetailsContent() {
           <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-bounce-in">
             {/* Icon Header */}
             <div className={`p-8 flex flex-col items-center ${alertModal.type === 'success' ? 'bg-gradient-to-br from-emerald-500 to-green-600' :
-                alertModal.type === 'error' ? 'bg-gradient-to-br from-red-500 to-rose-600' :
-                  alertModal.type === 'payment' ? 'bg-gradient-to-br from-blue-500 to-indigo-600' :
-                    'bg-gradient-to-br from-amber-500 to-orange-600'
+              alertModal.type === 'error' ? 'bg-gradient-to-br from-red-500 to-rose-600' :
+                alertModal.type === 'payment' ? 'bg-gradient-to-br from-blue-500 to-indigo-600' :
+                  'bg-gradient-to-br from-amber-500 to-orange-600'
               }`}>
               <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-4">
                 {alertModal.type === 'success' && <CheckCircle className="w-10 h-10 text-white" />}
@@ -1728,9 +1706,9 @@ function JobDetailsContent() {
                   alertModal.onClose?.();
                 }}
                 className={`w-full py-4 rounded-xl font-bold text-white transition-all ${alertModal.type === 'success' ? 'bg-gradient-to-r from-emerald-500 to-green-600 hover:shadow-lg hover:shadow-emerald-500/30' :
-                    alertModal.type === 'error' ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:shadow-lg hover:shadow-red-500/30' :
-                      alertModal.type === 'payment' ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:shadow-lg hover:shadow-blue-500/30' :
-                        'bg-gradient-to-r from-amber-500 to-orange-600 hover:shadow-lg hover:shadow-amber-500/30'
+                  alertModal.type === 'error' ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:shadow-lg hover:shadow-red-500/30' :
+                    alertModal.type === 'payment' ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:shadow-lg hover:shadow-blue-500/30' :
+                      'bg-gradient-to-r from-amber-500 to-orange-600 hover:shadow-lg hover:shadow-amber-500/30'
                   }`}
               >
                 {alertModal.type === 'payment' ? 'Refresh Page' : 'Got it'}

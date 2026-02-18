@@ -546,7 +546,7 @@ export default function AdminJobsPage() {
                               <span className="text-xl font-bold text-emerald-600">₱{job.amount.toLocaleString()}</span>
                             </div>
                             <span className={`px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-700`}>
-                              {(job as any).paymentMethod === 'maya' ? 'MAYA' : 'GCASH'}
+                              {(job as any).paymentMethod === 'cash' ? 'CASH' : 'QR PH'}
                             </span>
                             {job.isPaidUpfront && (
                               <span className="bg-emerald-500 text-white px-2 py-1 rounded-lg text-xs font-bold">✓ PAID</span>

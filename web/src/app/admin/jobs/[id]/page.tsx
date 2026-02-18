@@ -123,7 +123,7 @@ export default function AdminJobDetailsPage() {
 
 
   useEffect(() => {
-    if (!jobId) return;
+    if (!jobId || authLoading || !user) return;
 
     const unsubscribe = onSnapshot(doc(db, "bookings", jobId), async (docSnap) => {
       if (docSnap.exists()) {
@@ -212,7 +212,7 @@ export default function AdminJobDetailsPage() {
     });
 
     return () => unsubscribe();
-  }, [jobId]);
+  }, [jobId, authLoading, user]);
 
 
   const handleApprove = async () => {

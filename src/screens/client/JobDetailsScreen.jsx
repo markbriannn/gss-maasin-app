@@ -565,11 +565,11 @@ const JobDetailsScreen = ({ navigation, route }) => {
     const bookingId = jobData.id || jobId;
     const userId = user?.uid || user?.id;
 
-    // PayMongo minimum amount is ₱100 for QRPh/GCash/Maya
-    if ((method === 'qrph' || method === 'gcash' || method === 'maya') && amount < 100) {
+    // PayMongo minimum amount is ₱100 for QRPh
+    if (method === 'qrph' && amount < 100) {
       Alert.alert(
         'Minimum Amount Required',
-        `The minimum payment amount for ${method === 'qrph' ? 'QR Ph' : method === 'gcash' ? 'GCash' : 'Maya'} is ₱100. Your total is ₱${amount.toLocaleString()}.`,
+        `The minimum payment amount for QR Ph is ₱100. Your total is ₱${amount.toLocaleString()}.`,
         [{ text: 'OK' }]
       );
       return;
@@ -653,19 +653,9 @@ const JobDetailsScreen = ({ navigation, route }) => {
           showErrorModal('Error', result.error || 'Failed to record payment');
         }
       } else {
-        // QRPh, GCash, or Maya - create payment
-        let createPayment;
-        let methodLabel;
-        if (method === 'qrph') {
-          createPayment = paymentService.createQRPhPayment;
-          methodLabel = 'QR Ph';
-        } else if (method === 'gcash') {
-          createPayment = paymentService.createGCashPayment;
-          methodLabel = 'GCash';
-        } else {
-          createPayment = paymentService.createPayMayaPayment;
-          methodLabel = 'Maya';
-        }
+        // QRPh - create payment
+        const createPayment = paymentService.createQRPhPayment;
+        const methodLabel = 'QR Ph';
 
         const result = await createPayment(
           bookingId,
@@ -682,9 +672,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
 
           if (openResult.success) {
             // Show info that they need to complete payment
-            const instructions = method === 'qrph'
-              ? 'Please scan the QR code with your banking or e-wallet app (GCash, Maya, BPI, etc.) to complete payment.'
-              : `Please complete your ${methodLabel} payment in the browser.`;
+            const instructions = 'Please scan the QR code with your banking or e-wallet app (GCash, Maya, BPI, etc.) to complete payment.';
             Alert.alert(
               'Complete Payment',
               `${instructions}\n\nIf the page appears blank or doesn't load, please wait a few seconds and refresh the page.\n\nOnce payment is complete, return to the app and tap "Verify Payment" to confirm.`,
@@ -2074,77 +2062,75 @@ const JobDetailsScreen = ({ navigation, route }) => {
               </Text>
             </Text>
 
-            {/* GCash Option */}
+            {/* QR Ph Option */}
             <TouchableOpacity
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 padding: 16,
-                backgroundColor: selectedPaymentMethod === 'gcash' ? '#EFF6FF' : '#F9FAFB',
+                backgroundColor: selectedPaymentMethod === 'qrph' ? '#F5F3FF' : '#F9FAFB',
                 borderRadius: 12,
                 marginBottom: 12,
                 borderWidth: 2,
-                borderColor: selectedPaymentMethod === 'gcash' ? '#007DFE' : '#E5E7EB',
+                borderColor: selectedPaymentMethod === 'qrph' ? '#7C3AED' : '#E5E7EB',
               }}
-              onPress={() => processPayment('gcash')}
+              onPress={() => processPayment('qrph')}
               disabled={isProcessingPayment}>
               <View style={{
                 width: 48,
                 height: 48,
                 borderRadius: 24,
-                backgroundColor: '#007DFE',
+                backgroundColor: '#7C3AED',
                 justifyContent: 'center',
                 alignItems: 'center',
               }}>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFFFFF' }}>G</Text>
+                <Icon name="qr-code" size={22} color="#FFFFFF" />
               </View>
               <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={{ fontSize: 16, fontWeight: '600', color: '#1F2937' }}>GCash</Text>
-                <Text style={{ fontSize: 13, color: '#6B7280' }}>Pay with your GCash wallet</Text>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#1F2937' }}>QR Ph</Text>
+                <Text style={{ fontSize: 13, color: '#6B7280' }}>Scan to pay with any banking or e-wallet app</Text>
               </View>
-              {isProcessingPayment && selectedPaymentMethod === 'gcash' ? (
-                <ActivityIndicator color="#007DFE" />
+              {isProcessingPayment && selectedPaymentMethod === 'qrph' ? (
+                <ActivityIndicator color="#7C3AED" />
               ) : (
                 <Icon name="chevron-forward" size={20} color="#9CA3AF" />
               )}
             </TouchableOpacity>
 
-            {/* Maya Option */}
+            {/* Cash Option */}
             <TouchableOpacity
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 padding: 16,
-                backgroundColor: selectedPaymentMethod === 'maya' ? '#F0FDF4' : '#F9FAFB',
+                backgroundColor: selectedPaymentMethod === 'cash' ? '#FFFBEB' : '#F9FAFB',
                 borderRadius: 12,
                 marginBottom: 12,
                 borderWidth: 2,
-                borderColor: selectedPaymentMethod === 'maya' ? '#00D66C' : '#E5E7EB',
+                borderColor: selectedPaymentMethod === 'cash' ? '#F59E0B' : '#E5E7EB',
               }}
-              onPress={() => processPayment('maya')}
+              onPress={() => processPayment('cash')}
               disabled={isProcessingPayment}>
               <View style={{
                 width: 48,
                 height: 48,
                 borderRadius: 24,
-                backgroundColor: '#00D66C',
+                backgroundColor: '#F59E0B',
                 justifyContent: 'center',
                 alignItems: 'center',
               }}>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFFFFF' }}>M</Text>
+                <Icon name="cash" size={22} color="#FFFFFF" />
               </View>
               <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={{ fontSize: 16, fontWeight: '600', color: '#1F2937' }}>Maya</Text>
-                <Text style={{ fontSize: 13, color: '#6B7280' }}>Pay with your Maya wallet</Text>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#1F2937' }}>Cash</Text>
+                <Text style={{ fontSize: 13, color: '#6B7280' }}>Pay cash to provider</Text>
               </View>
-              {isProcessingPayment && selectedPaymentMethod === 'maya' ? (
-                <ActivityIndicator color="#00D66C" />
+              {isProcessingPayment && selectedPaymentMethod === 'cash' ? (
+                <ActivityIndicator color="#F59E0B" />
               ) : (
                 <Icon name="chevron-forward" size={20} color="#9CA3AF" />
               )}
             </TouchableOpacity>
-
-            {/* Cash option removed - only GCash and Maya allowed */}
 
             <Text style={{ fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginTop: 16 }}>
               Secure payment powered by PayMongo

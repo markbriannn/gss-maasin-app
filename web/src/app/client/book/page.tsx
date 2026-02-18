@@ -620,8 +620,8 @@ function BookServiceContent() {
                   </div>
                 </div>
 
-                <p className="text-sm font-medium text-gray-700 mb-3">Select Payment Method</p>
-                <div className="grid grid-cols-3 gap-3">
+                <p className="text-sm font-medium text-gray-700 mb-3">Payment Method</p>
+                <div className="grid grid-cols-1 gap-3">
                   <button
                     onClick={() => setPaymentMethod('qrph')}
                     className={`relative p-4 rounded-2xl border-2 text-center transition-all ${paymentMethod === 'qrph'
@@ -640,52 +640,13 @@ function BookServiceContent() {
                     <p className={`font-semibold text-sm ${paymentMethod === 'qrph' ? 'text-violet-600' : 'text-gray-900'}`}>QR Ph</p>
                     <p className="text-xs text-gray-400 mt-0.5">Scan to Pay</p>
                   </button>
-
-                  <button
-                    onClick={() => setPaymentMethod('gcash')}
-                    className={`relative p-4 rounded-2xl border-2 text-center transition-all ${paymentMethod === 'gcash'
-                      ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                  >
-                    {paymentMethod === 'gcash' && (
-                      <div className="absolute top-2 right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                        <Check className="w-3 h-3 text-white" />
-                      </div>
-                    )}
-                    <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center mx-auto mb-2">
-                      <span className="text-white font-bold text-lg">G</span>
-                    </div>
-                    <p className={`font-semibold text-sm ${paymentMethod === 'gcash' ? 'text-blue-600' : 'text-gray-900'}`}>GCash</p>
-                  </button>
-
-                  <button
-                    onClick={() => setPaymentMethod('maya')}
-                    className={`relative p-4 rounded-2xl border-2 text-center transition-all ${paymentMethod === 'maya'
-                      ? 'border-green-500 bg-green-50 shadow-lg shadow-green-100'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                  >
-                    {paymentMethod === 'maya' && (
-                      <div className="absolute top-2 right-2 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                        <Check className="w-3 h-3 text-white" />
-                      </div>
-                    )}
-                    <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center mx-auto mb-2">
-                      <span className="text-white font-bold text-lg">M</span>
-                    </div>
-                    <p className={`font-semibold text-sm ${paymentMethod === 'maya' ? 'text-green-600' : 'text-gray-900'}`}>Maya</p>
-                  </button>
                 </div>
 
                 <div className="mt-4 p-4 bg-amber-50 rounded-xl flex gap-3">
                   <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-amber-800">
-                    {paymentMethod === 'qrph'
-                      ? 'You\'ll be shown a QR code to scan with any banking or e-wallet app (GCash, Maya, BPI, etc.).'
-                      : `You'll be redirected to ${paymentMethod === 'gcash' ? 'GCash' : 'Maya'} to complete payment.`
-                    }{' '}
-                    Money will be held until the provider completes the job and you confirm.
+                    You'll be shown a QR code to scan with any banking or e-wallet app (GCash, Maya, BPI, etc.).
+                    {' '}Money will be held until the provider completes the job and you confirm.
                   </p>
                 </div>
               </div>

@@ -209,7 +209,7 @@ export default function JobsPage() {
             providerFixedPrice: data.providerFixedPrice || 0,
             adminApproved: data.adminApproved || false,
             paymentPreference: 'pay_first',
-            paymentMethod: data.paymentMethod || 'gcash',
+            paymentMethod: data.paymentMethod || 'qrph',
             isPaidUpfront: data.isPaidUpfront || false,
             completedAt: data.completedAt?.toDate?.()?.toLocaleDateString() || '',
             completedAtRaw: data.completedAt?.toDate?.() || new Date(0),
@@ -322,8 +322,8 @@ export default function JobsPage() {
                   {tab.label}
                   {tabCounts[tab.key] > 0 && (
                     <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center ${activeTab === tab.key
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-600'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-600'
                       }`}>
                       {tabCounts[tab.key]}
                     </span>
@@ -449,7 +449,7 @@ export default function JobsPage() {
                         <div className="flex items-center gap-2">
                           <span className="text-2xl font-bold text-blue-600">₱{job.amount?.toLocaleString() || 0}</span>
                           <span className={`px-2 py-1 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-700`}>
-                            {job.paymentMethod === 'maya' ? 'MAYA' : 'GCASH'}
+                            {job.paymentMethod === 'cash' ? 'CASH' : 'QR PH'}
                           </span>
                           {job.isPaidUpfront && (
                             <span className="bg-emerald-500 text-white px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1">

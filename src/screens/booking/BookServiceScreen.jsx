@@ -51,7 +51,7 @@ const BookServiceScreen = ({ navigation, route }) => {
 
   const [serviceCategory, setServiceCategory] = useState(providerService);
   const [additionalNotes, setAdditionalNotes] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('qrph'); // 'qrph', 'gcash', or 'maya'
+  const [paymentMethod, setPaymentMethod] = useState('qrph');
   const [isLoading, setIsLoading] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [mediaFiles, setMediaFiles] = useState([]);
@@ -419,39 +419,21 @@ const BookServiceScreen = ({ navigation, route }) => {
       try {
         let paymentResult;
 
-        if (paymentMethod === 'qrph') {
-          // Use QRPh endpoint
-          const response = await fetch(`${API_URL}/payments/create-qrph-payment`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              amount: totalAmount,
-              bookingId: bookingId,
-              userId: user?.uid,
-              description: `${serviceCategory} Service - ${displayProviderName || 'Provider'}`,
-              platform: 'mobile',
-            }),
-          });
-          paymentResult = await response.json();
-        } else {
-          // Use Sources endpoint for GCash/Maya
-          const response = await fetch(`${API_URL}/payments/create-source`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              amount: totalAmount,
-              bookingId: bookingId,
-              userId: user?.uid,
-              description: `${serviceCategory} Service - ${displayProviderName || 'Provider'}`,
-              type: paymentMethod,
-            }),
-          });
-          paymentResult = await response.json();
-        }
+        // Use QRPh endpoint
+        const response = await fetch(`${API_URL}/payments/create-qrph-payment`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            amount: totalAmount,
+            bookingId: bookingId,
+            userId: user?.uid,
+            description: `${serviceCategory} Service - ${displayProviderName || 'Provider'}`,
+            platform: 'mobile',
+          }),
+        });
+        paymentResult = await response.json();
 
         if (paymentResult.success && paymentResult.checkoutUrl) {
           // Open PayMongo checkout in in-app browser
@@ -864,99 +846,7 @@ const BookServiceScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              padding: 16,
-              borderRadius: 12,
-              borderWidth: 2,
-              borderColor: paymentMethod === 'gcash' ? '#3B82F6' : isDark ? theme.colors.border : '#E5E7EB',
-              backgroundColor: paymentMethod === 'gcash' ? (isDark ? '#1E3A5F' : '#EFF6FF') : (isDark ? theme.colors.card : '#FFFFFF'),
-              alignItems: 'center',
-            }}
-            onPress={() => setPaymentMethod('gcash')}>
-            <View style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              backgroundColor: '#3B82F6',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginBottom: 8,
-            }}>
-              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 18 }}>G</Text>
-            </View>
-            <Text style={{
-              fontSize: 14,
-              fontWeight: '600',
-              color: paymentMethod === 'gcash' ? '#3B82F6' : isDark ? theme.colors.text : '#1F2937',
-            }}>
-              GCash
-            </Text>
-            {paymentMethod === 'gcash' && (
-              <View style={{
-                position: 'absolute',
-                top: 8,
-                right: 8,
-                width: 20,
-                height: 20,
-                borderRadius: 10,
-                backgroundColor: '#3B82F6',
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}>
-                <Icon name="checkmark" size={12} color="#FFFFFF" />
-              </View>
-            )}
-          </TouchableOpacity>
 
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              padding: 16,
-              borderRadius: 12,
-              borderWidth: 2,
-              borderColor: paymentMethod === 'maya' ? '#10B981' : isDark ? theme.colors.border : '#E5E7EB',
-              backgroundColor: paymentMethod === 'maya' ? (isDark ? '#064E3B' : '#ECFDF5') : (isDark ? theme.colors.card : '#FFFFFF'),
-              alignItems: 'center',
-            }}
-            onPress={() => setPaymentMethod('maya')}>
-            <View style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              backgroundColor: '#10B981',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginBottom: 8,
-            }}>
-              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 18 }}>M</Text>
-            </View>
-            <Text style={{
-              fontSize: 14,
-              fontWeight: '600',
-              color: paymentMethod === 'maya' ? '#10B981' : isDark ? theme.colors.text : '#1F2937',
-            }}>
-              Maya
-            </Text>
-            {paymentMethod === 'maya' && (
-              <View style={{
-                position: 'absolute',
-                top: 8,
-                right: 8,
-                width: 20,
-                height: 20,
-                borderRadius: 10,
-                backgroundColor: '#10B981',
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}>
-                <Icon name="checkmark" size={12} color="#FFFFFF" />
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
 
         {/* Payment Info Note */}
         <View style={{
@@ -969,10 +859,7 @@ const BookServiceScreen = ({ navigation, route }) => {
         }}>
           <Icon name="information-circle" size={18} color={isDark ? '#60A5FA' : '#F59E0B'} />
           <Text style={{ fontSize: 12, color: isDark ? '#93C5FD' : '#92400E', marginLeft: 8, flex: 1, lineHeight: 18 }}>
-            {paymentMethod === 'qrph'
-              ? 'You\'ll be shown a QR code to scan with any banking or e-wallet app. Money will be held until the provider completes the job and you confirm.'
-              : `You'll be redirected to ${paymentMethod === 'gcash' ? 'GCash' : 'Maya'} to complete payment. Money will be held until the provider completes the job and you confirm.`
-            }
+            You'll be shown a QR code to scan with any banking or e-wallet app (GCash, Maya, BPI, etc.). Money will be held until the provider completes the job and you confirm.
           </Text>
         </View>
 
