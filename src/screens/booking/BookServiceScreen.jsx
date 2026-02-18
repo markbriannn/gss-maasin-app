@@ -547,11 +547,10 @@ const BookServiceScreen = ({ navigation, route }) => {
                     ₱{((providerFixedPrice || 0) * 1.05).toLocaleString()}
                   </Text>
                 </View>
-                <Text style={{ fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginTop: 2 }}>
-                  Per job
-                </Text>
+
               </View>
             )}
+
           </View>
         )}
 

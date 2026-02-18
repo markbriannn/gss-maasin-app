@@ -33,6 +33,8 @@ interface ProviderData {
   completedJobs?: number;
   isOnline?: boolean;
   responseTime?: number;
+  avgJobDurationMinutes?: number;
+  estimatedJobTime?: string | null;
 }
 
 interface MediaFile {
@@ -113,7 +115,13 @@ function BookServiceContent() {
           reviewCount: data.reviewCount || data.totalReviews || 0,
           completedJobs: data.completedJobs || data.jobsCompleted || 0,
           isOnline: data.isOnline || false,
-          responseTime: data.responseTime || data.avgResponseTime || data.averageResponseTime || 5,
+          responseTime: data.responseTime || data.avgResponseTime || data.averageResponseTime || null,
+          avgJobDurationMinutes: data.avgJobDurationMinutes || null,
+          estimatedJobTime: data.avgJobDurationMinutes && data.avgJobDurationMinutes > 0
+            ? (data.avgJobDurationMinutes >= 60
+              ? `Est. ~${(data.avgJobDurationMinutes / 60).toFixed(1)} hr/job`
+              : `Est. ~${Math.round(data.avgJobDurationMinutes)} min/job`)
+            : null,
         });
       }
       setLoading(false);
@@ -470,10 +478,18 @@ function BookServiceContent() {
                           <Shield className="w-4 h-4" />
                           <span>{provider.completedJobs || 0} jobs</span>
                         </div>
-                        <div className="flex items-center gap-1 text-gray-500">
-                          <Clock className="w-4 h-4" />
-                          <span>~{provider.responseTime || 5}m reply</span>
-                        </div>
+                        {provider.responseTime && provider.responseTime > 0 && (
+                          <div className="flex items-center gap-1 text-gray-500">
+                            <Clock className="w-4 h-4" />
+                            <span>~{provider.responseTime}m reply</span>
+                          </div>
+                        )}
+                        {provider.estimatedJobTime && (
+                          <div className="flex items-center gap-1 text-blue-500">
+                            <Clock className="w-4 h-4" />
+                            <span>{provider.estimatedJobTime}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -701,7 +717,7 @@ function BookServiceContent() {
               </div>
             </div>
 
-            {/* Sidebar - Price Summary */}
+            {/* Sidebar */}
             <div className="lg:col-span-1">
               <div className="sticky top-4 space-y-4">
                 {/* Price Card */}
@@ -718,7 +734,7 @@ function BookServiceContent() {
                       <span className="font-bold text-gray-900">Total</span>
                       <span className="text-2xl font-bold text-[#00B14F]">₱{getTotalAmount().toLocaleString()}</span>
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">Per job</p>
+
                   </div>
                 </div>
 
@@ -735,8 +751,8 @@ function BookServiceContent() {
                     </>
                   ) : (
                     <>
-                      <CreditCard className="w-5 h-5" />
-                      <span>Pay ₱{getTotalAmount().toLocaleString()} & Book</span>
+                      <Zap className="w-5 h-5" />
+                      <span>Submit Booking</span>
                     </>
                   )}
                 </button>
