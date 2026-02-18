@@ -803,42 +803,73 @@ const JobDetailsScreen = ({ navigation, route }) => {
     }
   };
 
-  // Approve additional charge
+  // Approve additional charge and trigger QR payment
   const handleApproveAdditional = (chargeId) => {
     const charge = jobData.additionalCharges?.find(c => c.id === chargeId);
     if (!charge) return;
 
+    const chargeAmount = charge.total || charge.amount || 0;
+
     Alert.alert(
-      'Approve Additional Charge',
-      `Approve additional payment of ₱${charge.total?.toLocaleString()} for:\n\n"${charge.reason}"`,
+      'Pay Additional Charge',
+      `Pay ₱${chargeAmount.toLocaleString()} for:\n\n"${charge.reason}"\n\nYou will be redirected to QR payment (GCash/Maya).`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Approve',
+          text: 'Pay Now',
           onPress: async () => {
             try {
               setIsUpdating(true);
+              const bookingId = jobData.id || jobId;
+              const userId = user?.uid || user?.id;
+
+              // PayMongo minimum is ₱100
+              if (chargeAmount < 100) {
+                showErrorModal('Minimum Amount', 'The minimum payment amount is ₱100.');
+                return;
+              }
+
+              // Mark charge as approved in Firestore first
               const updatedCharges = jobData.additionalCharges.map(c =>
                 c.id === chargeId ? { ...c, status: 'approved', approvedAt: new Date().toISOString() } : c
               );
-
-              // Check if any more pending
               const hasPending = updatedCharges.some(c => c.status === 'pending');
-
-              await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
+              await updateDoc(doc(db, 'bookings', bookingId), {
                 additionalCharges: updatedCharges,
                 hasAdditionalPending: hasPending,
               });
+              setJobData(prev => ({ ...prev, additionalCharges: updatedCharges, hasAdditionalPending: hasPending }));
 
-              setJobData(prev => ({
-                ...prev,
-                additionalCharges: updatedCharges,
-                hasAdditionalPending: hasPending,
-              }));
-              showSuccessModal('Approved', 'Additional charge has been approved.');
+              // Create QR payment for the additional charge amount
+              const result = await paymentService.createQRPhPayment(
+                bookingId,
+                userId,
+                chargeAmount,
+                `Additional charge: ${charge.reason}`,
+                { chargeId, paymentType: 'additional_charge' }
+              );
+
+              if (result.success && result.checkoutUrl) {
+                const openResult = await paymentService.openPaymentCheckout(result.checkoutUrl);
+                if (openResult.success) {
+                  Alert.alert(
+                    'Complete Payment',
+                    'Please scan the QR code with GCash, Maya, or your banking app to pay the additional charge.\n\nOnce done, return to the app — the charge will be marked as paid automatically.',
+                    [{ text: 'OK' }]
+                  );
+                } else {
+                  Alert.alert(
+                    'Open in Browser',
+                    `Could not open automatically. Copy this link and open in your browser:\n\n${result.checkoutUrl}`,
+                    [{ text: 'OK' }]
+                  );
+                }
+              } else {
+                showErrorModal('Payment Error', result.error || 'Failed to create payment. Please try again.');
+              }
             } catch (error) {
-              console.error('Error approving charge:', error);
-              showErrorModal('Error', 'Failed to approve charge');
+              console.error('Error processing additional charge payment:', error);
+              showErrorModal('Error', 'Failed to process payment. Please try again.');
             } finally {
               setIsUpdating(false);
             }

@@ -1322,7 +1322,7 @@ router.post('/webhook', async (req, res) => {
               .where('type', '==', 'payment')
               .get();
 
-            if (!existingTx.empty) {
+            if (!existingTx.empty && paymentData.paymentType !== 'additional_charge') {
               console.log(`Transaction already exists for QRPh checkout booking ${paymentData.bookingId}, skipping`);
               await markEventProcessed(db, eventId, eventType);
               return res.json({ received: true, skipped: true, reason: 'transaction_exists' });
@@ -1337,46 +1337,62 @@ router.post('/webhook', async (req, res) => {
 
             const isPayFirstBooking = bookingData?.paymentPreference === 'pay_first';
 
-            // Update booking status
-            await db.collection('bookings').doc(paymentData.bookingId).update({
-              paymentStatus: 'paid',
-              paymentMethod: 'qrph',
-              paidAt: new Date(),
-              paymentId: lastPayment?.id || checkoutId,
-              ...(isPayFirstBooking ? { status: 'confirmed' } : {}),
-            });
-
-            // Create transaction record
-            const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            await db.collection('transactions').doc(transactionId).set({
-              bookingId: paymentData.bookingId,
-              userId: paymentData.userId,
-              providerId: providerId || null,
-              type: 'payment',
-              paymentMethod: 'qrph',
-              amount: amountInPesos,
-              providerAmount: providerShare,
-              platformCommission: platformCommission,
-              status: 'completed',
-              paymentId: lastPayment?.id || checkoutId,
-              createdAt: new Date(),
-            });
-
-            // Update provider balance (escrow)
-            if (providerId) {
-              const providerRef = db.collection('users').doc(providerId);
-              const providerDoc = await providerRef.get();
-              const currentBalance = providerDoc.data()?.balance || 0;
-              const currentPending = providerDoc.data()?.pendingBalance || 0;
-
-              await providerRef.update({
-                pendingBalance: currentPending + providerShare,
+            if (paymentData.paymentType === 'additional_charge' && paymentData.chargeId) {
+              // Additional charge payment - update the specific charge's status to 'paid'
+              const charges = bookingData?.additionalCharges || [];
+              const updatedCharges = charges.map(c =>
+                c.id === paymentData.chargeId
+                  ? { ...c, status: 'paid', paidAt: new Date().toISOString(), paymentId: lastPayment?.id || checkoutId }
+                  : c
+              );
+              await db.collection('bookings').doc(paymentData.bookingId).update({
+                additionalCharges: updatedCharges,
+                additionalChargesPaid: true,
+                updatedAt: new Date(),
+              });
+              console.log(`QRPh checkout: Additional charge ${paymentData.chargeId} paid for booking ${paymentData.bookingId}: ₱${amountInPesos}`);
+            } else {
+              // Update booking status for regular payments
+              await db.collection('bookings').doc(paymentData.bookingId).update({
+                paymentStatus: 'paid',
+                paymentMethod: 'qrph',
+                paidAt: new Date(),
+                paymentId: lastPayment?.id || checkoutId,
+                ...(isPayFirstBooking ? { status: 'confirmed' } : {}),
               });
 
-              console.log(`QRPh checkout webhook: Provider balance updated: +₱${providerShare}`);
-            }
+              // Create transaction record
+              const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              await db.collection('transactions').doc(transactionId).set({
+                bookingId: paymentData.bookingId,
+                userId: paymentData.userId,
+                providerId: providerId || null,
+                type: 'payment',
+                paymentMethod: 'qrph',
+                amount: amountInPesos,
+                providerAmount: providerShare,
+                platformCommission: platformCommission,
+                status: 'completed',
+                paymentId: lastPayment?.id || checkoutId,
+                createdAt: new Date(),
+              });
 
-            console.log(`QRPh checkout payment processed: ₱${amountInPesos} - Provider: ₱${providerShare}, Platform: ₱${platformCommission}`);
+              // Update provider balance (escrow)
+              if (providerId) {
+                const providerRef = db.collection('users').doc(providerId);
+                const providerDoc = await providerRef.get();
+                const currentBalance = providerDoc.data()?.balance || 0;
+                const currentPending = providerDoc.data()?.pendingBalance || 0;
+
+                await providerRef.update({
+                  pendingBalance: currentPending + providerShare,
+                });
+
+                console.log(`QRPh checkout webhook: Provider balance updated: +₱${providerShare}`);
+              }
+
+              console.log(`QRPh checkout payment processed: ₱${amountInPesos} - Provider: ₱${providerShare}, Platform: ₱${platformCommission}`);
+            }
           }
         }
       } else {
