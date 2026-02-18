@@ -17,9 +17,14 @@ import { pushNotifications } from '@/lib/pushNotifications';
 interface AdditionalCharge {
   id: string;
   description: string;
+  reason?: string;
   amount: number;
   total?: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'paid';
+  requestedAt?: string;
+  approvedAt?: string;
+  paidAt?: string;
+  paymentId?: string;
 }
 
 interface JobData {
@@ -536,12 +541,17 @@ export default function ProviderJobDetailsPage() {
       return;
     }
 
+    const systemFee = amount * 0.05;
+    const total = amount + systemFee;
+
     const newCharge: AdditionalCharge = {
       id: Date.now().toString(),
       description: chargeDescription,
+      reason: chargeDescription,
       amount,
-      total: amount,
+      total,
       status: 'pending',
+      requestedAt: new Date().toISOString(),
     };
 
     try {
@@ -569,12 +579,26 @@ export default function ProviderJobDetailsPage() {
       return;
     }
 
+    const currentPrice = job.providerPrice || job.totalAmount || job.price || 0;
+    if (amount >= currentPrice) {
+      alert('Discount cannot be equal to or greater than the service price');
+      return;
+    }
+
+    const newProviderPrice = currentPrice - amount;
+    const newSystemFee = newProviderPrice * 0.05;
+    const newTotal = newProviderPrice + newSystemFee;
+
     try {
       await updateDoc(doc(db, 'bookings', job.id), {
         discount: amount,
         discountAmount: amount,
         discountReason: discountReason || 'Discount applied',
         hasDiscount: true,
+        providerPrice: newProviderPrice,
+        systemFee: newSystemFee,
+        totalAmount: newTotal,
+        discountAppliedAt: serverTimestamp(),
       });
       setShowDiscountModal(false);
       setDiscountAmount('');
@@ -624,9 +648,9 @@ export default function ProviderJobDetailsPage() {
               </button>
               <div className="flex-1">
                 <span className={`inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full ${job.status === 'pending' ? 'bg-amber-400/20 text-amber-100' :
-                    job.status === 'completed' ? 'bg-emerald-400/20 text-emerald-100' :
-                      job.status === 'cancelled' || job.status === 'rejected' ? 'bg-red-400/20 text-red-100' :
-                        'bg-white/20 text-white'
+                  job.status === 'completed' ? 'bg-emerald-400/20 text-emerald-100' :
+                    job.status === 'cancelled' || job.status === 'rejected' ? 'bg-red-400/20 text-red-100' :
+                      'bg-white/20 text-white'
                   }`}>
                   <span className="w-2 h-2 rounded-full bg-current"></span>
                   {statusConfig.label}
@@ -650,13 +674,13 @@ export default function ProviderJobDetailsPage() {
           {/* Payment Badge - Escrow System */}
           {(job.paymentStatus || job.paymentPreference) && (
             <div className={`rounded-2xl p-4 mb-4 flex items-center gap-3 shadow-sm ${job.paymentStatus === 'held' || job.isPaidUpfront
-                ? 'bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200'
-                : job.paymentStatus === 'released'
-                  ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200'
-                  : 'bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200'
+              ? 'bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200'
+              : job.paymentStatus === 'released'
+                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200'
+                : 'bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200'
               }`}>
               <div className={`p-2 rounded-xl ${job.paymentStatus === 'held' || job.isPaidUpfront ? 'bg-emerald-100' :
-                  job.paymentStatus === 'released' ? 'bg-blue-100' : 'bg-amber-100'
+                job.paymentStatus === 'released' ? 'bg-blue-100' : 'bg-amber-100'
                 }`}>
                 {job.paymentStatus === 'held' || job.isPaidUpfront ? (
                   <CheckCircle className="w-5 h-5 text-emerald-600" />
@@ -668,7 +692,7 @@ export default function ProviderJobDetailsPage() {
               </div>
               <div>
                 <span className={`font-semibold ${job.paymentStatus === 'held' || job.isPaidUpfront ? 'text-emerald-700' :
-                    job.paymentStatus === 'released' ? 'text-blue-700' : 'text-amber-700'
+                  job.paymentStatus === 'released' ? 'text-blue-700' : 'text-amber-700'
                   }`}>
                   {job.paymentStatus === 'held' ? 'Payment Held in Escrow' :
                     job.paymentStatus === 'released' ? 'Payment Released to You' :
@@ -687,8 +711,8 @@ export default function ProviderJobDetailsPage() {
             <Link
               href={`/provider/jobs/${job.id}/tracking`}
               className={`flex items-center gap-4 p-4 rounded-2xl mb-4 shadow-lg ${job.status === 'traveling'
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-500 shadow-blue-500/30'
-                  : 'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30'
+                ? 'bg-gradient-to-r from-blue-500 to-indigo-500 shadow-blue-500/30'
+                : 'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30'
                 }`}
             >
               <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
@@ -861,8 +885,8 @@ export default function ProviderJobDetailsPage() {
                   <span className={charge.status === 'rejected' ? 'text-red-400 line-through' : 'text-gray-500'}>
                     {charge.description}
                     <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${charge.status === 'approved' ? 'bg-emerald-100 text-emerald-600' :
-                        charge.status === 'rejected' ? 'bg-red-100 text-red-600' :
-                          'bg-amber-100 text-amber-600'
+                      charge.status === 'rejected' ? 'bg-red-100 text-red-600' :
+                        'bg-amber-100 text-amber-600'
                       }`}>
                       {charge.status}
                     </span>
@@ -1001,8 +1025,8 @@ export default function ProviderJobDetailsPage() {
                   key={reason}
                   onClick={() => setSelectedCancelReason(reason)}
                   className={`w-full p-3 rounded-lg text-left border transition-colors ${selectedCancelReason === reason
-                      ? 'border-red-500 bg-red-50 text-red-700'
-                      : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-red-500 bg-red-50 text-red-700'
+                    : 'border-gray-200 hover:border-gray-300'
                     }`}
                 >
                   {reason}

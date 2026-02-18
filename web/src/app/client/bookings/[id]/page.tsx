@@ -20,7 +20,10 @@ interface AdditionalCharge {
   description?: string;
   amount: number;
   total?: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'paid';
+  approvedAt?: string;
+  paidAt?: string;
+  paymentId?: string;
 }
 
 interface ProviderInfo {
@@ -652,19 +655,66 @@ function JobDetailsContent() {
   };
 
   const handleApproveCharge = async (chargeId: string) => {
-    if (!job) return;
-    const updatedCharges = (job.additionalCharges || []).map(c =>
-      c.id === chargeId ? { ...c, status: 'approved' as const, approvedAt: new Date().toISOString() } : c
-    );
-    const hasPending = updatedCharges.some(c => c.status === 'pending');
+    if (!job || !user) return;
+    const charge = (job.additionalCharges || []).find(c => c.id === chargeId);
+    if (!charge) return;
+
+    const chargeAmount = charge.total || charge.amount || 0;
+
+    if (chargeAmount < 100) {
+      showAlert('error', 'Minimum Amount', 'The minimum payment amount is ₱100.');
+      return;
+    }
+
+    if (!confirm(`Pay ₱${chargeAmount.toLocaleString()} for:\n"${charge.reason || charge.description}"\n\nYou will be redirected to QR payment (GCash/Maya).`)) return;
+
+    setUpdating(true);
     try {
+      // Mark charge as approved in Firestore first
+      const updatedCharges = (job.additionalCharges || []).map(c =>
+        c.id === chargeId ? { ...c, status: 'approved' as const, approvedAt: new Date().toISOString() } : c
+      );
+      const hasPending = updatedCharges.some(c => c.status === 'pending');
       await updateDoc(doc(db, 'bookings', job.id), {
         additionalCharges: updatedCharges,
         hasAdditionalPending: hasPending,
       });
-      alert('Additional charge approved.');
+
+      // Create QR payment for the additional charge
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
+      const response = await fetch(`${apiUrl}/payments/create-qrph-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: job.id,
+          userId: user.uid,
+          amount: chargeAmount,
+          description: `Additional charge: ${charge.reason || charge.description}`,
+          platform: 'web',
+          chargeId,
+          paymentType: 'additional_charge',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Payment API error:', errorText);
+        throw new Error('Payment service unavailable');
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.checkoutUrl) {
+        window.open(result.checkoutUrl, '_blank');
+        showAlert('payment', 'Complete Your Payment 💳', 'A new tab has opened for QR Ph payment. Scan the QR code with GCash, Maya, or any banking app. The charge will be marked as paid automatically once complete.');
+      } else {
+        showAlert('error', 'Payment Failed', result.error || 'Failed to create payment. Please try again.');
+      }
     } catch (error) {
-      console.error('Error approving charge:', error);
+      console.error('Error processing additional charge payment:', error);
+      showAlert('error', 'Payment Error', 'Something went wrong. Please try again.');
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -679,7 +729,7 @@ function JobDetailsContent() {
         additionalCharges: updatedCharges,
         hasAdditionalPending: hasPending,
       });
-      alert('Additional charge rejected.');
+      showAlert('success', 'Charge Rejected', 'The additional charge has been rejected.');
     } catch (error) {
       console.error('Error rejecting charge:', error);
     }
