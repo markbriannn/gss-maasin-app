@@ -152,7 +152,14 @@ export default function ProvidersPage() {
               selfie: { submitted: !!(data.documents?.selfieUrl || data.documents?.selfie), url: data.documents?.selfieUrl || data.documents?.selfie },
               barangayClearance: { submitted: !!(data.documents?.barangayClearanceUrl || data.documents?.barangayClearance), url: data.documents?.barangayClearanceUrl || data.documents?.barangayClearance },
               policeClearance: { submitted: !!(data.documents?.policeClearanceUrl || data.documents?.policeClearance), url: data.documents?.policeClearanceUrl || data.documents?.policeClearance },
-              certificates: { submitted: !!(data.documents?.certificateUrls?.length > 0), urls: data.documents?.certificateUrls || [] },
+              certificates: {
+                submitted: !!(data.documents?.certificateUrls?.length > 0 || data.documents?.certificateUrl),
+                urls: data.documents?.certificateUrls?.length > 0
+                  ? data.documents.certificateUrls
+                  : data.documents?.certificateUrl
+                    ? [data.documents.certificateUrl]
+                    : [],
+              },
             },
             suspensionReason: data.suspensionReason,
             suspendedAt: data.suspendedAt?.toDate?.()?.toLocaleDateString(),

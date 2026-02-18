@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, getDocs, collection } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import {
   Wrench, ArrowLeft, ArrowRight, User, Mail, MapPin, Lock, Briefcase, FileText,
@@ -64,7 +64,7 @@ const MAASIN_BARANGAYS = [
   'Tagnipa', 'Tam-is', 'Tawid', 'Tigbawan', 'Tomoy-tomoy', 'Tunga-tunga'
 ];
 
-interface FormData {
+interface ProviderFormData {
   firstName: string;
   middleName: string;
   lastName: string;
@@ -85,8 +85,6 @@ interface FormData {
   serviceCategory: string;
   aboutService: string;
   yearsExperience: string;
-  priceType: 'per_job' | 'per_hire';
-  fixedPrice: string;
   profilePhoto: string;
   // Documents
   idType: string;
@@ -94,6 +92,7 @@ interface FormData {
   barangayClearanceUrl: string;
   policeClearanceUrl: string;
   selfieUrl: string;
+  certificateUrl: string;
 }
 
 export default function ProviderRegistration() {
@@ -101,7 +100,7 @@ export default function ProviderRegistration() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<ProviderFormData>({
     firstName: '',
     middleName: '',
     lastName: '',
@@ -122,8 +121,6 @@ export default function ProviderRegistration() {
     serviceCategory: '',
     aboutService: '',
     yearsExperience: '',
-    priceType: 'per_job',
-    fixedPrice: '',
     profilePhoto: '',
     // Documents
     idType: '',
@@ -131,6 +128,7 @@ export default function ProviderRegistration() {
     barangayClearanceUrl: '',
     policeClearanceUrl: '',
     selfieUrl: '',
+    certificateUrl: '',
   });
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -151,6 +149,22 @@ export default function ProviderRegistration() {
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [isSendingPhoneOtp, setIsSendingPhoneOtp] = useState(false);
   const [phoneCountdown, setPhoneCountdown] = useState(0);
+
+  // Dynamic service categories from Firestore
+  const [serviceCategories, setServiceCategories] = useState(SERVICE_CATEGORIES);
+  useEffect(() => {
+    getDocs(collection(db, 'serviceCategories')).then(snap => {
+      if (!snap.empty) {
+        const cats = snap.docs.map(d => ({
+          id: d.id,
+          name: (d.data().name as string) || '',
+          icon: (d.data().icon as string) || '⚙️',
+          color: (d.data().color as string) || '#6B7280',
+        }));
+        setServiceCategories(cats);
+      }
+    }).catch(console.error);
+  }, []);
 
   // Handle profile photo upload
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -180,7 +194,7 @@ export default function ProviderRegistration() {
   };
 
   // Handle document upload
-  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: keyof FormData) => {
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: keyof ProviderFormData) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -396,7 +410,7 @@ export default function ProviderRegistration() {
     );
   };
 
-  const updateForm = (field: keyof FormData, value: string | boolean | number) => {
+  const updateForm = (field: keyof ProviderFormData, value: string | boolean | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setError('');
   };
@@ -589,7 +603,7 @@ export default function ProviderRegistration() {
       case 8: // Service Category
         return formData.serviceCategory.trim();
       case 9: // About Service with Pricing
-        return formData.aboutService.trim().length >= 10 && formData.fixedPrice && parseFloat(formData.fixedPrice) > 0;
+        return formData.aboutService.trim().length >= 10;
       case 10: // Documents
         return formData.idType && formData.validIdUrl && formData.barangayClearanceUrl && formData.policeClearanceUrl && formData.selfieUrl;
       default:
@@ -654,8 +668,8 @@ export default function ProviderRegistration() {
         aboutService: formData.aboutService,
         bio: formData.aboutService,
         yearsExperience: formData.yearsExperience,
-        priceType: formData.priceType,
-        fixedPrice: parseFloat(formData.fixedPrice) || 0,
+        priceType: 'per_job', // System-managed
+        fixedPrice: 200, // System-managed rate
         profilePhoto: formData.profilePhoto,
         // Documents
         documents: {
@@ -668,6 +682,8 @@ export default function ProviderRegistration() {
           policeClearance: formData.policeClearanceUrl,
           selfieUrl: formData.selfieUrl,
           selfie: formData.selfieUrl,
+          certificateUrl: formData.certificateUrl || null,
+          certificateUrls: formData.certificateUrl ? [formData.certificateUrl] : [],
         },
         role: 'PROVIDER',
         providerStatus: 'pending',
@@ -1219,7 +1235,7 @@ export default function ProviderRegistration() {
             </div>
 
             <div className="space-y-3">
-              {SERVICE_CATEGORIES.map((category) => (
+              {serviceCategories.map((category) => (
                 <button
                   key={category.id}
                   type="button"
@@ -1290,66 +1306,17 @@ export default function ProviderRegistration() {
               </p>
             </div>
 
-            {/* Pricing Section */}
+            {/* System Rate Info */}
             <div className="pt-4 border-t border-gray-200">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Set Your Pricing <span className="text-red-500">*</span>
-              </label>
-
-              {/* Price Type Selection */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <button
-                  type="button"
-                  onClick={() => updateForm('priceType', 'per_job')}
-                  className={`flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all ${formData.priceType === 'per_job'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-600 border border-gray-200'
-                    }`}
-                >
-                  <Briefcase className="w-4 h-4" />
-                  Per Job
-                </button>
-                <button
-                  type="button"
-                  onClick={() => updateForm('priceType', 'per_hire')}
-                  className={`flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all ${formData.priceType === 'per_hire'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-600 border border-gray-200'
-                    }`}
-                >
-                  <User className="w-4 h-4" />
-                  Per Hire
-                </button>
-              </div>
-
-              {/* Price Input */}
-              <div className="flex items-center bg-gray-50 rounded-xl px-4">
-                <span className="text-xl font-bold text-gray-900">₱</span>
-                <input
-                  type="number"
-                  value={formData.fixedPrice}
-                  onChange={(e) => updateForm('fixedPrice', e.target.value)}
-                  className="flex-1 px-3 py-4 bg-transparent text-xl font-semibold text-gray-900 focus:outline-none"
-                  placeholder="0.00"
-                />
-                <span className="text-gray-500">
-                  / {formData.priceType === 'per_job' ? 'job' : 'hire'}
-                </span>
-              </div>
-              <p className="text-sm text-gray-500 mt-2">
-                {formData.priceType === 'per_job'
-                  ? 'This is the fixed price you charge for completing a job'
-                  : 'This is the fixed price you charge each time you are hired'
-                }
-              </p>
-
-              {/* Fee Notice */}
-              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mt-4 flex gap-3">
-                <span className="text-yellow-600">ℹ️</span>
-                <p className="text-sm text-yellow-800">
-                  Note: Clients will be charged an additional 5% service fee on top of your price.
-                  You will receive the full amount you set here.
-                </p>
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex gap-3">
+                <span className="text-green-600 text-xl">💰</span>
+                <div>
+                  <p className="text-sm font-bold text-green-800">System Rate</p>
+                  <p className="text-sm text-green-700 mt-0.5">
+                    The platform sets a fixed rate of <strong>₱200 per job</strong> for {formData.serviceCategory || 'your service'}.
+                    You will receive this amount for every completed job.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -1479,7 +1446,31 @@ export default function ProviderRegistration() {
               </label>
             </div>
 
+            {/* TESDA / Skills Certificate Upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Certificate (TESDA/Skills) <span className="text-gray-400">(Optional)</span>
+              </label>
+              <label className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${formData.certificateUrl ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-blue-400'}`}>
+                {uploadingDoc === 'certificateUrl' ? (
+                  <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
+                ) : formData.certificateUrl ? (
+                  <>
+                    <img src={formData.certificateUrl} alt="Certificate" className="w-48 h-28 object-cover rounded-lg mb-2" />
+                    <span className="text-green-600 text-sm font-medium">✓ Certificate Uploaded (tap to change)</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-10 h-10 text-gray-400 mb-2" />
+                    <span className="text-gray-500 text-sm">Upload TESDA or Skills Certificate</span>
+                  </>
+                )}
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleDocumentUpload(e, 'certificateUrl')} />
+              </label>
+            </div>
+
             <p className="text-xs text-gray-400 text-center">* Required documents for verification</p>
+
           </div>
         );
 

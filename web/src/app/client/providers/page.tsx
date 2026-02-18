@@ -7,8 +7,8 @@ import { collection, query, where, getDocs, doc, setDoc, deleteDoc, onSnapshot }
 import { db } from '@/lib/firebase';
 import ClientLayout from '@/components/layouts/ClientLayout';
 import Image from 'next/image';
-import { 
-  Search, Star, MapPin, CheckCircle, Zap, Droplets, Hammer, Sparkles, 
+import {
+  Search, Star, MapPin, CheckCircle, Zap, Droplets, Hammer, Sparkles,
   Grid3X3, Heart, Clock, Award, TrendingUp,
   ChevronDown, X, Flame, Crown, ArrowRight, Shield, Users,
   Eye, Navigation, Wifi, WifiOff, SlidersHorizontal, LayoutGrid, List,
@@ -33,6 +33,7 @@ interface Provider {
   bio?: string;
   experience?: string;
   responseTime?: number;
+  avgJobDurationMinutes?: number;
   latitude?: number;
   longitude?: number;
   lastActive?: Date;
@@ -75,7 +76,7 @@ export default function ProvidersPage() {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [quickViewProvider, setQuickViewProvider] = useState<Provider | null>(null);
   const [compareList, setCompareList] = useState<string[]>([]);
-  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [recentSearches] = useState(['Electrician near me', 'Plumber', 'House cleaning']);
@@ -133,7 +134,7 @@ export default function ProvidersPage() {
   // Real-time listener for providers
   const fetchProviders = () => {
     const providersQuery = query(collection(db, 'users'), where('role', '==', 'PROVIDER'));
-    
+
     const unsubscribe = onSnapshot(providersQuery, (snapshot) => {
       const list: Provider[] = [];
       snapshot.forEach((docSnap) => {
@@ -157,6 +158,7 @@ export default function ProvidersPage() {
             bio: data.bio || '',
             experience: data.experience || '',
             responseTime: data.responseTime || data.avgResponseTime || data.averageResponseTime || 5,
+            avgJobDurationMinutes: data.avgJobDurationMinutes || null,
             latitude: data.latitude,
             longitude: data.longitude,
             lastActive: data.lastActive?.toDate?.() || new Date(),
@@ -185,10 +187,10 @@ export default function ProvidersPage() {
     const R = 6371;
     const dLat = (provider.latitude - userLocation.lat) * Math.PI / 180;
     const dLon = (provider.longitude - userLocation.lng) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(userLocation.lat * Math.PI / 180) * Math.cos(provider.latitude * Math.PI / 180) *
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }, [userLocation]);
 
@@ -199,14 +201,14 @@ export default function ProvidersPage() {
     }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(p => 
+      filtered = filtered.filter(p =>
         p.firstName.toLowerCase().includes(q) || p.lastName.toLowerCase().includes(q) ||
         p.serviceCategory.toLowerCase().includes(q) || p.barangay?.toLowerCase().includes(q) ||
         p.bio?.toLowerCase().includes(q)
       );
     }
     if (onlineOnly) filtered = filtered.filter(p => p.isOnline);
-    
+
     switch (sortBy) {
       case 'rating': filtered.sort((a, b) => b.rating - a.rating); break;
       case 'fastest': filtered.sort((a, b) => (a.responseTime || 99) - (b.responseTime || 99)); break;
@@ -251,12 +253,12 @@ export default function ProvidersPage() {
             <div className="animate-pulse space-y-6">
               <div className="h-16 bg-gradient-to-r from-gray-200 to-gray-100 rounded-2xl w-full max-w-2xl" />
               <div className="flex gap-3 overflow-hidden">
-                {[1,2,3,4,5].map(i => (
+                {[1, 2, 3, 4, 5].map(i => (
                   <div key={i} className="h-14 w-36 bg-gray-200 rounded-2xl flex-shrink-0" />
                 ))}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1,2,3,4,5,6].map(i => (
+                {[1, 2, 3, 4, 5, 6].map(i => (
                   <div key={i} className="bg-white rounded-3xl overflow-hidden shadow-lg">
                     <div className="h-32 bg-gradient-to-r from-gray-200 to-gray-100" />
                     <div className="p-5 space-y-3">
@@ -288,7 +290,7 @@ export default function ProvidersPage() {
           <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
           <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-300/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-          
+
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28">
             {/* Top Bar */}
             <div className="flex items-center justify-between mb-8">
@@ -304,7 +306,7 @@ export default function ProvidersPage() {
                   {providers.length} verified experts ready to help
                 </p>
               </div>
-              
+
               {/* Live Status Pill */}
               <div className="hidden md:flex items-center gap-3 bg-white/15 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/20">
                 <div className="relative">
@@ -340,7 +342,7 @@ export default function ProvidersPage() {
                       <X className="w-5 h-5 text-gray-400" />
                     </button>
                   )}
-                  <button 
+                  <button
                     onClick={() => setShowFilters(!showFilters)}
                     className={`flex items-center gap-2 px-5 py-3 mr-2 rounded-xl font-medium transition-all ${showFilters ? 'bg-[#00B14F] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                   >
@@ -348,7 +350,7 @@ export default function ProvidersPage() {
                     <span className="hidden sm:inline">Filters</span>
                   </button>
                 </div>
-                
+
                 {/* Search Suggestions Dropdown */}
                 {isSearchFocused && !searchQuery && (
                   <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-50">
@@ -402,7 +404,7 @@ export default function ProvidersPage() {
                 </button>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
               {categories.map((cat) => {
                 const Icon = cat.icon;
@@ -412,11 +414,10 @@ export default function ProvidersPage() {
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
-                    className={`group flex items-center gap-3 px-5 py-3.5 rounded-2xl whitespace-nowrap font-medium transition-all duration-300 ${
-                      isActive
-                        ? `bg-gradient-to-r ${cat.gradient} text-white shadow-lg shadow-${cat.color}/30 scale-105`
-                        : 'bg-gray-50 text-gray-600 hover:bg-gray-100 hover:scale-[1.02]'
-                    }`}
+                    className={`group flex items-center gap-3 px-5 py-3.5 rounded-2xl whitespace-nowrap font-medium transition-all duration-300 ${isActive
+                      ? `bg-gradient-to-r ${cat.gradient} text-white shadow-lg shadow-${cat.color}/30 scale-105`
+                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100 hover:scale-[1.02]'
+                      }`}
                   >
                     <div className={`p-2 rounded-xl ${isActive ? 'bg-white/20' : 'bg-white shadow-sm'}`}>
                       <Icon className={`w-5 h-5 ${isActive ? 'text-white' : ''}`} style={{ color: isActive ? undefined : cat.color }} />
@@ -443,7 +444,7 @@ export default function ProvidersPage() {
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
-              
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Sort Options */}
                 <div>
@@ -455,11 +456,10 @@ export default function ProvidersPage() {
                         <button
                           key={opt.id}
                           onClick={() => setSortBy(opt.id)}
-                          className={`flex items-center gap-3 p-3 rounded-xl text-left transition-all ${
-                            sortBy === opt.id
-                              ? 'bg-[#00B14F] text-white shadow-lg shadow-green-200'
-                              : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                          }`}
+                          className={`flex items-center gap-3 p-3 rounded-xl text-left transition-all ${sortBy === opt.id
+                            ? 'bg-[#00B14F] text-white shadow-lg shadow-green-200'
+                            : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                            }`}
                         >
                           <Icon className={`w-5 h-5 ${sortBy === opt.id ? 'text-white' : 'text-gray-400'}`} />
                           <div>
@@ -471,16 +471,15 @@ export default function ProvidersPage() {
                     })}
                   </div>
                 </div>
-                
+
                 {/* Quick Filters */}
                 <div>
                   <label className="text-sm font-semibold text-gray-700 mb-3 block">Quick Filters</label>
                   <div className="space-y-3">
                     <button
                       onClick={() => setOnlineOnly(!onlineOnly)}
-                      className={`flex items-center justify-between w-full p-4 rounded-xl transition-all ${
-                        onlineOnly ? 'bg-green-50 border-2 border-green-500' : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
-                      }`}
+                      className={`flex items-center justify-between w-full p-4 rounded-xl transition-all ${onlineOnly ? 'bg-green-50 border-2 border-green-500' : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         {onlineOnly ? <Wifi className="w-5 h-5 text-green-600" /> : <WifiOff className="w-5 h-5 text-gray-400" />}
@@ -516,7 +515,7 @@ export default function ProvidersPage() {
                 </button>
               )}
             </div>
-            
+
             {/* Sort Dropdown */}
             <div className="relative">
               <button
@@ -527,7 +526,7 @@ export default function ProvidersPage() {
                 <span className="text-sm font-medium text-gray-700">{currentSort?.label}</span>
                 <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showSortDropdown ? 'rotate-180' : ''}`} />
               </button>
-              
+
               {showSortDropdown && (
                 <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                   {sortOptions.map((opt) => {
@@ -624,7 +623,7 @@ export default function ProvidersPage() {
                 const isComparing = compareList.includes(provider.id);
                 const categoryData = categories.find(c => c.id === provider.serviceCategory.toLowerCase()) || categories[0];
                 const distance = getDistance(provider);
-                
+
                 if (viewMode === 'list') {
                   return (
                     <div
@@ -645,7 +644,7 @@ export default function ProvidersPage() {
                             <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white" />
                           )}
                         </div>
-                        
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <h3 className="font-bold text-gray-900 truncate">{provider.firstName} {provider.lastName}</h3>
@@ -672,6 +671,15 @@ export default function ProvidersPage() {
                             </div>
                             <span className="text-gray-300">•</span>
                             <span className="text-gray-500">{provider.completedJobs} jobs</span>
+                            <span className="text-gray-300">•</span>
+                            <span className="flex items-center gap-1 text-blue-600">
+                              <Timer className="w-3.5 h-3.5" />
+                              {provider.avgJobDurationMinutes
+                                ? provider.avgJobDurationMinutes >= 60
+                                  ? `~${(provider.avgJobDurationMinutes / 60).toFixed(1)} hr/job`
+                                  : `~${Math.round(provider.avgJobDurationMinutes)} min/job`
+                                : '~30 min/job'}
+                            </span>
                             {distance && (
                               <>
                                 <span className="text-gray-300">•</span>
@@ -680,12 +688,8 @@ export default function ProvidersPage() {
                             )}
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <p className="text-2xl font-bold text-gray-900">₱{price.toLocaleString()}</p>
-                            <p className="text-xs text-gray-500">per {provider.priceType === 'per_hire' ? 'hire' : 'job'}</p>
-                          </div>
                           <button
                             onClick={(e) => { e.stopPropagation(); router.push(`/client/book?providerId=${provider.id}`); }}
                             className="px-5 py-3 bg-[#00B14F] text-white rounded-xl font-semibold hover:bg-[#009940] transition-all"
@@ -712,7 +716,7 @@ export default function ProvidersPage() {
                     <div className={`relative h-32 bg-gradient-to-br ${categoryData.gradient} p-4`}>
                       {/* Decorative Elements */}
                       <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
-                      
+
                       {/* Badge */}
                       {badge && (
                         <div className={`absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1.5 ${badge.bg} rounded-full border ${badge.border} shadow-sm`}>
@@ -720,7 +724,7 @@ export default function ProvidersPage() {
                           <span className={`text-xs font-bold ${badge.color}`}>{badge.label}</span>
                         </div>
                       )}
-                      
+
                       {/* Action Buttons */}
                       <div className="absolute top-3 right-3 flex items-center gap-2">
                         <button
@@ -809,9 +813,15 @@ export default function ProvidersPage() {
                         <div className="bg-gray-50 rounded-xl p-2.5 text-center">
                           <div className="flex items-center justify-center gap-1 mb-0.5">
                             <Timer className="w-4 h-4 text-blue-500" />
-                            <span className="font-bold text-gray-900">~{provider.responseTime || 5}</span>
+                            <span className="font-bold text-gray-900">
+                              {provider.avgJobDurationMinutes
+                                ? provider.avgJobDurationMinutes >= 60
+                                  ? `~${(provider.avgJobDurationMinutes / 60).toFixed(1)}h`
+                                  : `~${Math.round(provider.avgJobDurationMinutes)}`
+                                : '~30'}
+                            </span>
                           </div>
-                          <p className="text-xs text-gray-500">min reply</p>
+                          <p className="text-xs text-gray-500">min/job</p>
                         </div>
                       </div>
 
@@ -912,7 +922,7 @@ export default function ProvidersPage() {
                   )}
                 </div>
               </div>
-              
+
               <div className="pt-16 px-6 pb-6">
                 <div className="flex items-start justify-between mb-4">
                   <div>
@@ -924,9 +934,9 @@ export default function ProvidersPage() {
                     <span className="font-bold text-amber-700">{quickViewProvider.rating.toFixed(1)}</span>
                   </div>
                 </div>
-                
+
                 <p className="text-gray-600 mb-6">{quickViewProvider.bio || `Professional ${quickViewProvider.serviceCategory?.toLowerCase()} serving Maasin City with quality service and customer satisfaction.`}</p>
-                
+
                 <div className="grid grid-cols-3 gap-4 mb-6">
                   <div className="bg-gray-50 rounded-xl p-4 text-center">
                     <p className="text-2xl font-bold text-gray-900">{quickViewProvider.completedJobs}</p>
@@ -941,7 +951,7 @@ export default function ProvidersPage() {
                     <p className="text-sm text-gray-500">Response</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl mb-6">
                   <div>
                     <p className="text-sm text-gray-500">Service Price</p>
@@ -949,7 +959,7 @@ export default function ProvidersPage() {
                   </div>
                   <span className="px-3 py-1 bg-white rounded-full text-sm font-medium text-gray-600">per {quickViewProvider.priceType === 'per_hire' ? 'hire' : 'job'}</span>
                 </div>
-                
+
                 <div className="flex gap-3">
                   <button
                     onClick={() => { setQuickViewProvider(null); router.push(`/client/providers/${quickViewProvider.id}`); }}

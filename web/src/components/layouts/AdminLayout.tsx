@@ -19,7 +19,8 @@ import {
   LogOut,
   Menu,
   X,
-  Map
+  Map,
+  Tag
 } from 'lucide-react';
 import NotificationDropdown from '@/components/NotificationDropdown';
 import ToastNotification from '@/components/ToastNotification';
@@ -43,6 +44,7 @@ const navItems: NavItem[] = [
   { href: '/admin/earnings', icon: DollarSign, label: 'Earnings' },
   { href: '/admin/messages', icon: MessageSquare, label: 'Messages' },
   { href: '/admin/map', icon: Map, label: 'Live Map' },
+  { href: '/admin/services', icon: Tag, label: 'Services' },
   { href: '/admin/settings', icon: Settings, label: 'Settings' },
 ];
 
@@ -191,8 +193,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   key={item.href}
                   href={item.href}
                   className={`flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-colors ${pathname === item.href
-                      ? 'bg-[#00B14F] text-white'
-                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    ? 'bg-[#00B14F] text-white'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                 >
                   <div className="flex items-center gap-3">
@@ -201,8 +203,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   </div>
                   {badgeCount > 0 && (
                     <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center ${pathname === item.href
-                        ? 'bg-white text-[#00B14F]'
-                        : 'bg-red-500 text-white'
+                      ? 'bg-white text-[#00B14F]'
+                      : 'bg-red-500 text-white'
                       }`}>
                       {badgeCount > 99 ? '99+' : badgeCount}
                     </span>
@@ -261,8 +263,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     href={item.href}
                     onClick={() => setSidebarOpen(false)}
                     className={`flex items-center justify-between gap-3 px-4 py-3 rounded-lg ${pathname === item.href
-                        ? 'bg-[#00B14F] text-white'
-                        : 'text-gray-600 dark:text-gray-300'
+                      ? 'bg-[#00B14F] text-white'
+                      : 'text-gray-600 dark:text-gray-300'
                       }`}
                   >
                     <div className="flex items-center gap-3">
@@ -271,8 +273,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     </div>
                     {badgeCount > 0 && (
                       <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center ${pathname === item.href
-                          ? 'bg-white text-[#00B14F]'
-                          : 'bg-red-500 text-white'
+                        ? 'bg-white text-[#00B14F]'
+                        : 'bg-red-500 text-white'
                         }`}>
                         {badgeCount > 99 ? '99+' : badgeCount}
                       </span>

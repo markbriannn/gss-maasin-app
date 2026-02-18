@@ -7,8 +7,8 @@ import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestor
 import { db } from '@/lib/firebase';
 import ClientLayout from '@/components/layouts/ClientLayout';
 import dynamic from 'next/dynamic';
-import { 
-  X, ArrowRight, Star, Clock, MapPin, User, Filter, 
+import {
+  X, ArrowRight, Star, Clock, MapPin, User, Filter,
   Zap, DollarSign, Navigation, CheckCircle, Sparkles,
   ChevronRight, Shield, Award
 } from 'lucide-react';
@@ -28,21 +28,21 @@ interface Provider {
   fixedPrice: number;
   priceType: string;
   distance: number;
-  estimatedArrival: string;
+  avgJobDurationMinutes?: number;
+  estimatedJobTime: string | null;
   isOnline: boolean;
   latitude?: number;
   longitude?: number;
   tier?: string;
-  responseTime?: number;
 }
 
-type FilterType = 'recommended' | 'cheapest' | 'nearest' | 'highest_rated';
+type FilterType = 'recommended' | 'nearest' | 'highest_rated';
 
 function SelectProviderContent() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const serviceCategory = searchParams.get('category') || '';
   const clientLat = parseFloat(searchParams.get('lat') || '0');
   const clientLng = parseFloat(searchParams.get('lng') || '0');
@@ -78,21 +78,20 @@ function SelectProviderContent() {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
 
-  const getEstimatedArrival = (distance: number): string => {
-    const avgSpeed = 30;
-    const minutes = Math.round((distance / avgSpeed) * 60);
-    if (minutes < 5) return '< 5 mins';
-    if (minutes < 60) return `${minutes} mins`;
-    const hours = Math.floor(minutes / 60);
-    const remainingMins = minutes % 60;
-    return `${hours}h ${remainingMins}m`;
+  const getEstimatedJobTime = (avgMinutes?: number): string | null => {
+    if (!avgMinutes || avgMinutes <= 0) return null;
+    if (avgMinutes >= 60) {
+      const hrs = (avgMinutes / 60).toFixed(1);
+      return `Est. ~${hrs} hr/job`;
+    }
+    return `Est. ~${Math.round(avgMinutes)} min/job`;
   };
 
   // Real-time listener for providers
@@ -127,12 +126,12 @@ function SelectProviderContent() {
           fixedPrice: data.fixedPrice || data.hourlyRate || 0,
           priceType: data.priceType || 'per_job',
           distance: distance,
-          estimatedArrival: getEstimatedArrival(distance),
+          avgJobDurationMinutes: data.avgJobDurationMinutes || null,
+          estimatedJobTime: getEstimatedJobTime(data.avgJobDurationMinutes),
           isOnline: data.isOnline || false,
           latitude: data.latitude,
           longitude: data.longitude,
           tier: data.tier || 'bronze',
-          responseTime: data.responseTime || data.avgResponseTime || data.averageResponseTime || 5,
         });
       });
 
@@ -148,11 +147,8 @@ function SelectProviderContent() {
 
   const applyFilter = () => {
     let sorted = [...providers];
-    
+
     switch (activeFilter) {
-      case 'cheapest':
-        sorted.sort((a, b) => a.fixedPrice - b.fixedPrice);
-        break;
       case 'nearest':
         sorted.sort((a, b) => a.distance - b.distance);
         break;
@@ -168,7 +164,7 @@ function SelectProviderContent() {
         });
         break;
     }
-    
+
     setFilteredProviders(sorted);
   };
 
@@ -205,7 +201,6 @@ function SelectProviderContent() {
 
   const filters: { id: FilterType; label: string; icon: React.ReactNode }[] = [
     { id: 'recommended', label: 'Recommended', icon: <Sparkles className="w-4 h-4" /> },
-    { id: 'cheapest', label: 'Cheapest', icon: <DollarSign className="w-4 h-4" /> },
     { id: 'nearest', label: 'Nearest', icon: <Navigation className="w-4 h-4" /> },
     { id: 'highest_rated', label: 'Top Rated', icon: <Star className="w-4 h-4" /> },
   ];
@@ -242,7 +237,7 @@ function SelectProviderContent() {
               }] : [])
             ]}
           />
-          
+
           {/* Location Bar */}
           <div className="absolute top-4 left-4 right-4 z-[1000]">
             <div className="bg-white rounded-2xl shadow-lg p-3 flex items-center gap-3">
@@ -280,11 +275,10 @@ function SelectProviderContent() {
                 <button
                   key={filter.id}
                   onClick={() => setActiveFilter(filter.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
-                    activeFilter === filter.id
-                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${activeFilter === filter.id
+                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
                 >
                   {filter.icon}
                   {filter.label}
@@ -308,23 +302,22 @@ function SelectProviderContent() {
                 {filteredProviders.map((provider, index) => {
                   const isSelected = selectedProvider?.id === provider.id;
                   const isTopPick = index === 0 && activeFilter === 'recommended';
-                  
+
                   return (
                     <div
                       key={provider.id}
                       onClick={() => handleSelectProvider(provider)}
-                      className={`rounded-2xl border-2 transition-all cursor-pointer ${
-                        isSelected
-                          ? 'border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-500/20'
-                          : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-md'
-                      }`}
+                      className={`rounded-2xl border-2 transition-all cursor-pointer ${isSelected
+                        ? 'border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-500/20'
+                        : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-md'
+                        }`}
                     >
                       {isTopPick && (
                         <div className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-bold px-3 py-1 rounded-t-xl flex items-center gap-1">
                           <Sparkles className="w-3 h-3" /> TOP PICK
                         </div>
                       )}
-                      
+
                       <div className="p-4">
                         <div className="flex items-center gap-4">
                           {/* Provider Photo */}
@@ -360,7 +353,7 @@ function SelectProviderContent() {
                             <p className="text-sm text-emerald-600 font-medium mb-1">
                               {getCategoryIcon(provider.serviceCategory)} {provider.serviceCategory}
                             </p>
-                            
+
                             <div className="flex items-center gap-3 text-sm text-gray-500 mb-2">
                               <div className="flex items-center gap-1">
                                 <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
@@ -375,25 +368,15 @@ function SelectProviderContent() {
                             </div>
 
                             <div className="flex items-center gap-2 text-sm">
-                              <div className="flex items-center gap-1 text-gray-500">
-                                <Clock className="w-4 h-4" />
-                                <span>{provider.estimatedArrival}</span>
-                              </div>
-                              <span className="text-gray-300">•</span>
-                              <div className="flex items-center gap-1 text-gray-500">
-                                <MapPin className="w-4 h-4" />
-                                <span>{provider.distance.toFixed(1)} km</span>
-                              </div>
+                              {provider.estimatedJobTime && (
+                                <div className="flex items-center gap-1 text-blue-500">
+                                  <Clock className="w-4 h-4" />
+                                  <span>{provider.estimatedJobTime}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
 
-                          {/* Price */}
-                          <div className="text-right">
-                            <p className="text-2xl font-bold text-gray-900">₱{provider.fixedPrice.toLocaleString()}</p>
-                            <p className="text-xs text-gray-500">
-                              {provider.priceType === 'per_hour' ? 'per hour' : 'fixed'}
-                            </p>
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -419,14 +402,12 @@ function SelectProviderContent() {
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900">{selectedProvider.name}</p>
-                    <p className="text-sm text-gray-500">{selectedProvider.estimatedArrival} away</p>
+                    <p className="text-sm text-gray-500">{selectedProvider.estimatedJobTime} • {selectedProvider.serviceCategory}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xl font-bold text-emerald-600">₱{selectedProvider.fixedPrice.toLocaleString()}</p>
-                </div>
+
               </div>
-              
+
               <button
                 onClick={handleBookProvider}
                 className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all flex items-center justify-center gap-2"

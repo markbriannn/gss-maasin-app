@@ -55,7 +55,6 @@ const SNAP_POINTS = {
 
 const FILTERS = [
   { id: 'recommended', label: 'Recommended', icon: 'car' },
-  { id: 'cheapest', label: 'Cheapest', icon: 'wallet-outline' },
   { id: 'nearest', label: 'Nearest', icon: 'location' },
 ];
 
@@ -85,11 +84,13 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-const getEstimatedTime = (distance) => {
-  const minutes = Math.round((distance / 30) * 60);
-  const minTime = Math.max(4, minutes - 5);
-  const maxTime = minutes + 10;
-  return `Est. ${minTime} - ${maxTime} mins away`;
+const getEstimatedJobTime = (avgMinutes) => {
+  if (!avgMinutes || avgMinutes <= 0) return null;
+  if (avgMinutes >= 60) {
+    const hrs = (avgMinutes / 60).toFixed(1);
+    return `Est. ~${hrs} hrs per job`;
+  }
+  return `Est. ~${Math.round(avgMinutes)} mins per job`;
 };
 
 // Decode Google polyline
@@ -436,7 +437,9 @@ const ProviderCard = memo(({ provider, isSelected, onPress }) => {
             <Icon name="star" size={14} color="#F59E0B" style={{ marginLeft: 6 }} />
             <Text style={styles.rating}>{provider.rating.toFixed(1)}</Text>
           </View>
-          <Text style={styles.estTime}>{provider.estimatedTime}</Text>
+          {provider.estimatedTime && (
+            <Text style={styles.estTime}>{provider.estimatedTime}</Text>
+          )}
           {provider.completedJobs > 50 && (
             <View style={styles.jobsBadge}>
               <Icon name="shield-checkmark" size={12} color="#00B14F" />
@@ -451,11 +454,6 @@ const ProviderCard = memo(({ provider, isSelected, onPress }) => {
           )}
         </View>
 
-        {/* Price */}
-        <View style={styles.priceWrap}>
-          <Text style={styles.price}>₱{provider.fixedPrice.toLocaleString()}</Text>
-          <Text style={styles.priceLabel}>Estimate</Text>
-        </View>
       </View>
     </TouchableOpacity>
   );
@@ -668,7 +666,8 @@ const ClientHomeScreen = ({ navigation }) => {
           completedJobs: d.completedJobs || 0,
           fixedPrice: d.fixedPrice || d.hourlyRate || 0,
           distance: dist,
-          estimatedTime: getEstimatedTime(dist),
+          avgJobDurationMinutes: d.avgJobDurationMinutes || null,
+          estimatedTime: getEstimatedJobTime(d.avgJobDurationMinutes),
           isOnline: d.isOnline,
           latitude: d.latitude,
           longitude: d.longitude,
@@ -678,7 +677,6 @@ const ClientHomeScreen = ({ navigation }) => {
 
       // Sort
       list.sort((a, b) => {
-        if (activeFilter === 'cheapest') return a.fixedPrice - b.fixedPrice;
         if (activeFilter === 'nearest') return a.distance - b.distance;
         return (b.rating * 2 + b.completedJobs * 0.1) - (a.rating * 2 + a.completedJobs * 0.1);
       });
@@ -1262,23 +1260,20 @@ const ClientHomeScreen = ({ navigation }) => {
             ) : (
               <>
                 {/* NOT BOOKED - Show normal info and Contact Us */}
-                {/* Distance & Time */}
+                {/* Estimated Job Time & Completed Jobs */}
                 <View style={styles.modalInfoRow}>
+                  {selectedProvider?.estimatedTime && (
+                    <View style={styles.modalInfoItem}>
+                      <Icon name="time" size={18} color="#3B82F6" />
+                      <Text style={styles.modalInfoText}>{selectedProvider?.estimatedTime}</Text>
+                    </View>
+                  )}
                   <View style={styles.modalInfoItem}>
-                    <Icon name="location" size={18} color="#6B7280" />
-                    <Text style={styles.modalInfoText}>{selectedProvider?.distance?.toFixed(1) || '0'} km away</Text>
-                  </View>
-                  <View style={styles.modalInfoItem}>
-                    <Icon name="time" size={18} color="#6B7280" />
-                    <Text style={styles.modalInfoText}>{selectedProvider?.estimatedTime}</Text>
+                    <Icon name="checkmark-circle" size={18} color="#00B14F" />
+                    <Text style={styles.modalInfoText}>{selectedProvider?.completedJobs || 0} jobs done</Text>
                   </View>
                 </View>
 
-                {/* Price */}
-                <View style={styles.modalPriceRow}>
-                  <Text style={styles.modalPriceLabel}>Starting at</Text>
-                  <Text style={styles.modalPrice}>₱{selectedProvider?.fixedPrice?.toLocaleString() || '0'}</Text>
-                </View>
 
                 {/* Action Buttons */}
                 <View style={styles.modalActions}>

@@ -1252,7 +1252,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
         {/* Price Info */}
         {(jobData.price || jobData.estimatedPrice || jobData.totalAmount) ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Price Breakdown</Text>
+            <Text style={styles.sectionTitle}>Price Summary</Text>
             <View style={{
               backgroundColor: '#F0FDF4',
               borderRadius: 12,
@@ -1260,58 +1260,6 @@ const JobDetailsScreen = ({ navigation, route }) => {
               borderWidth: 1,
               borderColor: '#BBF7D0',
             }}>
-              {/* Show negotiation info */}
-              {jobData.isNegotiable ? (
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>
-                    Provider's Fixed Price: ₱{(jobData.providerFixedPrice || 0).toLocaleString()}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: '#6B7280' }}>
-                    Your Offer: ₱{(jobData.offeredPrice || 0).toLocaleString()}
-                  </Text>
-                </View>
-              ) : null}
-
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={{ fontSize: 14, color: '#4B5563' }}>Service Price</Text>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#1F2937' }}>
-                  ₱{(jobData.providerPrice || jobData.offeredPrice || jobData.price || 0).toLocaleString()}
-                </Text>
-              </View>
-
-              {/* Show discount if applied */}
-              {(jobData.hasDiscount && jobData.discountAmount > 0) ? (
-                <View style={{
-                  backgroundColor: '#D1FAE5',
-                  borderRadius: 8,
-                  padding: 10,
-                  marginBottom: 8,
-                }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Icon name="pricetag" size={16} color="#059669" />
-                      <Text style={{ fontSize: 13, color: '#065F46', marginLeft: 6, fontWeight: '600' }}>
-                        Provider Discount
-                      </Text>
-                    </View>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#059669' }}>
-                      -₱{jobData.discountAmount.toLocaleString()}
-                    </Text>
-                  </View>
-                  {jobData.discountReason ? (
-                    <Text style={{ fontSize: 12, color: '#065F46', marginTop: 4, fontStyle: 'italic' }}>
-                      "{jobData.discountReason}"
-                    </Text>
-                  ) : null}
-                </View>
-              ) : null}
-
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={{ fontSize: 14, color: '#4B5563' }}>System Fee ({APP_CONFIG.SERVICE_FEE_PERCENTAGE}%)</Text>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#1F2937' }}>
-                  {APP_CONFIG.CURRENCY_SYMBOL}{(jobData.systemFee || 0).toLocaleString()}
-                </Text>
-              </View>
 
               {/* Show additional charges */}
               {(jobData.additionalCharges && jobData.additionalCharges.length > 0) ? (
@@ -1404,9 +1352,6 @@ const JobDetailsScreen = ({ navigation, route }) => {
               </View>
               <Text style={{ fontSize: 28, fontWeight: '700', color: '#8B5CF6' }}>
                 ₱{(jobData.counterOfferPrice || 0).toLocaleString()}
-              </Text>
-              <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>
-                Total with fee: ₱{((jobData.counterOfferPrice || 0) * 1.05).toLocaleString()}
               </Text>
               {jobData.counterOfferNote ? (
                 <Text style={{ fontSize: 14, color: '#5B21B6', marginTop: 8, fontStyle: 'italic' }}>

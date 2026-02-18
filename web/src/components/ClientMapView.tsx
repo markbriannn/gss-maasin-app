@@ -228,11 +228,20 @@ export default function ClientMapView({ providers, userLocation, center, onProvi
   const [routeCoordinates, setRouteCoordinates] = useState<[number, number][] | null>(null);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [mapKey, setMapKey] = useState(0);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
 
   // Ensure component is mounted before rendering map
+  // Use a small delay + unique key to avoid Strict Mode double-mount crash
   useEffect(() => {
-    setIsMounted(true);
-    return () => setIsMounted(false);
+    const timer = setTimeout(() => {
+      setIsMounted(true);
+    }, 50);
+    return () => {
+      clearTimeout(timer);
+      setIsMounted(false);
+      setMapKey(prev => prev + 1);
+    };
   }, []);
 
   // Memoize provider icons - now includes selected state and index for staggered animation
@@ -292,106 +301,109 @@ export default function ClientMapView({ providers, userLocation, center, onProvi
   }
 
   return (
-    <MapContainer
-      center={[center.lat, center.lng]}
-      zoom={14}
-      style={{ height: '100%', width: '100%' }}
-      scrollWheelZoom={true}
-      zoomControl={true}
-    >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <MapController center={center} />
+    <div ref={mapContainerRef} style={{ height: '100%', width: '100%' }}>
+      <MapContainer
+        key={`client-map-${mapKey}`}
+        center={[center.lat, center.lng]}
+        zoom={14}
+        style={{ height: '100%', width: '100%' }}
+        scrollWheelZoom={true}
+        zoomControl={true}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <MapController center={center} />
 
-      {/* Route lines - Grab-style with glow effect */}
-      {routeCoordinates && routeCoordinates.length > 0 && (
-        <>
-          {/* Shadow/glow line underneath */}
-          <Polyline
-            positions={routeCoordinates}
-            pathOptions={{
-              color: 'rgba(59, 130, 246, 0.2)',
-              weight: 10,
-              opacity: 0.8,
-            }}
-          />
-          {/* Main route line */}
-          <Polyline
-            positions={routeCoordinates}
-            pathOptions={{
-              color: '#3B82F6',
-              weight: 5,
-              opacity: 0.9,
-            }}
-          />
-        </>
-      )}
+        {/* Route lines - Grab-style with glow effect */}
+        {routeCoordinates && routeCoordinates.length > 0 && (
+          <>
+            {/* Shadow/glow line underneath */}
+            <Polyline
+              positions={routeCoordinates}
+              pathOptions={{
+                color: 'rgba(59, 130, 246, 0.2)',
+                weight: 10,
+                opacity: 0.8,
+              }}
+            />
+            {/* Main route line */}
+            <Polyline
+              positions={routeCoordinates}
+              pathOptions={{
+                color: '#3B82F6',
+                weight: 5,
+                opacity: 0.9,
+              }}
+            />
+          </>
+        )}
 
-      {/* User location marker with animated pulse */}
-      {userLocation && (
-        <>
-          <Marker position={[userLocation.lat, userLocation.lng]} icon={userIcon}>
-            <Popup>Your Location</Popup>
-          </Marker>
-          {/* Outer radius circle */}
-          <Circle
-            center={[userLocation.lat, userLocation.lng]}
-            radius={300}
-            pathOptions={{
-              color: 'rgba(59, 130, 246, 0.2)',
-              fillColor: 'rgba(59, 130, 246, 0.06)',
-              fillOpacity: 0.6,
-              weight: 1.5,
-            }}
-          />
-          {/* Inner radius circle */}
-          <Circle
-            center={[userLocation.lat, userLocation.lng]}
-            radius={100}
-            pathOptions={{
-              color: 'rgba(59, 130, 246, 0.3)',
-              fillColor: 'rgba(59, 130, 246, 0.1)',
-              fillOpacity: 0.8,
-              weight: 1.5,
-            }}
-          />
-        </>
-      )}
+        {/* User location marker with animated pulse */}
+        {userLocation && (
+          <>
+            <Marker position={[userLocation.lat, userLocation.lng]} icon={userIcon}>
+              <Popup>Your Location</Popup>
+            </Marker>
+            {/* Outer radius circle */}
+            <Circle
+              center={[userLocation.lat, userLocation.lng]}
+              radius={300}
+              pathOptions={{
+                color: 'rgba(59, 130, 246, 0.2)',
+                fillColor: 'rgba(59, 130, 246, 0.06)',
+                fillOpacity: 0.6,
+                weight: 1.5,
+              }}
+            />
+            {/* Inner radius circle */}
+            <Circle
+              center={[userLocation.lat, userLocation.lng]}
+              radius={100}
+              pathOptions={{
+                color: 'rgba(59, 130, 246, 0.3)',
+                fillColor: 'rgba(59, 130, 246, 0.1)',
+                fillOpacity: 0.8,
+                weight: 1.5,
+              }}
+            />
+          </>
+        )}
 
-      {/* Provider markers with animated bounce-in */}
-      {providers.map((provider) => {
-        if (!provider.latitude || !provider.longitude) return null;
-        const isSelected = selectedProviderId === provider.id;
+        {/* Provider markers with animated bounce-in */}
+        {providers.map((provider) => {
+          if (!provider.latitude || !provider.longitude) return null;
+          const isSelected = selectedProviderId === provider.id;
 
-        return (
-          <Marker
-            key={provider.id}
-            position={[provider.latitude, provider.longitude]}
-            icon={providerIcons[provider.id]}
-            zIndexOffset={isSelected ? 1000 : 0}
-            eventHandlers={{
-              click: (e) => {
-                // Prevent popup from interfering
-                e.originalEvent.stopPropagation();
-                onProviderClick(provider.id);
-              },
-            }}
-          >
-            <Popup closeOnClick={true} autoClose={true}>
-              <div
-                className="text-center cursor-pointer min-w-[120px]"
-                onClick={() => onProviderClick(provider.id)}
-              >
-                <p className="font-semibold">{provider.firstName} {provider.lastName}</p>
-                <p className="text-sm text-gray-500">{provider.serviceCategory}</p>
-                <p className="text-xs text-emerald-600 mt-1 font-medium">Tap to select</p>
-              </div>
-            </Popup>
-          </Marker>
-        );
-      })}
-    </MapContainer>
+          return (
+            <Marker
+              key={provider.id}
+              position={[provider.latitude, provider.longitude]}
+              icon={providerIcons[provider.id]}
+              zIndexOffset={isSelected ? 1000 : 0}
+              eventHandlers={{
+                click: (e) => {
+                  // Prevent popup from interfering
+                  e.originalEvent.stopPropagation();
+                  onProviderClick(provider.id);
+                },
+              }}
+            >
+              <Popup closeOnClick={true} autoClose={true}>
+                <div
+                  className="text-center cursor-pointer min-w-[120px]"
+                  onClick={() => onProviderClick(provider.id)}
+                >
+                  <p className="font-semibold">{provider.firstName} {provider.lastName}</p>
+                  <p className="text-sm text-gray-500">{provider.serviceCategory}</p>
+                  <p className="text-xs text-emerald-600 mt-1 font-medium">Tap to select</p>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
+      </MapContainer>
+    </div>
   );
 }

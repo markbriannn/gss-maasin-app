@@ -713,28 +713,12 @@ function BookServiceContent() {
                     </div>
                   </div>
 
-                  <div className="p-5 space-y-4">
+                  <div className="p-5">
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Service Price</span>
-                      <span className="font-semibold text-gray-900">₱{getPrice().toLocaleString()}</span>
+                      <span className="font-bold text-gray-900">Total</span>
+                      <span className="text-2xl font-bold text-[#00B14F]">₱{getTotalAmount().toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-1">
-                        <span className="text-gray-600">Platform Fee</span>
-                        <span className="text-xs text-gray-400">(5%)</span>
-                      </div>
-                      <span className="font-semibold text-gray-900">₱{getSystemFee().toLocaleString()}</span>
-                    </div>
-
-                    <div className="border-t border-gray-100 pt-4">
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold text-gray-900">Total</span>
-                        <span className="text-2xl font-bold text-[#00B14F]">₱{getTotalAmount().toLocaleString()}</span>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {provider.priceType === 'per_hire' ? 'Per hire' : 'Per job'}
-                      </p>
-                    </div>
+                    <p className="text-xs text-gray-400 mt-1">Per job</p>
                   </div>
                 </div>
 

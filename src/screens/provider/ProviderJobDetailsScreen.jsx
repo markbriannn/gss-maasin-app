@@ -18,7 +18,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { globalStyles } from '../../css/globalStyles';
 import { jobDetailsStyles as styles } from '../../css/jobDetailsStyles';
 import { db } from '../../config/firebase';
-import { doc, getDoc, updateDoc, serverTimestamp, onSnapshot, collection, setDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, updateDoc, serverTimestamp, onSnapshot, collection, setDoc, query, where } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import Video from 'react-native-video';
@@ -1065,6 +1065,37 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
                   jobStatus: null,
                   updatedAt: serverTimestamp(),
                 }).catch(err => console.log('User update error:', err));
+
+                // Compute and save average job duration (workStartedAt → workCompletedAt)
+                // so client screens can show real estimated job time
+                (async () => {
+                  try {
+                    const completedSnap = await getDocs(query(
+                      collection(db, 'bookings'),
+                      where('providerId', '==', user.uid),
+                      where('status', '==', 'completed'),
+                    ));
+                    const durations = [];
+                    completedSnap.forEach(d => {
+                      const bData = d.data();
+                      const started = bData.workStartedAt?.toDate?.();
+                      const ended = bData.workCompletedAt?.toDate?.();
+                      if (started && ended) {
+                        const mins = (ended.getTime() - started.getTime()) / 60000;
+                        if (mins > 0 && mins < 600) durations.push(mins);
+                      }
+                    });
+                    if (durations.length > 0) {
+                      const avg = Math.round(durations.reduce((s, v) => s + v, 0) / durations.length);
+                      await updateDoc(doc(db, 'users', user.uid), {
+                        avgJobDurationMinutes: avg,
+                        totalCompletedJobs: completedSnap.size,
+                      });
+                    }
+                  } catch (e) {
+                    console.log('Avg duration compute error:', e);
+                  }
+                })();
               }
 
               // Award gamification points to both client and provider (fire and forget)

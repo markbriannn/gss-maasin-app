@@ -23,7 +23,6 @@ const MAP_HEIGHT = height * 0.38;
 
 const FILTERS = [
   { id: 'recommended', label: 'Recommended', icon: 'car' },
-  { id: 'cheapest', label: 'Cheapest', icon: 'wallet-outline' },
   { id: 'nearest', label: 'Fastest', icon: 'location' },
 ];
 
@@ -47,12 +46,13 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
-const getEstimatedTime = (distance) => {
-  const avgSpeed = 30;
-  const minutes = Math.round((distance / avgSpeed) * 60);
-  const minTime = Math.max(4, minutes - 5);
-  const maxTime = minutes + 10;
-  return `Est. ${minTime} - ${maxTime} mins away`;
+const getEstimatedJobTime = (avgMinutes) => {
+  if (!avgMinutes || avgMinutes <= 0) return null;
+  if (avgMinutes >= 60) {
+    const hrs = (avgMinutes / 60).toFixed(1);
+    return `Est. ~${hrs} hrs per job`;
+  }
+  return `Est. ~${Math.round(avgMinutes)} mins per job`;
 };
 
 const SelectProviderScreen = ({ navigation, route }) => {
@@ -113,7 +113,8 @@ const SelectProviderScreen = ({ navigation, route }) => {
           fixedPrice: data.fixedPrice || data.hourlyRate || 0,
           priceType: data.priceType || 'per_job',
           distance: distance,
-          estimatedTime: getEstimatedTime(distance),
+          avgJobDurationMinutes: data.avgJobDurationMinutes || null,
+          estimatedTime: getEstimatedJobTime(data.avgJobDurationMinutes),
           isOnline: data.isOnline || false,
           latitude: data.latitude,
           longitude: data.longitude,
@@ -133,9 +134,6 @@ const SelectProviderScreen = ({ navigation, route }) => {
   const applyFilter = () => {
     let sorted = [...providers];
     switch (activeFilter) {
-      case 'cheapest':
-        sorted.sort((a, b) => a.fixedPrice - b.fixedPrice);
-        break;
       case 'nearest':
         sorted.sort((a, b) => a.distance - b.distance);
         break;
@@ -343,7 +341,7 @@ const SelectProviderScreen = ({ navigation, route }) => {
                       </View>
 
                       <Text style={[styles.estimatedTime, isBusy && styles.textMuted]}>
-                        {isBusy ? 'Currently busy. Try again later.' : provider.estimatedTime}
+                        {isBusy ? 'Currently busy. Try again later.' : (provider.estimatedTime || '')}
                       </Text>
 
                       {!isBusy && provider.completedJobs > 50 && (
@@ -355,16 +353,6 @@ const SelectProviderScreen = ({ navigation, route }) => {
                             </Text>
                           </View>
                         </View>
-                      )}
-                    </View>
-
-                    {/* Price */}
-                    <View style={styles.priceContainer}>
-                      <Text style={[styles.priceText, isBusy && styles.textMuted]}>
-                        ₱{provider.fixedPrice.toLocaleString()}
-                      </Text>
-                      {!isBusy && provider.priceType === 'per_job' && (
-                        <Text style={styles.priceLabel}>Estimate</Text>
                       )}
                     </View>
                   </View>

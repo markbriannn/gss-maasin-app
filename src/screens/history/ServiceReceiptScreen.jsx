@@ -29,7 +29,7 @@ const ServiceReceiptScreen = ({ navigation, route }) => {
     const unsubscribe = onSnapshot(doc(db, 'bookings', id), async (docSnap) => {
       if (docSnap.exists()) {
         const data = { id: docSnap.id, ...docSnap.data() };
-        
+
         // Fetch other party info
         const otherPartyId = isProvider ? data.clientId : data.providerId;
         if (otherPartyId) {
@@ -160,7 +160,7 @@ const ServiceReceiptScreen = ({ navigation, route }) => {
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case 'completed': return '#10B981';
-      case 'cancelled': 
+      case 'cancelled':
       case 'rejected': return '#EF4444';
       default: return '#6B7280';
     }
@@ -189,12 +189,8 @@ ${isProvider ? 'Client' : 'Provider'}: ${displayOtherParty?.name || 'N/A'}
 Location: ${streetAddress ? `${streetAddress}, ${barangay}` : location || 'N/A'}
 
 --------------------------
-Service Fee: ₱${baseAmount.toLocaleString()}
-${additionalCharges.length > 0 ? `Additional Charges: ₱${additionalTotal.toLocaleString()}` : ''}
-${!isProvider ? `System Fee (${systemFeePercentage}%): ₱${systemFee.toLocaleString()}` : ''}
---------------------------
+${additionalCharges.length > 0 ? `Additional Charges: ₱${additionalTotal.toLocaleString()}\n` : ''}--------------------------
 ${isProvider ? 'Your Earnings' : 'Total Paid'}: ₱${finalTotal.toLocaleString()}
-${isProvider ? `\nClient paid ₱${clientTotal.toLocaleString()} (includes 5% platform fee)` : ''}
 
 Thank you for using GSS Maasin!
       `.trim();
@@ -238,10 +234,8 @@ ${streetAddress ? `${streetAddress}, ${barangay}` : location || 'N/A'}
 ════════════════════════════════════════
 PAYMENT DETAILS
 ════════════════════════════════════════
-Service Fee:                 ₱${baseAmount.toLocaleString()}
-${additionalCharges.length > 0 ? additionalCharges.map(charge => `${charge.reason || 'Additional'}:${' '.repeat(Math.max(1, 28 - (charge.reason || 'Additional').length))}₱${(charge.amount || 0).toLocaleString()}`).join('\n') + '\n' : ''}${!isProvider && systemFee > 0 ? `System Fee (${systemFeePercentage}%):           ₱${systemFee.toLocaleString()}\n` : ''}────────────────────────────────────────
+${additionalCharges.length > 0 ? additionalCharges.map(charge => `${charge.reason || 'Additional'}:${' '.repeat(Math.max(1, 28 - (charge.reason || 'Additional').length))}₱${(charge.amount || 0).toLocaleString()}`).join('\n') + '\n' : ''}────────────────────────────────────────
 ${isProvider ? 'YOUR EARNINGS' : 'TOTAL PAID'}:              ₱${finalTotal.toLocaleString()}
-${isProvider ? `\nClient paid ₱${clientTotal.toLocaleString()} (includes 5% platform fee)` : ''}
 ════════════════════════════════════════
 
 ${rating || review ? `
@@ -309,8 +303,8 @@ Thank you for using GSS Maasin!
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
-        style={{ flex: 1 }} 
+      <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -369,9 +363,9 @@ Thank you for using GSS Maasin!
               <View style={styles.personCard}>
                 <View style={styles.personAvatar}>
                   {displayOtherParty?.photo ? (
-                    <Image 
-                      source={{ uri: displayOtherParty.photo }} 
-                      style={{ width: 48, height: 48, borderRadius: 24 }} 
+                    <Image
+                      source={{ uri: displayOtherParty.photo }}
+                      style={{ width: 48, height: 48, borderRadius: 24 }}
                     />
                   ) : (
                     <Text style={styles.personAvatarText}>
@@ -407,14 +401,9 @@ Thank you for using GSS Maasin!
 
             <View style={styles.dashedDivider} />
 
-            {/* Payment Breakdown */}
+            {/* Payment Details */}
             <View style={styles.receiptSection}>
               <Text style={styles.sectionTitle}>Payment Details</Text>
-              
-              <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>Service Fee</Text>
-                <Text style={styles.priceValue}>₱{baseAmount.toLocaleString()}</Text>
-              </View>
 
               {/* Additional Charges */}
               {additionalCharges.length > 0 && (
@@ -429,11 +418,11 @@ Thank you for using GSS Maasin!
                 </View>
               )}
 
-              {/* Show system fee for client only */}
-              {!isProvider && systemFee > 0 && (
+              {/* Provider: show their earnings */}
+              {isProvider && (
                 <View style={styles.priceRow}>
-                  <Text style={styles.priceLabel}>System Fee ({systemFeePercentage}%)</Text>
-                  <Text style={styles.priceValue}>₱{systemFee.toLocaleString()}</Text>
+                  <Text style={styles.priceLabel}>Service Fee</Text>
+                  <Text style={styles.priceValue}>₱{baseAmount.toLocaleString()}</Text>
                 </View>
               )}
 
@@ -445,13 +434,6 @@ Thank you for using GSS Maasin!
                   ₱{finalTotal.toLocaleString()}
                 </Text>
               </View>
-              
-              {/* Show what client paid for provider reference */}
-              {isProvider && (
-                <Text style={{fontSize: 12, color: '#6B7280', textAlign: 'center', marginTop: 8}}>
-                  Client paid ₱{clientTotal.toLocaleString()} (includes 5% platform fee)
-                </Text>
-              )}
             </View>
 
             {/* Review Section (for completed jobs) */}
@@ -494,7 +476,7 @@ Thank you for using GSS Maasin!
                 minute: '2-digit',
               })}
             </Text>
-            
+
             {/* QR Code Placeholder */}
             <View style={styles.qrContainer}>
               <View style={styles.qrPlaceholder}>
@@ -512,7 +494,7 @@ Thank you for using GSS Maasin!
           <Icon name="share-outline" size={20} color="#374151" />
           <Text style={styles.downloadButtonText}>Share Receipt</Text>
         </TouchableOpacity>
-        
+
         {!isProvider && status === 'completed' && (
           <TouchableOpacity style={styles.rebookButton} onPress={handleRebook}>
             <Icon name="refresh-outline" size={20} color="#FFFFFF" />

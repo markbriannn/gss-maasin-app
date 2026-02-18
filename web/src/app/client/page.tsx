@@ -46,8 +46,8 @@ interface Provider {
   completedJobs?: number;
   fixedPrice?: number;
   hourlyRate?: number;
-  responseTime?: number;
-  estimatedArrival?: string;
+  avgJobDurationMinutes?: number;
+  estimatedJobTime?: string | null;
   tier?: string;
 }
 
@@ -67,11 +67,10 @@ const SERVICE_CATEGORIES = [
   { id: 'cleaner', name: 'Cleaner', icon: Sparkles, color: '#10B981', emoji: '🧹' },
 ];
 
-type FilterType = 'recommended' | 'cheapest' | 'nearest' | 'top_rated';
+type FilterType = 'recommended' | 'nearest' | 'top_rated';
 
 const FILTERS: { id: FilterType; label: string; icon: React.ReactNode }[] = [
   { id: 'recommended', label: 'Recommended', icon: <Sparkles className="w-4 h-4" /> },
-  { id: 'cheapest', label: 'Cheapest', icon: <DollarSign className="w-4 h-4" /> },
   { id: 'nearest', label: 'Nearest', icon: <Navigation className="w-4 h-4" /> },
   { id: 'top_rated', label: 'Top Rated', icon: <Star className="w-4 h-4" /> },
 ];
@@ -89,15 +88,13 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 };
 
-const getEstimatedArrival = (distance: number | null): string => {
-  if (!distance) return '~15 mins';
-  const avgSpeed = 30;
-  const minutes = Math.round((distance / avgSpeed) * 60);
-  if (minutes < 5) return '< 5 mins';
-  if (minutes < 60) return `${minutes} mins`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMins = minutes % 60;
-  return `${hours}h ${remainingMins}m`;
+const getEstimatedJobTime = (avgMinutes?: number): string | null => {
+  if (!avgMinutes || avgMinutes <= 0) return null;
+  if (avgMinutes >= 60) {
+    const hrs = (avgMinutes / 60).toFixed(1);
+    return `Est. ~${hrs} hr/job`;
+  }
+  return `Est. ~${Math.round(avgMinutes)} min/job`;
 };
 
 const getTierStyle = (tier?: string) => {
@@ -271,8 +268,8 @@ export default function ClientDashboard() {
             completedJobs: data.completedJobs || 0,
             fixedPrice: data.fixedPrice || data.hourlyRate || 0,
             hourlyRate: data.hourlyRate || data.fixedPrice || 0,
-            responseTime: data.responseTime || Math.floor(Math.random() * 10) + 2,
-            estimatedArrival: getEstimatedArrival(distance),
+            avgJobDurationMinutes: data.avgJobDurationMinutes || null,
+            estimatedJobTime: getEstimatedJobTime(data.avgJobDurationMinutes),
             tier: data.tier || 'bronze',
           });
         });
@@ -336,9 +333,6 @@ export default function ClientDashboard() {
 
     // Apply sorting based on active filter
     switch (activeFilter) {
-      case 'cheapest':
-        filtered.sort((a, b) => (a.fixedPrice || 0) - (b.fixedPrice || 0));
-        break;
       case 'nearest':
         filtered.sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
         break;
@@ -612,7 +606,7 @@ export default function ClientDashboard() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-gray-900 dark:text-white text-xs truncate">{provider.firstName}</h3>
+                            <h3 className="font-bold text-gray-900 dark:text-white text-xs truncate">{provider.firstName} {provider.lastName}</h3>
                             <p className="text-[11px] text-emerald-600 font-medium truncate">
                               {categoryData?.emoji} {provider.serviceCategory || 'Service'}
                             </p>
@@ -625,25 +619,20 @@ export default function ClientDashboard() {
                           </button>
                         </div>
 
-                        {/* Rating + Distance */}
+                        {/* Rating + Est. Time */}
                         <div className="flex items-center gap-2 mb-2">
                           <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full">
                             <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
                             <span className="text-[11px] font-semibold text-amber-700">{provider.rating > 0 ? provider.rating.toFixed(1) : 'New'}</span>
                           </div>
-                          {provider.distance && (
-                            <span className="text-[11px] text-gray-400">{provider.distance} km</span>
+                          {provider.estimatedJobTime && (
+                            <span className="text-[11px] text-blue-500 font-medium">{provider.estimatedJobTime}</span>
                           )}
                         </div>
 
-                        {/* ETA + Price */}
+                        {/* Completed Jobs */}
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-gray-400">{provider.estimatedArrival}</span>
-                          {provider.fixedPrice && provider.fixedPrice > 0 ? (
-                            <span className="text-sm font-bold text-emerald-600">₱{provider.fixedPrice.toLocaleString()}</span>
-                          ) : (
-                            <span className="text-[11px] text-gray-400">Price varies</span>
-                          )}
+                          <span className="text-[11px] text-gray-400">{provider.completedJobs || 0} jobs</span>
                         </div>
                       </div>
                     </div>
@@ -683,13 +672,9 @@ export default function ClientDashboard() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-gray-900 dark:text-white truncate">{selectedProvider.firstName} {selectedProvider.lastName}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{selectedProvider.estimatedArrival} away • {selectedProvider.serviceCategory}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{selectedProvider.estimatedJobTime ? `${selectedProvider.estimatedJobTime} • ` : ''}{selectedProvider.serviceCategory}</p>
                 </div>
-                <div className="text-right">
-                  {selectedProvider.fixedPrice && selectedProvider.fixedPrice > 0 && (
-                    <p className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">₱{selectedProvider.fixedPrice.toLocaleString()}</p>
-                  )}
-                </div>
+
               </div>
 
               {activeBooking ? (
@@ -875,23 +860,21 @@ export default function ClientDashboard() {
                   </p>
                 )}
 
-                {/* Distance & Time - Pill badges */}
+                {/* Estimated Job Time - Pill badge */}
                 <div className="flex items-center justify-center gap-3 mb-4">
-                  <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 px-4 py-2 rounded-xl">
-                    <Navigation className="w-4 h-4 text-emerald-500" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{selectedProvider.distance?.toFixed(1) || '0'} km</span>
-                  </div>
-                  <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 px-4 py-2 rounded-xl">
-                    <Clock className="w-4 h-4 text-emerald-500" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{selectedProvider.estimatedArrival}</span>
+                  {selectedProvider.estimatedJobTime && (
+                    <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-xl">
+                      <Clock className="w-4 h-4 text-blue-500" />
+                      <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{selectedProvider.estimatedJobTime}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 px-4 py-2 rounded-xl">
+                    <Star className="w-4 h-4 text-emerald-500" />
+                    <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">{selectedProvider.completedJobs || 0} jobs done</span>
                   </div>
                 </div>
 
-                {/* Price - Gradient card */}
-                <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 rounded-2xl p-5 mb-6 text-center border border-emerald-100/50">
-                  <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide font-medium">Starting at</p>
-                  <p className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">₱{selectedProvider.fixedPrice?.toLocaleString() || '0'}</p>
-                </div>
+
 
                 {/* Action Buttons */}
                 <div className="flex gap-3">

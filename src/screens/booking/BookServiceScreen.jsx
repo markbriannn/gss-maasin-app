@@ -539,33 +539,7 @@ const BookServiceScreen = ({ navigation, route }) => {
                   borderTopWidth: 1,
                   borderTopColor: isDark ? '#065F46' : '#BBF7D0',
                 }}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', marginBottom: 12 }}>
-                  Price Breakdown
-                </Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 14, color: isDark ? theme.colors.textSecondary : '#4B5563' }}>
-                    Provider's Price
-                  </Text>
-                  <Text style={{ fontSize: 14, fontWeight: '500', color: isDark ? theme.colors.text : '#1F2937' }}>
-                    ₱{providerFixedPrice.toLocaleString()}
-                  </Text>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 14, color: isDark ? theme.colors.textSecondary : '#4B5563' }}>
-                    System Fee (5%)
-                  </Text>
-                  <Text style={{ fontSize: 14, fontWeight: '500', color: isDark ? theme.colors.text : '#1F2937' }}>
-                    ₱{((providerFixedPrice || 0) * 0.05).toLocaleString()}
-                  </Text>
-                </View>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    paddingTop: 8,
-                    borderTopWidth: 1,
-                    borderTopColor: isDark ? '#065F46' : '#BBF7D0',
-                  }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                   <Text style={{ fontSize: 16, fontWeight: '700', color: isDark ? theme.colors.text : '#1F2937' }}>
                     Total
                   </Text>
@@ -573,6 +547,9 @@ const BookServiceScreen = ({ navigation, route }) => {
                     ₱{((providerFixedPrice || 0) * 1.05).toLocaleString()}
                   </Text>
                 </View>
+                <Text style={{ fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginTop: 2 }}>
+                  Per job
+                </Text>
               </View>
             )}
           </View>

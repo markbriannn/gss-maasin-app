@@ -601,7 +601,7 @@ function JobDetailsContent() {
     const systemFee = counterPrice * 0.05;
     const totalAmount = counterPrice + systemFee;
 
-    if (!confirm(`Accept provider's offer of ₱${counterPrice.toLocaleString()}?\n\nTotal with fee: ₱${totalAmount.toLocaleString()}`)) return;
+    if (!confirm(`Accept provider's offer of ₱${counterPrice.toLocaleString()}?`)) return;
 
     setUpdating(true);
     try {
@@ -1125,47 +1125,10 @@ function JobDetailsContent() {
           </div>
         </div>
 
-        {/* Price Breakdown - Enhanced */}
+        {/* Price Summary */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Price Breakdown</h3>
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Price Summary</h3>
           <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-5 space-y-4">
-            {/* Negotiation info */}
-            {job.isNegotiable && (
-              <div className="text-sm text-gray-500 pb-4 border-b border-green-200">
-                <p>Provider's Fixed Price: {formatCurrency(job.providerFixedPrice || 0)}</p>
-                <p>Your Offer: {formatCurrency(job.offeredPrice || 0)}</p>
-              </div>
-            )}
-
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600 font-medium">Service Price</span>
-              <span className="font-bold text-gray-900 text-lg">
-                {formatCurrency(job.providerPrice || job.offeredPrice || job.price || 0)}
-              </span>
-            </div>
-
-            {/* Discount */}
-            {job.hasDiscount && (job.discountAmount || 0) > 0 && (
-              <div className="bg-gradient-to-r from-green-100 to-emerald-100 rounded-xl p-4 -mx-1">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-green-200 rounded-lg">
-                      <Tag className="w-4 h-4 text-green-700" />
-                    </div>
-                    <span className="text-sm font-bold text-green-800">Provider Discount</span>
-                  </div>
-                  <span className="font-bold text-green-600 text-lg">-{formatCurrency(job.discountAmount || 0)}</span>
-                </div>
-                {job.discountReason && (
-                  <p className="text-sm text-green-700 mt-2 italic pl-8">"{job.discountReason}"</p>
-                )}
-              </div>
-            )}
-
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600 font-medium">System Fee (5%)</span>
-              <span className="font-semibold text-gray-700">{formatCurrency(job.systemFee || 0)}</span>
-            </div>
 
             {/* Additional Charges */}
             {job.additionalCharges && job.additionalCharges.length > 0 && (
@@ -1221,9 +1184,6 @@ function JobDetailsContent() {
               <span className="font-bold text-purple-800 text-lg">Provider's Counter Offer</span>
             </div>
             <p className="text-4xl font-black text-purple-600">{formatCurrency(job.counterOfferPrice || 0)}</p>
-            <p className="text-sm text-gray-500 mt-2">
-              Total with fee: <span className="font-semibold">{formatCurrency((job.counterOfferPrice || 0) * 1.05)}</span>
-            </p>
             {job.counterOfferNote && (
               <p className="text-purple-700 mt-3 italic bg-purple-100/50 p-3 rounded-xl">"{job.counterOfferNote}"</p>
             )}
@@ -1615,14 +1575,6 @@ function JobDetailsContent() {
               rows={3}
             />
 
-            {newOfferPrice && (
-              <div className="bg-green-50 rounded-xl p-3 mb-4">
-                <p className="text-sm text-gray-500">Your total with fee:</p>
-                <p className="text-xl font-bold text-[#00B14F]">
-                  {formatCurrency(parseFloat(newOfferPrice || '0') * 1.05)}
-                </p>
-              </div>
-            )}
 
             <button
               onClick={handleNewOffer}
