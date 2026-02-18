@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { Wrench, Mail, Lock, Eye, EyeOff, ArrowLeft, User, Briefcase, Shield, ChevronRight, Clock, Ban, X } from 'lucide-react';
+import { Wrench, Mail, Lock, Eye, EyeOff, ArrowLeft, User, Briefcase, Shield, ChevronRight, Clock, Ban, X, AlertCircle } from 'lucide-react';
 
 type Role = 'CLIENT' | 'PROVIDER' | 'ADMIN' | null;
 
@@ -246,6 +246,7 @@ export default function LoginPage() {
                   placeholder="you@example.com"
                 />
               </div>
+
             </div>
 
             <div>

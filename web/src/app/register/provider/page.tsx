@@ -6,9 +6,9 @@ import Link from 'next/link';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { 
+import {
   Wrench, ArrowLeft, ArrowRight, User, Mail, MapPin, Lock, Briefcase, FileText,
-  CheckCircle, Clock, Calendar, Eye, EyeOff, Camera, Upload, Loader2, Navigation, ShieldCheck
+  CheckCircle, Clock, Calendar, Eye, EyeOff, Camera, Upload, Loader2, Navigation, ShieldCheck, AlertTriangle
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import type { ComponentType } from 'react';
@@ -50,17 +50,17 @@ const SERVICE_CATEGORIES = [
 ];
 
 const MAASIN_BARANGAYS = [
-  'Abgao', 'Acasia', 'Asuncion', 'Bactul I', 'Bactul II', 'Badiang', 
-  'Bagtican', 'Basak', 'Bato I', 'Bato II', 'Batuan', 'Baugo', 
-  'Bilibol', 'Bogo', 'Cabadiangan', 'Cabulihan', 'Cagnituan', 'Cambooc', 
-  'Cansirong', 'Canturing', 'Canyuom', 'Combado', 'Dongon', 'Gawisan', 
-  'Guadalupe', 'Hanginan', 'Hantag', 'Hinapu Daku', 'Hinapu Gamay', 'Ibarra', 
-  'Isagani (Pugaling)', 'Laboon', 'Lanao', 'Libertad', 'Libhu', 'Lib-og', 
-  'Lonoy', 'Lunas', 'Mahayahay', 'Malapoc Norte', 'Malapoc Sur', 'Mambajao', 
-  'Manhilo', 'Mantahan', 'Maria Clara', 'Matin-ao', 'Nasaug', 'Nati', 
-  'Nonok Norte', 'Nonok Sur', 'Panan-awan', 'Pansaan', 'Pasay', 'Pinaskohan', 
-  'Rizal', 'San Agustin (Lundag)', 'San Isidro', 'San Jose', 'San Rafael', 
-  'Santa Cruz', 'Santo Niño', 'Santa Rosa', 'Santo Rosario', 'Soro-soro', 
+  'Abgao', 'Acasia', 'Asuncion', 'Bactul I', 'Bactul II', 'Badiang',
+  'Bagtican', 'Basak', 'Bato I', 'Bato II', 'Batuan', 'Baugo',
+  'Bilibol', 'Bogo', 'Cabadiangan', 'Cabulihan', 'Cagnituan', 'Cambooc',
+  'Cansirong', 'Canturing', 'Canyuom', 'Combado', 'Dongon', 'Gawisan',
+  'Guadalupe', 'Hanginan', 'Hantag', 'Hinapu Daku', 'Hinapu Gamay', 'Ibarra',
+  'Isagani (Pugaling)', 'Laboon', 'Lanao', 'Libertad', 'Libhu', 'Lib-og',
+  'Lonoy', 'Lunas', 'Mahayahay', 'Malapoc Norte', 'Malapoc Sur', 'Mambajao',
+  'Manhilo', 'Mantahan', 'Maria Clara', 'Matin-ao', 'Nasaug', 'Nati',
+  'Nonok Norte', 'Nonok Sur', 'Panan-awan', 'Pansaan', 'Pasay', 'Pinaskohan',
+  'Rizal', 'San Agustin (Lundag)', 'San Isidro', 'San Jose', 'San Rafael',
+  'Santa Cruz', 'Santo Niño', 'Santa Rosa', 'Santo Rosario', 'Soro-soro',
   'Tagnipa', 'Tam-is', 'Tawid', 'Tigbawan', 'Tomoy-tomoy', 'Tunga-tunga'
 ];
 
@@ -144,7 +144,7 @@ export default function ProviderRegistration() {
   const [codeSent, setCodeSent] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  
+
   // Phone OTP states
   const [phoneOtpCode, setPhoneOtpCode] = useState('');
   const [phoneOtpSent, setPhoneOtpSent] = useState(false);
@@ -210,30 +210,30 @@ export default function ProviderRegistration() {
   const findMatchingBarangay = (barangayName: string): string => {
     if (!barangayName) return '';
     const normalizedName = barangayName.toLowerCase().trim();
-    
+
     // Try exact match first
     const exactMatch = MAASIN_BARANGAYS.find((b) => b.toLowerCase() === normalizedName);
     if (exactMatch) return exactMatch;
-    
+
     // Try partial match
     const partialMatch = MAASIN_BARANGAYS.find(
       (b) => normalizedName.includes(b.toLowerCase()) || b.toLowerCase().includes(normalizedName)
     );
     if (partialMatch) return partialMatch;
-    
+
     // Try removing common prefixes/suffixes
     const cleanedName = normalizedName
       .replace(/^(brgy\.?|barangay)\s*/i, '')
       .replace(/,.*$/, '')
       .trim();
-    
+
     const cleanMatch = MAASIN_BARANGAYS.find(
       (b) =>
         b.toLowerCase() === cleanedName ||
         cleanedName.includes(b.toLowerCase()) ||
         b.toLowerCase().includes(cleanedName)
     );
-    
+
     return cleanMatch || '';
   };
 
@@ -245,18 +245,18 @@ export default function ProviderRegistration() {
         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}&language=en`
       );
       const data = await response.json();
-      
+
       if (data.results && data.results.length > 0) {
         let streetNumber = '';
         let route = '';
         let barangay = '';
         let neighborhood = '';
         let sublocality = '';
-        
+
         // Check all results for barangay info
         for (const result of data.results) {
           const addressComponents = result.address_components;
-          
+
           for (const component of addressComponents) {
             if (component.types.includes('street_number')) {
               streetNumber = streetNumber || component.long_name;
@@ -273,7 +273,7 @@ export default function ProviderRegistration() {
             if (component.types.includes('political') && component.long_name.toLowerCase().includes('brgy')) {
               barangay = barangay || component.long_name;
             }
-            
+
             // Check if the component name matches any barangay
             const matchedBarangay = findMatchingBarangay(component.long_name);
             if (matchedBarangay && !barangay) {
@@ -281,17 +281,17 @@ export default function ProviderRegistration() {
             }
           }
         }
-        
+
         // Try to find barangay from various fields
         const detectedBarangay =
           barangay ||
           findMatchingBarangay(sublocality) ||
           findMatchingBarangay(neighborhood) ||
           findMatchingBarangay(data.results[0].formatted_address);
-        
+
         // Filter out "Unnamed Road"
         const cleanStreetAddress = route && !route.toLowerCase().includes('unnamed') ? route : '';
-        
+
         return {
           streetAddress: cleanStreetAddress,
           houseNumber: streetNumber || '',
@@ -309,7 +309,7 @@ export default function ProviderRegistration() {
   const handleLocationChange = async (lat: number, lng: number) => {
     // Update coordinates immediately
     setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
-    
+
     // Get address from new coordinates
     const addressData = await getAddressFromCoordinates(lat, lng);
     if (addressData) {
@@ -325,20 +325,20 @@ export default function ProviderRegistration() {
   // Get current location (same as client)
   const getCurrentLocation = async () => {
     console.log('Location button clicked');
-    
+
     if (!navigator.geolocation) {
       alert('Geolocation is not supported by your browser. Please enter your address manually.');
       return;
     }
-    
+
     setIsLoadingLocation(true);
-    
+
     // Check permission status first (if available)
     if (navigator.permissions) {
       try {
         const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
         console.log('Permission status:', permissionStatus.state);
-        
+
         if (permissionStatus.state === 'denied') {
           setIsLoadingLocation(false);
           alert('Location permission is denied. Please enable location access in your browser settings:\n\n1. Click the lock/info icon in the address bar\n2. Find "Location" and set it to "Allow"\n3. Refresh the page and try again');
@@ -348,15 +348,15 @@ export default function ProviderRegistration() {
         console.log('Permission query not supported:', e);
       }
     }
-    
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude, accuracy } = position.coords;
         console.log(`Location found: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`);
-        
+
         // Get address from coordinates
         const addressData = await getAddressFromCoordinates(latitude, longitude);
-        
+
         setFormData(prev => ({
           ...prev,
           latitude,
@@ -365,9 +365,9 @@ export default function ProviderRegistration() {
           streetAddress: addressData?.streetAddress || prev.streetAddress,
           houseNumber: addressData?.houseNumber || prev.houseNumber,
         }));
-        
+
         setIsLoadingLocation(false);
-        
+
         if (addressData?.barangay) {
           alert(`Location Found!\n\nBarangay: ${addressData.barangay}${addressData.streetAddress ? `\nStreet: ${addressData.streetAddress}` : ''}${addressData.houseNumber ? `\nHouse #: ${addressData.houseNumber}` : ''}\n\nAccuracy: ~${Math.round(accuracy)}m\n\nPlease verify the information is correct.`);
         } else {
@@ -377,7 +377,7 @@ export default function ProviderRegistration() {
       (error) => {
         console.error('Geolocation error:', error);
         setIsLoadingLocation(false);
-        
+
         switch (error.code) {
           case error.PERMISSION_DENIED:
             alert('Location permission denied.\n\nTo enable location:\n1. Click the lock/info icon in the address bar\n2. Find "Location" and set it to "Allow"\n3. Refresh the page and try again');
@@ -411,14 +411,14 @@ export default function ProviderRegistration() {
       const response = await fetch('https://gss-maasin-app.onrender.com/api/email/send-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           email: formData.email,
-          name: formData.firstName 
+          name: formData.firstName
         }),
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         setGeneratedCode(data.code);
         setCodeSent(true);
@@ -485,8 +485,8 @@ export default function ProviderRegistration() {
     setError('');
 
     try {
-      const fullPhone = formData.phoneNumber.startsWith('+63') 
-        ? formData.phoneNumber 
+      const fullPhone = formData.phoneNumber.startsWith('+63')
+        ? formData.phoneNumber
         : `+63${formData.phoneNumber.replace(/^0/, '')}`;
 
       const response = await fetch('https://gss-maasin-app.onrender.com/api/sms/send-otp', {
@@ -496,7 +496,7 @@ export default function ProviderRegistration() {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         setPhoneOtpSent(true);
         setPhoneCountdown(60);
@@ -524,21 +524,21 @@ export default function ProviderRegistration() {
     setError('');
 
     try {
-      const fullPhone = formData.phoneNumber.startsWith('+63') 
-        ? formData.phoneNumber 
+      const fullPhone = formData.phoneNumber.startsWith('+63')
+        ? formData.phoneNumber
         : `+63${formData.phoneNumber.replace(/^0/, '')}`;
 
       const response = await fetch('https://gss-maasin-app.onrender.com/api/sms/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           phoneNumber: fullPhone,
-          otp: phoneOtpCode 
+          otp: phoneOtpCode
         }),
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         setPhoneVerified(true);
         setError('');
@@ -562,8 +562,8 @@ export default function ProviderRegistration() {
       case 1: // Personal Info
         return formData.firstName.trim() && formData.lastName.trim();
       case 2: // Contact Info
-        return formData.email.trim() && formData.phoneNumber.trim() && 
-               /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
+        return formData.email.trim() && formData.phoneNumber.trim() &&
+          /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
       case 3: // Email Verification
         return emailVerified;
       case 4: // Phone Verification
@@ -572,10 +572,10 @@ export default function ProviderRegistration() {
         return formData.streetAddress.trim() && formData.barangay.trim();
       case 6: // Password
         // Password must have: 8+ chars, 1 uppercase, 1 number, and match confirmation
-        return formData.password.length >= 8 && 
-               /[A-Z]/.test(formData.password) && 
-               /[0-9]/.test(formData.password) && 
-               formData.password === formData.confirmPassword;
+        return formData.password.length >= 8 &&
+          /[A-Z]/.test(formData.password) &&
+          /[0-9]/.test(formData.password) &&
+          formData.password === formData.confirmPassword;
       case 7: // Date of Birth - must be 18+
         if (!formData.dateOfBirth.trim()) return false;
         const birthDate = new Date(formData.dateOfBirth);
@@ -627,11 +627,11 @@ export default function ProviderRegistration() {
         middleName: formData.middleName,
         lastName: formData.lastName,
         suffix: formData.suffix,
-        phoneNumber: formData.phoneNumber.startsWith('+63') 
-          ? formData.phoneNumber 
+        phoneNumber: formData.phoneNumber.startsWith('+63')
+          ? formData.phoneNumber
           : `+63${formData.phoneNumber.replace(/^0/, '')}`,
-        phone: formData.phoneNumber.startsWith('+63') 
-          ? formData.phoneNumber 
+        phone: formData.phoneNumber.startsWith('+63')
+          ? formData.phoneNumber
           : `+63${formData.phoneNumber.replace(/^0/, '')}`,
         streetAddress: formData.streetAddress,
         houseNumber: formData.houseNumber,
@@ -895,13 +895,23 @@ export default function ProviderRegistration() {
               </div>
             )}
 
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-3">
-              <Mail className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-blue-800">Check your inbox</p>
-                <p className="text-sm text-blue-600">The code may take a few seconds to arrive. Check spam folder if not found.</p>
+            {formData.email.toLowerCase().includes('@yahoo') ? (
+              <div className="bg-red-50 border border-red-300 rounded-xl p-4 flex gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-red-800">⚠️ Yahoo Mail Warning</p>
+                  <p className="text-sm text-red-700 mt-0.5">Yahoo Mail often blocks our emails. Please check your <strong>Spam / Junk folder</strong> if you don&apos;t receive the code.</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-3">
+                <Mail className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800">Check your inbox</p>
+                  <p className="text-sm text-blue-600">The code may take a few seconds to arrive. Check spam folder if not found.</p>
+                </div>
+              </div>
+            )}
           </div>
         );
 
@@ -1064,7 +1074,7 @@ export default function ProviderRegistration() {
         const hasUppercase = /[A-Z]/.test(formData.password);
         const hasNumber = /[0-9]/.test(formData.password);
         const passwordsMatch = formData.password === formData.confirmPassword && formData.confirmPassword.length > 0;
-        
+
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
@@ -1126,11 +1136,10 @@ export default function ProviderRegistration() {
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={formData.confirmPassword}
                   onChange={(e) => updateForm('confirmPassword', e.target.value)}
-                  className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    formData.confirmPassword 
-                      ? passwordsMatch ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'
-                      : 'border-gray-300'
-                  }`}
+                  className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 ${formData.confirmPassword
+                    ? passwordsMatch ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'
+                    : 'border-gray-300'
+                    }`}
                   placeholder="Confirm your password"
                 />
                 <button
@@ -1165,7 +1174,7 @@ export default function ProviderRegistration() {
           }
           return age < 18;
         })();
-        
+
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
@@ -1184,15 +1193,14 @@ export default function ProviderRegistration() {
                 type="date"
                 value={formData.dateOfBirth}
                 onChange={(e) => updateForm('dateOfBirth', e.target.value)}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${
-                  isUnder18 
-                    ? 'border-red-500 bg-red-50 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-blue-500'
-                }`}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${isUnder18
+                  ? 'border-red-500 bg-red-50 focus:ring-red-500'
+                  : 'border-gray-300 focus:ring-blue-500'
+                  }`}
               />
               <p className={`text-sm mt-2 ${isUnder18 ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
-                {isUnder18 
-                  ? '⚠️ You must be at least 18 years old to register as a provider.' 
+                {isUnder18
+                  ? '⚠️ You must be at least 18 years old to register as a provider.'
                   : 'You must be at least 18 years old to register as a provider.'}
               </p>
             </div>
@@ -1216,13 +1224,12 @@ export default function ProviderRegistration() {
                   key={category.id}
                   type="button"
                   onClick={() => updateForm('serviceCategory', category.name)}
-                  className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
-                    formData.serviceCategory === category.name
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300 bg-gray-50'
-                  }`}
+                  className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${formData.serviceCategory === category.name
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300 bg-gray-50'
+                    }`}
                 >
-                  <div 
+                  <div
                     className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
                     style={{ backgroundColor: category.color + '20' }}
                   >
@@ -1288,17 +1295,16 @@ export default function ProviderRegistration() {
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Set Your Pricing <span className="text-red-500">*</span>
               </label>
-              
+
               {/* Price Type Selection */}
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <button
                   type="button"
                   onClick={() => updateForm('priceType', 'per_job')}
-                  className={`flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all ${
-                    formData.priceType === 'per_job'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-600 border border-gray-200'
-                  }`}
+                  className={`flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all ${formData.priceType === 'per_job'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-600 border border-gray-200'
+                    }`}
                 >
                   <Briefcase className="w-4 h-4" />
                   Per Job
@@ -1306,11 +1312,10 @@ export default function ProviderRegistration() {
                 <button
                   type="button"
                   onClick={() => updateForm('priceType', 'per_hire')}
-                  className={`flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all ${
-                    formData.priceType === 'per_hire'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-600 border border-gray-200'
-                  }`}
+                  className={`flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all ${formData.priceType === 'per_hire'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-600 border border-gray-200'
+                    }`}
                 >
                   <User className="w-4 h-4" />
                   Per Hire
@@ -1332,7 +1337,7 @@ export default function ProviderRegistration() {
                 </span>
               </div>
               <p className="text-sm text-gray-500 mt-2">
-                {formData.priceType === 'per_job' 
+                {formData.priceType === 'per_job'
                   ? 'This is the fixed price you charge for completing a job'
                   : 'This is the fixed price you charge each time you are hired'
                 }
@@ -1342,7 +1347,7 @@ export default function ProviderRegistration() {
               <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mt-4 flex gap-3">
                 <span className="text-yellow-600">ℹ️</span>
                 <p className="text-sm text-yellow-800">
-                  Note: Clients will be charged an additional 5% service fee on top of your price. 
+                  Note: Clients will be charged an additional 5% service fee on top of your price.
                   You will receive the full amount you set here.
                 </p>
               </div>
@@ -1383,9 +1388,8 @@ export default function ProviderRegistration() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Valid ID <span className="text-red-500">*</span>
               </label>
-              <label className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
-                formData.validIdUrl ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-blue-400'
-              }`}>
+              <label className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${formData.validIdUrl ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-blue-400'
+                }`}>
                 {uploadingDoc === 'validIdUrl' ? (
                   <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
                 ) : formData.validIdUrl ? (
@@ -1408,9 +1412,8 @@ export default function ProviderRegistration() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Barangay Clearance <span className="text-red-500">*</span>
               </label>
-              <label className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
-                formData.barangayClearanceUrl ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-blue-400'
-              }`}>
+              <label className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${formData.barangayClearanceUrl ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-blue-400'
+                }`}>
                 {uploadingDoc === 'barangayClearanceUrl' ? (
                   <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
                 ) : formData.barangayClearanceUrl ? (
@@ -1433,9 +1436,8 @@ export default function ProviderRegistration() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Police Clearance <span className="text-red-500">*</span>
               </label>
-              <label className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
-                formData.policeClearanceUrl ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-blue-400'
-              }`}>
+              <label className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${formData.policeClearanceUrl ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-blue-400'
+                }`}>
                 {uploadingDoc === 'policeClearanceUrl' ? (
                   <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
                 ) : formData.policeClearanceUrl ? (
@@ -1458,9 +1460,8 @@ export default function ProviderRegistration() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Selfie for Verification <span className="text-red-500">*</span>
               </label>
-              <label className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
-                formData.selfieUrl ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-blue-400'
-              }`}>
+              <label className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${formData.selfieUrl ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-blue-400'
+                }`}>
                 {uploadingDoc === 'selfieUrl' ? (
                   <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
                 ) : formData.selfieUrl ? (
@@ -1544,7 +1545,7 @@ export default function ProviderRegistration() {
       {step < TOTAL_STEPS && (
         <div className="max-w-2xl mx-auto px-4 pt-6">
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-blue-500 transition-all duration-300"
               style={{ width: `${(step / (TOTAL_STEPS - 1)) * 100}%` }}
             />
@@ -1601,7 +1602,7 @@ export default function ProviderRegistration() {
                   . I understand that my data will be processed in accordance with these policies and I consent to background verification.
                 </label>
               </div>
-              
+
               <button
                 onClick={handleSubmit}
                 disabled={loading || !canProceed() || !agreedToTerms}

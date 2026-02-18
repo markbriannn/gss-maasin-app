@@ -6,9 +6,9 @@ import Link from 'next/link';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { 
+import {
   Wrench, ArrowLeft, ArrowRight, User, Mail, MapPin, Lock, Camera,
-  CheckCircle, Check, Navigation, Loader2, Eye, EyeOff, Upload, ShieldCheck
+  CheckCircle, Check, Navigation, Loader2, Eye, EyeOff, Upload, ShieldCheck, AlertTriangle
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import type { ComponentType } from 'react';
@@ -30,17 +30,17 @@ const InteractiveMap: ComponentType<InteractiveMapProps> = dynamic(
 const TOTAL_STEPS = 8; // Added phone verification step
 
 const MAASIN_BARANGAYS = [
-  'Abgao', 'Acasia', 'Asuncion', 'Bactul I', 'Bactul II', 'Badiang', 
-  'Bagtican', 'Basak', 'Bato I', 'Bato II', 'Batuan', 'Baugo', 
-  'Bilibol', 'Bogo', 'Cabadiangan', 'Cabulihan', 'Cagnituan', 'Cambooc', 
-  'Cansirong', 'Canturing', 'Canyuom', 'Combado', 'Dongon', 'Gawisan', 
-  'Guadalupe', 'Hanginan', 'Hantag', 'Hinapu Daku', 'Hinapu Gamay', 'Ibarra', 
-  'Isagani (Pugaling)', 'Laboon', 'Lanao', 'Libertad', 'Libhu', 'Lib-og', 
-  'Lonoy', 'Lunas', 'Mahayahay', 'Malapoc Norte', 'Malapoc Sur', 'Mambajao', 
-  'Manhilo', 'Mantahan', 'Maria Clara', 'Matin-ao', 'Nasaug', 'Nati', 
-  'Nonok Norte', 'Nonok Sur', 'Panan-awan', 'Pansaan', 'Pasay', 'Pinaskohan', 
-  'Rizal', 'San Agustin (Lundag)', 'San Isidro', 'San Jose', 'San Rafael', 
-  'Santa Cruz', 'Santo Niño', 'Santa Rosa', 'Santo Rosario', 'Soro-soro', 
+  'Abgao', 'Acasia', 'Asuncion', 'Bactul I', 'Bactul II', 'Badiang',
+  'Bagtican', 'Basak', 'Bato I', 'Bato II', 'Batuan', 'Baugo',
+  'Bilibol', 'Bogo', 'Cabadiangan', 'Cabulihan', 'Cagnituan', 'Cambooc',
+  'Cansirong', 'Canturing', 'Canyuom', 'Combado', 'Dongon', 'Gawisan',
+  'Guadalupe', 'Hanginan', 'Hantag', 'Hinapu Daku', 'Hinapu Gamay', 'Ibarra',
+  'Isagani (Pugaling)', 'Laboon', 'Lanao', 'Libertad', 'Libhu', 'Lib-og',
+  'Lonoy', 'Lunas', 'Mahayahay', 'Malapoc Norte', 'Malapoc Sur', 'Mambajao',
+  'Manhilo', 'Mantahan', 'Maria Clara', 'Matin-ao', 'Nasaug', 'Nati',
+  'Nonok Norte', 'Nonok Sur', 'Panan-awan', 'Pansaan', 'Pasay', 'Pinaskohan',
+  'Rizal', 'San Agustin (Lundag)', 'San Isidro', 'San Jose', 'San Rafael',
+  'Santa Cruz', 'Santo Niño', 'Santa Rosa', 'Santo Rosario', 'Soro-soro',
   'Tagnipa', 'Tam-is', 'Tawid', 'Tigbawan', 'Tomoy-tomoy', 'Tunga-tunga'
 ];
 
@@ -99,7 +99,7 @@ export default function ClientRegistration() {
   const [codeSent, setCodeSent] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  
+
   // Phone OTP states
   const [phoneOtpCode, setPhoneOtpCode] = useState('');
   const [phoneOtpSent, setPhoneOtpSent] = useState(false);
@@ -140,30 +140,30 @@ export default function ClientRegistration() {
   const findMatchingBarangay = (barangayName: string): string => {
     if (!barangayName) return '';
     const normalizedName = barangayName.toLowerCase().trim();
-    
+
     // Try exact match first
     const exactMatch = MAASIN_BARANGAYS.find((b) => b.toLowerCase() === normalizedName);
     if (exactMatch) return exactMatch;
-    
+
     // Try partial match
     const partialMatch = MAASIN_BARANGAYS.find(
       (b) => normalizedName.includes(b.toLowerCase()) || b.toLowerCase().includes(normalizedName)
     );
     if (partialMatch) return partialMatch;
-    
+
     // Try removing common prefixes/suffixes
     const cleanedName = normalizedName
       .replace(/^(brgy\.?|barangay)\s*/i, '')
       .replace(/,.*$/, '')
       .trim();
-    
+
     const cleanMatch = MAASIN_BARANGAYS.find(
       (b) =>
         b.toLowerCase() === cleanedName ||
         cleanedName.includes(b.toLowerCase()) ||
         b.toLowerCase().includes(cleanedName)
     );
-    
+
     return cleanMatch || '';
   };
 
@@ -175,18 +175,18 @@ export default function ClientRegistration() {
         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}&language=en`
       );
       const data = await response.json();
-      
+
       if (data.results && data.results.length > 0) {
         let streetNumber = '';
         let route = '';
         let barangay = '';
         let neighborhood = '';
         let sublocality = '';
-        
+
         // Check all results for barangay info
         for (const result of data.results) {
           const addressComponents = result.address_components;
-          
+
           for (const component of addressComponents) {
             if (component.types.includes('street_number')) {
               streetNumber = streetNumber || component.long_name;
@@ -203,7 +203,7 @@ export default function ClientRegistration() {
             if (component.types.includes('political') && component.long_name.toLowerCase().includes('brgy')) {
               barangay = barangay || component.long_name;
             }
-            
+
             // Check if the component name matches any barangay
             const matchedBarangay = findMatchingBarangay(component.long_name);
             if (matchedBarangay && !barangay) {
@@ -211,17 +211,17 @@ export default function ClientRegistration() {
             }
           }
         }
-        
+
         // Try to find barangay from various fields
         const detectedBarangay =
           barangay ||
           findMatchingBarangay(sublocality) ||
           findMatchingBarangay(neighborhood) ||
           findMatchingBarangay(data.results[0].formatted_address);
-        
+
         // Filter out "Unnamed Road"
         const cleanStreetAddress = route && !route.toLowerCase().includes('unnamed') ? route : '';
-        
+
         return {
           streetAddress: cleanStreetAddress,
           houseNumber: streetNumber || '',
@@ -250,14 +250,14 @@ export default function ClientRegistration() {
       const response = await fetch('https://gss-maasin-app.onrender.com/api/email/send-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           email: formData.email,
-          name: formData.firstName 
+          name: formData.firstName
         }),
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         setGeneratedCode(data.code);
         setCodeSent(true);
@@ -322,20 +322,20 @@ export default function ClientRegistration() {
   const handleGetCurrentLocation = async () => {
     console.log('=== LOCATION BUTTON CLICKED ===');
     setIsLoadingLocation(true);
-    
+
     if (!navigator.geolocation) {
       setIsLoadingLocation(false);
       alert('Geolocation is not supported by your browser.');
       return;
     }
-    
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude, accuracy } = position.coords;
         console.log(`Location found: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`);
-        
+
         const addressData = await getAddressFromCoordinates(latitude, longitude);
-        
+
         setFormData(prev => ({
           ...prev,
           latitude,
@@ -344,9 +344,9 @@ export default function ClientRegistration() {
           streetAddress: addressData?.streetAddress || prev.streetAddress,
           houseNumber: addressData?.houseNumber || prev.houseNumber,
         }));
-        
+
         setIsLoadingLocation(false);
-        
+
         if (addressData?.barangay) {
           alert(`Location Found!\n\nBarangay: ${addressData.barangay}\nAccuracy: ~${Math.round(accuracy)}m`);
         } else {
@@ -369,8 +369,8 @@ export default function ClientRegistration() {
     setError('');
 
     try {
-      const fullPhone = formData.phoneNumber.startsWith('+63') 
-        ? formData.phoneNumber 
+      const fullPhone = formData.phoneNumber.startsWith('+63')
+        ? formData.phoneNumber
         : `+63${formData.phoneNumber.replace(/^0/, '')}`;
 
       const response = await fetch('https://gss-maasin-app.onrender.com/api/sms/send-otp', {
@@ -380,7 +380,7 @@ export default function ClientRegistration() {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         setPhoneOtpSent(true);
         setPhoneCountdown(60);
@@ -408,21 +408,21 @@ export default function ClientRegistration() {
     setError('');
 
     try {
-      const fullPhone = formData.phoneNumber.startsWith('+63') 
-        ? formData.phoneNumber 
+      const fullPhone = formData.phoneNumber.startsWith('+63')
+        ? formData.phoneNumber
         : `+63${formData.phoneNumber.replace(/^0/, '')}`;
 
       const response = await fetch('https://gss-maasin-app.onrender.com/api/sms/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           phoneNumber: fullPhone,
-          otp: phoneOtpCode 
+          otp: phoneOtpCode
         }),
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         setPhoneVerified(true);
         setError('');
@@ -445,8 +445,8 @@ export default function ClientRegistration() {
       case 1:
         return formData.firstName.trim() && formData.lastName.trim();
       case 2:
-        return formData.email.trim() && formData.phoneNumber.trim() && 
-               /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
+        return formData.email.trim() && formData.phoneNumber.trim() &&
+          /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
       case 3:
         return emailVerified;
       case 4:
@@ -455,10 +455,10 @@ export default function ClientRegistration() {
         return formData.streetAddress.trim() && formData.barangay.trim();
       case 6:
         // Password must have: 8+ chars, 1 uppercase, 1 number, and match confirmation
-        return formData.password.length >= 8 && 
-               /[A-Z]/.test(formData.password) && 
-               /[0-9]/.test(formData.password) && 
-               formData.password === formData.confirmPassword;
+        return formData.password.length >= 8 &&
+          /[A-Z]/.test(formData.password) &&
+          /[0-9]/.test(formData.password) &&
+          formData.password === formData.confirmPassword;
       case 7:
         return true; // Profile photo is optional
       default:
@@ -496,8 +496,8 @@ export default function ClientRegistration() {
         middleName: formData.middleName,
         lastName: formData.lastName,
         suffix: formData.suffix,
-        phoneNumber: formData.phoneNumber.startsWith('+63') 
-          ? formData.phoneNumber 
+        phoneNumber: formData.phoneNumber.startsWith('+63')
+          ? formData.phoneNumber
           : `+63${formData.phoneNumber.replace(/^0/, '')}`,
         streetAddress: formData.streetAddress,
         houseNumber: formData.houseNumber,
@@ -734,13 +734,23 @@ export default function ClientRegistration() {
               </div>
             )}
 
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-3">
-              <Mail className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-blue-800">Check your inbox</p>
-                <p className="text-sm text-blue-600">The code may take a few seconds to arrive. Check spam folder if not found.</p>
+            {formData.email.toLowerCase().includes('@yahoo') ? (
+              <div className="bg-red-50 border border-red-300 rounded-xl p-4 flex gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-red-800">⚠️ Yahoo Mail Warning</p>
+                  <p className="text-sm text-red-700 mt-0.5">Yahoo Mail often blocks our emails. Please check your <strong>Spam / Junk folder</strong> if you don&apos;t receive the code.</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-3">
+                <Mail className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800">Check your inbox</p>
+                  <p className="text-sm text-blue-600">The code may take a few seconds to arrive. Check spam folder if not found.</p>
+                </div>
+              </div>
+            )}
           </div>
         );
 
@@ -855,7 +865,7 @@ export default function ClientRegistration() {
                   latitude: lat,
                   longitude: lng,
                 }));
-                
+
                 // Get address from new coordinates
                 const addressData = await getAddressFromCoordinates(lat, lng);
                 if (addressData) {
@@ -921,7 +931,7 @@ export default function ClientRegistration() {
         const hasUppercase = /[A-Z]/.test(formData.password);
         const hasNumber = /[0-9]/.test(formData.password);
         const passwordsMatch = formData.password === formData.confirmPassword && formData.confirmPassword.length > 0;
-        
+
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
@@ -986,13 +996,12 @@ export default function ClientRegistration() {
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={formData.confirmPassword}
                   onChange={(e) => updateForm('confirmPassword', e.target.value)}
-                  className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00B14F] ${
-                    formData.confirmPassword 
-                      ? passwordsMatch 
-                        ? 'border-green-500 bg-green-50' 
-                        : 'border-red-500 bg-red-50'
-                      : 'border-gray-300'
-                  }`}
+                  className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00B14F] ${formData.confirmPassword
+                    ? passwordsMatch
+                      ? 'border-green-500 bg-green-50'
+                      : 'border-red-500 bg-red-50'
+                    : 'border-gray-300'
+                    }`}
                   placeholder="Confirm your password"
                 />
                 <button
@@ -1029,11 +1038,10 @@ export default function ClientRegistration() {
             {/* Photo Upload Section */}
             <div className="flex flex-col items-center">
               <label className="cursor-pointer relative group">
-                <div className={`w-36 h-36 rounded-full flex items-center justify-center mb-4 overflow-hidden ${
-                  formData.profilePhoto 
-                    ? 'border-4 border-[#00B14F]' 
-                    : 'border-3 border-dashed border-gray-300 bg-gray-100'
-                }`}>
+                <div className={`w-36 h-36 rounded-full flex items-center justify-center mb-4 overflow-hidden ${formData.profilePhoto
+                  ? 'border-4 border-[#00B14F]'
+                  : 'border-3 border-dashed border-gray-300 bg-gray-100'
+                  }`}>
                   {isUploadingPhoto ? (
                     <Loader2 className="w-10 h-10 text-[#00B14F] animate-spin" />
                   ) : formData.profilePhoto ? (
@@ -1147,7 +1155,7 @@ export default function ClientRegistration() {
       {step < TOTAL_STEPS && (
         <div className="max-w-2xl mx-auto px-4 pt-6">
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-[#00B14F] transition-all duration-300"
               style={{ width: `${(step / (TOTAL_STEPS - 1)) * 100}%` }}
             />
@@ -1204,7 +1212,7 @@ export default function ClientRegistration() {
                   . I understand that my data will be processed in accordance with these policies.
                 </label>
               </div>
-              
+
               <button
                 onClick={handleSubmit}
                 disabled={loading || !agreedToTerms}

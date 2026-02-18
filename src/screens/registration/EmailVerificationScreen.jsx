@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef, useCallback} from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,12 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {sendVerificationCode as sendEmailJSCode} from '../../services/emailService';
+import { sendVerificationCode as sendEmailJSCode } from '../../services/emailService';
 
-const EmailVerificationScreen = ({navigation, route}) => {
-  const {contactInfo, ...otherParams} = route.params || {};
+const EmailVerificationScreen = ({ navigation, route }) => {
+  const { contactInfo, ...otherParams } = route.params || {};
   const email = contactInfo?.email || '';
 
   const [code, setCode] = useState(['', '', '', '', '', '']);
@@ -56,7 +56,7 @@ const EmailVerificationScreen = ({navigation, route}) => {
   const handleVerify = useCallback((enteredCodeParam) => {
     // Prevent multiple navigations
     if (hasNavigatedRef.current) return;
-    
+
     const enteredCode = enteredCodeParam || code.join('');
     if (enteredCode.length !== 6) return;
 
@@ -66,7 +66,7 @@ const EmailVerificationScreen = ({navigation, route}) => {
       hasNavigatedRef.current = true;
       navigation.navigate('Location', {
         ...otherParams,
-        contactInfo: {...contactInfo, emailVerified: true},
+        contactInfo: { ...contactInfo, emailVerified: true },
       });
     } else {
       setIsLoading(false);
@@ -116,7 +116,7 @@ const EmailVerificationScreen = ({navigation, route}) => {
         {/* Progress */}
         <View style={styles.progressSection}>
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, {width: '56%'}]} />
+            <View style={[styles.progressFill, { width: '56%' }]} />
           </View>
           <Text style={styles.stepText}>Step 4 of 7</Text>
         </View>
@@ -158,8 +158,8 @@ const EmailVerificationScreen = ({navigation, route}) => {
         {/* Resend */}
         <View style={styles.resendContainer}>
           <Text style={styles.resendLabel}>Didn't receive the code?</Text>
-          <TouchableOpacity 
-            onPress={() => { setCode(['', '', '', '', '', '']); sendVerificationCode(); }} 
+          <TouchableOpacity
+            onPress={() => { setCode(['', '', '', '', '', '']); sendVerificationCode(); }}
             disabled={countdown > 0 || isSending}>
             {isSending ? (
               <ActivityIndicator size="small" color="#00B14F" />
@@ -172,11 +172,18 @@ const EmailVerificationScreen = ({navigation, route}) => {
         </View>
 
         {/* Tips Card */}
-        <View style={styles.tipsCard}>
-          <Icon name="bulb" size={20} color="#F59E0B" />
+        <View style={email.toLowerCase().includes('@yahoo') ? styles.tipsCardRed : styles.tipsCard}>
+          <Icon name="warning" size={20} color={email.toLowerCase().includes('@yahoo') ? '#DC2626' : '#F59E0B'} />
           <View style={styles.tipsContent}>
-            <Text style={styles.tipsTitle}>Can't find the email?</Text>
-            <Text style={styles.tipsText}>Check your spam or junk folder</Text>
+            <Text style={email.toLowerCase().includes('@yahoo') ? styles.tipsTitleRed : styles.tipsTitle}>Can't find the email?</Text>
+            {email.toLowerCase().includes('@yahoo') ? (
+              <Text style={styles.tipsTextRed}>
+                <Text style={{ fontWeight: '700' }}>⚠️ Yahoo Mail users:</Text> Check your{' '}
+                <Text style={{ fontWeight: '700' }}>Spam folder</Text> — Yahoo often filters our verification emails.
+              </Text>
+            ) : (
+              <Text style={styles.tipsText}>Check your spam or junk folder</Text>
+            )}
           </View>
         </View>
 
@@ -212,9 +219,12 @@ const styles = StyleSheet.create({
   resendDisabled: { color: '#9CA3AF', fontSize: 14, marginTop: 8 },
   resendLink: { color: '#00B14F', fontSize: 14, fontWeight: '600', marginTop: 8 },
   tipsCard: { flexDirection: 'row', backgroundColor: '#FFFBEB', borderRadius: 12, padding: 16, marginBottom: 24, borderWidth: 1, borderColor: '#FDE68A' },
+  tipsCardRed: { flexDirection: 'row', backgroundColor: '#FEF2F2', borderRadius: 12, padding: 16, marginBottom: 24, borderWidth: 1, borderColor: '#FECACA' },
   tipsContent: { flex: 1, marginLeft: 12 },
   tipsTitle: { fontSize: 14, fontWeight: '600', color: '#92400E', marginBottom: 2 },
+  tipsTitleRed: { fontSize: 14, fontWeight: '600', color: '#991B1B', marginBottom: 2 },
   tipsText: { fontSize: 13, color: '#B45309' },
+  tipsTextRed: { fontSize: 13, color: '#991B1B' },
   backContainer: { alignItems: 'center', marginTop: 8 },
   backText: { color: '#6B7280', fontSize: 14 },
   backLink: { color: '#00B14F', fontWeight: '600' },

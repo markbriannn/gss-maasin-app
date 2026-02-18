@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,10 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-const ContactInfoScreen = ({navigation, route}) => {
+const ContactInfoScreen = ({ navigation, route }) => {
   const [formData, setFormData] = useState({
     email: '',
     phoneNumber: '',
@@ -46,15 +46,15 @@ const ContactInfoScreen = ({navigation, route}) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        
+
         {/* Progress Section */}
         <View style={styles.progressSection}>
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, {width: '28%'}]} />
+            <View style={[styles.progressFill, { width: '28%' }]} />
           </View>
           <Text style={styles.stepText}>Step 2 of 7</Text>
         </View>
@@ -82,7 +82,7 @@ const ContactInfoScreen = ({navigation, route}) => {
                 placeholder="example@email.com"
                 placeholderTextColor="#9CA3AF"
                 value={formData.email}
-                onChangeText={(text) => setFormData({...formData, email: text.toLowerCase()})}
+                onChangeText={(text) => setFormData({ ...formData, email: text.toLowerCase() })}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -93,6 +93,14 @@ const ContactInfoScreen = ({navigation, route}) => {
             </View>
             {formData.email && !isValidEmail(formData.email) && (
               <Text style={styles.errorText}>Please enter a valid email address</Text>
+            )}
+            {isValidEmail(formData.email) && formData.email.toLowerCase().includes('@yahoo') && (
+              <View style={styles.yahooWarning}>
+                <Icon name="warning-outline" size={14} color="#92400E" />
+                <Text style={styles.yahooWarningText}>
+                  Yahoo Mail users: Please check your <Text style={{ fontWeight: '700' }}>Spam folder</Text> if you don't receive the verification code.
+                </Text>
+              </View>
             )}
           </View>
 
@@ -109,7 +117,7 @@ const ContactInfoScreen = ({navigation, route}) => {
                 onChangeText={(text) => {
                   // Only allow numbers and limit to 10 digits
                   const cleaned = text.replace(/\D/g, '').slice(0, 10);
-                  setFormData({...formData, phoneNumber: cleaned});
+                  setFormData({ ...formData, phoneNumber: cleaned });
                 }}
                 keyboardType="phone-pad"
                 maxLength={10}
@@ -187,7 +195,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
     shadowColor: '#00B14F',
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
@@ -251,6 +259,23 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     marginTop: 6,
   },
+  yahooWarning: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    gap: 6,
+  },
+  yahooWarningText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#991B1B',
+    lineHeight: 17,
+  },
   helperText: {
     fontSize: 12,
     color: '#6B7280',
@@ -288,7 +313,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#00B14F',
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
