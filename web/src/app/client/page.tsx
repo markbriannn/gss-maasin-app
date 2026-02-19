@@ -619,12 +619,20 @@ export default function ClientDashboard() {
                           </button>
                         </div>
 
-                        {/* Rating + Est. Time */}
-                        <div className="flex items-center gap-2 mb-2">
+                        {/* Rating + Distance + Est. Time */}
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full">
                             <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
                             <span className="text-[11px] font-semibold text-amber-700">{provider.rating > 0 ? provider.rating.toFixed(1) : 'New'}</span>
                           </div>
+                          {provider.distance != null && (
+                            <div className="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded-full">
+                              <Navigation className="w-3 h-3 text-gray-500" />
+                              <span className="text-[11px] font-medium text-gray-600">
+                                {provider.distance < 1 ? `${(provider.distance * 1000).toFixed(0)}m` : `${provider.distance.toFixed(1)}km`}
+                              </span>
+                            </div>
+                          )}
                           {provider.estimatedJobTime && (
                             <span className="text-[11px] text-blue-500 font-medium">{provider.estimatedJobTime}</span>
                           )}
@@ -860,8 +868,16 @@ export default function ClientDashboard() {
                   </p>
                 )}
 
-                {/* Estimated Job Time - Pill badge */}
-                <div className="flex items-center justify-center gap-3 mb-4">
+                {/* Distance + Estimated Job Time - Pill badges */}
+                <div className="flex items-center justify-center gap-3 mb-4 flex-wrap">
+                  {selectedProvider.distance != null && (
+                    <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 px-4 py-2 rounded-xl">
+                      <Navigation className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {selectedProvider.distance < 1 ? `${(selectedProvider.distance * 1000).toFixed(0)}m away` : `${selectedProvider.distance.toFixed(1)}km away`}
+                      </span>
+                    </div>
+                  )}
                   {selectedProvider.estimatedJobTime && (
                     <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-xl">
                       <Clock className="w-4 h-4 text-blue-500" />

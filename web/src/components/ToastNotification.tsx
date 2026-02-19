@@ -6,8 +6,8 @@ import { collection, query, where, onSnapshot, limit } from 'firebase/firestore'
 import { db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { 
-  Bell, MessageSquare, Briefcase, CheckCircle, 
+import {
+  Bell, MessageSquare, Briefcase, CheckCircle,
   Star, CreditCard, X, MapPin, Truck, Play
 } from 'lucide-react';
 
@@ -37,7 +37,7 @@ export default function ToastNotification() {
 
     const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     setToasts(prev => [...prev, { ...toastData, id }]);
-    
+
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 5000);
@@ -70,20 +70,22 @@ export default function ToastNotification() {
         if (change.type === 'added') {
           const data = change.doc.data();
           const createdAt = data.createdAt?.toDate() || new Date();
-          
+
           if (new Date().getTime() - createdAt.getTime() < 30000) {
             const toastData = getToastFromNotification(data);
             if (toastData) addToast(toastData, `notif_${change.doc.id}`);
           }
         }
       });
-    }, () => {
+    }, (error) => {
+      // Silently handle - fallback to targetUserId
+      if (error.code !== 'permission-denied') console.error('Notification listener error:', error);
       const fallbackQuery = query(
         collection(db, 'notifications'),
         where('targetUserId', '==', user.uid),
         limit(10)
       );
-      
+
       let fallbackFirstLoad = true;
       onSnapshot(fallbackQuery, (snapshot) => {
         if (fallbackFirstLoad) { fallbackFirstLoad = false; return; }
@@ -92,14 +94,14 @@ export default function ToastNotification() {
           if (change.type === 'added') {
             const data = change.doc.data();
             const createdAt = data.createdAt?.toDate() || new Date();
-            
+
             if (new Date().getTime() - createdAt.getTime() < 30000) {
               const toastData = getToastFromNotification(data);
               if (toastData) addToast(toastData, `notif_${change.doc.id}`);
             }
           }
         });
-      });
+      }, () => { /* silently ignore fallback errors */ });
     });
 
     return () => unsubscribe();
@@ -169,7 +171,7 @@ export default function ToastNotification() {
           }, `provider_completed_${docId}`);
         }
       });
-    });
+    }, () => { /* silently ignore permission errors during auth transitions */ });
 
     return () => unsubscribe();
   }, [user?.uid, user?.role, addToast]);
@@ -185,7 +187,7 @@ export default function ToastNotification() {
 
     let isFirstLoad = true;
     const lastMessageTimes = new Map<string, number>();
-    
+
     const unsubscribe = onSnapshot(conversationsQuery, (snapshot) => {
       if (isFirstLoad) {
         snapshot.docs.forEach(doc => {
@@ -204,7 +206,7 @@ export default function ToastNotification() {
           const unreadCount = data.unreadCount?.[user.uid] || 0;
           const currentTime = data.lastMessageTime?.toDate?.()?.getTime() || data.updatedAt?.toDate?.()?.getTime() || 0;
           const previousTime = lastMessageTimes.get(docId) || 0;
-          
+
           if (unreadCount > 0 && data.lastSenderId !== user.uid && currentTime > previousTime) {
             lastMessageTimes.set(docId, currentTime);
             addToast({
@@ -218,7 +220,7 @@ export default function ToastNotification() {
           }
         }
       });
-    });
+    }, () => { /* silently ignore permission errors during auth transitions */ });
 
     return () => unsubscribe();
   }, [user?.uid, addToast]);
@@ -259,7 +261,7 @@ export default function ToastNotification() {
           }, `admin_new_${docId}`);
         }
       });
-    });
+    }, () => { /* silently ignore permission errors during auth transitions */ });
 
     return () => unsubscribe();
   }, [user?.uid, user?.role, addToast]);
@@ -294,12 +296,12 @@ export default function ToastNotification() {
           const docId = change.doc.id;
           const status = data.status;
           const statusKey = `${status}_${docId}`;
-          
+
           if (shownToasts.has(statusKey)) return;
-          
+
           let toastData: Omit<Toast, 'id'> | null = null;
           let uniqueKey: string | undefined;
-          
+
           if (data.adminApproved && !shownToasts.has(`approved_${docId}`)) {
             shownToasts.add(`approved_${docId}`);
             uniqueKey = `client_approved_${docId}`;
@@ -378,11 +380,11 @@ export default function ToastNotification() {
               color: 'red',
             };
           }
-          
+
           if (toastData) addToast(toastData, uniqueKey);
         }
       });
-    });
+    }, () => { /* silently ignore permission errors during auth transitions */ });
 
     return () => unsubscribe();
   }, [user?.uid, user?.role, addToast]);
@@ -469,11 +471,11 @@ export default function ToastNotification() {
                 {/* App Icon - macOS style */}
                 <div className="relative flex-shrink-0">
                   <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg flex items-center justify-center">
-                    <Image 
-                      src="/gss-icon.svg" 
-                      alt="GSS" 
-                      width={44} 
-                      height={44} 
+                    <Image
+                      src="/gss-icon.svg"
+                      alt="GSS"
+                      width={44}
+                      height={44}
                       className="rounded-xl"
                     />
                   </div>
@@ -482,7 +484,7 @@ export default function ToastNotification() {
                     {getIcon(toast.type)}
                   </div>
                 </div>
-                
+
                 {/* Content */}
                 <div className="flex-1 min-w-0 pt-0.5">
                   <div className="flex items-center justify-between gap-2 mb-0.5">
@@ -500,7 +502,7 @@ export default function ToastNotification() {
                     {toast.message}
                   </p>
                 </div>
-                
+
                 {/* Close button - appears on hover */}
                 <button
                   onClick={(e) => {
@@ -513,10 +515,10 @@ export default function ToastNotification() {
                 </button>
               </div>
             </div>
-            
+
             {/* Progress bar for auto-dismiss */}
             <div className="h-0.5 bg-gray-100 dark:bg-gray-800">
-              <div 
+              <div
                 className={`h-full ${getIconBg(toast.color || 'gray')} animate-progress`}
                 style={{ animationDuration: '5s' }}
               />
@@ -524,7 +526,7 @@ export default function ToastNotification() {
           </div>
         </div>
       ))}
-      
+
       <style jsx global>{`
         @keyframes toast-in {
           0% {

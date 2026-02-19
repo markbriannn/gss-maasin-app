@@ -35,6 +35,7 @@ interface ProviderData {
   responseTime?: number;
   avgJobDurationMinutes?: number;
   estimatedJobTime?: string | null;
+  serviceCategoryBasePrice?: number;
 }
 
 interface MediaFile {
@@ -130,7 +131,32 @@ function BookServiceContent() {
     return () => unsubscribe();
   }, [providerId]);
 
-  const getPrice = () => provider?.fixedPrice || provider?.hourlyRate || 0;
+  // Fetch basePrice from serviceCategories collection
+  useEffect(() => {
+    if (!provider?.serviceCategory) return;
+
+    const fetchCategoryPrice = async () => {
+      try {
+        const q = query(
+          collection(db, 'serviceCategories'),
+          where('name', '==', provider.serviceCategory)
+        );
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const categoryData = snapshot.docs[0].data();
+          if (categoryData.basePrice) {
+            setProvider(prev => prev ? { ...prev, serviceCategoryBasePrice: categoryData.basePrice } : prev);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching service category price:', error);
+      }
+    };
+
+    fetchCategoryPrice();
+  }, [provider?.serviceCategory]);
+
+  const getPrice = () => provider?.serviceCategoryBasePrice || provider?.fixedPrice || provider?.hourlyRate || 0;
   const getSystemFee = () => getPrice() * 0.05;
   const getTotalAmount = () => getPrice() + getSystemFee();
 

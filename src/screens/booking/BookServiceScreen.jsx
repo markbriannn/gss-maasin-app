@@ -49,12 +49,37 @@ const BookServiceScreen = ({ navigation, route }) => {
   const providerService = provider?.serviceCategory || provider?.service || '';
   const providerFixedPrice = provider?.fixedPrice || provider?.hourlyRate || 0;
 
+  const [serviceCategoryBasePrice, setServiceCategoryBasePrice] = useState(0);
+
   const [serviceCategory, setServiceCategory] = useState(providerService);
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('qrph');
   const [isLoading, setIsLoading] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [mediaFiles, setMediaFiles] = useState([]);
+
+  // Fetch basePrice from serviceCategories collection
+  useEffect(() => {
+    const fetchCategoryPrice = async () => {
+      if (!providerService) return;
+      try {
+        const q = query(
+          collection(db, 'serviceCategories'),
+          where('name', '==', providerService)
+        );
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const categoryData = snapshot.docs[0].data();
+          if (categoryData.basePrice) {
+            setServiceCategoryBasePrice(categoryData.basePrice);
+          }
+        }
+      } catch (error) {
+        console.log('Error fetching service category price:', error);
+      }
+    };
+    fetchCategoryPrice();
+  }, [providerService]);
 
   // Address state
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -531,7 +556,7 @@ const BookServiceScreen = ({ navigation, route }) => {
               </View>
             )}
 
-            {(provider?.fixedPrice || provider?.hourlyRate) && (
+            {(serviceCategoryBasePrice || provider?.fixedPrice || provider?.hourlyRate) && (
               <View
                 style={{
                   marginTop: 16,
@@ -544,7 +569,7 @@ const BookServiceScreen = ({ navigation, route }) => {
                     Total
                   </Text>
                   <Text style={{ fontSize: 16, fontWeight: '700', color: '#00B14F' }}>
-                    ₱{((providerFixedPrice || 0) * 1.05).toLocaleString()}
+                    ₱{(((serviceCategoryBasePrice || providerFixedPrice || 0) * 1.05)).toLocaleString()}
                   </Text>
                 </View>
 

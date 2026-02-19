@@ -437,9 +437,24 @@ const ProviderCard = memo(({ provider, isSelected, onPress }) => {
             <Icon name="star" size={14} color="#F59E0B" style={{ marginLeft: 6 }} />
             <Text style={styles.rating}>{provider.rating.toFixed(1)}</Text>
           </View>
-          {provider.estimatedTime && (
-            <Text style={styles.estTime}>{provider.estimatedTime}</Text>
-          )}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+            {provider.distance != null && (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Icon name="navigate" size={12} color="#6B7280" />
+                <Text style={{ fontSize: 12, color: '#6B7280', marginLeft: 3 }}>
+                  {provider.distance < 1 ? `${(provider.distance * 1000).toFixed(0)}m` : `${provider.distance.toFixed(1)}km`}
+                </Text>
+              </View>
+            )}
+            {provider.estimatedTime && (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Icon name="time" size={12} color="#3B82F6" />
+                <Text style={{ fontSize: 12, color: '#3B82F6', marginLeft: 3 }}>
+                  {provider.estimatedTime}
+                </Text>
+              </View>
+            )}
+          </View>
           {provider.completedJobs > 50 && (
             <View style={styles.jobsBadge}>
               <Icon name="shield-checkmark" size={12} color="#00B14F" />
@@ -652,7 +667,7 @@ const ClientHomeScreen = ({ navigation }) => {
         const d = docSnap.data();
         const isApproved = d.providerStatus === 'approved' || d.status === 'approved';
         if (!isApproved || !d.isOnline) return;
-        if (selectedCategory && d.serviceCategory !== selectedCategory) return;
+        if (selectedCategory && d.serviceCategory?.toLowerCase() !== selectedCategory.toLowerCase()) return;
 
         const dist = userLocation ? calculateDistance(userLocation.latitude, userLocation.longitude, d.latitude || 0, d.longitude || 0) : 10;
 
