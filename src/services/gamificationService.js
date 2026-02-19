@@ -338,6 +338,37 @@ export const onBookingCompleted = async (clientId, providerId, amount) => {
     await incrementStat(providerId, 'completedJobs', 1, 'PROVIDER');
     await incrementStat(providerId, 'totalEarnings', amount, 'PROVIDER');
 
+    // CRITICAL: Also update provider's user document with completedJobs, points, and tier
+    // This ensures the client home screen shows the correct count
+    try {
+      const gamificationRef = doc(db, 'gamification', providerId);
+      const gamDoc = await getDoc(gamificationRef);
+      
+      if (gamDoc.exists()) {
+        const gamData = gamDoc.data();
+        const completedJobsCount = gamData.stats?.completedJobs || 0;
+        const points = gamData.points || 0;
+        
+        // Calculate tier based on points
+        let tier = 'bronze';
+        if (points >= 7500) tier = 'platinum';
+        else if (points >= 3000) tier = 'gold';
+        else if (points >= 1000) tier = 'silver';
+        
+        await updateDoc(doc(db, 'users', providerId), {
+          completedJobs: completedJobsCount,
+          jobsCompleted: completedJobsCount,
+          points: points,
+          tier: tier,
+          updatedAt: serverTimestamp(),
+        });
+        console.log('✅ Synced gamification data to user document:', { completedJobsCount, points, tier });
+      }
+    } catch (syncError) {
+      console.error('❌ Error syncing gamification data to user document:', syncError);
+      // Don't fail the whole operation if sync fails
+    }
+
     return { success: true };
   } catch (error) {
     console.error('Error on booking completed:', error);

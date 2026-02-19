@@ -33,6 +33,8 @@ import paymentService from '../../services/paymentService';
 import notificationService from '../../services/notificationService';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
+import voiceInstructions from '../../utils/voiceInstructions';
+import PhotoGuideModal from '../../components/PhotoGuideModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -58,6 +60,8 @@ const BookServiceScreen = ({ navigation, route }) => {
   const [processingPayment, setProcessingPayment] = useState(false);
   const [mediaFiles, setMediaFiles] = useState([]);
   const [previewImage, setPreviewImage] = useState(null);
+  const [showPhotoGuide, setShowPhotoGuide] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Fetch basePrice from serviceCategories collection
   useEffect(() => {
@@ -252,12 +256,27 @@ const BookServiceScreen = ({ navigation, route }) => {
   };
 
   const handleAddMedia = () => {
-    Alert.alert('Add Photo/Video', 'Choose how you want to add media', [
-      { text: 'Take Photo', onPress: () => handleCameraCapture('photo') },
-      { text: 'Record Video', onPress: () => handleCameraCapture('video') },
-      { text: 'Choose from Gallery', onPress: handlePickFromGallery },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    Alert.alert(
+      '📸 Add Photos',
+      'How would you like to add photos?',
+      [
+        {
+          text: '📷 Take Photo Now',
+          onPress: () => handleCameraCapture('photo'),
+          style: 'default'
+        },
+        {
+          text: '🖼️ Choose from Gallery',
+          onPress: handlePickFromGallery,
+          style: 'default'
+        },
+        {
+          text: '❌ Cancel',
+          style: 'cancel'
+        }
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleCameraCapture = async mediaType => {
@@ -320,7 +339,21 @@ const BookServiceScreen = ({ navigation, route }) => {
   };
 
   const handleRemoveMedia = index => {
-    setMediaFiles(prev => prev.filter((_, i) => i !== index));
+    Alert.alert(
+      'Delete Photo?',
+      'Are you sure you want to remove this photo?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          onPress: () => setMediaFiles(prev => prev.filter((_, i) => i !== index)),
+          style: 'destructive'
+        }
+      ]
+    );
   };
 
   const handleSubmit = async () => {
@@ -655,75 +688,221 @@ const BookServiceScreen = ({ navigation, route }) => {
         )}
 
         {/* Photo/Video Upload Section - REQUIRED */}
-        <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8 }}>
-          Upload Photos/Videos of the Problem *
+        <Text style={{ fontSize: 16, fontWeight: '700', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8 }}>
+          Upload Photos of the Problem *
         </Text>
-        <Text style={{ fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginBottom: 12 }}>
-          Add up to 5 photos or videos showing what needs to be fixed
+        <Text style={{ fontSize: 14, color: isDark ? theme.colors.textSecondary : '#6B7280', marginBottom: 16 }}>
+          Show us what needs to be fixed
         </Text>
 
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 20 }}>
-          {mediaFiles.map((file, index) => (
-            <View
-              key={index}
-              style={{
-                width: 80,
-                height: 80,
-                marginRight: 10,
-                marginBottom: 10,
-                borderRadius: 8,
-                overflow: 'hidden',
-                position: 'relative',
-                backgroundColor: isDark ? theme.colors.card : '#F3F4F6',
-              }}>
-              {file.uri ? (
-                <TouchableOpacity activeOpacity={0.8} onPress={() => setPreviewImage(file.uri)}>
-                  <Image source={{ uri: file.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                </TouchableOpacity>
-              ) : (
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                  <Icon name="image-outline" size={24} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
-                </View>
-              )}
-              {file.isVideo && (
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.3)',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}>
-                  <Icon name="play-circle" size={30} color="#FFFFFF" />
-                </View>
-              )}
-              <TouchableOpacity
+        {/* Voice Instructions Button */}
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#3B82F6',
+            borderRadius: 16,
+            padding: 18,
+            marginBottom: 12,
+            shadowColor: '#3B82F6',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 5,
+          }}
+          onPress={() => voiceInstructions.speakUploadInstructions()}
+        >
+          <Icon name="volume-high" size={24} color="#FFF" />
+          <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFF', marginLeft: 10 }}>
+            🔊 Hear Instructions
+          </Text>
+        </TouchableOpacity>
+
+        {/* Photo Guide Button */}
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#10B981',
+            borderRadius: 16,
+            padding: 18,
+            marginBottom: 16,
+            shadowColor: '#10B981',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 5,
+          }}
+          onPress={() => setShowPhotoGuide(true)}
+        >
+          <Icon name="information-circle" size={24} color="#FFF" />
+          <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFF', marginLeft: 10 }}>
+            📖 How to Take Good Photos
+          </Text>
+        </TouchableOpacity>
+
+        {/* Large Upload Button - Only show when no photos */}
+        {mediaFiles.length === 0 && (
+          <TouchableOpacity
+            style={{
+              minHeight: 180,
+              backgroundColor: '#10B981',
+              borderRadius: 20,
+              padding: 24,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.2,
+              shadowRadius: 8,
+              elevation: 8,
+            }}
+            onPress={handleAddMedia}
+            activeOpacity={0.8}
+          >
+            <Icon name="camera" size={64} color="#FFF" />
+            <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#FFF', marginTop: 12 }}>
+              📸 Add Photos
+            </Text>
+            <Text style={{ fontSize: 18, color: '#FFF', opacity: 0.9, marginTop: 8, textAlign: 'center' }}>
+              Tap to take or choose photos
+            </Text>
+            <View style={{ flexDirection: 'row', marginTop: 16, gap: 20 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Icon name="checkmark-circle" size={20} color="#FFF" />
+                <Text style={{ fontSize: 16, color: '#FFF', marginLeft: 6 }}>Camera</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Icon name="checkmark-circle" size={20} color="#FFF" />
+                <Text style={{ fontSize: 16, color: '#FFF', marginLeft: 6 }}>Gallery</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Tips Box */}
+        {mediaFiles.length === 0 && (
+          <View style={{
+            backgroundColor: isDark ? '#1E3A5F' : '#EFF6FF',
+            borderRadius: 16,
+            padding: 16,
+            marginBottom: 20,
+            borderWidth: 2,
+            borderColor: '#3B82F6',
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+              <Icon name="information-circle" size={24} color="#3B82F6" style={{ marginTop: 2 }} />
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: isDark ? '#93C5FD' : '#1E40AF', marginBottom: 8 }}>
+                  Tips for good photos:
+                </Text>
+                <Text style={{ fontSize: 14, color: isDark ? '#BFDBFE' : '#1E3A8A', lineHeight: 22 }}>
+                  • Get close to the problem{'\n'}
+                  • Use good lighting{'\n'}
+                  • Take multiple angles{'\n'}
+                  • Show the whole area
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Photo Preview Grid - Larger thumbnails (2 columns) */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 20, gap: 12 }}>
+          {mediaFiles.map((file, index) => {
+            const thumbnailWidth = (SCREEN_WIDTH - 64) / 2; // 2 columns with padding
+            return (
+              <View
+                key={index}
                 style={{
+                  width: thumbnailWidth,
+                  height: thumbnailWidth,
+                  borderRadius: 16,
+                  overflow: 'hidden',
+                  position: 'relative',
+                  backgroundColor: isDark ? theme.colors.card : '#F3F4F6',
+                  borderWidth: 3,
+                  borderColor: '#10B981',
+                }}>
+                {/* Photo Number Badge */}
+                <View style={{
                   position: 'absolute',
-                  top: 4,
-                  right: 4,
-                  backgroundColor: 'rgba(0,0,0,0.6)',
-                  borderRadius: 12,
-                  width: 24,
-                  height: 24,
+                  top: 8,
+                  left: 8,
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: '#10B981',
                   justifyContent: 'center',
                   alignItems: 'center',
-                }}
-                onPress={() => handleRemoveMedia(index)}>
-                <Icon name="close" size={16} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-          ))}
+                  zIndex: 2,
+                  borderWidth: 2,
+                  borderColor: '#FFF',
+                }}>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#FFF' }}>
+                    {index + 1}
+                  </Text>
+                </View>
 
-          {mediaFiles.length < 5 && (
+                {file.uri ? (
+                  <TouchableOpacity activeOpacity={0.8} onPress={() => setPreviewImage(file.uri)}>
+                    <Image source={{ uri: file.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                  </TouchableOpacity>
+                ) : (
+                  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <Icon name="image-outline" size={48} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
+                  </View>
+                )}
+                {file.isVideo && (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: 'rgba(0,0,0,0.3)',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}>
+                    <Icon name="play-circle" size={48} color="#FFFFFF" />
+                  </View>
+                )}
+                {/* Larger Delete Button */}
+                <TouchableOpacity
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    backgroundColor: '#EF4444',
+                    borderRadius: 28,
+                    width: 56,
+                    height: 56,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 4,
+                    elevation: 5,
+                  }}
+                  onPress={() => handleRemoveMedia(index)}>
+                  <Icon name="trash" size={28} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            );
+          })}
+
+          {/* Add More Button - Larger */}
+          {mediaFiles.length > 0 && mediaFiles.length < 5 && (
             <TouchableOpacity
               style={{
-                width: 80,
-                height: 80,
-                borderRadius: 8,
+                width: (SCREEN_WIDTH - 64) / 2,
+                height: (SCREEN_WIDTH - 64) / 2,
+                borderRadius: 16,
                 borderWidth: 2,
                 borderColor: mediaFiles.length === 0 ? '#EF4444' : isDark ? theme.colors.border : '#E5E7EB',
                 borderStyle: 'dashed',
@@ -740,11 +919,51 @@ const BookServiceScreen = ({ navigation, route }) => {
           )}
         </View>
 
+        {/* Progress Indicator */}
+        {mediaFiles.length > 0 && (
+          <View style={{
+            backgroundColor: isDark ? '#064E3B' : '#ECFDF5',
+            borderRadius: 16,
+            padding: 16,
+            marginBottom: 16,
+            borderWidth: 2,
+            borderColor: '#10B981',
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', color: isDark ? '#A7F3D0' : '#065F46' }}>
+                Photos Added
+              </Text>
+              <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#10B981' }}>
+                {mediaFiles.length}/5
+              </Text>
+            </View>
+            <View style={{
+              height: 12,
+              backgroundColor: isDark ? '#065F46' : '#D1FAE5',
+              borderRadius: 6,
+              overflow: 'hidden',
+            }}>
+              <View style={{
+                height: '100%',
+                width: `${(mediaFiles.length / 5) * 100}%`,
+                backgroundColor: '#10B981',
+              }} />
+            </View>
+          </View>
+        )}
+
         {mediaFiles.length === 0 && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-            <Icon name="alert-circle" size={16} color="#EF4444" />
-            <Text style={{ fontSize: 12, color: '#EF4444', marginLeft: 6 }}>
-              At least one photo or video is required
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#FEE2E2',
+            padding: 12,
+            borderRadius: 12,
+            marginBottom: 16,
+          }}>
+            <Icon name="alert-circle" size={24} color="#EF4444" />
+            <Text style={{ fontSize: 16, color: '#EF4444', marginLeft: 10, flex: 1, fontWeight: '600' }}>
+              At least one photo is required
             </Text>
           </View>
         )}
@@ -1175,10 +1394,10 @@ const BookServiceScreen = ({ navigation, route }) => {
           onPress={() => setPreviewImage(null)}
         >
           <TouchableOpacity
-            style={{ position: 'absolute', top: 50, right: 20, zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' }}
+            style={{ position: 'absolute', top: 50, right: 20, zIndex: 10, width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' }}
             onPress={() => setPreviewImage(null)}
           >
-            <Icon name="close" size={28} color="#FFFFFF" />
+            <Icon name="close" size={32} color="#FFFFFF" />
           </TouchableOpacity>
           {previewImage && (
             <Image
@@ -1188,6 +1407,160 @@ const BookServiceScreen = ({ navigation, route }) => {
             />
           )}
         </TouchableOpacity>
+      </Modal>
+
+      {/* Photo Guide Modal */}
+      <PhotoGuideModal
+        visible={showPhotoGuide}
+        onClose={() => setShowPhotoGuide(false)}
+        isDark={isDark}
+      />
+
+      {/* Floating Help Button */}
+      <TouchableOpacity
+        style={{
+          position: 'absolute',
+          bottom: 24,
+          right: 24,
+          width: 64,
+          height: 64,
+          borderRadius: 32,
+          backgroundColor: '#3B82F6',
+          justifyContent: 'center',
+          alignItems: 'center',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 8,
+        }}
+        onPress={() => setShowHelp(true)}
+      >
+        <Text style={{ fontSize: 32 }}>❓</Text>
+      </TouchableOpacity>
+
+      {/* Help Modal */}
+      <Modal visible={showHelp} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{
+            flex: 1,
+            marginTop: 100,
+            backgroundColor: isDark ? theme.colors.background : '#FFFFFF',
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: 20,
+              borderBottomWidth: 1,
+              borderBottomColor: isDark ? theme.colors.border : '#E5E7EB',
+            }}>
+              <Text style={{ fontSize: 22, fontWeight: 'bold', color: isDark ? theme.colors.text : '#1F2937' }}>
+                ❓ Need Help?
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowHelp(false)}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: isDark ? theme.colors.card : '#F3F4F6',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Icon name="close" size={24} color={isDark ? theme.colors.text : '#1F2937'} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
+              {/* Adding Photos */}
+              <View style={{
+                backgroundColor: isDark ? '#064E3B' : '#ECFDF5',
+                borderRadius: 16,
+                padding: 20,
+                marginBottom: 16,
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                  <Icon name="camera" size={24} color="#10B981" />
+                  <Text style={{ fontSize: 18, fontWeight: 'bold', color: isDark ? '#A7F3D0' : '#065F46', marginLeft: 10 }}>
+                    Adding Photos
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 16, color: isDark ? '#6EE7B7' : '#047857', lineHeight: 24 }}>
+                  1. Tap the green "Add Photos" button{'\n'}
+                  2. Choose "Take Photo" or "Choose from Gallery"{'\n'}
+                  3. Make sure photos are clear and well-lit{'\n'}
+                  4. You can add up to 5 photos
+                </Text>
+              </View>
+
+              {/* Describing Problem */}
+              <View style={{
+                backgroundColor: isDark ? '#1E3A5F' : '#EFF6FF',
+                borderRadius: 16,
+                padding: 20,
+                marginBottom: 16,
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                  <Icon name="create" size={24} color="#3B82F6" />
+                  <Text style={{ fontSize: 18, fontWeight: 'bold', color: isDark ? '#93C5FD' : '#1E40AF', marginLeft: 10 }}>
+                    Describing the Problem
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 16, color: isDark ? '#BFDBFE' : '#1E3A8A', lineHeight: 24 }}>
+                  • Be specific about what's broken{'\n'}
+                  • Mention when the problem started{'\n'}
+                  • Include any relevant details{'\n'}
+                  • This helps the provider prepare
+                </Text>
+              </View>
+
+              {/* Payment Security */}
+              <View style={{
+                backgroundColor: isDark ? '#2E1065' : '#F5F3FF',
+                borderRadius: 16,
+                padding: 20,
+                marginBottom: 16,
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                  <Icon name="shield-checkmark" size={24} color="#7C3AED" />
+                  <Text style={{ fontSize: 18, fontWeight: 'bold', color: isDark ? '#C4B5FD' : '#5B21B6', marginLeft: 10 }}>
+                    Payment Security
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 16, color: isDark ? '#DDD6FE' : '#6B21A8', lineHeight: 24 }}>
+                  Your payment is protected:{'\n'}
+                  • Money is held securely until job is done{'\n'}
+                  • Provider gets paid only after you confirm{'\n'}
+                  • 100% secure with PayMongo{'\n'}
+                  • You can request refund if unsatisfied
+                </Text>
+              </View>
+
+              {/* Contact Support */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#10B981',
+                  borderRadius: 16,
+                  padding: 20,
+                  alignItems: 'center',
+                  marginBottom: 20,
+                }}
+                onPress={() => {
+                  setShowHelp(false);
+                  // Navigate to help/support screen if available
+                }}
+              >
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' }}>
+                  📞 Contact Support
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );

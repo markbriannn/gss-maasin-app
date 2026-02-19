@@ -1075,23 +1075,31 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
                       where('providerId', '==', user.uid),
                       where('status', '==', 'completed'),
                     ));
+
+                    // Always update completed jobs count
+                    const updateData = {
+                      completedJobs: completedSnap.size,
+                      jobsCompleted: completedSnap.size,
+                      totalCompletedJobs: completedSnap.size,
+                    };
+
+                    // Compute average duration if data is available
                     const durations = [];
                     completedSnap.forEach(d => {
                       const bData = d.data();
-                      const started = bData.workStartedAt?.toDate?.();
-                      const ended = bData.workCompletedAt?.toDate?.();
+                      const started = bData.workStartedAt?.toDate?.() || bData.startedAt?.toDate?.();
+                      const ended = bData.workCompletedAt?.toDate?.() || bData.completedAt?.toDate?.();
                       if (started && ended) {
                         const mins = (ended.getTime() - started.getTime()) / 60000;
-                        if (mins > 0 && mins < 600) durations.push(mins);
+                        if (mins > 0.1 && mins < 600) durations.push(mins);
                       }
                     });
                     if (durations.length > 0) {
-                      const avg = Math.round(durations.reduce((s, v) => s + v, 0) / durations.length);
-                      await updateDoc(doc(db, 'users', user.uid), {
-                        avgJobDurationMinutes: avg,
-                        totalCompletedJobs: completedSnap.size,
-                      });
+                      updateData.avgJobDurationMinutes = Math.max(1, Math.ceil(durations.reduce((s, v) => s + v, 0) / durations.length));
                     }
+
+                    await updateDoc(doc(db, 'users', user.uid), updateData);
+                    console.log('✅ Updated provider stats:', updateData);
                   } catch (e) {
                     console.log('Avg duration compute error:', e);
                   }
@@ -1103,10 +1111,12 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
                 onBookingCompleted(jobData.clientId, user.uid, totalAmount)
                   .then(result => {
                     if (result.success) {
-                      console.log('Gamification points awarded successfully');
+                      console.log('✅ Gamification points awarded and user document synced');
+                    } else {
+                      console.log('⚠️ Gamification update failed');
                     }
                   })
-                  .catch(err => console.log('Gamification error:', err));
+                  .catch(err => console.error('❌ Gamification error:', err));
               }
 
               // Notify client job is fully completed (fire and forget)

@@ -99,6 +99,7 @@ export default function AdminProviderDetailsPage() {
   const [provider, setProvider] = useState<ProviderData | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [totalJobsCount, setTotalJobsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState<"info" | "jobs" | "reviews">("info");
@@ -123,6 +124,25 @@ export default function AdminProviderDetailsPage() {
       const providerDoc = await getDoc(doc(db, "users", providerId));
       if (providerDoc.exists()) {
         const data = providerDoc.data();
+        
+        // Try to get gamification data for accurate points
+        let points = data.points || 0;
+        let tier = data.tier || "bronze";
+        try {
+          const gamDoc = await getDoc(doc(db, "gamification", providerId));
+          if (gamDoc.exists()) {
+            const gamData = gamDoc.data();
+            points = gamData.points || 0;
+            // Calculate tier based on points
+            if (points >= 7500) tier = "platinum";
+            else if (points >= 3000) tier = "gold";
+            else if (points >= 1000) tier = "silver";
+            else tier = "bronze";
+          }
+        } catch (gamError) {
+          console.log("Could not fetch gamification data:", gamError);
+        }
+        
         setProvider({
           id: providerDoc.id,
           firstName: data.firstName || "",
@@ -143,8 +163,8 @@ export default function AdminProviderDetailsPage() {
           fixedPrice: data.fixedPrice,
           hourlyRate: data.hourlyRate,
           priceType: data.priceType,
-          tier: data.tier || "bronze",
-          points: data.points || 0,
+          tier: tier,
+          points: points,
           isOnline: data.isOnline,
           createdAt: data.createdAt?.toDate(),
           approvedAt: data.approvedAt?.toDate(),
@@ -195,6 +215,11 @@ export default function AdminProviderDetailsPage() {
         jobsList.push({ id: doc.id, title: data.title || data.serviceCategory || "Service", status: data.status || "pending", amount: data.totalAmount || data.amount || 0, scheduledDate: data.scheduledDate || "TBD", clientName: data.clientName || "Client" });
       });
       setJobs(jobsList);
+      
+      // Get total count of all jobs for this provider
+      const allJobsQuery = query(collection(db, "bookings"), where("providerId", "==", providerId));
+      const allJobsSnapshot = await getDocs(allJobsQuery);
+      setTotalJobsCount(allJobsSnapshot.size);
     } catch (error) {
       console.error("Error fetching jobs:", error);
     }
@@ -474,11 +499,11 @@ export default function AdminProviderDetailsPage() {
                   <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-xl">
                     <Star className="w-5 h-5 text-amber-300 fill-amber-300" />
                     <span className="text-white font-bold">{provider.rating.toFixed(1)}</span>
-                    <span className="text-white/70 text-sm">({provider.reviewCount} reviews)</span>
+                    <span className="text-white/70 text-sm">({reviews.length} reviews)</span>
                   </div>
                   <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-xl">
                     <CheckCircle className="w-5 h-5 text-emerald-300" />
-                    <span className="text-white font-bold">{provider.completedJobs}</span>
+                    <span className="text-white font-bold">{totalJobsCount}</span>
                     <span className="text-white/70 text-sm">jobs</span>
                   </div>
                   <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-xl">

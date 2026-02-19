@@ -237,8 +237,9 @@ export default function ClientDashboard() {
       loadFavorites();
       const providersQuery = query(collection(db, 'users'), where('role', '==', 'PROVIDER'));
 
-      const unsubscribe = onSnapshot(providersQuery, (snapshot) => {
+      const unsubscribe = onSnapshot(providersQuery, async (snapshot) => {
         const providersList: Provider[] = [];
+        const providerIds: string[] = [];
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
           const isApproved = data.providerStatus === 'approved' || data.status === 'approved';
@@ -249,6 +250,7 @@ export default function ClientDashboard() {
             distance = calculateDistance(userLocation.lat, userLocation.lng, data.latitude, data.longitude);
           }
 
+          providerIds.push(docSnap.id);
           providersList.push({
             id: docSnap.id,
             firstName: data.firstName || '',
@@ -265,7 +267,7 @@ export default function ClientDashboard() {
             latitude: data.latitude || (10.1335 + (Math.random() - 0.5) * 0.008),
             longitude: data.longitude || (124.8513 + (Math.random() - 0.5) * 0.008),
             distance: distance !== null ? parseFloat(distance.toFixed(1)) : null,
-            completedJobs: data.completedJobs || 0,
+            completedJobs: data.completedJobs || data.jobsCompleted || data.totalCompletedJobs || 0,
             fixedPrice: data.fixedPrice || data.hourlyRate || 0,
             hourlyRate: data.hourlyRate || data.fixedPrice || 0,
             avgJobDurationMinutes: data.avgJobDurationMinutes || null,
@@ -273,6 +275,49 @@ export default function ClientDashboard() {
             tier: data.tier || 'bronze',
           });
         });
+
+        // Supplement with real completed bookings count from bookings collection
+        // This ensures accurate data even when user docs haven't been synced
+        try {
+          if (providerIds.length > 0) {
+            const bookingsSnap = await getDocs(query(
+              collection(db, 'bookings'),
+              where('status', '==', 'completed'),
+            ));
+
+            const completedByProvider: Record<string, { count: number; durations: number[] }> = {};
+            bookingsSnap.forEach((bDoc) => {
+              const bData = bDoc.data();
+              const pid = bData.providerId;
+              if (!pid) return;
+              if (!completedByProvider[pid]) completedByProvider[pid] = { count: 0, durations: [] };
+              completedByProvider[pid].count++;
+
+              // Calculate job duration for estimated time
+              const started = bData.workStartedAt?.toDate?.() || bData.startedAt?.toDate?.();
+              const ended = bData.workCompletedAt?.toDate?.() || bData.completedAt?.toDate?.();
+              if (started && ended) {
+                const mins = (ended.getTime() - started.getTime()) / 60000;
+                if (mins > 0.1 && mins < 600) completedByProvider[pid].durations.push(mins);
+              }
+            });
+
+            // Update provider objects with real data
+            providersList.forEach((provider) => {
+              const stats = completedByProvider[provider.id];
+              if (stats) {
+                provider.completedJobs = Math.max(provider.completedJobs || 0, stats.count);
+                if (stats.durations.length > 0 && !provider.avgJobDurationMinutes) {
+                  const avg = Math.max(1, Math.ceil(stats.durations.reduce((s, v) => s + v, 0) / stats.durations.length));
+                  provider.avgJobDurationMinutes = avg;
+                  provider.estimatedJobTime = getEstimatedJobTime(avg);
+                }
+              }
+            });
+          }
+        } catch (err) {
+          console.log('Error supplementing provider stats:', err);
+        }
 
         setProviders(providersList);
         setLoadingData(false);

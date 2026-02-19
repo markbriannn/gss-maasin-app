@@ -475,6 +475,23 @@ export default function ProviderJobDetailsPage() {
       }
 
       console.log('Gamification points awarded for job completion');
+
+      // Update provider's user document with completedJobs count
+      // Re-read gamification doc AFTER the increment to get the accurate count
+      const providerUserRef = doc(db, 'users', user.uid);
+      const updatedGamDoc = await getDoc(gamificationRef);
+      const newCompletedCount = updatedGamDoc.exists()
+        ? (updatedGamDoc.data().stats?.completedJobs || 0)
+        : 1;
+
+      await updateDoc(providerUserRef, {
+        completedJobs: newCompletedCount,
+        jobsCompleted: newCompletedCount,
+        totalCompletedJobs: newCompletedCount,
+        updatedAt: serverTimestamp(),
+      });
+      console.log('Provider user document updated with completedJobs:', newCompletedCount);
+
     } catch (gamError) {
       console.error('Error awarding gamification points:', gamError);
       // Don't fail the job completion if gamification fails

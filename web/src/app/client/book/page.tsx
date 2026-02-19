@@ -89,6 +89,8 @@ function BookServiceContent() {
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [showPhotoGuide, setShowPhotoGuide] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
@@ -160,6 +162,41 @@ function BookServiceContent() {
   const getPrice = () => provider?.serviceCategoryBasePrice || provider?.fixedPrice || provider?.hourlyRate || 0;
   const getSystemFee = () => Math.round(getPrice() * 0.05 * 100) / 100;
   const getTotalAmount = () => Math.round((getPrice() + getSystemFee()) * 100) / 100;
+
+  // Voice instructions for accessibility
+  const speakInstructions = (text: string) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel(); // Cancel any ongoing speech
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.7; // Slower for elderly
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      utterance.lang = 'en-US';
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  // Photo guide steps
+  const PHOTO_GUIDE_STEPS = [
+    {
+      title: "Step 1: Get Close",
+      description: "Move closer to the problem area so we can see it clearly",
+      icon: "🔍",
+      tip: "Hold your phone steady"
+    },
+    {
+      title: "Step 2: Good Lighting",
+      description: "Make sure the area is well-lit. Turn on lights if needed",
+      icon: "💡",
+      tip: "Avoid shadows"
+    },
+    {
+      title: "Step 3: Clear View",
+      description: "Show the whole problem in the photo",
+      icon: "📷",
+      tip: "Take multiple angles"
+    }
+  ];
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -529,85 +566,135 @@ function BookServiceContent() {
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
                     <Camera className="w-5 h-5 text-white" />
                   </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900">Upload Photos/Videos</h3>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 text-lg">Upload Photos/Videos</h3>
                     <p className="text-sm text-gray-500">Show us what needs to be fixed</p>
                   </div>
-                  <span className="ml-auto px-3 py-1 bg-red-100 text-red-600 text-xs font-semibold rounded-full">Required</span>
+                  <span className="px-3 py-1 bg-red-100 text-red-600 text-xs font-semibold rounded-full">Required</span>
                 </div>
+
+                {/* Voice Instructions Button */}
+                <button
+                  type="button"
+                  onClick={() => speakInstructions("Tap the camera button to add photos of the problem. You can take a new photo or choose from your gallery. Make sure the photo is clear and well-lit so the provider can see what needs to be fixed.")}
+                  className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl py-4 px-6 hover:from-blue-600 hover:to-blue-700 transition-all mb-4 text-lg font-semibold shadow-lg"
+                >
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
+                  </svg>
+                  🔊 Hear Instructions
+                </button>
+
+                {/* Photo Guide Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowPhotoGuide(true)}
+                  className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl py-4 px-6 hover:from-emerald-600 hover:to-green-700 transition-all mb-6 text-lg font-semibold shadow-lg"
+                >
+                  <Info className="w-6 h-6" />
+                  📖 How to Take Good Photos
+                </button>
 
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,video/*" multiple className="hidden" />
 
-                {/* Drag & Drop Zone - only show when no files uploaded */}
+                {/* Large Upload Buttons - No Drag & Drop */}
                 {mediaFiles.length === 0 && (
-                  <div
-                    onDragEnter={handleDrag}
-                    onDragLeave={handleDrag}
-                    onDragOver={handleDrag}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${dragActive ? 'border-[#00B14F] bg-green-50' : 'border-red-300 bg-red-50/50 hover:border-red-400'}`}
-                  >
-                    <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center ${dragActive ? 'bg-green-100' : 'bg-red-100'}`}>
-                      <Upload className={`w-8 h-8 ${dragActive ? 'text-green-600' : 'text-red-500'}`} />
-                    </div>
-                    <p className="font-semibold text-gray-900 mb-1">
-                      {dragActive ? 'Drop files here' : 'Drag & drop or click to upload'}
-                    </p>
-                    <p className="text-sm text-gray-500">Up to 5 photos or videos • Max 50MB each</p>
-
-                    <div className="flex items-center justify-center gap-4 mt-4">
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <ImagePlus className="w-4 h-4" />
-                        <span>Photos</span>
+                  <div className="space-y-4">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full min-h-[180px] bg-gradient-to-br from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-3xl p-8 transition-all shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                          <Camera className="w-10 h-10 text-white" />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-2xl font-bold mb-2">📸 Tap to Add Photos</p>
+                          <p className="text-lg opacity-90">Take or choose photos of the problem</p>
+                        </div>
+                        <div className="flex items-center gap-6 text-base">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="w-5 h-5" />
+                            <span>Camera</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="w-5 h-5" />
+                            <span>Gallery</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="w-px h-4 bg-gray-300" />
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <Video className="w-4 h-4" />
-                        <span>Videos</span>
+                    </button>
+                    
+                    <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4">
+                      <div className="flex items-start gap-3">
+                        <Info className="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-blue-900">
+                          <p className="font-semibold mb-1">Tips for good photos:</p>
+                          <ul className="space-y-1 list-disc list-inside">
+                            <li>Get close to the problem</li>
+                            <li>Use good lighting</li>
+                            <li>Take multiple angles</li>
+                            <li>Show the whole area</li>
+                          </ul>
+                        </div>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Media Preview Grid */}
+                {/* Media Preview Grid - Larger thumbnails */}
                 {mediaFiles.length > 0 && (
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm font-medium text-gray-700">{mediaFiles.length} of 5 files uploaded</p>
-                      <div className="h-2 w-32 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-[#00B14F] to-emerald-400 transition-all" style={{ width: `${(mediaFiles.length / 5) * 100}%` }} />
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-emerald-50 rounded-2xl">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle className="w-6 h-6 text-emerald-600" />
+                        <p className="text-lg font-semibold text-emerald-900">{mediaFiles.length} of 5 photos uploaded</p>
+                      </div>
+                      <div className="h-3 w-32 bg-emerald-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-600 transition-all" style={{ width: `${(mediaFiles.length / 5) * 100}%` }} />
                       </div>
                     </div>
-                    <div className="grid grid-cols-5 gap-3">
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {mediaFiles.map((media, index) => (
-                        <div key={index} className="relative aspect-square rounded-xl overflow-hidden group">
+                        <div key={index} className="relative aspect-square rounded-2xl overflow-hidden group border-4 border-emerald-200">
                           {media.isVideo ? (
                             <div className="w-full h-full bg-gray-900 flex items-center justify-center">
-                              <Play className="w-8 h-8 text-white" />
+                              <Play className="w-12 h-12 text-white" />
                             </div>
                           ) : (
                             <img
                               src={media.preview}
-                              alt=""
+                              alt={`Photo ${index + 1}`}
                               className="w-full h-full object-cover cursor-pointer"
                               onClick={(e) => { e.stopPropagation(); setPreviewImage(media.preview); }}
                             />
                           )}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                            <button onClick={(e) => { e.stopPropagation(); handleRemoveMedia(index); }} className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors pointer-events-auto">
-                              <X className="w-4 h-4 text-white" />
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleRemoveMedia(index); }}
+                            className="absolute top-2 right-2 w-12 h-12 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg"
+                            aria-label="Delete photo"
+                          >
+                            <X className="w-6 h-6 text-white" />
+                          </button>
                           {media.isVideo && (
-                            <div className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 rounded text-xs text-white">Video</div>
+                            <div className="absolute bottom-2 left-2 px-3 py-1 bg-black/70 rounded-lg text-sm text-white font-semibold">Video</div>
                           )}
+                          <div className="absolute bottom-2 right-2 w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                            {index + 1}
+                          </div>
                         </div>
                       ))}
                       {mediaFiles.length < 5 && (
-                        <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center hover:border-[#00B14F] hover:bg-green-50 transition-colors">
-                          <Camera className="w-6 h-6 text-gray-400" />
-                          <span className="text-xs text-gray-400 mt-1">Add</span>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="aspect-square rounded-2xl border-4 border-dashed border-emerald-300 bg-emerald-50 flex flex-col items-center justify-center hover:border-emerald-500 hover:bg-emerald-100 transition-all"
+                        >
+                          <Camera className="w-10 h-10 text-emerald-600 mb-2" />
+                          <span className="text-base font-semibold text-emerald-700">Add More</span>
                         </button>
                       )}
                     </div>
@@ -615,9 +702,9 @@ function BookServiceContent() {
                 )}
 
                 {mediaFiles.length === 0 && (
-                  <div className="flex items-center gap-2 mt-4 p-3 bg-red-50 rounded-xl text-red-600 text-sm">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    <span>Please upload at least one photo or video of the problem</span>
+                  <div className="flex items-center gap-3 mt-4 p-4 bg-red-50 border-2 border-red-200 rounded-2xl text-red-700">
+                    <AlertCircle className="w-6 h-6 flex-shrink-0" />
+                    <span className="text-base font-medium">Please upload at least one photo or video of the problem</span>
                   </div>
                 )}
               </div>
@@ -811,24 +898,149 @@ function BookServiceContent() {
         </div>
       </div>
 
-      {/* Fullscreen Image Preview */}
+      {/* Enhanced Fullscreen Image Preview */}
       {previewImage && (
-        <div
-          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center cursor-pointer"
-          onClick={() => setPreviewImage(null)}
-        >
-          <button
-            onClick={() => setPreviewImage(null)}
-            className="absolute top-6 right-6 w-10 h-10 bg-white/15 rounded-full flex items-center justify-center hover:bg-white/25 transition-colors"
-          >
-            <X className="w-6 h-6 text-white" />
-          </button>
-          <img
-            src={previewImage}
-            alt="Preview"
-            className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl"
-            onClick={(e) => e.stopPropagation()}
-          />
+        <div className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-4">
+          <div className="relative max-w-5xl w-full">
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-20 right-0 w-16 h-16 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors shadow-2xl"
+              aria-label="Close preview"
+            >
+              <X className="w-8 h-8 text-gray-900" />
+            </button>
+            
+            <img
+              src={previewImage}
+              alt="Photo preview"
+              className="w-full h-auto rounded-3xl shadow-2xl"
+              style={{ maxHeight: '80vh', objectFit: 'contain' }}
+            />
+            
+            <div className="flex gap-4 mt-8 justify-center">
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="px-10 py-5 bg-emerald-500 text-white rounded-2xl text-xl font-bold hover:bg-emerald-600 transition-all shadow-xl flex items-center gap-3"
+              >
+                <CheckCircle className="w-7 h-7" />
+                ✓ Keep This Photo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Photo Guide Modal */}
+      {showPhotoGuide && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-8 py-6 flex items-center justify-between rounded-t-3xl">
+              <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                <Camera className="w-8 h-8 text-emerald-600" />
+                📸 How to Take Good Photos
+              </h2>
+              <button
+                onClick={() => setShowPhotoGuide(false)}
+                className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
+                aria-label="Close guide"
+              >
+                <X className="w-6 h-6 text-gray-900" />
+              </button>
+            </div>
+            
+            <div className="p-8 space-y-6">
+              {PHOTO_GUIDE_STEPS.map((step, index) => (
+                <div key={index} className="bg-gradient-to-br from-emerald-50 to-green-50 border-4 border-emerald-200 rounded-3xl p-8">
+                  <div className="flex items-start gap-6">
+                    <div className="text-7xl">{step.icon}</div>
+                    <div className="flex-1">
+                      <h3 className="text-2xl font-bold text-gray-900 mb-3">{step.title}</h3>
+                      <p className="text-lg text-gray-700 mb-3">{step.description}</p>
+                      <div className="flex items-center gap-2 text-base text-emerald-700 font-semibold">
+                        <CheckCircle className="w-5 h-5" />
+                        <span>Tip: {step.tip}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              <button
+                onClick={() => setShowPhotoGuide(false)}
+                className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl py-6 text-xl font-bold hover:from-emerald-600 hover:to-green-700 transition-all shadow-xl flex items-center justify-center gap-3"
+              >
+                <CheckCircle className="w-7 h-7" />
+                ✓ Got It! Let's Start
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Help Button */}
+      <button
+        onClick={() => setShowHelp(true)}
+        className="fixed bottom-8 right-8 w-16 h-16 bg-blue-500 text-white rounded-full shadow-2xl hover:bg-blue-600 transition-all hover:scale-110 flex items-center justify-center text-3xl z-50"
+        aria-label="Help"
+      >
+        ❓
+      </button>
+
+      {/* Help Modal */}
+      {showHelp && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-8 py-6 rounded-t-3xl flex items-center justify-between">
+              <h2 className="text-3xl font-bold flex items-center gap-3">
+                <Info className="w-8 h-8" />
+                Need Help?
+              </h2>
+              <button
+                onClick={() => setShowHelp(false)}
+                className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-8 space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-xl font-bold text-gray-900">Quick Help:</h3>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-2xl">
+                    <Camera className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                    <div>
+                      <p className="font-semibold text-gray-900 mb-1">Adding Photos</p>
+                      <p className="text-gray-700">Tap the green button to take or choose photos. You need at least 1 photo.</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3 p-4 bg-purple-50 rounded-2xl">
+                    <MessageSquare className="w-6 h-6 text-purple-600 flex-shrink-0 mt-1" />
+                    <div>
+                      <p className="font-semibold text-gray-900 mb-1">Describing the Problem</p>
+                      <p className="text-gray-700">Tell the provider what's wrong. Be specific about the issue.</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3 p-4 bg-emerald-50 rounded-2xl">
+                    <Shield className="w-6 h-6 text-emerald-600 flex-shrink-0 mt-1" />
+                    <div>
+                      <p className="font-semibold text-gray-900 mb-1">Payment</p>
+                      <p className="text-gray-700">Your payment is held safely until the job is done. You confirm completion before provider gets paid.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <button
+                onClick={() => setShowHelp(false)}
+                className="w-full bg-blue-500 text-white rounded-2xl py-5 text-xl font-bold hover:bg-blue-600 transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </ClientLayout>

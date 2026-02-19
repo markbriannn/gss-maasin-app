@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
@@ -60,10 +60,23 @@ export default function LeaderboardPage() {
       // Fetch all gamification data first
       const gamificationSnap = await getDocs(collection(db, 'gamification'));
       const gamificationMap: Map<string, { points: number; stats: any; role?: string }> = new Map();
-      
+
       gamificationSnap.docs.forEach(docSnap => {
         const data = docSnap.data();
         gamificationMap.set(docSnap.id, { points: data.points || 0, stats: data.stats || {}, role: data.role });
+      });
+
+      // Fetch completed bookings to supplement completedJobs counts
+      const bookingsSnap = await getDocs(query(
+        collection(db, 'bookings'),
+        where('status', '==', 'completed'),
+      ));
+      const completedByProvider: Record<string, number> = {};
+      const completedByClient: Record<string, number> = {};
+      bookingsSnap.forEach((bDoc) => {
+        const bData = bDoc.data();
+        if (bData.providerId) completedByProvider[bData.providerId] = (completedByProvider[bData.providerId] || 0) + 1;
+        if (bData.clientId) completedByClient[bData.clientId] = (completedByClient[bData.clientId] || 0) + 1;
       });
 
       // Fetch all users
@@ -84,15 +97,17 @@ export default function LeaderboardPage() {
           const providerStatus = userData.providerStatus?.toLowerCase();
           const isApproved = status === 'approved' || providerStatus === 'approved';
           const isRejected = status === 'rejected' || providerStatus === 'rejected' || status === 'suspended' || providerStatus === 'suspended';
-          
+
           // Include if approved OR if not explicitly rejected (for providers without status set)
           if (isApproved || !isRejected) {
+            const docJobs = stats.completedJobs || userData.completedJobs || userData.jobsCompleted || userData.totalCompletedJobs || 0;
+            const bookingJobs = completedByProvider[userDoc.id] || 0;
             providersList.push({
               id: userDoc.id,
               name: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Provider',
               photo: userData.profilePhoto,
               points,
-              completedJobs: stats.completedJobs || userData.completedJobs || 0,
+              completedJobs: Math.max(docJobs, bookingJobs),
               rating: userData.rating || userData.averageRating || stats.rating || 0,
               service: userData.serviceCategory || 'Service Provider',
               tier: getTier(points, true),
@@ -103,12 +118,14 @@ export default function LeaderboardPage() {
           // Skip admin users
           if (role !== 'ADMIN') {
             const clientPoints = points || userData.loyaltyPoints || 0;
+            const docBookings = stats.completedBookings || userData.completedBookings || userData.totalBookings || 0;
+            const actualBookings = completedByClient[userDoc.id] || 0;
             clientsList.push({
               id: userDoc.id,
               name: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Client',
               photo: userData.profilePhoto,
               points: clientPoints,
-              completedJobs: stats.completedBookings || userData.completedBookings || userData.totalBookings || 0,
+              completedJobs: Math.max(docBookings, actualBookings),
               tier: getTier(clientPoints, false),
             });
           }
@@ -118,7 +135,7 @@ export default function LeaderboardPage() {
       // Sort by points
       providersList.sort((a, b) => b.points - a.points);
       clientsList.sort((a, b) => b.points - a.points);
-      
+
       setProviders(providersList.slice(0, 20));
       setClients(clientsList.slice(0, 20));
 
@@ -237,18 +254,16 @@ export default function LeaderboardPage() {
         <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-1.5 flex mb-6 border border-white/10">
           <button
             onClick={() => setActiveTab('providers')}
-            className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'providers' ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg' : 'text-white/60 hover:text-white'
-            }`}
+            className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === 'providers' ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg' : 'text-white/60 hover:text-white'
+              }`}
           >
             <Zap className="w-4 h-4" />
             Top Providers
           </button>
           <button
             onClick={() => setActiveTab('clients')}
-            className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'clients' ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg' : 'text-white/60 hover:text-white'
-            }`}
+            className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === 'clients' ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg' : 'text-white/60 hover:text-white'
+              }`}
           >
             <Users className="w-4 h-4" />
             Top Clients
@@ -270,7 +285,7 @@ export default function LeaderboardPage() {
           </div>
         ) : (
           <>
-            {/* Podium - Top 3 */}
+            {/* Podium - Top 3 (only show when 3+ entries) */}
             {data.length >= 3 && (
               <div className="flex items-end justify-center gap-3 mb-8 px-4">
                 {/* 2nd Place */}
@@ -344,38 +359,57 @@ export default function LeaderboardPage() {
               </div>
             )}
 
-            {/* Rest of the list */}
-            <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden">
-              {data.slice(3).map((entry, index) => (
-                <div key={entry.id} className={`flex items-center p-4 hover:bg-white/5 transition-colors ${index !== data.length - 4 ? 'border-b border-white/5' : ''}`}>
-                  <div className="w-10 text-center">
-                    <span className="text-white/60 font-bold">{index + 4}</span>
-                  </div>
-                  <div className="w-12 h-12 rounded-full overflow-hidden ml-3 ring-2 ring-white/10">
-                    {entry.photo ? (
-                      <Image src={entry.photo} alt="" width={48} height={48} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className={`w-full h-full bg-gradient-to-br ${entry.tier.gradient} flex items-center justify-center`}>
-                        <span className="text-white font-bold">{entry.name[0]}</span>
+            {/* List view - shows ALL entries when < 3, shows entries after top 3 otherwise */}
+            {(() => {
+              const startIndex = data.length >= 3 ? 3 : 0;
+              const listEntries = data.slice(startIndex);
+              if (listEntries.length === 0 && data.length >= 3) return null;
+              return (
+                <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden">
+                  {(data.length < 3 ? data : listEntries).map((entry, index) => {
+                    const rank = data.length < 3 ? index + 1 : index + 4;
+                    return (
+                      <div key={entry.id} className={`flex items-center p-4 hover:bg-white/5 transition-colors ${index !== (data.length < 3 ? data.length : listEntries.length) - 1 ? 'border-b border-white/5' : ''}`}>
+                        <div className="w-10 text-center">
+                          {rank === 1 ? (
+                            <Crown className="w-6 h-6 text-amber-400 mx-auto" />
+                          ) : rank === 2 ? (
+                            <span className="text-gray-300 font-bold text-lg">🥈</span>
+                          ) : rank === 3 ? (
+                            <span className="text-amber-600 font-bold text-lg">🥉</span>
+                          ) : (
+                            <span className="text-white/60 font-bold">{rank}</span>
+                          )}
+                        </div>
+                        <div className="w-12 h-12 rounded-full overflow-hidden ml-3 ring-2 ring-white/10">
+                          {entry.photo ? (
+                            <Image src={entry.photo} alt="" width={48} height={48} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className={`w-full h-full bg-gradient-to-br ${entry.tier.gradient} flex items-center justify-center`}>
+                              <span className="text-white font-bold">{entry.name[0]}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="ml-4 flex-1 min-w-0">
+                          <p className="font-semibold text-white truncate">{entry.name}</p>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r ${entry.tier.gradient} text-white`}>
+                              {entry.tier.name}
+                            </span>
+                            {entry.service && <span className="text-white/40 text-xs truncate">{entry.service}</span>}
+                            {(entry.completedJobs || 0) > 0 && <span className="text-emerald-400 text-xs">{entry.completedJobs} jobs</span>}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-amber-400">{entry.points.toLocaleString()}</p>
+                          <p className="text-white/40 text-xs">points</p>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                  <div className="ml-4 flex-1 min-w-0">
-                    <p className="font-semibold text-white truncate">{entry.name}</p>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r ${entry.tier.gradient} text-white`}>
-                        {entry.tier.name}
-                      </span>
-                      {entry.service && <span className="text-white/40 text-xs truncate">{entry.service}</span>}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-amber-400">{entry.points.toLocaleString()}</p>
-                    <p className="text-white/40 text-xs">points</p>
-                  </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
+              );
+            })()}
           </>
         )}
       </main>
