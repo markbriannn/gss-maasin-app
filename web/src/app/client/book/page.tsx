@@ -158,8 +158,8 @@ function BookServiceContent() {
   }, [provider?.serviceCategory]);
 
   const getPrice = () => provider?.serviceCategoryBasePrice || provider?.fixedPrice || provider?.hourlyRate || 0;
-  const getSystemFee = () => getPrice() * 0.05;
-  const getTotalAmount = () => getPrice() + getSystemFee();
+  const getSystemFee = () => Math.round(getPrice() * 0.05 * 100) / 100;
+  const getTotalAmount = () => Math.round((getPrice() + getSystemFee()) * 100) / 100;
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();

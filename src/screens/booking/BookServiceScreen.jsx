@@ -371,8 +371,8 @@ const BookServiceScreen = ({ navigation, route }) => {
 
     setIsLoading(true);
     try {
-      const systemFee = providerFixedPrice * 0.05;
-      const totalAmount = providerFixedPrice + systemFee;
+      const systemFee = Math.round(providerFixedPrice * 0.05 * 100) / 100;
+      const totalAmount = Math.round((providerFixedPrice + systemFee) * 100) / 100;
       const autoTitle = `${serviceCategory} Service Request`;
 
       // Upload media files first
@@ -570,7 +570,7 @@ const BookServiceScreen = ({ navigation, route }) => {
                     Total
                   </Text>
                   <Text style={{ fontSize: 16, fontWeight: '700', color: '#00B14F' }}>
-                    ₱{(((serviceCategoryBasePrice || providerFixedPrice || 0) * 1.05)).toLocaleString()}
+                    ₱{(Math.round((serviceCategoryBasePrice || providerFixedPrice || 0) * 1.05 * 100) / 100).toLocaleString()}
                   </Text>
                 </View>
 

@@ -1353,39 +1353,70 @@ router.post('/webhook', async (req, res) => {
               console.log(`QRPh checkout: Additional charge ${paymentData.chargeId} paid for booking ${paymentData.bookingId}: ₱${amountInPesos}`);
             } else {
               // Update booking status for regular payments
-              await db.collection('bookings').doc(paymentData.bookingId).update({
-                paymentStatus: 'paid',
+              const isEscrowPayment = bookingData?.status === 'awaiting_payment';
+              const isUpfrontPayment = isPayFirstBooking && !bookingData?.isPaidUpfront;
+
+              const bookingUpdate = {
+                paid: true,
                 paymentMethod: 'qrph',
                 paidAt: new Date(),
                 paymentId: lastPayment?.id || checkoutId,
-                ...(isPayFirstBooking ? { status: 'confirmed' } : {}),
-              });
+                updatedAt: new Date(),
+              };
+
+              if (isEscrowPayment || isUpfrontPayment) {
+                // Escrow/upfront payment - hold money and transition to pending
+                bookingUpdate.isPaidUpfront = true;
+                bookingUpdate.upfrontPaidAmount = amountInPesos;
+                bookingUpdate.upfrontPaidAt = new Date();
+                bookingUpdate.paymentStatus = 'held';
+                if (bookingData?.status === 'awaiting_payment') {
+                  bookingUpdate.status = 'pending';
+                }
+                console.log(`QRPh checkout: Escrow payment for booking ${paymentData.bookingId}: ₱${amountInPesos}, status: ${bookingData?.status} -> ${bookingUpdate.status || bookingData?.status}`);
+              } else if (isPayFirstBooking && bookingData?.isPaidUpfront) {
+                // Already paid upfront - handle additional payments
+                if (bookingData?.status === 'pending_payment' || bookingData?.status === 'pending_completion') {
+                  bookingUpdate.status = 'payment_received';
+                }
+                bookingUpdate.paymentStatus = 'paid';
+              } else {
+                bookingUpdate.paymentStatus = 'paid';
+                if (isPayFirstBooking) {
+                  bookingUpdate.status = 'confirmed';
+                }
+              }
+
+              await db.collection('bookings').doc(paymentData.bookingId).update(bookingUpdate);
 
               // Create transaction record
+              const isEscrowTx = isEscrowPayment || isUpfrontPayment;
               const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
               await db.collection('transactions').doc(transactionId).set({
                 bookingId: paymentData.bookingId,
                 userId: paymentData.userId,
                 providerId: providerId || null,
-                type: 'payment',
+                type: isEscrowTx ? 'escrow_payment' : 'payment',
                 paymentMethod: 'qrph',
                 amount: amountInPesos,
                 providerAmount: providerShare,
                 platformCommission: platformCommission,
-                status: 'completed',
+                status: isEscrowTx ? 'held' : 'completed',
                 paymentId: lastPayment?.id || checkoutId,
                 createdAt: new Date(),
               });
 
-              // Update provider balance (escrow)
-              if (providerId) {
+              // Only update provider balance for non-escrow payments
+              if (!isEscrowTx && providerId) {
                 const providerRef = db.collection('users').doc(providerId);
                 const providerDoc = await providerRef.get();
-                const currentBalance = providerDoc.data()?.balance || 0;
-                const currentPending = providerDoc.data()?.pendingBalance || 0;
+                const currentBalance = providerDoc.data()?.availableBalance || 0;
+                const currentEarnings = providerDoc.data()?.totalEarnings || 0;
 
                 await providerRef.update({
-                  pendingBalance: currentPending + providerShare,
+                  availableBalance: currentBalance + providerShare,
+                  totalEarnings: currentEarnings + providerShare,
+                  updatedAt: new Date(),
                 });
 
                 console.log(`QRPh checkout webhook: Provider balance updated: +₱${providerShare}`);

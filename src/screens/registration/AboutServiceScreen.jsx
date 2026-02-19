@@ -1,27 +1,54 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import { authStyles } from '../../css/authStyles';
 
 const AboutServiceScreen = ({ navigation, route }) => {
   const [aboutService, setAboutService] = useState('');
   const [experience, setExperience] = useState('');
+  const [basePrice, setBasePrice] = useState(null);
+  const [loadingPrice, setLoadingPrice] = useState(true);
+
+  const serviceCategory = route.params?.serviceCategory || '';
+
+  // Fetch the admin-configured base price for this service category
+  useEffect(() => {
+    const fetchBasePrice = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'serviceCategories'));
+        const match = snap.docs.find(d => d.data().name === serviceCategory);
+        if (match) {
+          setBasePrice(match.data().basePrice || 200);
+        } else {
+          setBasePrice(200); // fallback if category not found
+        }
+      } catch (error) {
+        console.error('Error fetching service base price:', error);
+        setBasePrice(200); // fallback on error
+      } finally {
+        setLoadingPrice(false);
+      }
+    };
+    fetchBasePrice();
+  }, [serviceCategory]);
 
   const handleNext = () => {
-    if (aboutService.length >= 10) {
+    if (aboutService.length >= 10 && basePrice !== null) {
       navigation.navigate('Documents', {
         ...route.params,
         aboutService: {
           bio: aboutService,
           priceType: 'per_job',
-          fixedPrice: 200, // System-managed rate
+          fixedPrice: basePrice, // Use admin-configured rate
           experience,
         },
       });
     }
   };
 
-  const isFormValid = aboutService.length >= 10;
+  const isFormValid = aboutService.length >= 10 && basePrice !== null;
 
   return (
     <SafeAreaView style={authStyles.container}>
@@ -100,12 +127,16 @@ const AboutServiceScreen = ({ navigation, route }) => {
               <Text style={{ fontSize: 14, fontWeight: '700', color: '#166534', marginBottom: 4 }}>
                 System Rate
               </Text>
-              <Text style={{ fontSize: 13, color: '#15803D', lineHeight: 20 }}>
-                The platform sets a fixed rate of{' '}
-                <Text style={{ fontWeight: '700' }}>₱200 per job</Text>
-                {route.params?.serviceCategory ? ` for ${route.params.serviceCategory}` : ''}.
-                You will receive this amount for every completed job.
-              </Text>
+              {loadingPrice ? (
+                <ActivityIndicator size="small" color="#15803D" />
+              ) : (
+                <Text style={{ fontSize: 13, color: '#15803D', lineHeight: 20 }}>
+                  The platform sets a fixed rate of{' '}
+                  <Text style={{ fontWeight: '700' }}>₱{basePrice} per job</Text>
+                  {serviceCategory ? ` for ${serviceCategory}` : ''}.
+                  You will receive this amount for every completed job.
+                </Text>
+              )}
             </View>
           </View>
         </View>

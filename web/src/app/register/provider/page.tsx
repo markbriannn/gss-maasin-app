@@ -44,10 +44,10 @@ const ID_TYPES = [
 ];
 
 const SERVICE_CATEGORIES = [
-  { id: 'electrician', name: 'Electrician', icon: '⚡', color: '#F59E0B' },
-  { id: 'plumber', name: 'Plumber', icon: '🔧', color: '#3B82F6' },
-  { id: 'carpenter', name: 'Carpenter', icon: '🔨', color: '#8B4513' },
-  { id: 'cleaner', name: 'Cleaner', icon: '✨', color: '#10B981' },
+  { id: 'electrician', name: 'Electrician', icon: '⚡', color: '#F59E0B', basePrice: 200 },
+  { id: 'plumber', name: 'Plumber', icon: '🔧', color: '#3B82F6', basePrice: 200 },
+  { id: 'carpenter', name: 'Carpenter', icon: '🔨', color: '#8B4513', basePrice: 200 },
+  { id: 'cleaner', name: 'Cleaner', icon: '✨', color: '#10B981', basePrice: 200 },
 ];
 
 const MAASIN_BARANGAYS = [
@@ -163,6 +163,7 @@ export default function ProviderRegistration() {
           name: (d.data().name as string) || '',
           icon: (d.data().icon as string) || '⚙️',
           color: (d.data().color as string) || '#6B7280',
+          basePrice: (d.data().basePrice as number) || 200,
         }));
         setServiceCategories(cats);
       }
@@ -672,7 +673,7 @@ export default function ProviderRegistration() {
         bio: formData.aboutService,
         yearsExperience: formData.yearsExperience,
         priceType: 'per_job', // System-managed
-        fixedPrice: 200, // System-managed rate
+        fixedPrice: serviceCategories.find(c => c.name === formData.serviceCategory)?.basePrice || 200, // Admin-configured rate
         profilePhoto: formData.profilePhoto,
         // Documents
         documents: {
