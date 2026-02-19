@@ -338,7 +338,6 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
 
       {/* Toast Notifications */}
       <ToastNotification />
-    </div>
 
       {/* Global Incoming Call Modal */}
       {incomingCall && (
