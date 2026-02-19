@@ -391,16 +391,7 @@ export default function AdminServicesPage() {
                     </div>
                 )}
 
-                {/* Info Card */}
-                <div className="mt-6 bg-blue-50 border border-blue-200 rounded-2xl p-4 flex gap-3">
-                    <span className="text-blue-500 text-lg">ℹ️</span>
-                    <div>
-                        <p className="text-sm font-semibold text-blue-800">How pricing works</p>
-                        <p className="text-sm text-blue-700 mt-0.5">
-                            The base price is what the provider earns. Clients are charged the base price + 5% platform fee automatically. The fee is never shown to clients — they only see the total.
-                        </p>
-                    </div>
-                </div>
+
             </div>
         </AdminLayout>
     );
