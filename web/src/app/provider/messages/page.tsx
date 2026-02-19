@@ -322,7 +322,7 @@ export default function ProviderMessagesPage() {
               {filteredConversations.map((conversation) => {
                 const roleBadge = getRoleBadge(conversation.otherUser.role);
                 return (
-                  <div key={conversation.id} className={`relative group bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl hover:scale-[1.005] transition-all border overflow-hidden ${conversation.unreadCount > 0 ? 'border-blue-200 dark:border-blue-800 bg-gradient-to-r from-blue-50/50 to-white dark:from-blue-900/20 dark:to-gray-800' : 'border-gray-100 dark:border-gray-700'}`}>
+                  <div key={conversation.id} className={`relative group bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl hover:scale-[1.005] transition-all border ${conversation.unreadCount > 0 ? 'border-blue-200 dark:border-blue-800 bg-gradient-to-r from-blue-50/50 to-white dark:from-blue-900/20 dark:to-gray-800' : 'border-gray-100 dark:border-gray-700'}`}>
                     {conversation.unreadCount > 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-400 to-indigo-400 rounded-l-2xl" />}
                     <div className="p-4 flex items-center gap-4">
                       <div className="relative cursor-pointer" onClick={() => router.push(`/chat/${conversation.id}`)}>
