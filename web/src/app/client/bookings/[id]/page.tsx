@@ -10,9 +10,11 @@ import Link from 'next/link';
 import {
   ArrowLeft, Phone, MessageCircle, MapPin, Clock,
   CreditCard, CheckCircle, AlertCircle, Star, User,
-  Banknote, Loader2, Wallet, X, ChevronRight, Navigation, Tag, QrCode
+  Banknote, Loader2, Wallet, X, ChevronRight, Navigation, Tag, QrCode, PhoneCall
 } from 'lucide-react';
 import { pushNotifications } from '@/lib/pushNotifications';
+import VoiceCall from '@/components/VoiceCall';
+import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall, canMakeCall } from '@/services/callService';
 
 interface AdditionalCharge {
   id: string;
@@ -196,6 +198,11 @@ function JobDetailsContent() {
   const [cancelReason, setCancelReason] = useState('');
   const [selectedCancelReason, setSelectedCancelReason] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  
+  // Call state
+  const [activeCall, setActiveCall] = useState<any>(null);
+  const [incomingCall, setIncomingCall] = useState<any>(null);
+  const [isCallAllowed, setIsCallAllowed] = useState(false);
   const [showNewOfferModal, setShowNewOfferModal] = useState(false);
   const [newOfferPrice, setNewOfferPrice] = useState('');
   const [newOfferNote, setNewOfferNote] = useState('');
@@ -336,6 +343,26 @@ function JobDetailsContent() {
 
     fetchProviderInfo();
   }, [job?.providerId, providerInfo?.id]);
+
+  // Listen for incoming calls
+  useEffect(() => {
+    if (!user) return;
+    
+    const unsubscribe = listenToIncomingCalls(user.uid, (call) => {
+      setIncomingCall(call);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Check if call is allowed when job loads
+  useEffect(() => {
+    if (!user || !job) return;
+    
+    canMakeCall(user.uid, job.providerId, job.id).then(result => {
+      setIsCallAllowed(result.allowed);
+    });
+  }, [user, job]);
 
   const calculateTotal = useCallback(() => {
     if (!job) return 0;
@@ -654,6 +681,66 @@ function JobDetailsContent() {
     }
   };
 
+  // Call handlers
+  const handleCallProvider = async () => {
+    if (!user || !job) return;
+    
+    // Check if call is allowed
+    const permission = await canMakeCall(user.uid, job.providerId, job.id);
+    if (!permission.allowed) {
+      alert(permission.reason || 'Cannot make call at this time');
+      return;
+    }
+
+    try {
+      const call = await initiateCall(
+        user.uid,
+        `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Client',
+        job.providerId,
+        providerName,
+        job.id
+      );
+      setActiveCall(call);
+    } catch (error) {
+      console.error('Failed to initiate call:', error);
+      alert('Failed to start call');
+    }
+  };
+
+  const handleAnswerCall = async () => {
+    if (!incomingCall) return;
+    
+    try {
+      await answerCall(incomingCall.id);
+      setActiveCall(incomingCall);
+      setIncomingCall(null);
+    } catch (error) {
+      console.error('Failed to answer call:', error);
+    }
+  };
+
+  const handleDeclineCall = async () => {
+    if (!incomingCall) return;
+    
+    try {
+      await declineCall(incomingCall.id);
+      setIncomingCall(null);
+    } catch (error) {
+      console.error('Failed to decline call:', error);
+    }
+  };
+
+  const handleEndCall = async (duration?: number) => {
+    if (!activeCall) return;
+    
+    try {
+      await endCall(activeCall.id, duration || 0);
+      setActiveCall(null);
+    } catch (error) {
+      console.error('Failed to end call:', error);
+    }
+  };
+
   const handleApproveCharge = async (chargeId: string) => {
     if (!job || !user) return;
     const charge = (job.additionalCharges || []).find(c => c.id === chargeId);
@@ -964,18 +1051,18 @@ function JobDetailsContent() {
               </div>
             </div>
 
-            {/* Contact Buttons - Only show after admin approval */}
-            {job.adminApproved ? (
+            {/* Contact Buttons - Only show after admin approval and NOT completed */}
+            {job.adminApproved && job.status !== 'completed' ? (
               <div className="mt-5">
                 <div className="flex gap-3">
-                  {providerPhone && (
-                    <a
-                      href={`tel:${providerPhone}`}
-                      className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-green-50 to-emerald-50 text-[#00B14F] rounded-xl font-semibold hover:from-green-100 hover:to-emerald-100 transition-all border border-green-200"
+                  {isCallAllowed && (
+                    <button
+                      onClick={handleCallProvider}
+                      className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-purple-50 to-pink-50 text-purple-600 rounded-xl font-semibold hover:from-purple-100 hover:to-pink-100 transition-all border border-purple-200"
                     >
-                      <Phone className="w-5 h-5" />
-                      Call
-                    </a>
+                      <PhoneCall className="w-5 h-5" />
+                      Voice Call
+                    </button>
                   )}
                   <Link
                     href={`/chat/new?recipientId=${job.providerId}&jobId=${job.id}`}
@@ -996,7 +1083,7 @@ function JobDetailsContent() {
                   </Link>
                 )}
               </div>
-            ) : (
+            ) : job.status === 'completed' ? null : (
               <div className="mt-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
                 <div className="p-2 bg-amber-100 rounded-lg">
                   <Clock className="w-5 h-5 text-amber-600" />
@@ -1798,6 +1885,29 @@ function JobDetailsContent() {
             }
           `}</style>
         </div>
+      )}
+
+      {/* Voice Call Component */}
+      {incomingCall && (
+        <VoiceCall
+          callId={incomingCall.id}
+          channelName={incomingCall.channelName}
+          isIncoming={true}
+          callerName={incomingCall.callerName}
+          onAnswer={handleAnswerCall}
+          onDecline={handleDeclineCall}
+          onEnd={() => setIncomingCall(null)}
+        />
+      )}
+
+      {activeCall && !incomingCall && (
+        <VoiceCall
+          callId={activeCall.id}
+          channelName={activeCall.channelName}
+          isIncoming={false}
+          callerName={activeCall.receiverId === user?.uid ? activeCall.callerName : activeCall.receiverName}
+          onEnd={handleEndCall}
+        />
       )}
     </ClientLayout>
   );

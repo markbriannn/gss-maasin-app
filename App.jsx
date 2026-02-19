@@ -1,11 +1,11 @@
 import React, {useEffect, useState, useRef} from 'react';
-import {StatusBar, LogBox, Animated, StyleSheet, Linking, Alert} from 'react-native';
+import {StatusBar, LogBox, Animated, StyleSheet, Linking, Alert, Modal} from 'react-native';
 import {NavigationContainer, DefaultTheme, DarkTheme, createNavigationContainerRef} from '@react-navigation/native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {enableScreens} from 'react-native-screens';
 import AppNavigator from './src/navigation/AppNavigator';
-import {AuthProvider} from './src/context/AuthContext';
+import {AuthProvider, useAuth} from './src/context/AuthContext';
 import {ThemeProvider, useTheme} from './src/context/ThemeContext';
 import {SocketProvider} from './src/context/SocketContext';
 import {NotificationProvider, setNotificationNavigationRef} from './src/context/NotificationContext';
@@ -14,7 +14,9 @@ import {PushNotificationProvider} from './src/context/PushNotificationContext';
 import SplashScreen from './src/screens/splash/SplashScreen';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import GlobalModalProvider from './src/components/common/GlobalModalProvider';
+import VoiceCall from './src/components/common/VoiceCall';
 import {setBackgroundMessageHandler} from './src/services/pushNotificationService';
+import {listenToIncomingCalls, answerCall, declineCall, endCall} from './src/services/callService';
 import paymentService from './src/services/paymentService';
 import {showSuccessModal, showErrorModal} from './src/utils/modalManager';
 
@@ -152,6 +154,37 @@ const handleDeepLink = async (url, navigationRef) => {
 // Inner app component that uses theme
 const AppContent = () => {
   const {isDark} = useTheme();
+  const {user} = useAuth();
+  const [incomingCall, setIncomingCall] = useState(null);
+
+  // Global incoming call listener - DISABLED (causes white screen crashes)
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    // Voice calls disabled - Agora SDK initialization causes app crashes
+    // const unsubscribe = listenToIncomingCalls(user.uid, (call) => {
+    //   setIncomingCall(call);
+    // });
+
+    // return () => unsubscribe();
+  }, [user?.uid]);
+
+  const handleAnswerCall = async () => {
+    if (incomingCall) {
+      await answerCall(incomingCall.id);
+    }
+  };
+
+  const handleDeclineCall = async () => {
+    if (incomingCall) {
+      await declineCall(incomingCall.id);
+      setIncomingCall(null);
+    }
+  };
+
+  const handleEndCall = async () => {
+    setIncomingCall(null);
+  };
   
   // Handle deep links
   useEffect(() => {
@@ -171,22 +204,41 @@ const AppContent = () => {
   }, []);
   
   return (
-    <NavigationContainer 
-      ref={navigationRef}
-      linking={linking}
-      theme={isDark ? CustomDarkTheme : CustomLightTheme}
-      onReady={() => {
-        // Set navigation ref for notification handling
-        setNotificationNavigationRef(navigationRef);
-      }}
-    >
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={isDark ? '#111827' : '#ffffff'}
-        translucent={false}
-      />
-      <AppNavigator />
-    </NavigationContainer>
+    <>
+      <NavigationContainer 
+        ref={navigationRef}
+        linking={linking}
+        theme={isDark ? CustomDarkTheme : CustomLightTheme}
+        onReady={() => {
+          // Set navigation ref for notification handling
+          setNotificationNavigationRef(navigationRef);
+        }}
+      >
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          backgroundColor={isDark ? '#111827' : '#ffffff'}
+          translucent={false}
+        />
+        <AppNavigator />
+      </NavigationContainer>
+
+      {/* Global Incoming Call Modal - DISABLED */}
+      {false && incomingCall && incomingCall.channelName && (
+        <Modal visible={true} transparent={false} animationType="slide">
+          <ErrorBoundary>
+            <VoiceCall
+              callId={incomingCall.id}
+              channelName={incomingCall.channelName}
+              isIncoming={true}
+              callerName={incomingCall.callerName || 'Unknown'}
+              onAnswer={handleAnswerCall}
+              onDecline={handleDeclineCall}
+              onEnd={handleEndCall}
+            />
+          </ErrorBoundary>
+        </Modal>
+      )}
+    </>
   );
 };
 

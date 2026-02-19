@@ -11,6 +11,23 @@ import {
   PlayCircle, XCircle, DollarSign, ChevronRight, BarChart3, RefreshCw, Wallet,
   Target,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import RevenueOverviewCard from '@/components/analytics/RevenueOverviewCard';
+import RevenueTrendChart from '@/components/analytics/RevenueTrendChart';
+import TopServicesChart from '@/components/analytics/TopServicesChart';
+import ProviderLeaderboard from '@/components/analytics/ProviderLeaderboard';
+import KeyMetricsGrid from '@/components/analytics/KeyMetricsGrid';
+
+// Dynamic import for map to avoid SSR issues
+const BookingHeatMap = dynamic(() => import('@/components/analytics/BookingHeatMap'), {
+  ssr: false,
+  loading: () => <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100 h-[600px] flex items-center justify-center">
+    <div className="text-center">
+      <div className="w-12 h-12 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4"></div>
+      <p className="text-gray-600">Loading heat map...</p>
+    </div>
+  </div>
+});
 
 interface Analytics {
   totalProviders: number;
@@ -53,6 +70,12 @@ export default function AnalyticsPage() {
   });
   const [loadingData, setLoadingData] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Analytics data for new components
+  const [revenueTrendData, setRevenueTrendData] = useState<Array<{ date: string; revenue: number }>>([]);
+  const [topServicesData, setTopServicesData] = useState<Array<{ service: string; count: number }>>([]);
+  const [topProvidersData, setTopProvidersData] = useState<Array<any>>([]);
+  const [bookingLocations, setBookingLocations] = useState<Array<{ lat: number; lng: number; intensity: number }>>([]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -83,11 +106,18 @@ export default function AnalyticsPage() {
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const weekStart = new Date(todayStart); weekStart.setDate(weekStart.getDate() - 7);
       const monthStart = new Date(todayStart); monthStart.setMonth(monthStart.getMonth() - 1);
+      const thirtyDaysAgo = new Date(todayStart); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
       let totalJobs = 0, completedJobs = 0, pendingJobs = 0, inProgressJobs = 0, cancelledJobs = 0, awaitingApproval = 0;
       let totalRevenue = 0, totalSystemFee = 0, providerEarnings = 0;
       let todayRevenue = 0, weekRevenue = 0, monthRevenue = 0, todayJobs = 0, weekJobs = 0, monthJobs = 0;
       let totalRating = 0, totalReviews = 0;
+      
+      // For analytics
+      const dailyRevenue: { [key: string]: number } = {};
+      const serviceCounts: { [key: string]: number } = {};
+      const locationCounts: { [key: string]: number } = {};
+      const providerStats: { [key: string]: { name: string; rating: number; jobs: number; earnings: number; photoURL?: string } } = {};
 
       snapshot.forEach((doc) => {
         const data = doc.data();
@@ -115,9 +145,45 @@ export default function AnalyticsPage() {
           if (earningDate >= weekStart) { weekRevenue += amount; weekJobs++; }
           if (earningDate >= monthStart) { monthRevenue += amount; monthJobs++; }
           if (data.rating) { totalRating += data.rating; totalReviews++; }
+          
+          // Revenue trend data (last 30 days)
+          if (earningDate >= thirtyDaysAgo) {
+            const dateKey = earningDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            dailyRevenue[dateKey] = (dailyRevenue[dateKey] || 0) + amount;
+          }
+          
+          // Service counts
+          const service = data.serviceType || 'Other';
+          serviceCounts[service] = (serviceCounts[service] || 0) + 1;
+          
+          // Provider stats
+          if (data.providerId) {
+            if (!providerStats[data.providerId]) {
+              providerStats[data.providerId] = {
+                name: data.providerName || 'Unknown',
+                rating: 0,
+                jobs: 0,
+                earnings: 0,
+                photoURL: data.providerPhotoURL
+              };
+            }
+            providerStats[data.providerId].jobs++;
+            providerStats[data.providerId].earnings += amount - systemFee;
+            if (data.rating) {
+              providerStats[data.providerId].rating = 
+                (providerStats[data.providerId].rating * (providerStats[data.providerId].jobs - 1) + data.rating) / 
+                providerStats[data.providerId].jobs;
+            }
+          }
         } else if (['pending', 'pending_negotiation', 'counter_offer'].includes(data.status)) pendingJobs++;
         else if (['in_progress', 'accepted'].includes(data.status)) inProgressJobs++;
         else if (['cancelled', 'rejected'].includes(data.status)) cancelledJobs++;
+        
+        // Booking locations for heat map
+        if (data.clientLocation?.latitude && data.clientLocation?.longitude) {
+          const key = `${data.clientLocation.latitude.toFixed(4)},${data.clientLocation.longitude.toFixed(4)}`;
+          locationCounts[key] = (locationCounts[key] || 0) + 1;
+        }
       });
 
       const finishedJobs = completedJobs + cancelledJobs;
@@ -128,6 +194,35 @@ export default function AnalyticsPage() {
         completionRate: finishedJobs > 0 ? (completedJobs / finishedJobs) * 100 : 0,
         avgRating: totalReviews > 0 ? totalRating / totalReviews : 0, totalReviews,
       }));
+      
+      // Set revenue trend data
+      const trendData = Object.entries(dailyRevenue)
+        .map(([date, revenue]) => ({ date, revenue }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      setRevenueTrendData(trendData);
+      
+      // Set top services data
+      const servicesData = Object.entries(serviceCounts)
+        .map(([service, count]) => ({ service, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+      setTopServicesData(servicesData);
+      
+      // Set top providers data
+      const providersData = Object.entries(providerStats)
+        .map(([id, stats]) => ({ id, ...stats }))
+        .sort((a, b) => b.earnings - a.earnings)
+        .slice(0, 5);
+      setTopProvidersData(providersData);
+      
+      // Set booking locations for heat map
+      const maxCount = Math.max(...Object.values(locationCounts), 1);
+      const locations = Object.entries(locationCounts).map(([key, count]) => {
+        const [lat, lng] = key.split(',').map(Number);
+        return { lat, lng, intensity: count / maxCount };
+      });
+      setBookingLocations(locations);
+      
       setLoadingData(false);
       setRefreshing(false);
     });
@@ -465,6 +560,62 @@ export default function AnalyticsPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* NEW ANALYTICS COMPONENTS */}
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+              <BarChart3 className="w-6 h-6 text-violet-500" /> Advanced Analytics
+            </h2>
+            
+            {/* Revenue Overview Card */}
+            <div className="mb-6">
+              <RevenueOverviewCard
+                currentRevenue={analytics.monthRevenue}
+                percentageChange={analytics.monthRevenue > 0 && analytics.totalRevenue > analytics.monthRevenue 
+                  ? ((analytics.monthRevenue / (analytics.totalRevenue - analytics.monthRevenue)) * 100) 
+                  : 0}
+                weeklyChange={analytics.weekRevenue > 0 && analytics.monthRevenue > analytics.weekRevenue
+                  ? ((analytics.weekRevenue / (analytics.monthRevenue - analytics.weekRevenue)) * 100)
+                  : 0}
+              />
+            </div>
+
+            {/* Key Metrics Grid */}
+            <div className="mb-6">
+              <KeyMetricsGrid
+                totalJobs={analytics.totalJobs}
+                jobsChange={12}
+                activeClients={analytics.totalClients}
+                activeProviders={analytics.activeProviders}
+                avgResponseTime={15}
+                responseTimeChange={3}
+              />
+            </div>
+
+            {/* Charts Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              {revenueTrendData.length > 0 && (
+                <RevenueTrendChart data={revenueTrendData} />
+              )}
+              {topServicesData.length > 0 && (
+                <TopServicesChart data={topServicesData} />
+              )}
+            </div>
+
+            {/* Heat Map */}
+            {bookingLocations.length > 0 && (
+              <div className="mb-6">
+                <BookingHeatMap bookings={bookingLocations} />
+              </div>
+            )}
+
+            {/* Provider Leaderboard */}
+            {topProvidersData.length > 0 && (
+              <div className="mb-6">
+                <ProviderLeaderboard providers={topProvidersData} />
+              </div>
+            )}
           </div>
 
         </div>

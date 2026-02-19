@@ -33,6 +33,8 @@ import { getClientBadges, getClientTier } from '../../utils/gamification';
 import { BadgeList, TierBadge } from '../../components/gamification';
 import { onBookingCompleted } from '../../services/gamificationService';
 import { PremiumModal, ConfirmModal } from '../../components/common';
+import VoiceCall from '../../components/common/VoiceCall';
+import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall } from '../../services/callService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -66,6 +68,10 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
   const [premiumModal, setPremiumModal] = useState({ visible: false, variant: 'success', title: '', message: '' });
   const [confirmModal, setConfirmModal] = useState({ visible: false, type: 'confirm', title: '', message: '', onConfirm: null });
 
+  // Voice call state
+  const [activeCall, setActiveCall] = useState(null);
+  const [incomingCall, setIncomingCall] = useState(null);
+
   const CANCEL_REASONS = [
     'Schedule conflict',
     'Too far from my location',
@@ -81,6 +87,18 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
       stopLocationTracking();
     };
   }, []);
+
+  // Listen for incoming calls - DISABLED (causes white screen crashes)
+  useEffect(() => {
+    if (!user) return;
+    
+    // Voice calls disabled - Agora SDK initialization causes app crashes
+    // const unsubscribe = listenToIncomingCalls(user.uid, (call) => {
+    //   setIncomingCall(call);
+    // });
+
+    // return () => unsubscribe();
+  }, [user]);
 
   // Start location tracking if status is traveling when screen loads
   useEffect(() => {
@@ -359,11 +377,30 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
     }
   };
 
-  const handleCallClient = () => {
-    if (jobData?.client?.phone) {
-      Linking.openURL(`tel:${jobData.client.phone}`);
-    } else {
-      showErrorModal('Error', 'Client phone number not available');
+  const handleCallClient = async () => {
+    // Check if admin approved
+    if (!jobData?.adminApproved) {
+      showErrorModal('Not Available', 'Voice calls are only available after admin approval');
+      return;
+    }
+
+    if (!user || !jobData?.clientId) {
+      showErrorModal('Error', 'Unable to initiate call');
+      return;
+    }
+    
+    try {
+      const call = await initiateCall(
+        user.uid,
+        user.firstName || 'Provider',
+        jobData.clientId,
+        jobData.client?.name || 'Client',
+        jobData.id || jobId
+      );
+      setActiveCall(call);
+    } catch (error) {
+      console.error('Failed to initiate call:', error);
+      showErrorModal('Error', 'Failed to start voice call');
     }
   };
 
@@ -381,6 +418,41 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
       jobId: jobData.id || jobId,
       jobTitle: jobData.title || 'Service Request',
     });
+  };
+
+  // Voice call handlers
+  const handleAnswerCall = async () => {
+    if (!incomingCall) return;
+    
+    try {
+      await answerCall(incomingCall.id);
+      setActiveCall(incomingCall);
+      setIncomingCall(null);
+    } catch (error) {
+      console.error('Failed to answer call:', error);
+    }
+  };
+
+  const handleDeclineCall = async () => {
+    if (!incomingCall) return;
+    
+    try {
+      await declineCall(incomingCall.id);
+      setIncomingCall(null);
+    } catch (error) {
+      console.error('Failed to decline call:', error);
+    }
+  };
+
+  const handleEndCall = async (duration) => {
+    if (!activeCall) return;
+    
+    try {
+      await endCall(activeCall.id, duration || 0);
+      setActiveCall(null);
+    } catch (error) {
+      console.error('Failed to end call:', error);
+    }
   };
 
   const handleAcceptJob = () => {
@@ -1451,7 +1523,7 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
             <View style={styles.contactButtons}>
               <TouchableOpacity style={[styles.contactButton, { backgroundColor: isDark ? '#374151' : '#F0FDF4' }]} onPress={handleCallClient}>
                 <Icon name="call" size={18} color="#00B14F" />
-                <Text style={[styles.contactButtonText, { color: isDark ? '#6EE7B7' : '#059669' }]}>Call</Text>
+                <Text style={[styles.contactButtonText, { color: isDark ? '#6EE7B7' : '#059669' }]}>Voice Call</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.contactButton, { backgroundColor: isDark ? '#374151' : '#F0FDF4' }]} onPress={handleMessageClient}>
                 <Icon name="chatbubble" size={18} color="#00B14F" />
@@ -2559,6 +2631,33 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
         onCancel={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
         isLoading={isUpdating}
       />
+
+      {/* Voice Call Modals - DISABLED */}
+      {false && activeCall && (
+        <Modal visible={true} transparent={false} animationType="slide">
+          <VoiceCall
+            callId={activeCall.id}
+            channelName={activeCall.channelName}
+            isIncoming={false}
+            callerName={activeCall.receiverName}
+            onEnd={handleEndCall}
+          />
+        </Modal>
+      )}
+
+      {false && incomingCall && (
+        <Modal visible={true} transparent={false} animationType="slide">
+          <VoiceCall
+            callId={incomingCall.id}
+            channelName={incomingCall.channelName}
+            isIncoming={true}
+            callerName={incomingCall.callerName}
+            onAnswer={handleAnswerCall}
+            onDecline={handleDeclineCall}
+            onEnd={handleEndCall}
+          />
+        </Modal>
+      )}
     </SafeAreaView>
   );
 };

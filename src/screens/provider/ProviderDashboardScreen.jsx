@@ -158,104 +158,118 @@ const ProviderDashboardScreen = ({navigation}) => {
           }
         }
       } catch (e) {
-        console.log('Could not update location on load:', e);
+        console.log('[Provider] Could not update location on load:', e.message);
       }
     };
     updateLocationOnLoad();
     
     // Set up real-time listener for provider's jobs
     const userId = user?.uid || user?.id;
-    if (!userId) return;
+    if (!userId) {
+      console.log('[Provider Dashboard] No user ID, skipping real-time listener');
+      return;
+    }
     
-    const myJobsQuery = query(
-      collection(db, 'bookings'),
-      where('providerId', '==', userId)
-    );
-    
-    const unsubscribe = onSnapshot(myJobsQuery, (snapshot) => {
-      const myJobs = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
-      
-      // Calculate stats
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      
-      const completedJobs = myJobs.filter(j => j.status === 'completed');
-      const payFirstConfirmedJobs = myJobs.filter(j => 
-        j.status === 'payment_received' && j.isPaidUpfront === true
+    try {
+      const myJobsQuery = query(
+        collection(db, 'bookings'),
+        where('providerId', '==', userId)
       );
-      const activeJobs = myJobs.filter(j => j.status === 'in_progress' || j.status === 'accepted').length;
       
-      let todayEarnings = 0;
-      let weekEarnings = 0;
-      let jobsToday = 0;
+      const unsubscribe = onSnapshot(
+        myJobsQuery,
+        (snapshot) => {
+          const myJobs = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
+          
+          // Calculate stats
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const weekAgo = new Date();
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          
+          const completedJobs = myJobs.filter(j => j.status === 'completed');
+          const payFirstConfirmedJobs = myJobs.filter(j => 
+            j.status === 'payment_received' && j.isPaidUpfront === true
+          );
+          const activeJobs = myJobs.filter(j => j.status === 'in_progress' || j.status === 'accepted').length;
+          
+          let todayEarnings = 0;
+          let weekEarnings = 0;
+          let jobsToday = 0;
 
-      // Process completed jobs
-      completedJobs.forEach(job => {
-        const approvedAdditionalCharges = job.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
-        
-        // IMPORTANT: providerPrice is the provider's actual price (before 5% fee added to client)
-        // Only divide by 1.05 if we're using totalAmount (which includes the fee)
-        let providerEarnings;
-        if (job.providerPrice || job.offeredPrice) {
-          // Use provider's actual price directly
-          providerEarnings = (job.providerPrice || job.offeredPrice) + approvedAdditionalCharges;
-        } else if (job.totalAmount) {
-          // totalAmount includes 5% fee, so remove it
-          providerEarnings = (job.totalAmount / 1.05) + approvedAdditionalCharges;
-        } else {
-          providerEarnings = (job.price || job.amount || 0) + approvedAdditionalCharges;
+          // Process completed jobs
+          completedJobs.forEach(job => {
+            const approvedAdditionalCharges = job.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
+            
+            // IMPORTANT: providerPrice is the provider's actual price (before 5% fee added to client)
+            // Only divide by 1.05 if we're using totalAmount (which includes the fee)
+            let providerEarnings;
+            if (job.providerPrice || job.offeredPrice) {
+              // Use provider's actual price directly
+              providerEarnings = (job.providerPrice || job.offeredPrice) + approvedAdditionalCharges;
+            } else if (job.totalAmount) {
+              // totalAmount includes 5% fee, so remove it
+              providerEarnings = (job.totalAmount / 1.05) + approvedAdditionalCharges;
+            } else {
+              providerEarnings = (job.price || job.amount || 0) + approvedAdditionalCharges;
+            }
+            
+            const completedDate = job.completedAt?.toDate?.() || new Date(job.completedAt);
+            
+            if (completedDate >= today) {
+              todayEarnings += providerEarnings;
+              jobsToday++;
+            }
+            if (completedDate >= weekAgo) {
+              weekEarnings += providerEarnings;
+            }
+          });
+          
+          // Process Pay First jobs
+          payFirstConfirmedJobs.forEach(job => {
+            const approvedAdditionalCharges = job.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
+            
+            // IMPORTANT: providerPrice is the provider's actual price (before 5% fee added to client)
+            // Only divide by 1.05 if we're using totalAmount (which includes the fee)
+            let providerEarnings;
+            if (job.providerPrice || job.offeredPrice) {
+              // Use provider's actual price directly
+              providerEarnings = (job.providerPrice || job.offeredPrice) + approvedAdditionalCharges;
+            } else if (job.totalAmount) {
+              // totalAmount includes 5% fee, so remove it
+              providerEarnings = (job.totalAmount / 1.05) + approvedAdditionalCharges;
+            } else {
+              providerEarnings = (job.price || job.amount || 0) + approvedAdditionalCharges;
+            }
+            
+            const confirmedDate = job.clientConfirmedAt?.toDate?.() || job.updatedAt?.toDate?.() || new Date();
+            
+            if (confirmedDate >= today) {
+              todayEarnings += providerEarnings;
+              jobsToday++;
+            }
+            if (confirmedDate >= weekAgo) {
+              weekEarnings += providerEarnings;
+            }
+          });
+
+          setEarnings({today: todayEarnings, week: weekEarnings});
+          setStatistics(prev => ({
+            ...prev,
+            jobsToday,
+            activeJobs,
+          }));
+        },
+        (error) => {
+          console.error('[Provider Dashboard] Real-time listener error:', error);
+          // Don't crash the app, just log the error
         }
-        
-        const completedDate = job.completedAt?.toDate?.() || new Date(job.completedAt);
-        
-        if (completedDate >= today) {
-          todayEarnings += providerEarnings;
-          jobsToday++;
-        }
-        if (completedDate >= weekAgo) {
-          weekEarnings += providerEarnings;
-        }
-      });
+      );
       
-      // Process Pay First jobs
-      payFirstConfirmedJobs.forEach(job => {
-        const approvedAdditionalCharges = job.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
-        
-        // IMPORTANT: providerPrice is the provider's actual price (before 5% fee added to client)
-        // Only divide by 1.05 if we're using totalAmount (which includes the fee)
-        let providerEarnings;
-        if (job.providerPrice || job.offeredPrice) {
-          // Use provider's actual price directly
-          providerEarnings = (job.providerPrice || job.offeredPrice) + approvedAdditionalCharges;
-        } else if (job.totalAmount) {
-          // totalAmount includes 5% fee, so remove it
-          providerEarnings = (job.totalAmount / 1.05) + approvedAdditionalCharges;
-        } else {
-          providerEarnings = (job.price || job.amount || 0) + approvedAdditionalCharges;
-        }
-        
-        const confirmedDate = job.clientConfirmedAt?.toDate?.() || job.updatedAt?.toDate?.() || new Date();
-        
-        if (confirmedDate >= today) {
-          todayEarnings += providerEarnings;
-          jobsToday++;
-        }
-        if (confirmedDate >= weekAgo) {
-          weekEarnings += providerEarnings;
-        }
-      });
-
-      setEarnings({today: todayEarnings, week: weekEarnings});
-      setStatistics(prev => ({
-        ...prev,
-        jobsToday,
-        activeJobs,
-      }));
-    });
-    
-    return () => unsubscribe();
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('[Provider Dashboard] Error setting up real-time listener:', error);
+    }
   }, [user]);
 
   // Listen for real-time job notifications
@@ -291,6 +305,14 @@ const ProviderDashboardScreen = ({navigation}) => {
     let providerRating = userStartingRating;
     try {
       const userId = user?.uid || user?.id;
+      
+      // Safety check - ensure user is authenticated
+      if (!userId) {
+        console.log('[Provider Dashboard] No user ID found, skipping data load');
+        setIsLoading(false);
+        setRefreshing(false);
+        return;
+      }
       
       // Get provider profile to check status
       if (userId) {
@@ -447,7 +469,17 @@ const ProviderDashboardScreen = ({navigation}) => {
       setGamificationData(gamification);
 
     } catch (error) {
-      console.error('Error loading dashboard:', error);
+      console.error('[Provider Dashboard] Error loading dashboard:', error);
+      
+      // If permission denied, it might be a timing issue - retry once after a delay
+      if (error.code === 'permission-denied') {
+        console.log('[Provider Dashboard] Permission denied, retrying in 1 second...');
+        setTimeout(() => {
+          if (user?.uid || user?.id) {
+            loadDashboardData();
+          }
+        }, 1000);
+      }
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -877,12 +909,35 @@ const ProviderDashboardScreen = ({navigation}) => {
               elevation: 2,
               minHeight: 64,
             }}
+            onPress={() => navigation.navigate('ProviderAnalytics')}>
+            <View style={{width: 36, height: 36, borderRadius: 18, backgroundColor: isDark ? '#1E3A8A' : '#DBEAFE', justifyContent: 'center', alignItems: 'center', marginRight: 10, flexShrink: 0}}>
+              <Icon name="stats-chart-outline" size={18} color="#3B82F6" />
+            </View>
+            <Text style={{fontSize: 13, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', flexShrink: 1}} numberOfLines={2}>Analytics</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={{
+              flex: 1, 
+              flexDirection: 'row',
+              alignItems: 'center', 
+              backgroundColor: isDark ? theme.colors.card : '#FFFFFF', 
+              padding: 14, 
+              borderRadius: 12,
+              shadowColor: '#000',
+              shadowOffset: {width: 0, height: 2},
+              shadowOpacity: 0.05,
+              shadowRadius: 4,
+              elevation: 2,
+              minHeight: 64,
+            }}
             onPress={() => navigation.navigate('ServiceHistory')}>
             <View style={{width: 36, height: 36, borderRadius: 18, backgroundColor: isDark ? '#064E3B' : '#ECFDF5', justifyContent: 'center', alignItems: 'center', marginRight: 10, flexShrink: 0}}>
               <Icon name="receipt-outline" size={18} color="#00B14F" />
             </View>
             <Text style={{fontSize: 13, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', flexShrink: 1}} numberOfLines={2}>Service History</Text>
           </TouchableOpacity>
+        </View>
+        <View style={{flexDirection: 'row', paddingHorizontal: 16, marginBottom: 16, gap: 12}}>
           <TouchableOpacity 
             style={{
               flex: 1, 
@@ -921,6 +976,27 @@ const ProviderDashboardScreen = ({navigation}) => {
               )}
             </View>
             <Text style={{fontSize: 13, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', flexShrink: 1}} numberOfLines={2}>Notifications</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={{
+              flex: 1, 
+              flexDirection: 'row',
+              alignItems: 'center', 
+              backgroundColor: isDark ? theme.colors.card : '#FFFFFF', 
+              padding: 14, 
+              borderRadius: 12,
+              shadowColor: '#000',
+              shadowOffset: {width: 0, height: 2},
+              shadowOpacity: 0.05,
+              shadowRadius: 4,
+              elevation: 2,
+              minHeight: 64,
+            }}
+            onPress={() => navigation.navigate('Leaderboard')}>
+            <View style={{width: 36, height: 36, borderRadius: 18, backgroundColor: isDark ? '#7C2D12' : '#FEF2F2', justifyContent: 'center', alignItems: 'center', marginRight: 10, flexShrink: 0}}>
+              <Icon name="trophy-outline" size={18} color="#DC2626" />
+            </View>
+            <Text style={{fontSize: 13, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', flexShrink: 1}} numberOfLines={2}>Leaderboard</Text>
           </TouchableOpacity>
         </View>
 

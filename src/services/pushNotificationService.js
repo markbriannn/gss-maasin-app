@@ -13,17 +13,23 @@ class PushNotificationService {
     try {
       // For Android 13+ (API 33+), we need to request POST_NOTIFICATIONS permission
       if (Platform.OS === 'android' && Platform.Version >= 33) {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
-          {
-            title: 'Notification Permission',
-            message: 'GSS Maasin needs notification permission to keep you updated on jobs and messages.',
-            buttonPositive: 'Allow',
-            buttonNegative: 'Deny',
+        try {
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+            {
+              title: 'Notification Permission',
+              message: 'GSS Maasin needs notification permission to keep you updated on jobs and messages.',
+              buttonPositive: 'Allow',
+              buttonNegative: 'Deny',
+            }
+          );
+          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+            console.log('Notification permission denied');
+            return false;
           }
-        );
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          console.log('Notification permission denied');
+        } catch (permError) {
+          // Fail silently if Activity not attached yet
+          console.log('Permission request skipped (Activity not ready)');
           return false;
         }
       }
@@ -42,7 +48,7 @@ class PushNotificationService {
       console.log('Push notification permission denied');
       return false;
     } catch (error) {
-      console.error('Error requesting notification permission:', error);
+      console.log('Error requesting notification permission (non-blocking):', error?.message);
       return false;
     }
   }

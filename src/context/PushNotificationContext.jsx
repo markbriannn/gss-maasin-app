@@ -1,6 +1,4 @@
-import React, {createContext, useContext, useEffect, useState, useRef} from 'react';
-import {Alert, Platform} from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {createContext, useContext, useEffect, useState, useRef} from 'react';
 import pushNotificationService from '../services/pushNotificationService';
 import {useAuth} from './AuthContext';
 
@@ -17,10 +15,14 @@ export const PushNotificationProvider = ({children}) => {
   // Initialize push notifications when user logs in (non-blocking)
   useEffect(() => {
     if (isAuthenticated && user?.uid) {
-      // Run in background - don't block the UI
-      initializePushNotifications().catch(err => {
-        console.log('Push notification init skipped:', err?.message);
-      });
+      // Delay initialization to ensure Activity is mounted
+      const timer = setTimeout(() => {
+        initializePushNotifications().catch(err => {
+          console.log('Push notification init skipped:', err?.message);
+        });
+      }, 2000); // 2 second delay to ensure Activity is ready
+      
+      return () => clearTimeout(timer);
     }
   }, [isAuthenticated, user?.uid]);
 
@@ -61,13 +63,6 @@ export const PushNotificationProvider = ({children}) => {
       // Silent fail - push notifications are optional
       console.log('Push setup skipped:', error?.message);
     }
-  };
-
-  // Handle foreground message - DO NOT show alert here
-  // NotificationContext handles showing the popup to avoid duplicates
-  const handleForegroundMessage = (remoteMessage) => {
-    console.log('[PushNotifications] Foreground message received, handled by NotificationContext');
-    // Don't show any Alert here - NotificationContext will handle it
   };
 
   // Handle notification tap - navigate to relevant screen

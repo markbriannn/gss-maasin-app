@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -382,7 +383,7 @@ export default function ProviderHistoryPage() {
                       <div
                         key={item.id}
                         className="bg-white rounded-xl p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                        onClick={() => router.push(`/provider/job/${item.id}`)}
+                        onClick={() => router.push(`/provider/jobs/${item.id}`)}
                       >
                         {/* Header */}
                         <div className="flex items-start justify-between mb-3">
@@ -454,10 +455,13 @@ export default function ProviderHistoryPage() {
                             <span className="text-xs text-gray-500">Earned:</span>
                             <span className="ml-2 font-semibold text-gray-900">₱{item.amount.toLocaleString()}</span>
                           </div>
-                          <button className="flex items-center gap-1 bg-[#00B14F] text-white px-3 py-1.5 rounded-lg text-sm font-medium">
+                          <Link 
+                            href={`/provider/jobs/${item.id}/receipt`}
+                            className="flex items-center gap-1 bg-[#00B14F] text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-[#00A045] transition-colors"
+                          >
                             <Receipt className="w-4 h-4" />
                             Receipt
-                          </button>
+                          </Link>
                         </div>
                       </div>
                     ))}

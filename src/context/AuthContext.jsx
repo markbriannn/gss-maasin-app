@@ -51,6 +51,9 @@ export const AuthProvider = ({children}) => {
     setUser({...userData, role});
     setUserRole(role);
     setIsAuthenticated(true);
+    
+    // Small delay to ensure Firebase auth state propagates
+    await new Promise(resolve => setTimeout(resolve, 300));
   };
 
   const checkAuthStatus = async () => {

@@ -148,12 +148,12 @@ const ClientBookingsScreen = ({ navigation }) => {
             provider: providerInfo,
             providerId: data.providerId || '',
             createdAt: data.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) || '',
-            createdAtRaw: data.createdAt?.toDate?.() || new Date(0),
+            createdAtTimestamp: data.createdAt?.toDate?.()?.getTime() || 0,
           });
         }
 
         // Sort by newest first
-        allBookings.sort((a, b) => b.createdAtRaw - a.createdAtRaw);
+        allBookings.sort((a, b) => b.createdAtTimestamp - a.createdAtTimestamp);
 
         if (!isMounted) return;
         setTabCounts(counts);

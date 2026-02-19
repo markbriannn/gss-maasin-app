@@ -10,8 +10,10 @@ import Link from "next/link";
 import { pushNotifications } from "@/lib/pushNotifications";
 import {
   ArrowLeft, CheckCircle, XCircle, Clock, Calendar, DollarSign, User, Wrench,
-  MessageCircle, CreditCard, FileText, Image, Zap, Ban,
+  MessageCircle, CreditCard, FileText, Image, Zap, Ban, PhoneCall,
 } from "lucide-react";
+import VoiceCall from "@/components/VoiceCall";
+import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall } from "@/services/callService";
 
 interface JobData {
   id: string;
@@ -116,10 +118,25 @@ export default function AdminJobDetailsPage() {
   const [job, setJob] = useState<JobData | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  
+  // Call state
+  const [activeCall, setActiveCall] = useState<any>(null);
+  const [incomingCall, setIncomingCall] = useState<any>(null);
 
   useEffect(() => {
     if (!authLoading && (!user || user.role?.toUpperCase() !== "ADMIN")) router.push("/login");
   }, [authLoading, user, router]);
+
+  // Listen for incoming calls
+  useEffect(() => {
+    if (!user) return;
+    
+    const unsubscribe = listenToIncomingCalls(user.uid, (call) => {
+      setIncomingCall(call);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
 
   useEffect(() => {
@@ -276,6 +293,77 @@ export default function AdminJobDetailsPage() {
       alert("Failed to approve job");
     } finally {
       setUpdating(false);
+    }
+  };
+
+  // Call handlers - Admin can call anyone without approval check
+  const handleCallProvider = async () => {
+    if (!user || !job || !job.providerId) return;
+    
+    try {
+      const call = await initiateCall(
+        user.uid,
+        'Admin',
+        job.providerId,
+        job.providerName || 'Provider',
+        job.id
+      );
+      setActiveCall(call);
+    } catch (error) {
+      console.error('Failed to initiate call:', error);
+      alert('Failed to start call');
+    }
+  };
+
+  const handleCallClient = async () => {
+    if (!user || !job) return;
+    
+    try {
+      const call = await initiateCall(
+        user.uid,
+        'Admin',
+        job.clientId,
+        job.clientName,
+        job.id
+      );
+      setActiveCall(call);
+    } catch (error) {
+      console.error('Failed to initiate call:', error);
+      alert('Failed to start call');
+    }
+  };
+
+  const handleAnswerCall = async () => {
+    if (!incomingCall) return;
+    
+    try {
+      await answerCall(incomingCall.id);
+      setActiveCall(incomingCall);
+      setIncomingCall(null);
+    } catch (error) {
+      console.error('Failed to answer call:', error);
+    }
+  };
+
+  const handleDeclineCall = async () => {
+    if (!incomingCall) return;
+    
+    try {
+      await declineCall(incomingCall.id);
+      setIncomingCall(null);
+    } catch (error) {
+      console.error('Failed to decline call:', error);
+    }
+  };
+
+  const handleEndCall = async (duration?: number) => {
+    if (!activeCall) return;
+    
+    try {
+      await endCall(activeCall.id, duration || 0);
+      setActiveCall(null);
+    } catch (error) {
+      console.error('Failed to end call:', error);
     }
   };
 
@@ -519,10 +607,18 @@ export default function AdminJobDetailsPage() {
                   <p className="font-semibold text-gray-900 text-lg">{job.clientName}</p>
                   {job.clientPhone && <p className="text-gray-500">{job.clientPhone}</p>}
                   {job.clientEmail && <p className="text-gray-500 text-sm">{job.clientEmail}</p>}
-                  <Link href={`/chat/new?recipientId=${job.clientId}&jobId=${job.id}`}
-                    className="mt-4 flex items-center gap-2 text-violet-600 font-medium hover:underline">
-                    <MessageCircle className="w-4 h-4" /> Message Client
-                  </Link>
+                  <div className="mt-4 flex gap-3">
+                    <Link href={`/chat/new?recipientId=${job.clientId}&jobId=${job.id}`}
+                      className="flex items-center gap-2 text-violet-600 font-medium hover:underline">
+                      <MessageCircle className="w-4 h-4" /> Message Client
+                    </Link>
+                    <button
+                      onClick={handleCallClient}
+                      className="flex items-center gap-2 text-emerald-600 font-medium hover:underline"
+                    >
+                      <PhoneCall className="w-4 h-4" /> Voice Call
+                    </button>
+                  </div>
                 </div>
                 <div className="bg-white rounded-2xl p-5 shadow-lg border border-gray-100">
                   <div className="flex items-center gap-3 mb-4">
@@ -547,10 +643,18 @@ export default function AdminJobDetailsPage() {
                     );
                   })()}
                   {job.providerId && (
-                    <Link href={`/chat/new?recipientId=${job.providerId}&jobId=${job.id}`}
-                      className="mt-4 flex items-center gap-2 text-violet-600 font-medium hover:underline">
-                      <MessageCircle className="w-4 h-4" /> Message Provider
-                    </Link>
+                    <div className="mt-4 flex gap-3">
+                      <Link href={`/chat/new?recipientId=${job.providerId}&jobId=${job.id}`}
+                        className="flex items-center gap-2 text-violet-600 font-medium hover:underline">
+                        <MessageCircle className="w-4 h-4" /> Message Provider
+                      </Link>
+                      <button
+                        onClick={handleCallProvider}
+                        className="flex items-center gap-2 text-emerald-600 font-medium hover:underline"
+                      >
+                        <PhoneCall className="w-4 h-4" /> Voice Call
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -754,6 +858,29 @@ export default function AdminJobDetailsPage() {
           </div>
         </div>
       </div>
+
+      {/* Voice Call Component */}
+      {activeCall && (
+        <VoiceCall
+          callId={activeCall.id}
+          channelName={activeCall.channelName}
+          isIncoming={false}
+          callerName={activeCall.receiverName}
+          onEnd={handleEndCall}
+        />
+      )}
+
+      {incomingCall && (
+        <VoiceCall
+          callId={incomingCall.id}
+          channelName={incomingCall.channelName}
+          isIncoming={true}
+          callerName={incomingCall.callerName}
+          onAnswer={handleAnswerCall}
+          onDecline={handleDeclineCall}
+          onEnd={handleEndCall}
+        />
+      )}
     </AdminLayout>
   );
 }

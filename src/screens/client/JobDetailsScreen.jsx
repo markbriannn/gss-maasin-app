@@ -28,6 +28,10 @@ import { getProviderBadges, getProviderTier } from '../../utils/gamification';
 import { BadgeList, TierBadge } from '../../components/gamification';
 import { PremiumModal, ConfirmModal, PaymentModal as PremiumPaymentModal } from '../../components/common';
 import { showInfoModal, showErrorModal, showSuccessModal } from '../../utils/modalManager';
+import VoiceCall from '../../components/common/VoiceCall';
+import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall } from '../../services/callService';
+// import VoiceCall from '../../components/common/VoiceCall';
+// import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall } from '../../services/callService';
 
 const JobDetailsScreen = ({ navigation, route }) => {
   const { job, jobId } = route.params || {};
@@ -89,6 +93,10 @@ const JobDetailsScreen = ({ navigation, route }) => {
   const [premiumModal, setPremiumModal] = useState({ visible: false, variant: 'success', title: '', message: '' });
   const [confirmModal, setConfirmModal] = useState({ visible: false, type: 'confirm', title: '', message: '', onConfirm: null });
   const [showPremiumPayment, setShowPremiumPayment] = useState(false);
+
+  // Voice call state
+  const [activeCall, setActiveCall] = useState(null);
+  const [incomingCall, setIncomingCall] = useState(null);
 
   // Manual verify payment function
   const handleVerifyPayment = async () => {
@@ -174,6 +182,18 @@ const JobDetailsScreen = ({ navigation, route }) => {
       subscription.remove();
     };
   }, [jobData?.status, jobData?.id, jobId, jobData?.paymentPreference, jobData?.isPaidUpfront]);
+
+  // Listen for incoming calls - DISABLED (causes white screen crashes)
+  useEffect(() => {
+    if (!user) return;
+    
+    // Voice calls disabled - Agora SDK initialization causes app crashes
+    // const unsubscribe = listenToIncomingCalls(user.uid, (call) => {
+    //   setIncomingCall(call);
+    // });
+
+    // return () => unsubscribe();
+  }, [user]);
 
   const CANCEL_REASONS = [
     'Changed my mind',
@@ -335,12 +355,30 @@ const JobDetailsScreen = ({ navigation, route }) => {
     }
   };
 
-  const handleCallProvider = () => {
-    const phone = jobData?.provider?.phone || jobData?.providerPhone;
-    if (phone) {
-      Linking.openURL(`tel:${phone}`);
-    } else {
-      showInfoModal('Not Available', 'Provider phone number not available yet. Try messaging instead.');
+  const handleCallProvider = async () => {
+    // Check if admin approved
+    if (!jobData?.adminApproved) {
+      showErrorModal('Not Available', 'Voice calls are only available after admin approval');
+      return;
+    }
+
+    if (!user || !jobData?.providerId) {
+      showErrorModal('Error', 'Unable to initiate call');
+      return;
+    }
+    
+    try {
+      const call = await initiateCall(
+        user.uid,
+        user.firstName || 'Client',
+        jobData.providerId,
+        jobData.provider?.name || 'Provider',
+        jobData.id || jobId
+      );
+      setActiveCall(call);
+    } catch (error) {
+      console.error('Failed to initiate call:', error);
+      showErrorModal('Error', 'Failed to start voice call');
     }
   };
 
@@ -358,6 +396,41 @@ const JobDetailsScreen = ({ navigation, route }) => {
       jobId: jobData.id || jobId,
       jobTitle: jobData.title || 'Service Request',
     });
+  };
+
+  // Voice call handlers
+  const handleAnswerCall = async () => {
+    if (!incomingCall) return;
+    
+    try {
+      await answerCall(incomingCall.id);
+      setActiveCall(incomingCall);
+      setIncomingCall(null);
+    } catch (error) {
+      console.error('Failed to answer call:', error);
+    }
+  };
+
+  const handleDeclineCall = async () => {
+    if (!incomingCall) return;
+    
+    try {
+      await declineCall(incomingCall.id);
+      setIncomingCall(null);
+    } catch (error) {
+      console.error('Failed to decline call:', error);
+    }
+  };
+
+  const handleEndCall = async (duration) => {
+    if (!activeCall) return;
+    
+    try {
+      await endCall(activeCall.id, duration || 0);
+      setActiveCall(null);
+    } catch (error) {
+      console.error('Failed to end call:', error);
+    }
   };
 
   const handleCancelJob = () => {
@@ -1143,13 +1216,13 @@ const JobDetailsScreen = ({ navigation, route }) => {
               </View>
             ) : null}
 
-            {/* Contact Buttons - Only show after admin approval */}
-            {jobData.adminApproved ? (
+            {/* Contact Buttons - Only show after admin approval and NOT completed */}
+            {jobData.adminApproved && jobData.status !== 'completed' ? (
               <View>
                 <View style={styles.contactButtons}>
                   <TouchableOpacity style={styles.contactButtonLarge} onPress={handleCallProvider}>
                     <Icon name="call" size={20} color="#00B14F" />
-                    <Text style={styles.contactButtonTextLarge}>Call</Text>
+                    <Text style={styles.contactButtonTextLarge}>Voice Call</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.contactButtonLarge} onPress={handleMessageProvider}>
                     <Icon name="chatbubble" size={20} color="#00B14F" />
@@ -2183,6 +2256,33 @@ const JobDetailsScreen = ({ navigation, route }) => {
         onCancel={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
         isLoading={isUpdating}
       />
+
+      {/* Voice Call Modals - DISABLED */}
+      {false && activeCall && (
+        <Modal visible={true} transparent={false} animationType="slide">
+          <VoiceCall
+            callId={activeCall.id}
+            channelName={activeCall.channelName}
+            isIncoming={false}
+            callerName={activeCall.receiverName}
+            onEnd={handleEndCall}
+          />
+        </Modal>
+      )}
+
+      {false && incomingCall && (
+        <Modal visible={true} transparent={false} animationType="slide">
+          <VoiceCall
+            callId={incomingCall.id}
+            channelName={incomingCall.channelName}
+            isIncoming={true}
+            callerName={incomingCall.callerName}
+            onAnswer={handleAnswerCall}
+            onDecline={handleDeclineCall}
+            onEnd={handleEndCall}
+          />
+        </Modal>
+      )}
     </SafeAreaView>
   );
 };

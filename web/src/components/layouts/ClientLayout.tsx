@@ -2,7 +2,7 @@
 
 import { ReactNode, useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import NotificationDropdown from '@/components/NotificationDropdown';
 import ToastNotification from '@/components/ToastNotification';
+import VoiceCall from '@/components/VoiceCall';
+import { listenToIncomingCalls, answerCall, declineCall, endCall } from '@/services/callService';
 
 interface ClientLayoutProps {
   children: ReactNode;
@@ -52,12 +54,42 @@ const mobileTabItems: NavItem[] = [
 
 export default function ClientLayout({ children }: ClientLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [badgeCounts, setBadgeCounts] = useState<{ bookings: number; messages: number }>({ bookings: 0, messages: 0 });
   const notificationBtnRef = useRef<HTMLButtonElement>(null);
+  const [incomingCall, setIncomingCall] = useState<any>(null);
+
+  // Global incoming call listener
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const unsubscribe = listenToIncomingCalls(user.uid, (call) => {
+      setIncomingCall(call);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  const handleAnswerCall = async () => {
+    if (incomingCall) {
+      await answerCall(incomingCall.id);
+    }
+  };
+
+  const handleDeclineCall = async () => {
+    if (incomingCall) {
+      await declineCall(incomingCall.id);
+      setIncomingCall(null);
+    }
+  };
+
+  const handleEndCall = async () => {
+    setIncomingCall(null);
+  };
 
   // Listen for badge counts (bookings and messages)
   useEffect(() => {
@@ -336,6 +368,19 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
 
       {/* Toast Notifications */}
       <ToastNotification />
+
+      {/* Global Incoming Call Modal */}
+      {incomingCall && (
+        <VoiceCall
+          callId={incomingCall.id}
+          channelName={incomingCall.channelName}
+          isIncoming={true}
+          callerName={incomingCall.callerName}
+          onAnswer={handleAnswerCall}
+          onDecline={handleDeclineCall}
+          onEnd={handleEndCall}
+        />
+      )}
     </div>
   );
 }

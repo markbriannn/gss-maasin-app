@@ -168,9 +168,9 @@ const ProviderJobsScreen = ({ navigation }) => {
           location: fullLocation,
           description: data.description || '',
           createdAt: data.createdAt?.toDate?.() ? formatDateTime(data.createdAt.toDate()) : 'Unknown',
-          createdAtRaw: data.createdAt?.toDate?.() || new Date(0),
+          createdAtTimestamp: data.createdAt?.toDate?.()?.getTime() || 0,
           completedAt: data.completedAt?.toDate?.()?.toLocaleDateString() || 'Unknown',
-          completedAtRaw: data.completedAt?.toDate?.() || new Date(0),
+          completedAtTimestamp: data.completedAt?.toDate?.()?.getTime() || 0,
           // Media files
           mediaFiles: data.mediaFiles || [],
           hasMedia: (data.mediaFiles && data.mediaFiles.length > 0),
@@ -193,9 +193,9 @@ const ProviderJobsScreen = ({ navigation }) => {
 
       // Sort by date
       if (activeTab === 'completed') {
-        jobsList.sort((a, b) => b.completedAtRaw - a.completedAtRaw);
+        jobsList.sort((a, b) => b.completedAtTimestamp - a.completedAtTimestamp);
       } else {
-        jobsList.sort((a, b) => b.createdAtRaw - a.createdAtRaw);
+        jobsList.sort((a, b) => b.createdAtTimestamp - a.createdAtTimestamp);
       }
 
       setJobs(jobsList);

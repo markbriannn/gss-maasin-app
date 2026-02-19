@@ -2,7 +2,7 @@
 
 import { ReactNode, useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -19,10 +19,13 @@ import {
   X,
   History,
   Settings,
-  Trophy
+  Trophy,
+  BarChart3
 } from 'lucide-react';
 import NotificationDropdown from '@/components/NotificationDropdown';
 import ToastNotification from '@/components/ToastNotification';
+import VoiceCall from '@/components/VoiceCall';
+import { listenToIncomingCalls, answerCall, declineCall, endCall } from '@/services/callService';
 
 interface ProviderLayoutProps {
   children: ReactNode;
@@ -38,22 +41,50 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: '/provider', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/provider/jobs', icon: Briefcase, label: 'Jobs', badgeKey: 'jobs' },
+  { href: '/provider/analytics', icon: BarChart3, label: 'Analytics' },
   { href: '/provider/messages', icon: MessageSquare, label: 'Messages', badgeKey: 'messages' },
-  { href: '/provider/earnings', icon: Wallet, label: 'Earnings' },
   { href: '/provider/wallet', icon: Wallet, label: 'Wallet' },
-  { href: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
   { href: '/provider/profile', icon: User, label: 'Profile' },
-  { href: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export default function ProviderLayout({ children }: ProviderLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [badgeCounts, setBadgeCounts] = useState<{ jobs: number; messages: number }>({ jobs: 0, messages: 0 });
   const notificationBtnRef = useRef<HTMLButtonElement>(null);
+  const [incomingCall, setIncomingCall] = useState<any>(null);
+
+  // Global incoming call listener
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const unsubscribe = listenToIncomingCalls(user.uid, (call) => {
+      setIncomingCall(call);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  const handleAnswerCall = async () => {
+    if (incomingCall) {
+      await answerCall(incomingCall.id);
+    }
+  };
+
+  const handleDeclineCall = async () => {
+    if (incomingCall) {
+      await declineCall(incomingCall.id);
+      setIncomingCall(null);
+    }
+  };
+
+  const handleEndCall = async () => {
+    setIncomingCall(null);
+  };
 
   // Listen for badge counts (jobs and messages)
   useEffect(() => {
@@ -307,6 +338,20 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
 
       {/* Toast Notifications */}
       <ToastNotification />
+    </div>
+
+      {/* Global Incoming Call Modal */}
+      {incomingCall && (
+        <VoiceCall
+          callId={incomingCall.id}
+          channelName={incomingCall.channelName}
+          isIncoming={true}
+          callerName={incomingCall.callerName}
+          onAnswer={handleAnswerCall}
+          onDecline={handleDeclineCall}
+          onEnd={handleEndCall}
+        />
+      )}
     </div>
   );
 }

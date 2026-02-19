@@ -350,6 +350,7 @@ import ProviderJobDetailsScreen from '../screens/provider/ProviderJobDetailsScre
 import ProviderTrackingScreen from '../screens/provider/ProviderTrackingScreen';
 
 import ProviderMessagesScreen from '../screens/provider/ProviderMessagesScreen';
+import ProviderAnalyticsScreen from '../screens/provider/ProviderAnalyticsScreen';
 
 // Admin Screens
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
@@ -642,6 +643,7 @@ export default function AppNavigator() {
       ) : normalizedRole === 'PROVIDER' ? (
         <>
           <Stack.Screen name="ProviderMain" component={ProviderTabs} />
+          <Stack.Screen name="ProviderAnalytics" component={ProviderAnalyticsScreen} />
           <Stack.Screen name="ProviderJobDetails" component={ProviderJobDetailsScreen} />
           <Stack.Screen name="ProviderTracking" component={ProviderTrackingScreen} />
           <Stack.Screen name="Directions" component={DirectionsScreen} />
