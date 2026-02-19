@@ -762,7 +762,7 @@ function JobDetailsContent() {
     );
   }
 
-  const canCancel = ['pending', 'pending_negotiation', 'counter_offer', 'accepted'].includes(job.status);
+  const canCancel = ['pending', 'pending_negotiation', 'counter_offer', 'accepted', 'awaiting_payment'].includes(job.status);
   const showConfirmButton = job.status === 'pending_completion';
   const pendingCharges = (job.additionalCharges || []).filter(c => c.status === 'pending');
   const providerName = providerInfo?.name || 'Provider';
@@ -1283,6 +1283,29 @@ function JobDetailsContent() {
             >
               Cancel Job
             </button>
+          )}
+
+          {/* AWAITING PAYMENT - Initial booking payment not yet completed */}
+          {job.status === 'awaiting_payment' && (
+            <div className="space-y-4">
+              <div className="bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-400 rounded-2xl p-5 text-center">
+                <div className="p-3 bg-orange-100 rounded-xl inline-block mb-3">
+                  <CreditCard className="w-8 h-8 text-orange-500" />
+                </div>
+                <p className="text-xl font-bold text-orange-800">Complete Your Payment</p>
+                <p className="text-3xl font-black text-orange-600 mt-3">{formatCurrency(calculateTotal())}</p>
+                <p className="text-sm text-orange-700 mt-3 leading-relaxed">
+                  Your booking is awaiting payment. Please complete the payment to submit your booking for admin approval.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPaymentModal(true)}
+                className="w-full py-4 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 flex items-center justify-center gap-2 shadow-lg transition-all"
+              >
+                <CreditCard className="w-5 h-5" />
+                Pay Now
+              </button>
+            </div>
           )}
 
           {/* PAY FIRST - Pay Upfront Button */}

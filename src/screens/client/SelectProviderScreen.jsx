@@ -83,6 +83,16 @@ const SelectProviderScreen = ({ navigation, route }) => {
 
   const fetchProviders = async () => {
     try {
+      // Fetch category base prices
+      const catSnap = await getDocs(collection(db, 'serviceCategories'));
+      const priceMap = {};
+      catSnap.forEach((d) => {
+        const catData = d.data();
+        if (catData.name && catData.basePrice) {
+          priceMap[catData.name.toLowerCase()] = catData.basePrice;
+        }
+      });
+
       const providersQuery = query(
         collection(db, 'users'),
         where('role', '==', 'PROVIDER'),
@@ -101,6 +111,7 @@ const SelectProviderScreen = ({ navigation, route }) => {
           data.latitude || 0,
           data.longitude || 0,
         );
+        const catKey = (data.serviceCategory || '').toLowerCase();
 
         providersList.push({
           id: doc.id,
@@ -111,6 +122,7 @@ const SelectProviderScreen = ({ navigation, route }) => {
           rating: data.rating || data.averageRating || 0,
           completedJobs: data.completedJobs || 0,
           fixedPrice: data.fixedPrice || data.hourlyRate || 0,
+          serviceCategoryBasePrice: priceMap[catKey] || 0,
           priceType: data.priceType || 'per_job',
           distance: distance,
           avgJobDurationMinutes: data.avgJobDurationMinutes || null,

@@ -539,9 +539,18 @@ export default function ClientDashboard() {
             {/* Provider Count */}
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">Available Providers</h2>
-              <div className="flex items-center gap-1.5 text-sm text-emerald-600 font-semibold bg-gradient-to-r from-emerald-50 to-teal-50 px-3 py-1.5 rounded-full border border-emerald-100">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse-ring" />
-                {filteredProviders.length} online
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => router.push('/client/providers')}
+                  className="flex items-center gap-1 text-sm text-[#00B14F] font-semibold hover:text-emerald-700 transition-colors"
+                >
+                  See All
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <div className="flex items-center gap-1.5 text-sm text-emerald-600 font-semibold bg-gradient-to-r from-emerald-50 to-teal-50 px-3 py-1.5 rounded-full border border-emerald-100">
+                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse-ring" />
+                  {filteredProviders.length} online
+                </div>
               </div>
             </div>
 

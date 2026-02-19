@@ -16,7 +16,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { SERVICE_CATEGORIES } from '../../config/constants';
 import locationService from '../../services/locationService';
 import { db } from '../../config/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { guestHomeStyles as styles } from '../../css/profileStyles';
 
 const { width } = Dimensions.get('window');
@@ -317,7 +317,7 @@ const ProviderCard = ({
 
         {/* Price */}
         <Text style={styles.providerRate}>
-          <Text>₱{provider.fixedPrice || provider.hourlyRate || 0}</Text>
+          <Text>₱{provider.serviceCategoryBasePrice || provider.fixedPrice || provider.hourlyRate || 0}</Text>
           <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '400' }}>
             {provider.priceType === 'per_hire' ? '/hire' : '/job'}
           </Text>
@@ -446,72 +446,92 @@ const GuestHomeScreen = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
-    const providersQuery = query(
-      collection(db, 'users'),
-      where('role', '==', 'PROVIDER'),
-    );
-
+    let unsubscribe;
     setIsLoading(true);
-    const unsubscribe = onSnapshot(
-      providersQuery,
-      querySnapshot => {
-        const providersList = [];
 
-        querySnapshot.forEach(docSnapshot => {
-          try {
-            const data = docSnapshot.data();
+    // Fetch category base prices first, then set up provider listener
+    getDocs(collection(db, 'serviceCategories')).then((catSnap) => {
+      const priceMap = {};
+      catSnap.forEach((d) => {
+        const catData = d.data();
+        if (catData.name && catData.basePrice) {
+          priceMap[catData.name.toLowerCase()] = catData.basePrice;
+        }
+      });
 
-            const isApproved =
-              data.providerStatus === 'approved' || data.status === 'approved';
-            if (!isApproved) return;
+      const providersQuery = query(
+        collection(db, 'users'),
+        where('role', '==', 'PROVIDER'),
+      );
 
-            if (selectedCategory && data.serviceCategory !== selectedCategory)
-              return;
+      unsubscribe = onSnapshot(
+        providersQuery,
+        querySnapshot => {
+          const providersList = [];
 
-            let distance = 0;
-            if (userLocation && data.latitude && data.longitude) {
-              distance = calculateDistance(
-                userLocation.latitude,
-                userLocation.longitude,
-                data.latitude,
-                data.longitude,
-              );
+          querySnapshot.forEach(docSnapshot => {
+            try {
+              const data = docSnapshot.data();
+
+              const isApproved =
+                data.providerStatus === 'approved' || data.status === 'approved';
+              if (!isApproved) return;
+
+              if (selectedCategory && data.serviceCategory !== selectedCategory)
+                return;
+
+              let distance = 0;
+              if (userLocation && data.latitude && data.longitude) {
+                distance = calculateDistance(
+                  userLocation.latitude,
+                  userLocation.longitude,
+                  data.latitude,
+                  data.longitude,
+                );
+              }
+
+              const catKey = (data.serviceCategory || '').toLowerCase();
+
+              providersList.push({
+                id: docSnapshot.id,
+                name:
+                  `${data.firstName || ''} ${data.lastName || ''}`.trim() ||
+                  'Provider',
+                serviceCategory: data.serviceCategory || '',
+                rating: data.rating || null,
+                reviewCount: data.reviewCount || 0,
+                distance: distance.toFixed(1),
+                priceType: data.priceType || 'per_job',
+                fixedPrice: data.fixedPrice || 0,
+                serviceCategoryBasePrice: priceMap[catKey] || 0,
+                hourlyRate: data.hourlyRate || data.fixedPrice || 200,
+                isOnline: data.isOnline || false,
+                ...data,
+                serviceCategoryBasePrice: priceMap[catKey] || 0,
+              });
+            } catch (docError) {
+              console.error('Error processing provider doc:', docError);
             }
+          });
 
-            providersList.push({
-              id: docSnapshot.id,
-              name:
-                `${data.firstName || ''} ${data.lastName || ''}`.trim() ||
-                'Provider',
-              serviceCategory: data.serviceCategory || '',
-              rating: data.rating || null,
-              reviewCount: data.reviewCount || 0,
-              distance: distance.toFixed(1),
-              priceType: data.priceType || 'per_job',
-              fixedPrice: data.fixedPrice || 0,
-              hourlyRate: data.hourlyRate || data.fixedPrice || 200,
-              isOnline: data.isOnline || false,
-              ...data,
-            });
-          } catch (docError) {
-            console.error('Error processing provider doc:', docError);
-          }
-        });
+          providersList.sort(
+            (a, b) => parseFloat(a.distance) - parseFloat(b.distance),
+          );
+          setProviders(providersList);
+          setIsLoading(false);
+        },
+        error => {
+          console.error('Error loading providers:', error);
+          setProviders([]);
+          setIsLoading(false);
+        },
+      );
+    }).catch((error) => {
+      console.error('Error fetching categories:', error);
+      setIsLoading(false);
+    });
 
-        providersList.sort(
-          (a, b) => parseFloat(a.distance) - parseFloat(b.distance),
-        );
-        setProviders(providersList);
-        setIsLoading(false);
-      },
-      error => {
-        console.error('Error loading providers:', error);
-        setProviders([]);
-        setIsLoading(false);
-      },
-    );
-
-    return () => unsubscribe();
+    return () => { if (unsubscribe) unsubscribe(); };
   }, [selectedCategory, userLocation]);
 
   const getCurrentLocation = async () => {

@@ -85,6 +85,7 @@ function BookServiceContent() {
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('qrph');
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
@@ -537,36 +538,37 @@ function BookServiceContent() {
 
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,video/*" multiple className="hidden" />
 
-                {/* Drag & Drop Zone */}
-                <div
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${dragActive ? 'border-[#00B14F] bg-green-50' : mediaFiles.length === 0 ? 'border-red-300 bg-red-50/50 hover:border-red-400' : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                    }`}
-                >
-                  <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center ${dragActive ? 'bg-green-100' : mediaFiles.length === 0 ? 'bg-red-100' : 'bg-gray-100'}`}>
-                    <Upload className={`w-8 h-8 ${dragActive ? 'text-green-600' : mediaFiles.length === 0 ? 'text-red-500' : 'text-gray-400'}`} />
-                  </div>
-                  <p className="font-semibold text-gray-900 mb-1">
-                    {dragActive ? 'Drop files here' : 'Drag & drop or click to upload'}
-                  </p>
-                  <p className="text-sm text-gray-500">Up to 5 photos or videos • Max 50MB each</p>
+                {/* Drag & Drop Zone - only show when no files uploaded */}
+                {mediaFiles.length === 0 && (
+                  <div
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${dragActive ? 'border-[#00B14F] bg-green-50' : 'border-red-300 bg-red-50/50 hover:border-red-400'}`}
+                  >
+                    <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center ${dragActive ? 'bg-green-100' : 'bg-red-100'}`}>
+                      <Upload className={`w-8 h-8 ${dragActive ? 'text-green-600' : 'text-red-500'}`} />
+                    </div>
+                    <p className="font-semibold text-gray-900 mb-1">
+                      {dragActive ? 'Drop files here' : 'Drag & drop or click to upload'}
+                    </p>
+                    <p className="text-sm text-gray-500">Up to 5 photos or videos • Max 50MB each</p>
 
-                  <div className="flex items-center justify-center gap-4 mt-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <ImagePlus className="w-4 h-4" />
-                      <span>Photos</span>
-                    </div>
-                    <div className="w-px h-4 bg-gray-300" />
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Video className="w-4 h-4" />
-                      <span>Videos</span>
+                    <div className="flex items-center justify-center gap-4 mt-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <ImagePlus className="w-4 h-4" />
+                        <span>Photos</span>
+                      </div>
+                      <div className="w-px h-4 bg-gray-300" />
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <Video className="w-4 h-4" />
+                        <span>Videos</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Media Preview Grid */}
                 {mediaFiles.length > 0 && (
@@ -585,10 +587,15 @@ function BookServiceContent() {
                               <Play className="w-8 h-8 text-white" />
                             </div>
                           ) : (
-                            <img src={media.preview} alt="" className="w-full h-full object-cover" />
+                            <img
+                              src={media.preview}
+                              alt=""
+                              className="w-full h-full object-cover cursor-pointer"
+                              onClick={(e) => { e.stopPropagation(); setPreviewImage(media.preview); }}
+                            />
                           )}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <button onClick={(e) => { e.stopPropagation(); handleRemoveMedia(index); }} className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors">
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                            <button onClick={(e) => { e.stopPropagation(); handleRemoveMedia(index); }} className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors pointer-events-auto">
                               <X className="w-4 h-4 text-white" />
                             </button>
                           </div>
@@ -803,6 +810,27 @@ function BookServiceContent() {
           </div>
         </div>
       </div>
+
+      {/* Fullscreen Image Preview */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center cursor-pointer"
+          onClick={() => setPreviewImage(null)}
+        >
+          <button
+            onClick={() => setPreviewImage(null)}
+            className="absolute top-6 right-6 w-10 h-10 bg-white/15 rounded-full flex items-center justify-center hover:bg-white/25 transition-colors"
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
+          <img
+            src={previewImage}
+            alt="Preview"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </ClientLayout>
   );
 }

@@ -47,7 +47,7 @@ const TABS = [
 ];
 
 const STATUS_MAP: Record<string, string[]> = {
-  'PENDING': ['pending', 'approved'],
+  'PENDING': ['pending', 'approved', 'awaiting_payment'],
   'ONGOING': ['accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion', 'pending_payment', 'payment_received'],
   'COMPLETED': ['completed'],
   'CANCELLED': ['cancelled', 'rejected', 'declined'],
@@ -159,6 +159,7 @@ export default function BookingsPage() {
   const getStatusConfig = (status: string, job: Booking) => {
     const configs: Record<string, { label: string; color: string; bg: string; icon: typeof Clock }> = {
       'pending': { label: job.adminApproved ? 'Pending' : 'In Review', color: '#F59E0B', bg: 'bg-amber-50', icon: Clock },
+      'awaiting_payment': { label: 'Awaiting Payment', color: '#EA580C', bg: 'bg-orange-50', icon: CreditCard },
       'approved': { label: 'Approved', color: '#10B981', bg: 'bg-green-50', icon: CheckCircle },
       'accepted': { label: 'Accepted', color: '#3B82F6', bg: 'bg-blue-50', icon: CheckCircle },
       'traveling': { label: 'On The Way', color: '#3B82F6', bg: 'bg-blue-50', icon: Car },
@@ -231,8 +232,8 @@ export default function BookingsPage() {
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
                     className={`relative p-5 rounded-2xl transition-all duration-300 cursor-pointer ${isActive
-                        ? 'bg-white dark:bg-gray-800 shadow-2xl shadow-black/10 scale-[1.02]'
-                        : 'bg-white/15 backdrop-blur-sm hover:bg-white/25 hover:scale-[1.02]'
+                      ? 'bg-white dark:bg-gray-800 shadow-2xl shadow-black/10 scale-[1.02]'
+                      : 'bg-white/15 backdrop-blur-sm hover:bg-white/25 hover:scale-[1.02]'
                       }`}
                   >
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${isActive ? `bg-gradient-to-br ${tab.gradient}` : 'bg-white/20'

@@ -303,6 +303,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
+      case 'awaiting_payment': return '#EA580C';
       case 'pending': return '#F59E0B';
       case 'pending_negotiation': return '#F59E0B';
       case 'counter_offer': return '#8B5CF6';
@@ -319,6 +320,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
 
   const getStatusLabel = (status) => {
     switch (status?.toLowerCase()) {
+      case 'awaiting_payment': return 'Awaiting Payment';
       case 'pending': return 'Pending';
       case 'pending_negotiation': return 'Offer Sent';
       case 'counter_offer': return 'Counter Offer Received';
@@ -1519,8 +1521,49 @@ const JobDetailsScreen = ({ navigation, route }) => {
           </Text>
         </View>
         {/* Action Buttons */}
-        {(jobData.status === 'pending' || jobData.status === 'pending_negotiation') ? (
+        {(jobData.status === 'pending' || jobData.status === 'pending_negotiation' || jobData.status === 'awaiting_payment') ? (
           <View style={styles.actionSection}>
+            {/* Pay Now button for awaiting_payment */}
+            {jobData.status === 'awaiting_payment' && (
+              <>
+                <View style={{
+                  backgroundColor: '#FFF7ED',
+                  padding: 16,
+                  borderRadius: 12,
+                  marginBottom: 12,
+                  alignItems: 'center',
+                  borderWidth: 2,
+                  borderColor: '#FB923C',
+                }}>
+                  <Icon name="card" size={32} color="#EA580C" />
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#9A3412', marginTop: 8 }}>
+                    Complete Your Payment
+                  </Text>
+                  <Text style={{ fontSize: 22, fontWeight: '700', color: '#EA580C', marginTop: 8 }}>
+                    ₱{(jobData?.totalAmount || jobData?.amount || 0).toLocaleString()}
+                  </Text>
+                  <Text style={{ fontSize: 13, color: '#C2410C', marginTop: 4, textAlign: 'center' }}>
+                    Complete payment to submit your booking for admin approval.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: '#EA580C',
+                    borderRadius: 12,
+                    paddingVertical: 16,
+                    alignItems: 'center',
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    marginBottom: 12,
+                  }}
+                  onPress={handleMakePayment}>
+                  <Icon name="wallet" size={20} color="#FFFFFF" />
+                  <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>
+                    Pay Now
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
             <TouchableOpacity style={styles.cancelButton} onPress={handleCancelJob}>
               <Text style={styles.cancelButtonText}>Cancel Request</Text>
             </TouchableOpacity>

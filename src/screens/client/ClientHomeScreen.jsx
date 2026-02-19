@@ -659,47 +659,65 @@ const ClientHomeScreen = ({ navigation }) => {
 
   // Real-time providers
   useEffect(() => {
-    setIsLoadingProviders(true); // Start loading
-    const q = query(collection(db, 'users'), where('role', '==', 'PROVIDER'));
-    const unsub = onSnapshot(q, (snap) => {
-      const list = [];
-      snap.forEach((docSnap) => {
-        const d = docSnap.data();
-        const isApproved = d.providerStatus === 'approved' || d.status === 'approved';
-        if (!isApproved || !d.isOnline) return;
-        if (selectedCategory && d.serviceCategory?.toLowerCase() !== selectedCategory.toLowerCase()) return;
+    setIsLoadingProviders(true);
+    let unsub;
 
-        const dist = userLocation ? calculateDistance(userLocation.latitude, userLocation.longitude, d.latitude || 0, d.longitude || 0) : 10;
+    // Fetch category base prices first, then set up provider listener
+    getDocs(collection(db, 'serviceCategories')).then((catSnap) => {
+      const priceMap = {};
+      catSnap.forEach((d) => {
+        const catData = d.data();
+        if (catData.name && catData.basePrice) {
+          priceMap[catData.name.toLowerCase()] = catData.basePrice;
+        }
+      });
 
-        list.push({
-          id: docSnap.id,
-          name: `${d.firstName || ''} ${d.lastName || ''}`.trim() || 'Provider',
-          serviceCategory: d.serviceCategory || 'Service',
-          profilePhoto: d.profilePhoto,
-          rating: d.rating || d.averageRating || 0,
-          reviewCount: d.reviewCount || 0,
-          completedJobs: d.completedJobs || 0,
-          fixedPrice: d.fixedPrice || d.hourlyRate || 0,
-          distance: dist,
-          avgJobDurationMinutes: d.avgJobDurationMinutes || null,
-          estimatedTime: getEstimatedJobTime(d.avgJobDurationMinutes),
-          isOnline: d.isOnline,
-          latitude: d.latitude,
-          longitude: d.longitude,
-          barangay: d.barangay,
+      const q = query(collection(db, 'users'), where('role', '==', 'PROVIDER'));
+      unsub = onSnapshot(q, (snap) => {
+        const list = [];
+        snap.forEach((docSnap) => {
+          const d = docSnap.data();
+          const isApproved = d.providerStatus === 'approved' || d.status === 'approved';
+          if (!isApproved || !d.isOnline) return;
+          if (selectedCategory && d.serviceCategory?.toLowerCase() !== selectedCategory.toLowerCase()) return;
+
+          const dist = userLocation ? calculateDistance(userLocation.latitude, userLocation.longitude, d.latitude || 0, d.longitude || 0) : 10;
+          const catKey = (d.serviceCategory || '').toLowerCase();
+
+          list.push({
+            id: docSnap.id,
+            name: `${d.firstName || ''} ${d.lastName || ''}`.trim() || 'Provider',
+            serviceCategory: d.serviceCategory || 'Service',
+            profilePhoto: d.profilePhoto,
+            rating: d.rating || d.averageRating || 0,
+            reviewCount: d.reviewCount || 0,
+            completedJobs: d.completedJobs || 0,
+            fixedPrice: d.fixedPrice || d.hourlyRate || 0,
+            serviceCategoryBasePrice: priceMap[catKey] || 0,
+            distance: dist,
+            avgJobDurationMinutes: d.avgJobDurationMinutes || null,
+            estimatedTime: getEstimatedJobTime(d.avgJobDurationMinutes),
+            isOnline: d.isOnline,
+            latitude: d.latitude,
+            longitude: d.longitude,
+            barangay: d.barangay,
+          });
         });
-      });
 
-      // Sort
-      list.sort((a, b) => {
-        if (activeFilter === 'nearest') return a.distance - b.distance;
-        return (b.rating * 2 + b.completedJobs * 0.1) - (a.rating * 2 + a.completedJobs * 0.1);
-      });
+        // Sort
+        list.sort((a, b) => {
+          if (activeFilter === 'nearest') return a.distance - b.distance;
+          return (b.rating * 2 + b.completedJobs * 0.1) - (a.rating * 2 + a.completedJobs * 0.1);
+        });
 
-      setProviders(list);
-      setIsLoadingProviders(false); // Done loading
+        setProviders(list);
+        setIsLoadingProviders(false);
+      });
+    }).catch(() => {
+      setIsLoadingProviders(false);
     });
-    return () => unsub();
+
+    return () => { if (unsub) unsub(); };
   }, [selectedCategory, userLocation, activeFilter, refreshKey]);
 
   const handleSelectProvider = useCallback(async (provider, fromMarker = false) => {
@@ -1296,7 +1314,7 @@ const ClientHomeScreen = ({ navigation }) => {
                     style={styles.modalViewBtn}
                     onPress={() => {
                       setShowProviderModal(false);
-                      navigation.navigate('ProviderProfile', {
+                      navigation.navigate('ProviderDetails', {
                         providerId: selectedProvider?.id,
                         provider: selectedProvider,
                       });

@@ -10,7 +10,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   ArrowLeft, Star, MapPin, Briefcase, Clock, CheckCircle, User, Tag, Home, Navigation, Building, Flag,
-  Zap, Heart, Share2, Calendar, Sparkles
+  Zap, Heart, Share2, Calendar, Sparkles, Timer
 } from 'lucide-react';
 
 interface Review {
@@ -43,6 +43,7 @@ interface ProviderData {
   houseNumber?: string;
   landmark?: string;
   fixedPrice?: number;
+  serviceCategoryBasePrice?: number;
   hourlyRate?: number;
   priceType?: string;
   isOnline?: boolean;
@@ -50,6 +51,7 @@ interface ProviderData {
   status?: string;
   providerStatus?: string;
   services?: string[];
+  avgJobDurationMinutes?: number;
 }
 
 // Tier thresholds must match mobile (src/utils/gamification.js)
@@ -106,7 +108,7 @@ export default function ProviderDetailsPage() {
   useEffect(() => {
     const checkActiveBooking = async () => {
       if (!providerId || !user?.uid) return;
-      
+
       try {
         const activeStatuses = ['pending', 'confirmed', 'accepted', 'in_progress', 'on_the_way', 'arrived'];
         const bookingsQuery = query(
@@ -115,7 +117,7 @@ export default function ProviderDetailsPage() {
           where('providerId', '==', providerId)
         );
         const snap = await getDocs(bookingsQuery);
-        
+
         let foundActiveBooking: { id: string } | null = null;
         snap.forEach((docSnap) => {
           const status = (docSnap.data().status || '').toLowerCase();
@@ -123,7 +125,7 @@ export default function ProviderDetailsPage() {
             foundActiveBooking = { id: docSnap.id } as { id: string };
           }
         });
-        
+
         if (foundActiveBooking !== null) {
           setHasActiveBooking(true);
           setActiveBookingId((foundActiveBooking as { id: string }).id);
@@ -135,13 +137,27 @@ export default function ProviderDetailsPage() {
         console.log('Error checking active booking:', e);
       }
     };
-    
+
     checkActiveBooking();
   }, [providerId, user?.uid]);
 
   const fetchProvider = async () => {
     try {
-      const providerDoc = await getDoc(doc(db, 'users', providerId));
+      // Fetch both provider and category base price
+      const [providerDoc, catSnap] = await Promise.all([
+        getDoc(doc(db, 'users', providerId)),
+        getDocs(collection(db, 'serviceCategories')),
+      ]);
+
+      // Build category base price map
+      const priceMap: Record<string, number> = {};
+      catSnap.forEach((d) => {
+        const catData = d.data();
+        if (catData.name && catData.basePrice) {
+          priceMap[catData.name.toLowerCase()] = catData.basePrice;
+        }
+      });
+
       if (providerDoc.exists()) {
         const data = providerDoc.data();
         // Format years experience - check both yearsExperience and experience fields
@@ -155,7 +171,9 @@ export default function ProviderDetailsPage() {
             formattedExperience = yearsExp;
           }
         }
-        
+
+        const catKey = (data.serviceCategory || '').toLowerCase();
+
         setProvider({
           id: providerDoc.id,
           firstName: data.firstName || '',
@@ -175,6 +193,7 @@ export default function ProviderDetailsPage() {
           houseNumber: data.houseNumber,
           landmark: data.landmark,
           fixedPrice: data.fixedPrice || 0,
+          serviceCategoryBasePrice: priceMap[catKey] || 0,
           hourlyRate: data.hourlyRate || 0,
           priceType: data.priceType || 'per_job',
           isOnline: data.isOnline,
@@ -182,6 +201,7 @@ export default function ProviderDetailsPage() {
           status: data.status,
           providerStatus: data.providerStatus,
           services: data.services || (data.serviceCategory ? [data.serviceCategory] : []),
+          avgJobDurationMinutes: data.avgJobDurationMinutes || null,
         });
       }
     } catch (error) {
@@ -199,7 +219,7 @@ export default function ProviderDetailsPage() {
         const points = data.points || 0;
         setGamificationData({ points, tier: getProviderTier(points) });
       }
-    } catch {}
+    } catch { }
   };
 
   const fetchProviderStats = async () => {
@@ -227,7 +247,7 @@ export default function ProviderDetailsPage() {
         : '~5 min';
 
       setStats((prev) => ({ ...prev, completedJobs: completed, responseTime }));
-    } catch {}
+    } catch { }
   };
 
   const fetchReviews = async () => {
@@ -265,7 +285,7 @@ export default function ProviderDetailsPage() {
         const avg = reviewsList.reduce((s, r) => s + r.rating, 0) / reviewsList.length;
         setStats((prev) => ({ ...prev, rating: Number(avg.toFixed(1)), reviewCount: reviewsList.length }));
       }
-    } catch {}
+    } catch { }
   };
 
   const isVerified = provider?.status === 'approved' || provider?.providerStatus === 'approved';
@@ -319,7 +339,7 @@ export default function ProviderDetailsPage() {
         <div className={`relative h-56 bg-gradient-to-br ${categoryData.gradient}`}>
           <div className="absolute inset-0 bg-black/10" />
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-          
+
           {/* Top Bar */}
           <div className="relative z-10 flex items-center justify-between px-4 py-4">
             <button onClick={() => router.back()} className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors">
@@ -413,7 +433,7 @@ export default function ProviderDetailsPage() {
             </div>
 
             {/* Stats Bar */}
-            <div className="grid grid-cols-3 border-t border-gray-100">
+            <div className="grid grid-cols-4 border-t border-gray-100">
               <div className="p-4 text-center border-r border-gray-100">
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <Briefcase className="w-4 h-4 text-emerald-500" />
@@ -427,6 +447,19 @@ export default function ProviderDetailsPage() {
                   <span className="text-xl font-bold text-gray-900">{stats.responseTime || '~5 min'}</span>
                 </div>
                 <p className="text-xs text-gray-500">Response</p>
+              </div>
+              <div className="p-4 text-center border-r border-gray-100">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <Timer className="w-4 h-4 text-orange-500" />
+                  <span className="text-xl font-bold text-gray-900">
+                    {provider.avgJobDurationMinutes
+                      ? provider.avgJobDurationMinutes >= 60
+                        ? `~${(provider.avgJobDurationMinutes / 60).toFixed(1)}h`
+                        : `~${Math.round(provider.avgJobDurationMinutes)}m`
+                      : '~30m'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500">Est. Time</p>
               </div>
               <div className="p-4 text-center">
                 <div className="flex items-center justify-center gap-1 mb-1">
@@ -447,9 +480,9 @@ export default function ProviderDetailsPage() {
                 </div>
                 <div>
                   <p className="text-emerald-100 text-sm">Service Price</p>
-                  {(provider.fixedPrice || provider.hourlyRate) ? (
+                  {(provider.serviceCategoryBasePrice || provider.fixedPrice || provider.hourlyRate) ? (
                     <>
-                      <p className="text-3xl font-bold text-white">₱{(provider.fixedPrice || provider.hourlyRate || 0).toLocaleString()}</p>
+                      <p className="text-3xl font-bold text-white">₱{(provider.serviceCategoryBasePrice || provider.fixedPrice || provider.hourlyRate || 0).toLocaleString()}</p>
                       <p className="text-emerald-100 text-xs">{provider.priceType === 'per_hire' ? 'Per Hire' : 'Per Job'}</p>
                     </>
                   ) : (
@@ -457,7 +490,7 @@ export default function ProviderDetailsPage() {
                   )}
                 </div>
               </div>
-              {(provider.fixedPrice || provider.hourlyRate) ? (
+              {(provider.serviceCategoryBasePrice || provider.fixedPrice || provider.hourlyRate) ? (
                 <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2">
                   <p className="text-white text-xs font-medium">+ 5% service fee</p>
                 </div>
@@ -603,11 +636,11 @@ export default function ProviderDetailsPage() {
 
         {/* Image Viewer Modal */}
         {selectedImage && (
-          <div 
+          <div
             className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4"
             onClick={() => setSelectedImage(null)}
           >
-            <button 
+            <button
               className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
               onClick={() => setSelectedImage(null)}
             >
@@ -615,11 +648,11 @@ export default function ProviderDetailsPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <Image 
-              src={selectedImage} 
-              alt="Review image" 
-              width={800} 
-              height={600} 
+            <Image
+              src={selectedImage}
+              alt="Review image"
+              width={800}
+              height={600}
               className="max-w-full max-h-[80vh] object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
             />

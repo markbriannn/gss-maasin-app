@@ -127,13 +127,13 @@ const adminQuickActions = [
 export default function HelpPage() {
   const router = useRouter();
   const { user } = useAuth();
-  
+
   const role = user?.role?.toUpperCase() || 'CLIENT';
-  
+
   // Get role-specific content
   const faqs = role === 'ADMIN' ? adminFaqs : role === 'PROVIDER' ? providerFaqs : clientFaqs;
   const quickActions = role === 'ADMIN' ? adminQuickActions : role === 'PROVIDER' ? providerQuickActions : clientQuickActions;
-  
+
   // Role-specific colors
   const colors = {
     ADMIN: {
@@ -161,18 +161,18 @@ export default function HelpPage() {
       accentBg: 'bg-gradient-to-r from-emerald-500 to-teal-600',
     },
   };
-  
+
   const currentColors = colors[role as keyof typeof colors] || colors.CLIENT;
   const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'PROVIDER' ? 'Service Provider' : 'Client';
-  
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Premium Gradient Header */}
       <div className={`bg-gradient-to-r ${currentColors.gradient} text-white`}>
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center gap-4 mb-6">
-            <button 
-              onClick={() => router.back()} 
+            <button
+              onClick={() => router.back()}
               className="p-2 bg-white/20 hover:bg-white/30 rounded-full backdrop-blur-sm transition-all"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -182,7 +182,7 @@ export default function HelpPage() {
               <p className="text-white/80 text-sm">{roleLabel} Support</p>
             </div>
           </div>
-          
+
           {/* Hero Card */}
           <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
             <div className="flex items-center gap-4">
@@ -210,14 +210,14 @@ export default function HelpPage() {
           <div className="p-4">
             <div className="grid grid-cols-3 gap-4">
               <a
-                href="mailto:support@gssmaasin.com"
+                href="mailto:gssmaasin@gmail.com"
                 className={`flex flex-col items-center p-4 ${currentColors.iconBg} rounded-xl hover:scale-105 transition-all duration-200`}
               >
                 <div className={`w-12 h-12 ${currentColors.accentBg} rounded-full flex items-center justify-center mb-3 shadow-lg`}>
                   <Mail className="w-6 h-6 text-white" />
                 </div>
                 <span className="font-medium text-gray-900">Email</span>
-                <span className="text-xs text-gray-500 mt-1">support@gssmaasin.com</span>
+                <span className="text-xs text-gray-500 mt-1">gssmaasin@gmail.com</span>
               </a>
               <a
                 href="tel:+639123456789"
@@ -230,7 +230,7 @@ export default function HelpPage() {
                 <span className="text-xs text-gray-500 mt-1">+63 912 345 6789</span>
               </a>
               <Link
-                href="/chat/new?recipientId=admin"
+                href="/chat/new?recipientId=admin&autoReply=true"
                 className={`flex flex-col items-center p-4 ${currentColors.iconBg} rounded-xl hover:scale-105 transition-all duration-200`}
               >
                 <div className={`w-12 h-12 ${currentColors.accentBg} rounded-full flex items-center justify-center mb-3 shadow-lg`}>

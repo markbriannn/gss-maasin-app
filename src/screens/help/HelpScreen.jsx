@@ -1,25 +1,29 @@
-import React, {useState, useEffect} from 'react';
-import {View, Text, ScrollView, TouchableOpacity, Linking, ActivityIndicator} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {globalStyles} from '../../css/globalStyles';
-import {useAuth} from '../../context/AuthContext';
-import {useTheme} from '../../context/ThemeContext';
-import {APP_CONFIG} from '../../config/constants';
-import {db} from '../../config/firebase';
-import {collection, query, where, getDocs} from 'firebase/firestore';
+import { globalStyles } from '../../css/globalStyles';
+import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { APP_CONFIG } from '../../config/constants';
+import { db } from '../../config/firebase';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import {
+  getOrCreateConversation,
+  sendMessage as sendFirebaseMessage,
+} from '../../services/messageService';
 
-const HelpScreen = ({navigation}) => {
-  const {user} = useAuth();
-  const {isDark, theme} = useTheme();
+const HelpScreen = ({ navigation }) => {
+  const { user } = useAuth();
+  const { isDark, theme } = useTheme();
   const isProvider = user?.role === 'PROVIDER';
   const isAdmin = user?.role === 'ADMIN';
   const [loadingChat, setLoadingChat] = useState(false);
 
-  // Navigate to chat with admin/support
+  // Navigate to chat with admin/support (with auto-reply for new conversations)
   const handleChatWithSupport = async () => {
     if (isAdmin) return; // Admin doesn't need to chat with themselves
-    
+
     setLoadingChat(true);
     try {
       // Find an admin user
@@ -28,14 +32,43 @@ const HelpScreen = ({navigation}) => {
         where('role', '==', 'ADMIN')
       );
       const adminsSnapshot = await getDocs(adminsQuery);
-      
+
       if (!adminsSnapshot.empty) {
         const adminDoc = adminsSnapshot.docs[0];
         const adminData = adminDoc.data();
-        
+        const adminId = adminDoc.id;
+
+        // Get or create conversation with admin
+        const conversation = await getOrCreateConversation(
+          user.uid,
+          adminId,
+          null,
+          'ADMIN',
+        );
+
+        // Check if conversation has any existing messages
+        const messagesQuery = query(
+          collection(db, 'conversations', conversation.id, 'messages'),
+          orderBy('timestamp', 'desc'),
+          limit(1)
+        );
+        const existingMessages = await getDocs(messagesQuery);
+
+        // Send auto-reply welcome message if conversation is new (no messages)
+        if (existingMessages.empty) {
+          await sendFirebaseMessage(
+            conversation.id,
+            adminId,
+            '👋 Welcome to GSS Live Support!\n\nHow can we help you today? Please describe your concern and our support team will respond as soon as possible.\n\n⏱ Typical response time: within a few minutes during business hours.',
+            'GSS Support',
+          );
+        }
+
+        // Navigate to chat
         navigation.navigate('Chat', {
+          conversationId: conversation.id,
           recipient: {
-            id: adminDoc.id,
+            id: adminId,
             name: 'GSS Support',
             role: 'ADMIN',
             profilePhoto: adminData.profilePhoto || null,
@@ -45,7 +78,7 @@ const HelpScreen = ({navigation}) => {
         console.log('No admin users found');
       }
     } catch (error) {
-      console.error('Error finding admin:', error);
+      console.error('Error starting support chat:', error);
     } finally {
       setLoadingChat(false);
     }
@@ -132,13 +165,13 @@ const HelpScreen = ({navigation}) => {
   const faqItems = isProvider ? providerFaqItems : clientFaqItems;
 
   const contactOptions = [
-    {id: 1, icon: 'call', title: 'Call Us', value: '+63 917 123 4567', action: () => Linking.openURL('tel:+639171234567')},
-    {id: 2, icon: 'mail', title: 'Email Us', value: 'support@gssmaasin.com', action: () => Linking.openURL('mailto:support@gssmaasin.com')},
-    {id: 3, icon: 'logo-facebook', title: 'Facebook', value: 'GSS Maasin', action: () => Linking.openURL('https://facebook.com/gssmaasin')},
+    { id: 1, icon: 'call', title: 'Call Us', value: '+63 917 123 4567', action: () => Linking.openURL('tel:+639171234567') },
+    { id: 2, icon: 'mail', title: 'Email Us', value: 'gssmaasin@gmail.com', action: () => Linking.openURL('mailto:gssmaasin@gmail.com') },
+    { id: 3, icon: 'logo-facebook', title: 'Facebook', value: 'GSS Maasin', action: () => Linking.openURL('https://facebook.com/gssmaasin') },
   ];
 
   return (
-    <SafeAreaView style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]}>
+    <SafeAreaView style={[globalStyles.container, isDark && { backgroundColor: theme.colors.background }]}>
       <View style={{
         flexDirection: 'row',
         alignItems: 'center',
@@ -150,10 +183,10 @@ const HelpScreen = ({navigation}) => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color={isDark ? theme.colors.text : '#1F2937'} />
         </TouchableOpacity>
-        <Text style={[globalStyles.heading3, {marginLeft: 16}, isDark && {color: theme.colors.text}]}>Help & Support</Text>
+        <Text style={[globalStyles.heading3, { marginLeft: 16 }, isDark && { color: theme.colors.text }]}>Help & Support</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{padding: 20}}>
+      <ScrollView contentContainerStyle={{ padding: 20 }}>
         {/* Role indicator */}
         <View style={{
           flexDirection: 'row',
@@ -163,10 +196,10 @@ const HelpScreen = ({navigation}) => {
           borderRadius: 10,
           marginBottom: 20,
         }}>
-          <Icon 
-            name={isProvider ? 'construct' : 'person'} 
-            size={20} 
-            color={isProvider ? '#00B14F' : '#3B82F6'} 
+          <Icon
+            name={isProvider ? 'construct' : 'person'}
+            size={20}
+            color={isProvider ? '#00B14F' : '#3B82F6'}
           />
           <Text style={{
             marginLeft: 10,
@@ -178,7 +211,7 @@ const HelpScreen = ({navigation}) => {
           </Text>
         </View>
 
-        <Text style={[globalStyles.heading4, {marginBottom: 16}, isDark && {color: theme.colors.text}]}>
+        <Text style={[globalStyles.heading4, { marginBottom: 16 }, isDark && { color: theme.colors.text }]}>
           Frequently Asked Questions
         </Text>
 
@@ -191,12 +224,12 @@ const HelpScreen = ({navigation}) => {
               borderRadius: 12,
               marginBottom: 12,
               shadowColor: '#000',
-              shadowOffset: {width: 0, height: 2},
+              shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.05,
               shadowRadius: 4,
               elevation: 2,
             }}>
-            <View style={{flexDirection: 'row', alignItems: 'flex-start'}}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
               <View style={{
                 width: 24,
                 height: 24,
@@ -207,13 +240,13 @@ const HelpScreen = ({navigation}) => {
                 marginRight: 12,
                 marginTop: 2,
               }}>
-                <Text style={{color: '#FFFFFF', fontSize: 12, fontWeight: '700'}}>Q</Text>
+                <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>Q</Text>
               </View>
-              <Text style={{fontSize: 15, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', flex: 1}}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937', flex: 1 }}>
                 {item.question}
               </Text>
             </View>
-            <View style={{flexDirection: 'row', alignItems: 'flex-start', marginTop: 12}}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 12 }}>
               <View style={{
                 width: 24,
                 height: 24,
@@ -224,16 +257,16 @@ const HelpScreen = ({navigation}) => {
                 marginRight: 12,
                 marginTop: 2,
               }}>
-                <Text style={{color: isDark ? theme.colors.textSecondary : '#6B7280', fontSize: 12, fontWeight: '700'}}>A</Text>
+                <Text style={{ color: isDark ? theme.colors.textSecondary : '#6B7280', fontSize: 12, fontWeight: '700' }}>A</Text>
               </View>
-              <Text style={{fontSize: 14, color: isDark ? theme.colors.textSecondary : '#4B5563', lineHeight: 22, flex: 1}}>
+              <Text style={{ fontSize: 14, color: isDark ? theme.colors.textSecondary : '#4B5563', lineHeight: 22, flex: 1 }}>
                 {item.answer}
               </Text>
             </View>
           </View>
         ))}
 
-        <Text style={[globalStyles.heading4, {marginTop: 24, marginBottom: 16}, isDark && {color: theme.colors.text}]}>
+        <Text style={[globalStyles.heading4, { marginTop: 24, marginBottom: 16 }, isDark && { color: theme.colors.text }]}>
           Contact Us
         </Text>
 
@@ -248,7 +281,7 @@ const HelpScreen = ({navigation}) => {
               borderRadius: 12,
               marginBottom: 12,
               shadowColor: '#00B14F',
-              shadowOffset: {width: 0, height: 4},
+              shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.3,
               shadowRadius: 8,
               elevation: 4,
@@ -271,11 +304,11 @@ const HelpScreen = ({navigation}) => {
                 <Icon name="chatbubbles" size={22} color="#FFFFFF" />
               )}
             </View>
-            <View style={{flex: 1}}>
-              <Text style={{fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 2}}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 2 }}>
                 Live Chat
               </Text>
-              <Text style={{fontSize: 15, fontWeight: '600', color: '#FFFFFF'}}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFFFFF' }}>
                 Chat with GSS Support
               </Text>
             </View>
@@ -294,7 +327,7 @@ const HelpScreen = ({navigation}) => {
               borderRadius: 12,
               marginBottom: 12,
               shadowColor: '#000',
-              shadowOffset: {width: 0, height: 2},
+              shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.05,
               shadowRadius: 4,
               elevation: 2,
@@ -312,11 +345,11 @@ const HelpScreen = ({navigation}) => {
               }}>
               <Icon name={option.icon} size={22} color="#00B14F" />
             </View>
-            <View style={{flex: 1}}>
-              <Text style={{fontSize: 13, color: isDark ? theme.colors.textSecondary : '#6B7280', marginBottom: 2}}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, color: isDark ? theme.colors.textSecondary : '#6B7280', marginBottom: 2 }}>
                 {option.title}
               </Text>
-              <Text style={{fontSize: 15, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937'}}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937' }}>
                 {option.value}
               </Text>
             </View>
@@ -334,16 +367,16 @@ const HelpScreen = ({navigation}) => {
             borderWidth: 1,
             borderColor: '#FECACA',
           }}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Icon name="warning" size={20} color="#DC2626" />
-              <Text style={{fontSize: 14, fontWeight: '600', color: '#991B1B', marginLeft: 8}}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#991B1B', marginLeft: 8 }}>
                 Emergency Support
               </Text>
             </View>
-            <Text style={{fontSize: 13, color: '#7F1D1D', marginTop: 8, lineHeight: 20}}>
+            <Text style={{ fontSize: 13, color: '#7F1D1D', marginTop: 8, lineHeight: 20 }}>
               For urgent issues during a job (safety concerns, disputes), call our emergency hotline immediately.
             </Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={{
                 backgroundColor: '#DC2626',
                 paddingVertical: 10,
@@ -352,12 +385,12 @@ const HelpScreen = ({navigation}) => {
                 alignItems: 'center',
               }}
               onPress={() => Linking.openURL('tel:+639171234567')}>
-              <Text style={{color: '#FFFFFF', fontWeight: '600'}}>Call Emergency Line</Text>
+              <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Call Emergency Line</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        <View style={{height: 40}} />
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );

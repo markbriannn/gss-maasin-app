@@ -663,6 +663,7 @@ export default function AppNavigator() {
       ) : (
         <>
           <Stack.Screen name="ClientMain" component={ClientTabs} />
+          <Stack.Screen name="ProviderDetails" component={ClientProviderDetailsScreen} />
           <Stack.Screen name="ProviderProfile" component={ProviderProfileScreen} />
           <Stack.Screen name="SelectProvider" component={SelectProviderScreen} />
           <Stack.Screen name="HireProvider" component={BookServiceScreen} />

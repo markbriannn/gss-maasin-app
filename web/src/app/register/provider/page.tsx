@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
@@ -8,7 +8,8 @@ import { doc, setDoc, serverTimestamp, getDocs, collection } from 'firebase/fire
 import { auth, db } from '@/lib/firebase';
 import {
   Wrench, ArrowLeft, ArrowRight, User, Mail, MapPin, Lock, Briefcase, FileText,
-  CheckCircle, Clock, Calendar, Eye, EyeOff, Camera, Upload, Loader2, Navigation, ShieldCheck, AlertTriangle
+  CheckCircle, Clock, Calendar, Eye, EyeOff, Camera, Upload, Loader2, Navigation, ShieldCheck, AlertTriangle,
+  ArrowDown
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import type { ComponentType } from 'react';
@@ -136,6 +137,8 @@ export default function ProviderRegistration() {
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+  const termsRef = useRef<HTMLDivElement>(null);
   const [verificationCode, setVerificationCode] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
   const [isSendingCode, setIsSendingCode] = useState(false);
@@ -1572,25 +1575,87 @@ export default function ProviderRegistration() {
 
           {step === TOTAL_STEPS - 1 && (
             <div className="mt-8 space-y-4">
-              {/* Terms and Conditions Checkbox */}
-              <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+              {/* Inline Terms and Conditions */}
+              <div className="border border-gray-200 rounded-2xl overflow-hidden">
+                <div className="bg-gray-50 px-5 py-3 border-b border-gray-200 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-blue-500" />
+                  <h3 className="font-bold text-gray-900">Terms & Conditions</h3>
+                </div>
+                <div
+                  ref={termsRef}
+                  className="p-5 max-h-[300px] overflow-y-auto text-sm text-gray-600 leading-relaxed space-y-4"
+                  onScroll={(e) => {
+                    const el = e.currentTarget;
+                    if (el.scrollHeight - el.scrollTop - el.clientHeight < 30) {
+                      setHasScrolledToBottom(true);
+                    }
+                  }}
+                >
+                  <p>Welcome to GSS Maasin Service App. By registering as a Service Provider, you agree to the following terms:</p>
+
+                  <div>
+                    <p className="font-semibold text-gray-900 mb-1">1. Account Registration</p>
+                    <p>• You must provide accurate and complete information during registration.<br />• You are responsible for maintaining the security of your account.<br />• You must be at least 18 years old to register.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-gray-900 mb-1">2. Provider Requirements</p>
+                    <p>• Submit valid government ID and required documents for verification.<br />• Your account requires admin approval before activation.<br />• Maintain professional conduct and quality service at all times.<br />• Keep your availability status updated accurately.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-gray-900 mb-1">3. Service Delivery</p>
+                    <p>• Arrive on time for scheduled appointments.<br />• Bring all necessary tools and equipment for the job.<br />• Complete work as described in the booking agreement.<br />• Communicate promptly with clients about any issues.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-gray-900 mb-1">4. Earnings & Payouts</p>
+                    <p>• A 5% service fee is deducted from your earnings.<br />• Minimum payout amount is ₱100.<br />• Payouts are processed to your registered GCash/Maya account.<br />• You are responsible for your own tax obligations.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-gray-900 mb-1">5. Quality Standards</p>
+                    <p>• Maintain a minimum rating to remain active on the platform.<br />• Respond to job requests within a reasonable time.<br />• Handle customer complaints professionally.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-gray-900 mb-1">6. Privacy & Data Protection</p>
+                    <p>• We collect and process your data in accordance with the Philippine Data Privacy Act of 2012.<br />• Your personal information (name, contact details, location) is encrypted and securely stored.<br />• Your verification documents (ID, clearances) are accessible only to administrators and never shared with clients.<br />• Location data is collected only during active service delivery for safety and coordination.<br />• Payment information is processed by PayMongo (PCI-DSS compliant) - we never store your card details.<br />• You have the right to access, correct, or delete your personal data at any time.<br />• We do not sell your personal information to third parties.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-gray-900 mb-1">7. Prohibited Activities</p>
+                    <p>• Fraudulent activities or misrepresentation.<br />• Harassment or abusive behavior towards other users.<br />• Circumventing the platform for direct transactions.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-gray-900 mb-1">8. Account Termination</p>
+                    <p>• We reserve the right to suspend or terminate accounts that violate these terms.<br />• Users may request account deletion at any time.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scroll hint */}
+              {!hasScrolledToBottom && (
+                <div className="flex items-center gap-2 text-amber-600 text-sm px-1">
+                  <ArrowDown className="w-4 h-4" />
+                  <span>Please scroll down to read all terms before agreeing</span>
+                </div>
+              )}
+
+              {/* Checkbox */}
+              <div className={`flex items-start gap-3 p-4 rounded-xl border transition-all ${hasScrolledToBottom ? 'bg-gray-50 border-gray-200' : 'bg-gray-100 border-gray-200 opacity-50'
+                }`}>
                 <input
                   type="checkbox"
                   id="terms"
                   checked={agreedToTerms}
-                  onChange={(e) => setAgreedToTerms(e.target.checked)}
-                  className="w-5 h-5 mt-0.5 text-blue-500 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                  onChange={(e) => hasScrolledToBottom && setAgreedToTerms(e.target.checked)}
+                  disabled={!hasScrolledToBottom}
+                  className="w-5 h-5 mt-0.5 text-blue-500 border-gray-300 rounded focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed"
                 />
-                <label htmlFor="terms" className="text-sm text-gray-600 cursor-pointer">
-                  I agree to the{' '}
-                  <Link href="/terms" target="_blank" className="text-blue-500 font-medium hover:underline">
-                    Terms and Conditions
-                  </Link>{' '}
-                  and{' '}
-                  <Link href="/privacy" target="_blank" className="text-blue-500 font-medium hover:underline">
-                    Privacy Policy
-                  </Link>
-                  . I understand that my data will be processed in accordance with these policies and I consent to background verification.
+                <label htmlFor="terms" className={`text-sm cursor-pointer ${hasScrolledToBottom ? 'text-gray-600' : 'text-gray-400'}`}>
+                  I have read and agree to the Terms and Conditions and Privacy Policy. I consent to background verification.
                 </label>
               </div>
 

@@ -4,127 +4,6 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, FileText, Shield, Users, Wallet, AlertTriangle, CheckCircle, XCircle, Scale, Clock, CreditCard, Star, MapPin, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
-// Shared terms that apply to all users
-const sharedTerms = [
-  {
-    title: 'Acceptance of Terms',
-    icon: CheckCircle,
-    content: 'By accessing and using GSS Maasin, you accept and agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use our platform.',
-  },
-  {
-    title: 'Service Description',
-    icon: FileText,
-    content: 'GSS Maasin is a platform that connects service providers with clients seeking various home services in Maasin City, including electrical, plumbing, carpentry, and cleaning services.',
-  },
-  {
-    title: 'User Accounts',
-    icon: Users,
-    content: 'You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account. Notify us immediately of any unauthorized use.',
-  },
-  {
-    title: 'Privacy & Data',
-    icon: Shield,
-    content: 'Your privacy is important to us. We collect and use your data in accordance with our Privacy Policy. By using our services, you consent to our data practices.',
-  },
-];
-
-// Client-specific terms
-const clientTerms = [
-  {
-    title: 'Booking Services',
-    icon: Clock,
-    content: 'When you book a service, you agree to provide accurate information about your location and service requirements. Bookings are subject to provider availability and acceptance.',
-  },
-  {
-    title: 'Payment Obligations',
-    icon: CreditCard,
-    content: 'You agree to pay for services as agreed upon booking. Payment can be made via GCash, Maya, or cash. Failure to pay may result in account restrictions.',
-  },
-  {
-    title: 'Cancellation Policy',
-    icon: XCircle,
-    content: 'You may cancel a booking before the provider starts traveling at no charge. Repeated cancellations or no-shows may result in temporary or permanent account suspension.',
-  },
-  {
-    title: 'Reviews & Ratings',
-    icon: Star,
-    content: 'You agree to provide honest and fair reviews. Fraudulent, abusive, or discriminatory reviews will be removed and may result in account action.',
-  },
-  {
-    title: 'Safety & Conduct',
-    icon: Shield,
-    content: 'You agree to treat service providers with respect and provide a safe working environment. Harassment or unsafe conditions will not be tolerated.',
-  },
-];
-
-// Provider-specific terms
-const providerTerms = [
-  {
-    title: 'Service Quality',
-    icon: Star,
-    content: 'You agree to provide professional, quality services as described in your profile. Maintain accurate information about your skills, pricing, and availability.',
-  },
-  {
-    title: 'Service Fees',
-    icon: Wallet,
-    content: 'GSS Maasin charges a 5% service fee on completed jobs. This fee is automatically deducted from your earnings and helps maintain the platform.',
-  },
-  {
-    title: 'Payout Terms',
-    icon: CreditCard,
-    content: 'Earnings can be withdrawn to your registered GCash or Maya account. Payouts are processed within 1-3 business days after admin approval. Minimum withdrawal is ₱100.',
-  },
-  {
-    title: 'Job Acceptance',
-    icon: Clock,
-    content: 'You have a limited time to accept or decline job requests. Failure to respond will auto-decline the job. Excessive declines may affect your visibility.',
-  },
-  {
-    title: 'Location Tracking',
-    icon: MapPin,
-    content: 'When on an active job, your location is shared with the client for safety and transparency. Location tracking stops when the job is completed.',
-  },
-  {
-    title: 'Professional Conduct',
-    icon: Shield,
-    content: 'You agree to maintain professional conduct, arrive on time, and communicate clearly with clients. Violations may result in suspension or removal from the platform.',
-  },
-];
-
-// Admin-specific terms
-const adminTerms = [
-  {
-    title: 'Administrative Authority',
-    icon: Scale,
-    content: 'As an administrator, you have authority to approve providers, process payouts, and manage user accounts. Use this authority responsibly and fairly.',
-  },
-  {
-    title: 'Provider Verification',
-    icon: Users,
-    content: 'You are responsible for verifying provider documents and qualifications before approval. Ensure all providers meet platform standards.',
-  },
-  {
-    title: 'Payout Processing',
-    icon: Wallet,
-    content: 'Process payout requests promptly and verify account details before approval. Document any rejected requests with clear reasons.',
-  },
-  {
-    title: 'Dispute Resolution',
-    icon: MessageCircle,
-    content: 'Handle disputes fairly by reviewing all evidence from both parties. Document decisions and communicate clearly with affected users.',
-  },
-  {
-    title: 'Account Management',
-    icon: Shield,
-    content: 'Suspend or terminate accounts only for valid policy violations. Provide clear reasons and follow due process for all account actions.',
-  },
-  {
-    title: 'Data Confidentiality',
-    icon: FileText,
-    content: 'Maintain strict confidentiality of user data and platform information. Do not share sensitive information outside of official duties.',
-  },
-];
-
 // Violation consequences
 const violations = [
   { offense: 'First violation', consequence: 'Warning notification', severity: 'low' },
@@ -136,12 +15,9 @@ const violations = [
 export default function TermsPage() {
   const router = useRouter();
   const { user } = useAuth();
-  
+
   const role = user?.role?.toUpperCase() || 'CLIENT';
-  
-  // Get role-specific terms
-  const roleTerms = role === 'ADMIN' ? adminTerms : role === 'PROVIDER' ? providerTerms : clientTerms;
-  
+
   // Role-specific colors
   const colors = {
     ADMIN: {
@@ -166,18 +42,18 @@ export default function TermsPage() {
       badgeBg: 'bg-emerald-100 text-emerald-700',
     },
   };
-  
+
   const currentColors = colors[role as keyof typeof colors] || colors.CLIENT;
   const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'PROVIDER' ? 'Service Provider' : 'Client';
-  
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Premium Gradient Header */}
       <div className={`bg-gradient-to-r ${currentColors.gradient} text-white`}>
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center gap-4 mb-6">
-            <button 
-              onClick={() => router.back()} 
+            <button
+              onClick={() => router.back()}
               className="p-2 bg-white/20 hover:bg-white/30 rounded-full backdrop-blur-sm transition-all"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -187,7 +63,7 @@ export default function TermsPage() {
               <p className="text-white/80 text-sm">{roleLabel} Agreement</p>
             </div>
           </div>
-          
+
           {/* Hero Card */}
           <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
             <div className="flex items-center gap-4">
@@ -197,7 +73,7 @@ export default function TermsPage() {
               <div>
                 <h2 className="text-xl font-semibold">Legal Agreement</h2>
                 <p className="text-white/80 text-sm mt-1">
-                  Last updated: December 2024
+                  Last updated: February 2025
                 </p>
               </div>
             </div>
@@ -206,50 +82,129 @@ export default function TermsPage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-        {/* General Terms */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-4 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-900">General Terms</h2>
-            <p className="text-sm text-gray-500">Applicable to all users</p>
-          </div>
-          <div className="p-4 space-y-4">
-            {sharedTerms.map((term, index) => (
-              <div key={index} className="flex gap-4 p-4 bg-gray-50 rounded-xl">
-                <div className={`w-10 h-10 ${currentColors.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                  <term.icon className={`w-5 h-5 ${currentColors.iconColor}`} />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">{term.title}</h3>
-                  <p className="text-sm text-gray-600 mt-1">{term.content}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Role-Specific Terms */}
+        {/* Terms Content */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
             <div>
-              <h2 className="font-semibold text-gray-900">{roleLabel} Terms</h2>
-              <p className="text-sm text-gray-500">Specific to your role</p>
+              <h2 className="font-semibold text-gray-900">Terms & Conditions</h2>
+              <p className="text-sm text-gray-500">Applicable to {roleLabel}s</p>
             </div>
             <span className={`px-3 py-1 rounded-full text-xs font-medium ${currentColors.badgeBg}`}>
               {roleLabel}
             </span>
           </div>
-          <div className="p-4 space-y-4">
-            {roleTerms.map((term, index) => (
-              <div key={index} className="flex gap-4 p-4 bg-gray-50 rounded-xl">
-                <div className={`w-10 h-10 ${currentColors.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                  <term.icon className={`w-5 h-5 ${currentColors.iconColor}`} />
-                </div>
+          <div className="p-6 space-y-6 text-sm text-gray-600 leading-relaxed">
+            <p>
+              Welcome to GSS Maasin Service App. By using this platform as a {role === 'PROVIDER' ? 'Service Provider' : role === 'ADMIN' ? 'Administrator' : 'Client'}, you agree to the following terms:
+            </p>
+
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">1. Account Registration</h3>
+              <p>• You must provide accurate and complete information during registration.<br />• You are responsible for maintaining the security of your account.<br />• You must be at least 18 years old to register.</p>
+            </div>
+
+            {role === 'PROVIDER' ? (
+              <>
                 <div>
-                  <h3 className="font-semibold text-gray-900">{term.title}</h3>
-                  <p className="text-sm text-gray-600 mt-1">{term.content}</p>
+                  <h3 className="font-semibold text-gray-900 mb-2">2. Provider Requirements</h3>
+                  <p>• Submit valid government ID and required documents for verification.<br />• Your account requires admin approval before activation.<br />• Maintain professional conduct and quality service at all times.<br />• Keep your availability status updated accurately.</p>
                 </div>
-              </div>
-            ))}
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">3. Service Delivery</h3>
+                  <p>• Arrive on time for scheduled appointments.<br />• Bring all necessary tools and equipment for the job.<br />• Complete work as described in the booking agreement.<br />• Communicate promptly with clients about any issues.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">4. Earnings & Payouts</h3>
+                  <p>• A 5% service fee is deducted from your earnings.<br />• Minimum payout amount is ₱100.<br />• Payouts are processed to your registered GCash/Maya account.<br />• You are responsible for your own tax obligations.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">5. Quality Standards</h3>
+                  <p>• Maintain a minimum rating to remain active on the platform.<br />• Respond to job requests within a reasonable time.<br />• Handle customer complaints professionally.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">6. Privacy & Data Protection</h3>
+                  <p>• We collect and process your data in accordance with the Philippine Data Privacy Act of 2012.<br />• Your personal information (name, contact details, location) is encrypted and securely stored.<br />• Your verification documents (ID, clearances) are accessible only to administrators and never shared with clients.<br />• Location data is collected only during active service delivery for safety and coordination.<br />• Payment information is processed by PayMongo (PCI-DSS compliant) - we never store your card details.<br />• You have the right to access, correct, or delete your personal data at any time.<br />• We do not sell your personal information to third parties.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">7. Prohibited Activities</h3>
+                  <p>• Fraudulent activities or misrepresentation.<br />• Harassment or abusive behavior towards other users.<br />• Circumventing the platform for direct transactions.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">8. Account Termination</h3>
+                  <p>• We reserve the right to suspend or terminate accounts that violate these terms.<br />• Users may request account deletion at any time.</p>
+                </div>
+              </>
+            ) : role === 'ADMIN' ? (
+              <>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">2. Administrative Authority</h3>
+                  <p>• As an administrator, you have authority to approve providers, process payouts, and manage user accounts.<br />• Use this authority responsibly and fairly.<br />• Document decisions and follow due process for all account actions.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">3. Provider Verification</h3>
+                  <p>• You are responsible for verifying provider documents and qualifications before approval.<br />• Ensure all providers meet platform standards.<br />• Process verification requests in a timely manner.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">4. Payout Processing</h3>
+                  <p>• Process payout requests promptly and verify account details before approval.<br />• Document any rejected requests with clear reasons.<br />• Ensure accurate accounting of all transactions.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">5. Privacy & Data Protection</h3>
+                  <p>• We collect and process your data in accordance with the Philippine Data Privacy Act of 2012.<br />• Maintain strict confidentiality of user data and platform information.<br />• Do not share sensitive information outside of official duties.<br />• You have the right to access, correct, or delete your personal data at any time.<br />• We do not sell your personal information to third parties.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">6. Prohibited Activities</h3>
+                  <p>• Fraudulent activities or misrepresentation.<br />• Harassment or abusive behavior towards other users.<br />• Circumventing the platform for direct transactions.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">7. Account Termination</h3>
+                  <p>• We reserve the right to suspend or terminate accounts that violate these terms.<br />• Users may request account deletion at any time.</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">2. Client Responsibilities</h3>
+                  <p>• You agree to pay for services rendered as agreed with providers.<br />• Provide accurate job descriptions and requirements.<br />• Treat service providers with respect and professionalism.<br />• Be available at the scheduled service time and location.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">3. Booking & Payments</h3>
+                  <p>• A 5% service fee is added to all bookings.<br />• Payments can be made via GCash, Maya, or Cash.<br />• Cancellations must be made at least 2 hours before scheduled time.<br />• Refunds are subject to our refund policy and admin approval.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">4. Reviews & Ratings</h3>
+                  <p>• You may leave honest reviews for completed services.<br />• Reviews must be truthful and not contain offensive content.<br />• Fake or malicious reviews may result in account suspension.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">5. Privacy & Data Protection</h3>
+                  <p>• We collect and process your data in accordance with the Philippine Data Privacy Act of 2012.<br />• Your personal information (name, contact details, location) is encrypted and securely stored.<br />• Location data is collected only during active service delivery for safety and coordination.<br />• Payment information is processed by PayMongo (PCI-DSS compliant) - we never store your card details.<br />• You have the right to access, correct, or delete your personal data at any time.<br />• We do not sell your personal information to third parties.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">6. Prohibited Activities</h3>
+                  <p>• Fraudulent activities or misrepresentation.<br />• Harassment or abusive behavior towards other users.<br />• Circumventing the platform for direct transactions.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">7. Account Termination</h3>
+                  <p>• We reserve the right to suspend or terminate accounts that violate these terms.<br />• Users may request account deletion at any time.</p>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -265,27 +220,24 @@ export default function TermsPage() {
           <div className="p-4">
             <div className="space-y-3">
               {violations.map((item, index) => (
-                <div 
-                  key={index} 
-                  className={`flex items-center justify-between p-3 rounded-xl ${
-                    item.severity === 'low' ? 'bg-yellow-50 border border-yellow-200' :
-                    item.severity === 'medium' ? 'bg-orange-50 border border-orange-200' :
-                    item.severity === 'high' ? 'bg-red-50 border border-red-200' :
-                    'bg-red-100 border border-red-300'
-                  }`}
+                <div
+                  key={index}
+                  className={`flex items-center justify-between p-3 rounded-xl ${item.severity === 'low' ? 'bg-yellow-50 border border-yellow-200' :
+                      item.severity === 'medium' ? 'bg-orange-50 border border-orange-200' :
+                        item.severity === 'high' ? 'bg-red-50 border border-red-200' :
+                          'bg-red-100 border border-red-300'
+                    }`}
                 >
-                  <span className={`font-medium ${
-                    item.severity === 'low' ? 'text-yellow-800' :
-                    item.severity === 'medium' ? 'text-orange-800' :
-                    item.severity === 'high' ? 'text-red-800' :
-                    'text-red-900'
-                  }`}>{item.offense}</span>
-                  <span className={`text-sm ${
-                    item.severity === 'low' ? 'text-yellow-700' :
-                    item.severity === 'medium' ? 'text-orange-700' :
-                    item.severity === 'high' ? 'text-red-700' :
-                    'text-red-800'
-                  }`}>{item.consequence}</span>
+                  <span className={`font-medium ${item.severity === 'low' ? 'text-yellow-800' :
+                      item.severity === 'medium' ? 'text-orange-800' :
+                        item.severity === 'high' ? 'text-red-800' :
+                          'text-red-900'
+                    }`}>{item.offense}</span>
+                  <span className={`text-sm ${item.severity === 'low' ? 'text-yellow-700' :
+                      item.severity === 'medium' ? 'text-orange-700' :
+                        item.severity === 'high' ? 'text-red-700' :
+                          'text-red-800'
+                    }`}>{item.consequence}</span>
                 </div>
               ))}
             </div>
@@ -317,7 +269,7 @@ export default function TermsPage() {
         {/* App Info */}
         <div className="text-center py-6 text-gray-500 text-sm">
           <p className="font-medium">GSS Maasin Web v1.0.0</p>
-          <p className="mt-1">© 2024 GSS Maasin. All rights reserved.</p>
+          <p className="mt-1">© 2025 GSS Maasin. All rights reserved.</p>
         </div>
       </div>
     </div>

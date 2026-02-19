@@ -46,6 +46,7 @@ export default function ChatPage() {
   const conversationIdParam = params.conversationId as string;
   const recipientId = searchParams.get('recipientId');
   const jobId = searchParams.get('jobId');
+  const autoReply = searchParams.get('autoReply') === 'true';
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -61,6 +62,7 @@ export default function ChatPage() {
   const [recipient, setRecipient] = useState<Recipient | null>(null);
   const resolvedRecipientIdRef = useRef<string | null>(null); // Store resolved recipient ID
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const autoReplySentRef = useRef(false); // Track if auto-reply has been sent
 
   // Typing indicator states
   const [isTyping, setIsTyping] = useState(false);
@@ -437,6 +439,48 @@ export default function ChatPage() {
 
     initConversation();
   }, [user, conversationIdParam, recipientId]);
+
+  // Auto-reply for live support chat (chatbot welcome message)
+  useEffect(() => {
+    if (!autoReply || !conversationId || !recipient?.id || autoReplySentRef.current) return;
+
+    const sendAutoReply = async () => {
+      try {
+        // Check if conversation already has messages
+        const messagesQuery = query(
+          collection(db, 'conversations', conversationId, 'messages'),
+          orderBy('timestamp', 'desc')
+        );
+        const existingMessages = await getDocs(messagesQuery);
+
+        if (existingMessages.empty) {
+          autoReplySentRef.current = true;
+          // Send welcome message from admin
+          await addDoc(collection(db, 'conversations', conversationId, 'messages'), {
+            text: '👋 Welcome to GSS Live Support!\n\nHow can we help you today? Please describe your concern and our support team will respond as soon as possible.\n\n⏱ Typical response time: within a few minutes during business hours.',
+            senderId: recipient.id,
+            senderName: 'GSS Support',
+            timestamp: serverTimestamp(),
+            read: false,
+          });
+
+          // Update conversation last message
+          await updateDoc(doc(db, 'conversations', conversationId), {
+            lastMessage: '👋 Welcome to GSS Live Support!',
+            lastMessageTime: serverTimestamp(),
+            lastSenderId: recipient.id,
+            updatedAt: serverTimestamp(),
+          });
+        } else {
+          autoReplySentRef.current = true;
+        }
+      } catch (error) {
+        console.error('[Chat] Error sending auto-reply:', error);
+      }
+    };
+
+    sendAutoReply();
+  }, [autoReply, conversationId, recipient?.id]);
 
   // Subscribe to messages
   useEffect(() => {
@@ -853,8 +897,8 @@ export default function ChatPage() {
 
                       <div
                         className={`max-w-[75%] min-w-[80px] rounded-2xl px-4 py-2.5 ${isOwn
-                            ? 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white rounded-br-sm shadow-md shadow-emerald-500/20'
-                            : 'bg-white text-gray-900 rounded-bl-sm shadow-md shadow-gray-200/50 border border-gray-100/60'
+                          ? 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white rounded-br-sm shadow-md shadow-emerald-500/20'
+                          : 'bg-white text-gray-900 rounded-bl-sm shadow-md shadow-gray-200/50 border border-gray-100/60'
                           }`}
                       >
                         {message.imageUrl && (

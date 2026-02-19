@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { collection, query, where, getDocs, doc, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -10,7 +10,7 @@ import AdminLayout from '@/components/layouts/AdminLayout';
 import {
   Users, Search, CheckCircle, XCircle, Star, Mail, Phone, Calendar, MapPin, Eye,
   PauseCircle, PlayCircle, Home, Navigation, Building, Flag, RefreshCw,
-  Shield, ChevronRight, Clock,
+  Shield, ChevronRight, Clock, Filter,
 } from 'lucide-react';
 
 interface Provider {
@@ -63,7 +63,7 @@ const getCategoryStyle = (category: string) => {
   return { bg: 'from-violet-500 to-purple-600', icon: '🛠️', shadow: 'shadow-violet-500/30' };
 };
 
-export default function ProvidersPage() {
+function ProvidersPageContent() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const [providers, setProviders] = useState<Provider[]>([]);
@@ -81,6 +81,9 @@ export default function ProvidersPage() {
   const [confirmProvider, setConfirmProvider] = useState<Provider | null>(null);
   const [customReason, setCustomReason] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const searchParams = useSearchParams();
+  const serviceParam = searchParams.get('service');
+  const [serviceFilter, setServiceFilter] = useState<string | null>(serviceParam);
 
   const filters = [
     { id: 'all' as const, label: 'All', icon: Users, color: 'violet' },
@@ -179,11 +182,14 @@ export default function ProvidersPage() {
 
   useEffect(() => {
     filterProviders();
-  }, [allProviders, searchQuery, activeFilter]);
+  }, [allProviders, searchQuery, activeFilter, serviceFilter]);
 
 
   const filterProviders = () => {
     let filtered = [...allProviders];
+    if (serviceFilter) {
+      filtered = filtered.filter((p) => p.service.toLowerCase() === serviceFilter.toLowerCase());
+    }
     if (activeFilter !== 'all') {
       filtered = filtered.filter((p) => p.status === activeFilter);
     }
@@ -472,6 +478,33 @@ export default function ProvidersPage() {
               </div>
             </div>
           </div>
+
+          {/* Service Category Filter Banner */}
+          {serviceFilter && (
+            <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-2xl p-4 mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center">
+                  <Filter className="w-5 h-5 text-violet-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-violet-500 font-medium">Filtered by service</p>
+                  <p className="text-lg font-bold text-violet-900">
+                    {serviceFilter}
+                    <span className="ml-2 text-sm font-semibold text-violet-500">
+                      ({allProviders.filter(p => p.service.toLowerCase() === serviceFilter.toLowerCase()).length} provider{allProviders.filter(p => p.service.toLowerCase() === serviceFilter.toLowerCase()).length !== 1 ? 's' : ''})
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setServiceFilter(null); router.replace('/admin/providers'); }}
+                className="flex items-center gap-2 px-4 py-2 bg-white text-violet-600 rounded-xl font-semibold hover:bg-violet-100 transition-colors border border-violet-200 text-sm"
+              >
+                <XCircle className="w-4 h-4" />
+                Clear Filter
+              </button>
+            </div>
+          )}
 
           {/* Providers Grid */}
           {providers.length === 0 ? (
@@ -962,5 +995,22 @@ export default function ProvidersPage() {
         )}
       </div>
     </AdminLayout>
+  );
+}
+
+export default function ProvidersPage() {
+  return (
+    <Suspense fallback={
+      <AdminLayout>
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-purple-200 font-medium">Loading providers...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    }>
+      <ProvidersPageContent />
+    </Suspense>
   );
 }

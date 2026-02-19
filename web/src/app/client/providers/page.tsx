@@ -27,6 +27,7 @@ interface Provider {
   completedJobs: number;
   barangay?: string;
   fixedPrice?: number;
+  serviceCategoryBasePrice?: number;
   hourlyRate?: number;
   priceType?: string;
   providerStatus?: string;
@@ -81,6 +82,7 @@ export default function ProvidersPage() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [recentSearches] = useState(['Electrician near me', 'Plumber', 'House cleaning']);
   const [featuredProvider, setFeaturedProvider] = useState<Provider | null>(null);
+  const [categoryBasePrices, setCategoryBasePrices] = useState<Record<string, number>>({});
 
   // Get user location
   useEffect(() => {
@@ -133,52 +135,73 @@ export default function ProvidersPage() {
 
   // Real-time listener for providers
   const fetchProviders = () => {
-    const providersQuery = query(collection(db, 'users'), where('role', '==', 'PROVIDER'));
+    let unsubscribe: (() => void) | undefined;
 
-    const unsubscribe = onSnapshot(providersQuery, (snapshot) => {
-      const list: Provider[] = [];
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        if (data.providerStatus === 'approved' || data.status === 'approved') {
-          list.push({
-            id: docSnap.id,
-            firstName: data.firstName || '',
-            lastName: data.lastName || '',
-            serviceCategory: data.serviceCategory || '',
-            rating: data.rating || data.averageRating || 0,
-            reviewCount: data.reviewCount || data.totalReviews || 0,
-            profilePhoto: data.profilePhoto,
-            isOnline: data.isOnline || false,
-            completedJobs: data.completedJobs || data.jobsCompleted || 0,
-            barangay: data.barangay || '',
-            fixedPrice: data.fixedPrice || 0,
-            hourlyRate: data.hourlyRate || 0,
-            priceType: data.priceType || 'per_job',
-            providerStatus: data.providerStatus || data.status,
-            bio: data.bio || '',
-            experience: data.experience || '',
-            responseTime: data.responseTime || data.avgResponseTime || data.averageResponseTime || 5,
-            avgJobDurationMinutes: data.avgJobDurationMinutes || null,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            lastActive: data.lastActive?.toDate?.() || new Date(),
-            specialties: data.specialties || [],
-            languages: data.languages || ['Filipino', 'English'],
-            availability: data.availability || 'Available today',
-          });
+    // First, fetch service category base prices, then set up provider listener
+    getDocs(collection(db, 'serviceCategories')).then((catSnap) => {
+      const priceMap: Record<string, number> = {};
+      catSnap.forEach((d) => {
+        const data = d.data();
+        if (data.name && data.basePrice) {
+          priceMap[data.name.toLowerCase()] = data.basePrice;
         }
       });
-      setProviders(list);
-      // Set featured provider (highest rated online)
-      const featured = list.filter(p => p.isOnline).sort((a, b) => b.rating - a.rating)[0];
-      if (featured) setFeaturedProvider(featured);
-      setLoadingData(false);
-    }, (error) => {
-      console.error('Error fetching providers:', error);
+      setCategoryBasePrices(priceMap);
+
+      const providersQuery = query(collection(db, 'users'), where('role', '==', 'PROVIDER'));
+
+      unsubscribe = onSnapshot(providersQuery, (snapshot) => {
+        const list: Provider[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.providerStatus === 'approved' || data.status === 'approved') {
+            const catKey = (data.serviceCategory || '').toLowerCase();
+            list.push({
+              id: docSnap.id,
+              firstName: data.firstName || '',
+              lastName: data.lastName || '',
+              serviceCategory: data.serviceCategory || '',
+              rating: data.rating || data.averageRating || 0,
+              reviewCount: data.reviewCount || data.totalReviews || 0,
+              profilePhoto: data.profilePhoto,
+              isOnline: data.isOnline || false,
+              completedJobs: data.completedJobs || data.jobsCompleted || 0,
+              barangay: data.barangay || '',
+              fixedPrice: data.fixedPrice || 0,
+              serviceCategoryBasePrice: priceMap[catKey] || 0,
+              hourlyRate: data.hourlyRate || 0,
+              priceType: data.priceType || 'per_job',
+              providerStatus: data.providerStatus || data.status,
+              bio: data.bio || '',
+              experience: data.experience || '',
+              responseTime: data.responseTime || data.avgResponseTime || data.averageResponseTime || 5,
+              avgJobDurationMinutes: data.avgJobDurationMinutes || null,
+              latitude: data.latitude,
+              longitude: data.longitude,
+              lastActive: data.lastActive?.toDate?.() || new Date(),
+              specialties: data.specialties || [],
+              languages: data.languages || ['Filipino', 'English'],
+              availability: data.availability || 'Available today',
+            });
+          }
+        });
+        setProviders(list);
+        // Set featured provider (highest rated online)
+        const featured = list.filter(p => p.isOnline).sort((a, b) => b.rating - a.rating)[0];
+        if (featured) setFeaturedProvider(featured);
+        setLoadingData(false);
+      }, (error) => {
+        console.error('Error fetching providers:', error);
+        setLoadingData(false);
+      });
+    }).catch((error) => {
+      console.error('Error fetching categories:', error);
       setLoadingData(false);
     });
 
-    return unsubscribe;
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   };
 
   // Calculate distance
@@ -616,7 +639,7 @@ export default function ProvidersPage() {
           ) : (
             <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
               {filteredAndSortedProviders.map((provider, index) => {
-                const price = provider.fixedPrice || provider.hourlyRate || 0;
+                const price = provider.serviceCategoryBasePrice || provider.fixedPrice || provider.hourlyRate || 0;
                 const badge = getProviderBadge(provider);
                 const isHovered = hoveredCard === provider.id;
                 const isFavorite = favorites.includes(provider.id);

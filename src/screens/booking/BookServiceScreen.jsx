@@ -47,9 +47,9 @@ const BookServiceScreen = ({ navigation, route }) => {
   const displayProviderName = providerName || provider?.name;
   const actualProviderId = providerId || provider?.id;
   const providerService = provider?.serviceCategory || provider?.service || '';
-  const providerFixedPrice = provider?.fixedPrice || provider?.hourlyRate || 0;
+  const providerFixedPrice = provider?.serviceCategoryBasePrice || provider?.fixedPrice || provider?.hourlyRate || 0;
 
-  const [serviceCategoryBasePrice, setServiceCategoryBasePrice] = useState(0);
+  const [serviceCategoryBasePrice, setServiceCategoryBasePrice] = useState(provider?.serviceCategoryBasePrice || 0);
 
   const [serviceCategory, setServiceCategory] = useState(providerService);
   const [additionalNotes, setAdditionalNotes] = useState('');
@@ -57,6 +57,7 @@ const BookServiceScreen = ({ navigation, route }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [mediaFiles, setMediaFiles] = useState([]);
+  const [previewImage, setPreviewImage] = useState(null);
 
   // Fetch basePrice from serviceCategories collection
   useEffect(() => {
@@ -676,7 +677,9 @@ const BookServiceScreen = ({ navigation, route }) => {
                 backgroundColor: isDark ? theme.colors.card : '#F3F4F6',
               }}>
               {file.uri ? (
-                <Image source={{ uri: file.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                <TouchableOpacity activeOpacity={0.8} onPress={() => setPreviewImage(file.uri)}>
+                  <Image source={{ uri: file.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                </TouchableOpacity>
               ) : (
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                   <Icon name="image-outline" size={24} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
@@ -1162,6 +1165,29 @@ const BookServiceScreen = ({ navigation, route }) => {
             </ScrollView>
           </View>
         </View>
+      </Modal>
+
+      {/* Fullscreen Image Preview */}
+      <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
+        <TouchableOpacity
+          activeOpacity={1}
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' }}
+          onPress={() => setPreviewImage(null)}
+        >
+          <TouchableOpacity
+            style={{ position: 'absolute', top: 50, right: 20, zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' }}
+            onPress={() => setPreviewImage(null)}
+          >
+            <Icon name="close" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+          {previewImage && (
+            <Image
+              source={{ uri: previewImage }}
+              style={{ width: Dimensions.get('window').width - 32, height: Dimensions.get('window').width - 32, borderRadius: 12 }}
+              resizeMode="contain"
+            />
+          )}
+        </TouchableOpacity>
       </Modal>
     </SafeAreaView>
   );

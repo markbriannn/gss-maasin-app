@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Image from 'next/image';
 import {
@@ -34,6 +34,7 @@ interface Provider {
   reviewCount?: number;
   isOnline?: boolean;
   fixedPrice?: number;
+  serviceCategoryBasePrice?: number;
   priceType?: string;
   barangay?: string;
   providerStatus?: string;
@@ -60,37 +61,55 @@ export default function GuestHomePage() {
   // Real-time listener for providers
   useEffect(() => {
     setIsLoading(true);
-    const providersQuery = query(collection(db, 'users'), where('role', '==', 'PROVIDER'));
+    let unsubscribe: (() => void) | undefined;
 
-    const unsubscribe = onSnapshot(providersQuery, (querySnapshot) => {
-      const providersList: Provider[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        const isApproved = data.providerStatus === 'approved' || data.status === 'approved';
-        if (!isApproved) return;
-        if (selectedCategory && data.serviceCategory?.toLowerCase() !== selectedCategory.toLowerCase()) return;
-        providersList.push({
-          id: doc.id,
-          name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'Provider',
-          serviceCategory: data.serviceCategory,
-          rating: data.rating || data.averageRating || 0,
-          reviewCount: data.reviewCount || 0,
-          isOnline: data.isOnline || false,
-          fixedPrice: data.fixedPrice || data.hourlyRate || 0,
-          priceType: data.priceType || 'per_job',
-          barangay: data.barangay,
-          providerStatus: data.providerStatus,
-          profilePhoto: data.profilePhoto,
-        });
+    // First fetch category base prices, then set up provider listener
+    getDocs(collection(db, 'serviceCategories')).then((catSnap) => {
+      const priceMap: Record<string, number> = {};
+      catSnap.forEach((d) => {
+        const catData = d.data();
+        if (catData.name && catData.basePrice) {
+          priceMap[catData.name.toLowerCase()] = catData.basePrice;
+        }
       });
-      setProviders(providersList);
-      setIsLoading(false);
-    }, (error) => {
-      console.error('Error loading providers:', error);
+
+      const providersQuery = query(collection(db, 'users'), where('role', '==', 'PROVIDER'));
+
+      unsubscribe = onSnapshot(providersQuery, (querySnapshot) => {
+        const providersList: Provider[] = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          const isApproved = data.providerStatus === 'approved' || data.status === 'approved';
+          if (!isApproved) return;
+          if (selectedCategory && data.serviceCategory?.toLowerCase() !== selectedCategory.toLowerCase()) return;
+          const catKey = (data.serviceCategory || '').toLowerCase();
+          providersList.push({
+            id: doc.id,
+            name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'Provider',
+            serviceCategory: data.serviceCategory,
+            rating: data.rating || data.averageRating || 0,
+            reviewCount: data.reviewCount || 0,
+            isOnline: data.isOnline || false,
+            fixedPrice: data.fixedPrice || data.hourlyRate || 0,
+            serviceCategoryBasePrice: priceMap[catKey] || 0,
+            priceType: data.priceType || 'per_job',
+            barangay: data.barangay,
+            providerStatus: data.providerStatus,
+            profilePhoto: data.profilePhoto,
+          });
+        });
+        setProviders(providersList);
+        setIsLoading(false);
+      }, (error) => {
+        console.error('Error loading providers:', error);
+        setIsLoading(false);
+      });
+    }).catch((error) => {
+      console.error('Error fetching categories:', error);
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => { if (unsubscribe) unsubscribe(); };
   }, [selectedCategory]);
 
   const getCategoryConfig = (categoryId: string) => SERVICE_CATEGORIES.find(c => c.id === categoryId?.toLowerCase()) || SERVICE_CATEGORIES[0];
@@ -295,7 +314,7 @@ export default function GuestHomePage() {
                           <span className="text-sm font-semibold text-gray-700">{provider.rating ? provider.rating.toFixed(1) : 'New'}</span>
                         </div>
                         <span className="text-sm font-extrabold text-emerald-600">
-                          {provider.fixedPrice ? `₱${provider.fixedPrice}` : 'Contact'}
+                          {(provider.serviceCategoryBasePrice || provider.fixedPrice) ? `₱${provider.serviceCategoryBasePrice || provider.fixedPrice}` : 'Contact'}
                         </span>
                       </div>
 
