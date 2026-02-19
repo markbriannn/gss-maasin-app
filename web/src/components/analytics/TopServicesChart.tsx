@@ -32,7 +32,7 @@ export default function TopServicesChart({ data }: TopServicesChartProps) {
               borderRadius: '8px',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
             }}
-            formatter={(value: number) => [`${value} jobs`, 'Count']}
+            formatter={(value: number | undefined) => [`${(value || 0)} jobs`, 'Count']}
           />
           <Bar dataKey="count" radius={[0, 8, 8, 0]}>
             {data.map((entry, index) => (
