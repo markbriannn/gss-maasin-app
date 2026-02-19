@@ -246,20 +246,27 @@ function ProvidersPageContent() {
             }),
           }).catch(err => console.error('SMS notification failed:', err));
 
-          // Send Email notification
-          const emailEndpoint = newStatus === 'approved'
-            ? `${API_URL}/email/provider-approved`
-            : `${API_URL}/email/provider-rejected`;
-
-          await fetch(emailEndpoint, {
+          // Send Email notification (correct endpoint)
+          await fetch(`${API_URL}/email/provider-approval`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              email: providerData.email,
-              name: `${providerData.firstName} ${providerData.lastName}`,
-              reason: newStatus === 'rejected' ? 'Application did not meet requirements' : undefined,
+              providerEmail: providerData.email,
+              providerName: `${providerData.firstName} ${providerData.lastName}`,
+              approved: newStatus === 'approved',
             }),
           }).catch(err => console.error('Email notification failed:', err));
+
+          // Send Push notification
+          fetch(`${API_URL}/notifications/provider-approved`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              providerId: providerRef.id,
+              providerName: `${providerData.firstName} ${providerData.lastName}`,
+              approved: newStatus === 'approved',
+            }),
+          }).catch(err => console.error('Push notification failed:', err));
 
           console.log(`Notifications sent to provider (${newStatus})`);
         }

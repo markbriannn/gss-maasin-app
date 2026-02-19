@@ -504,7 +504,7 @@ class SMSEmailService {
    * Notify provider about new approved job request
    */
   async notifyProviderNewApprovedJob(booking, provider, client) {
-    const smsMessage = `GSS Maasin: New job request! ${booking.serviceCategory || 'Service'} from ${client?.name || 'a client'} on ${booking.scheduledDate || 'TBD'}. Amount: ₱${(booking.totalAmount || booking.amount || 0).toLocaleString()}. Open app to accept!`;
+    const smsMessage = `GSS Maasin: New job ${provider.firstName || 'Provider'}! ${booking.serviceCategory || 'Service'} from ${client?.name || 'a client'}. Open app to accept!`;
 
     const emailSubject = `New Job Request - ${booking.serviceCategory || 'Service'}`;
     const emailBody = `

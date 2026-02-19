@@ -205,14 +205,56 @@ export default function AdminProviderDetailsPage() {
     if (!provider || !confirm("Approve this provider?")) return;
     setUpdating(true);
     try {
-      await updateDoc(doc(db, "users", provider.id), { 
-        status: "approved", 
-        providerStatus: "approved", 
+      await updateDoc(doc(db, "users", provider.id), {
+        status: "approved",
+        providerStatus: "approved",
         isOnline: true,
-        approvedAt: new Date(), 
-        approvedBy: user?.uid 
+        approvedAt: new Date(),
+        approvedBy: user?.uid
       });
       setProvider((prev) => (prev ? { ...prev, status: "approved", providerStatus: "approved", isOnline: true } : null));
+
+      // Send SMS, Email, and Push notifications (fire and forget)
+      const API_URL = 'https://gss-maasin-app.onrender.com/api';
+      const providerName = `${provider.firstName} ${provider.lastName}`.trim();
+
+      // SMS
+      if (provider.phone) {
+        fetch(`${API_URL}/sms/provider-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phoneNumber: provider.phone,
+            providerName,
+            isApproved: true,
+          }),
+        }).catch(err => console.error('SMS notification failed:', err));
+      }
+
+      // Email
+      if (provider.email) {
+        fetch(`${API_URL}/email/provider-approval`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            providerEmail: provider.email,
+            providerName,
+            approved: true,
+          }),
+        }).catch(err => console.error('Email notification failed:', err));
+      }
+
+      // Push notification
+      fetch(`${API_URL}/notifications/provider-approved`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          providerId: provider.id,
+          providerName,
+          approved: true,
+        }),
+      }).catch(err => console.error('Push notification failed:', err));
+
       alert("Provider approved successfully!");
     } catch (error) {
       console.error("Error approving provider:", error);
@@ -228,6 +270,49 @@ export default function AdminProviderDetailsPage() {
     try {
       await updateDoc(doc(db, "users", provider.id), { status: "rejected", providerStatus: "rejected", rejectedAt: new Date(), rejectedBy: user?.uid });
       setProvider((prev) => (prev ? { ...prev, status: "rejected", providerStatus: "rejected" } : null));
+
+      // Send SMS, Email, and Push notifications (fire and forget)
+      const API_URL = 'https://gss-maasin-app.onrender.com/api';
+      const providerName = `${provider.firstName} ${provider.lastName}`.trim();
+
+      // SMS
+      if (provider.phone) {
+        fetch(`${API_URL}/sms/provider-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phoneNumber: provider.phone,
+            providerName,
+            isApproved: false,
+            reason: 'Application did not meet requirements',
+          }),
+        }).catch(err => console.error('SMS notification failed:', err));
+      }
+
+      // Email
+      if (provider.email) {
+        fetch(`${API_URL}/email/provider-approval`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            providerEmail: provider.email,
+            providerName,
+            approved: false,
+          }),
+        }).catch(err => console.error('Email notification failed:', err));
+      }
+
+      // Push notification
+      fetch(`${API_URL}/notifications/provider-approved`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          providerId: provider.id,
+          providerName,
+          approved: false,
+        }),
+      }).catch(err => console.error('Push notification failed:', err));
+
       alert("Provider rejected");
     } catch (error) {
       console.error("Error rejecting provider:", error);
@@ -241,12 +326,12 @@ export default function AdminProviderDetailsPage() {
     if (!provider || !confirm("Suspend this provider?")) return;
     setUpdating(true);
     try {
-      await updateDoc(doc(db, "users", provider.id), { 
-        status: "suspended", 
-        providerStatus: "suspended", 
+      await updateDoc(doc(db, "users", provider.id), {
+        status: "suspended",
+        providerStatus: "suspended",
         isOnline: false,
-        suspendedAt: new Date(), 
-        suspendedBy: user?.uid 
+        suspendedAt: new Date(),
+        suspendedBy: user?.uid
       });
       setProvider((prev) => (prev ? { ...prev, status: "suspended", providerStatus: "suspended", isOnline: false } : null));
       alert("Provider suspended");
@@ -262,9 +347,9 @@ export default function AdminProviderDetailsPage() {
     if (!provider || !confirm("Reactivate this provider?")) return;
     setUpdating(true);
     try {
-      await updateDoc(doc(db, "users", provider.id), { 
-        status: "approved", 
-        providerStatus: "approved", 
+      await updateDoc(doc(db, "users", provider.id), {
+        status: "approved",
+        providerStatus: "approved",
         isOnline: true,
         reactivatedAt: new Date(),
         suspensionReason: null,
@@ -341,7 +426,7 @@ export default function AdminProviderDetailsPage() {
         <div className={`bg-gradient-to-r ${catStyle.bg} relative overflow-hidden`}>
           <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-          
+
           <div className="relative max-w-5xl mx-auto px-6 py-8">
             {/* Back Button */}
             <button onClick={() => router.back()} className="flex items-center gap-2 text-white/80 hover:text-white mb-6 transition-colors">
@@ -365,7 +450,7 @@ export default function AdminProviderDetailsPage() {
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-4 border-white shadow-lg"></div>
                 )}
               </div>
-              
+
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <h1 className="text-3xl font-bold text-white">{provider.firstName} {provider.lastName}</h1>
@@ -373,7 +458,7 @@ export default function AdminProviderDetailsPage() {
                     {provider.providerStatus.charAt(0).toUpperCase() + provider.providerStatus.slice(1)}
                   </span>
                 </div>
-                
+
                 <div className="flex items-center gap-3 mb-4">
                   <span className="text-3xl">{catStyle.icon}</span>
                   <span className="text-white/90 text-lg font-medium">{provider.serviceCategory}</span>
@@ -466,11 +551,10 @@ export default function AdminProviderDetailsPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
-                  activeTab === tab.id
+                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${activeTab === tab.id
                     ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-500/30"
                     : "text-gray-600 hover:bg-gray-100"
-                }`}
+                  }`}
               >
                 <tab.icon className="w-5 h-5" />
                 {tab.label}

@@ -291,6 +291,36 @@ export default function AdminJobDetailsPage() {
           .catch(err => console.log('FCM push to client failed:', err));
       }
 
+      // Send SMS and Email notifications to client
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
+      const capitalize = (s: string) => s.replace(/\b\w/g, c => c.toUpperCase());
+
+      if (job.clientPhone) {
+        const clientName = capitalize(job.clientName || 'Client');
+        fetch(`${API_URL}/sms/booking-rejected`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phoneNumber: job.clientPhone,
+            clientName,
+            serviceCategory: job.category,
+          }),
+        }).catch(err => console.error('SMS notification failed:', err));
+      }
+
+      if (job.clientEmail) {
+        fetch(`${API_URL}/email/booking-rejection`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: job.clientEmail,
+            clientName: job.clientName,
+            serviceCategory: job.category,
+            reason: 'Your booking request was not approved.',
+          }),
+        }).catch(err => console.error('Email notification failed:', err));
+      }
+
       // Process automatic refund if payment was made
       if (job.paid || job.isPaidUpfront) {
         try {

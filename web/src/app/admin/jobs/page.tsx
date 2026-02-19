@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { collection, getDocs, query, doc, updateDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/layouts/AdminLayout';
+import { pushNotifications } from '@/lib/pushNotifications';
 import {
   Briefcase, Search, Clock, MapPin, CheckCircle, XCircle, CreditCard, RefreshCw,
   ChevronRight, DollarSign, User, Wrench, Calendar, Eye, AlertCircle, Zap,
@@ -270,6 +271,16 @@ export default function AdminJobsPage() {
       setAllJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, adminApproved: true } : j)));
       setShowModal(false);
 
+      // Send Push notifications to client and provider
+      if (job.client?.id) {
+        pushNotifications.jobApprovedToClient(job.client.id, job.id, job.category || 'service')
+          .catch(err => console.log('FCM push to client failed:', err));
+      }
+      if (job.provider?.id) {
+        pushNotifications.newJobToProvider(job.provider.id, job.id, job.category || 'service')
+          .catch(err => console.log('FCM push to provider failed:', err));
+      }
+
       // Send SMS and Email notifications to client
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
       const capitalize = (s: string) => s.replace(/\b\w/g, c => c.toUpperCase());
@@ -322,6 +333,42 @@ export default function AdminJobsPage() {
       await updateDoc(doc(db, 'bookings', job.id), { status: 'rejected', rejectedAt: new Date(), rejectedBy: 'admin', adminRejected: true, updatedAt: new Date() });
       setAllJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: 'rejected' } : j)));
       setShowModal(false);
+
+      // Send Push notification to client
+      if (job.client?.id) {
+        pushNotifications.jobRejectedToClient(job.client.id, job.id, job.category || 'service')
+          .catch(err => console.log('FCM push to client failed:', err));
+      }
+
+      // Send SMS and Email notifications to client
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
+      const capitalize = (s: string) => s.replace(/\b\w/g, c => c.toUpperCase());
+
+      if (job.client?.phone) {
+        const clientName = capitalize(job.client.name || 'Client');
+        fetch(`${API_URL}/sms/booking-rejected`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phoneNumber: job.client.phone,
+            clientName,
+            serviceCategory: job.category,
+          }),
+        }).catch(err => console.error('SMS notification failed:', err));
+      }
+
+      if (job.client?.email) {
+        fetch(`${API_URL}/email/booking-rejection`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: job.client.email,
+            clientName: job.client.name,
+            serviceCategory: job.category,
+            reason: 'Your booking request was not approved.',
+          }),
+        }).catch(err => console.error('Email notification failed:', err));
+      }
     } catch (error) {
       console.error('Error rejecting job:', error);
     } finally {

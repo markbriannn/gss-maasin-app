@@ -674,44 +674,43 @@ export default function ClientDashboard() {
             )}
           </div>
 
-          {/* Contact Button - Simple bottom bar when provider selected from list */}
+          {/* Compact bottom bar when provider selected from list */}
           {selectedProvider && !showProviderModal && (
-            <div className="absolute bottom-0 left-0 right-0 p-4 glass-strong border-t border-white/60 shadow-2xl animate-fade-in">
-              <div className="flex items-center gap-4 mb-3">
-                <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+            <div className="absolute bottom-0 left-0 right-0 px-4 py-2.5 glass-strong border-t border-white/60 shadow-lg animate-fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
                   {selectedProvider.profilePhoto ? (
                     <img src={selectedProvider.profilePhoto} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-xl">
+                    <div className="w-full h-full flex items-center justify-center text-base bg-gradient-to-br from-emerald-50 to-teal-50">
                       {SERVICE_CATEGORIES.find(c => c.id === selectedProvider.serviceCategory?.toLowerCase())?.emoji || '🛠️'}
                     </div>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900 dark:text-white truncate">{selectedProvider.firstName} {selectedProvider.lastName}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{selectedProvider.estimatedJobTime ? `${selectedProvider.estimatedJobTime} • ` : ''}{selectedProvider.serviceCategory}</p>
+                  <p className="font-bold text-gray-900 dark:text-white text-sm truncate">{selectedProvider.firstName} {selectedProvider.lastName}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{selectedProvider.serviceCategory}{selectedProvider.distance != null ? ` • ${selectedProvider.distance < 1 ? `${(selectedProvider.distance * 1000).toFixed(0)}m` : `${selectedProvider.distance.toFixed(1)}km`}` : ''}</p>
                 </div>
 
+                {activeBooking ? (
+                  <button
+                    onClick={() => router.push(`/client/bookings/${activeBooking.id}`)}
+                    className="flex-shrink-0 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-md shadow-amber-500/25 hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Clock className="w-4 h-4" />
+                    {activeBooking.status === 'pending' ? 'Pending' : 'View'}
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => router.push(`/client/book?providerId=${selectedProvider.id}`)}
+                    className="flex-shrink-0 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-md shadow-emerald-500/25 hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    Contact Us
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
-
-              {activeBooking ? (
-                <button
-                  onClick={() => router.push(`/client/bookings/${activeBooking.id}`)}
-                  className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-amber-500/30 hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <Clock className="w-5 h-5" />
-                  {activeBooking.status === 'pending' ? 'Pending Approval' : 'View Booking'}
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              ) : (
-                <button
-                  onClick={() => router.push(`/client/book?providerId=${selectedProvider.id}`)}
-                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer flex items-center justify-center gap-2"
-                >
-                  Contact Us
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              )}
             </div>
           )}
         </div>

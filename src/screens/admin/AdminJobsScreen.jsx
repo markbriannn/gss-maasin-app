@@ -106,6 +106,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                   id: data.clientId,
                   name: fetchedName || data.clientName || clientData.email?.split('@')[0] || 'Unknown',
                   phone: clientData.phone || clientData.phoneNumber || 'Not provided',
+                  email: clientData.email || null,
                   role: 'CLIENT',
                   photo: clientData.profilePhoto || clientData.photoURL || null,
                 };
@@ -135,6 +136,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                   id: data.providerId,
                   name: fetchedName || data.providerName || providerData.email?.split('@')[0] || 'Unknown',
                   phone: providerData.phone || providerData.phoneNumber || 'Not provided',
+                  email: providerData.email || null,
                   role: 'PROVIDER',
                   tier: providerData.tier || null,
                   points: providerData.points || 0,
