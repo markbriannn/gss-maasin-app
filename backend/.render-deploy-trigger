@@ -1,0 +1,6 @@
+# Deployment trigger file
+# Last updated: 2026-02-20
+# This file forces Render to recognize changes
+
+AGORA_ROUTE_ADDED=true
+VERSION=1.0.1

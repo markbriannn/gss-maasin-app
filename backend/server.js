@@ -8,6 +8,7 @@ const notificationRoutes = require('./routes/notifications');
 const emailRoutes = require('./routes/email');
 const authRoutes = require('./routes/auth');
 const smsRoutes = require('./routes/sms');
+const agoraRoutes = require('./routes/agora');
 const { initializeFirebase } = require('./config/firebase');
 const { setupSocketHandlers } = require('./socket/handlers');
 
@@ -31,6 +32,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/sms', smsRoutes);
+app.use('/api/agora', agoraRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
