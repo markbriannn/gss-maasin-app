@@ -1,6 +1,6 @@
 {
   "name": "gss-maasin-backend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Backend server for GSS Maasin Service App",
   "main": "server.js",
   "scripts": {
@@ -8,6 +8,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "agora-access-token": "^2.0.4",
     "axios": "^1.6.5",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
