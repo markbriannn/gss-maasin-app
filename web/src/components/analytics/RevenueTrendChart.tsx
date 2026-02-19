@@ -38,7 +38,7 @@ export default function RevenueTrendChart({ data }: RevenueTrendChartProps) {
               borderRadius: '8px',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
             }}
-            formatter={(value: number) => [`₱${value.toLocaleString('en-PH')}`, 'Revenue']}
+            formatter={(value: number | undefined) => [`₱${(value || 0).toLocaleString('en-PH')}`, 'Revenue']}
           />
           <Area 
             type="monotone" 
