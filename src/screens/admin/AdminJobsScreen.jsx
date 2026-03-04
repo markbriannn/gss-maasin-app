@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,10 @@ import {
   Image,
   Dimensions,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {adminStyles} from '../../css/adminStyles';
-import {useTheme} from '../../context/ThemeContext';
+import { adminStyles } from '../../css/adminStyles';
+import { useTheme } from '../../context/ThemeContext';
 import {
   collection,
   query,
@@ -25,14 +25,14 @@ import {
   getDoc,
   setDoc,
 } from 'firebase/firestore';
-import {db} from '../../config/firebase';
+import { db } from '../../config/firebase';
 import smsEmailService from '../../services/smsEmailService';
-import {sendBookingConfirmation, sendJobRejectionEmail} from '../../services/emailService';
-import {getProviderTier} from '../../utils/gamification';
-import {TierBadge} from '../../components/gamification';
+import { sendBookingConfirmation, sendJobRejectionEmail } from '../../services/emailService';
+import { getProviderTier } from '../../utils/gamification';
+import { TierBadge } from '../../components/gamification';
 import notificationService from '../../services/notificationService';
 
-const {width} = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const MEDIA_SIZE = (width - 60) / 3;
 
 // Helper function to format date and time
@@ -49,9 +49,9 @@ const formatDateTime = (date) => {
   return date.toLocaleString('en-US', options);
 };
 
-const AdminJobsScreen = ({navigation, route}) => {
-  const {isDark, theme} = useTheme();
-  const {openJobId} = route?.params || {};
+const AdminJobsScreen = ({ navigation, route }) => {
+  const { isDark, theme } = useTheme();
+  const { openJobId } = route?.params || {};
   const [selectedMedia, setSelectedMedia] = useState(null);
   const [showMediaModal, setShowMediaModal] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
@@ -63,36 +63,34 @@ const AdminJobsScreen = ({navigation, route}) => {
   const [showDetailModal, setShowDetailModal] = useState(false);
 
   const filters = [
-    {id: 'all', label: 'All'},
-    {id: 'pending', label: 'Pending'},
-    {id: 'awaiting_payment', label: 'Awaiting Pay'},
-    {id: 'pending_negotiation', label: 'Nego'},
-    {id: 'counter_offer', label: 'Counter'},
-    {id: 'accepted', label: 'Accept'},
-    {id: 'traveling', label: 'Traveling'},
-    {id: 'arrived', label: 'Arrived'},
-    {id: 'in_progress', label: 'Active'},
-    {id: 'pending_completion', label: 'Pending Done'},
-    {id: 'completed', label: 'Done'},
-    {id: 'cancelled', label: 'Cancel'},
-    {id: 'disputed', label: 'Dispute'},
+    { id: 'all', label: 'All' },
+    { id: 'pending', label: 'Pending' },
+    { id: 'awaiting_payment', label: 'Awaiting Pay' },
+    { id: 'accepted', label: 'Accept' },
+    { id: 'traveling', label: 'Traveling' },
+    { id: 'arrived', label: 'Arrived' },
+    { id: 'in_progress', label: 'Active' },
+    { id: 'pending_completion', label: 'Pending Done' },
+    { id: 'completed', label: 'Done' },
+    { id: 'cancelled', label: 'Cancel' },
+    { id: 'disputed', label: 'Dispute' },
   ];
 
   useEffect(() => {
     // Set up real-time listener for jobs
     setIsLoading(true);
     const jobsQuery = query(collection(db, 'bookings'));
-    
+
     const unsubscribe = onSnapshot(jobsQuery, async (snapshot) => {
       const jobsList = await Promise.all(
         snapshot.docs.map(async (docSnap) => {
           const data = docSnap.data();
-          
+
           // Get client info if we have clientId
           let clientInfo = {
-            id: data.clientId || null, 
-            name: data.clientName || 'Unknown Client', 
-            phone: 'Not provided', 
+            id: data.clientId || null,
+            name: data.clientName || 'Unknown Client',
+            phone: 'Not provided',
             role: 'CLIENT',
             photo: null,
           };
@@ -115,12 +113,12 @@ const AdminJobsScreen = ({navigation, route}) => {
               console.log('Error fetching client:', e);
             }
           }
-          
+
           // Get provider info if we have providerId
           let providerInfo = {
-            id: data.providerId || null, 
-            name: data.providerName || 'Not Assigned', 
-            phone: 'N/A', 
+            id: data.providerId || null,
+            name: data.providerName || 'Not Assigned',
+            phone: 'N/A',
             role: 'PROVIDER',
             tier: null,
             points: 0,
@@ -199,7 +197,7 @@ const AdminJobsScreen = ({navigation, route}) => {
       Alert.alert('Error', 'Failed to load jobs. Please try again.');
       setIsLoading(false);
     });
-    
+
     return () => unsubscribe();
   }, []);
 
@@ -223,16 +221,16 @@ const AdminJobsScreen = ({navigation, route}) => {
 
   const filterJobs = () => {
     let filtered = [...allJobs];
-    
+
     // Apply status filter
     if (activeFilter !== 'all') {
       filtered = filtered.filter(j => j.status === activeFilter);
     }
-    
+
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(j => 
+      filtered = filtered.filter(j =>
         j.title.toLowerCase().includes(query) ||
         j.id.toLowerCase().includes(query) ||
         j.client?.name?.toLowerCase().includes(query) ||
@@ -240,7 +238,7 @@ const AdminJobsScreen = ({navigation, route}) => {
         j.category?.toLowerCase().includes(query)
       );
     }
-    
+
     setJobs(filtered);
   };
 
@@ -252,10 +250,10 @@ const AdminJobsScreen = ({navigation, route}) => {
         updatedAt: new Date(),
         ...additionalData,
       });
-      
+
       // Update local state
-      setAllJobs(prev => 
-        prev.map(j => j.id === jobId ? {...j, status: newStatus, ...additionalData} : j)
+      setAllJobs(prev =>
+        prev.map(j => j.id === jobId ? { ...j, status: newStatus, ...additionalData } : j)
       );
       return true;
     } catch (error) {
@@ -269,35 +267,31 @@ const AdminJobsScreen = ({navigation, route}) => {
     switch (status) {
       case 'pending':
         // Green if admin approved (awaiting provider), yellow if pending approval
-        return adminApproved 
-          ? {backgroundColor: '#D1FAE5', color: '#059669'}
-          : {backgroundColor: '#FEF3C7', color: '#D97706'};
+        return adminApproved
+          ? { backgroundColor: '#D1FAE5', color: '#059669' }
+          : { backgroundColor: '#FEF3C7', color: '#D97706' };
       case 'awaiting_payment':
-        return {backgroundColor: '#FEF3C7', color: '#D97706'};
-      case 'pending_negotiation':
-        return {backgroundColor: '#FEF3C7', color: '#F59E0B'};
-      case 'counter_offer':
-        return {backgroundColor: '#EDE9FE', color: '#8B5CF6'};
+        return { backgroundColor: '#FEF3C7', color: '#D97706' };
       case 'accepted':
-        return {backgroundColor: '#DBEAFE', color: '#2563EB'};
+        return { backgroundColor: '#DBEAFE', color: '#2563EB' };
       case 'traveling':
-        return {backgroundColor: '#DBEAFE', color: '#2563EB'};
+        return { backgroundColor: '#DBEAFE', color: '#2563EB' };
       case 'arrived':
-        return {backgroundColor: '#E0E7FF', color: '#4F46E5'};
+        return { backgroundColor: '#E0E7FF', color: '#4F46E5' };
       case 'in_progress':
-        return {backgroundColor: '#E0E7FF', color: '#4F46E5'};
+        return { backgroundColor: '#E0E7FF', color: '#4F46E5' };
       case 'pending_completion':
-        return {backgroundColor: '#FEF3C7', color: '#F59E0B'};
+        return { backgroundColor: '#FEF3C7', color: '#F59E0B' };
       case 'completed':
-        return {backgroundColor: '#D1FAE5', color: '#059669'};
+        return { backgroundColor: '#D1FAE5', color: '#059669' };
       case 'cancelled':
       case 'rejected':
       case 'declined':
-        return {backgroundColor: '#F3F4F6', color: '#6B7280'};
+        return { backgroundColor: '#F3F4F6', color: '#6B7280' };
       case 'disputed':
-        return {backgroundColor: '#FEE2E2', color: '#DC2626'};
+        return { backgroundColor: '#FEE2E2', color: '#DC2626' };
       default:
-        return {backgroundColor: '#F3F4F6', color: '#6B7280'};
+        return { backgroundColor: '#F3F4F6', color: '#6B7280' };
     }
   };
 
@@ -305,8 +299,6 @@ const AdminJobsScreen = ({navigation, route}) => {
     switch (status) {
       case 'pending': return adminApproved ? 'Awaiting Provider' : 'Pending Approval';
       case 'awaiting_payment': return 'Awaiting Payment';
-      case 'pending_negotiation': return 'Price Negotiating';
-      case 'counter_offer': return 'Counter Offer';
       case 'accepted': return 'Accepted';
       case 'traveling': return 'Traveling';
       case 'arrived': return 'Arrived';
@@ -335,18 +327,37 @@ const AdminJobsScreen = ({navigation, route}) => {
       'Approve Job Request',
       `Approve this job request?\n\nThis will send the job to ${job.provider?.name || 'the provider'} for review. The provider will see the client's photos/videos and can accept or decline.`,
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Approve & Send to Provider',
           style: 'default',
           onPress: async () => {
-            const success = await updateJobStatus(job.id, 'pending', {
+            // Don't reset status if already in payment_received or later — just mark adminApproved
+            const keepCurrentStatus = ['payment_received', 'accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion'].includes(job.status);
+            const approvalData = {
               adminApproved: true,
               approvedAt: new Date(),
               approvedBy: 'admin',
-              // Keep negotiation status if applicable
               isNegotiable: job.isNegotiable,
-            });
+              updatedAt: new Date(),
+            };
+            if (!keepCurrentStatus) {
+              // Only set to 'pending' if still in initial states (awaiting approval)
+              approvalData.status = 'pending';
+            }
+            let success = false;
+            try {
+              const jobRef = doc(db, 'bookings', job.id);
+              await updateDoc(jobRef, approvalData);
+              setAllJobs(prev => prev.map(j => j.id === job.id ? {
+                ...j,
+                adminApproved: true,
+                ...(approvalData.status ? { status: approvalData.status } : {}),
+              } : j));
+              success = true;
+            } catch (approveError) {
+              console.error('Approve job error:', approveError);
+            }
             if (success) {
               // Create Firestore notification for client
               if (job.clientId) {
@@ -364,7 +375,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                     createdAt: new Date(),
                     read: false,
                   });
-                  
+
                   // Send FCM push notification to client
                   notificationService.pushAdminApproved(job.clientId, {
                     id: job.id,
@@ -374,7 +385,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                   console.log('Error creating client notification:', notifError);
                 }
               }
-              
+
               // Send FCM push notification to provider about new job
               if (job.providerId) {
                 notificationService.pushNewJobAvailable(job.providerId, {
@@ -384,13 +395,13 @@ const AdminJobsScreen = ({navigation, route}) => {
                   offeredPrice: job.offeredPrice,
                 }).catch(err => console.log('FCM push to provider failed:', err));
               }
-              
+
               setShowDetailModal(false);
               Alert.alert(
-                'Job Approved', 
+                'Job Approved',
                 `Job has been approved and sent to ${job.provider?.name || 'the provider'}. They can now view the details and photos.`
               );
-              
+
               // Send SMS/Email notifications
               try {
                 const bookingData = {
@@ -402,7 +413,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                   amount: job.amount,
                   location: job.location,
                 };
-                
+
                 // Notify client that their booking was approved
                 const clientData = {
                   firstName: job.client?.name?.split(' ')[0] || 'Client',
@@ -410,7 +421,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                   email: job.client?.email,
                 };
                 await smsEmailService.notifyBookingApproved(bookingData, clientData, job.provider);
-                
+
                 // Notify provider about new approved job
                 if (job.provider?.id) {
                   const providerData = {
@@ -418,9 +429,9 @@ const AdminJobsScreen = ({navigation, route}) => {
                     phone: job.provider?.phone,
                     email: job.provider?.email,
                   };
-                  await smsEmailService.notifyProviderNewApprovedJob(bookingData, providerData, {name: job.client?.name});
+                  await smsEmailService.notifyProviderNewApprovedJob(bookingData, providerData, { name: job.client?.name });
                 }
-                
+
                 // Send email notification to client via Brevo
                 if (job.client?.email) {
                   sendBookingConfirmation(job.client.email, job.client?.name || 'Client', {
@@ -432,7 +443,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                     totalAmount: job.amount,
                   }).catch(err => console.log('Client email notification failed:', err));
                 }
-                
+
                 console.log('Approval notifications sent');
               } catch (notifError) {
                 console.log('Failed to send approval notifications:', notifError);
@@ -447,9 +458,9 @@ const AdminJobsScreen = ({navigation, route}) => {
   const handleRejectJob = (job) => {
     Alert.alert(
       'Reject Job Request',
-      `Are you sure you want to reject this job request?\n\nThe client will be notified.`,
+      `Are you sure you want to reject this job request?\n\nThe client will be notified.${job.isPaidUpfront || job.paid ? '\n\n⚠️ Payment will be automatically refunded.' : ''}`,
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Reject',
           style: 'destructive',
@@ -476,9 +487,9 @@ const AdminJobsScreen = ({navigation, route}) => {
                     createdAt: new Date(),
                     read: false,
                   });
-                  
+
                   // Send FCM push notification to client
-                  notificationService.sendPushToUser(job.clientId, 
+                  notificationService.sendPushToUser(job.clientId,
                     '❌ Booking Rejected',
                     `Your ${job.category || 'service'} request was not approved. Please try again or contact support.`,
                     { type: 'job_rejected', jobId: job.id }
@@ -487,10 +498,38 @@ const AdminJobsScreen = ({navigation, route}) => {
                   console.log('Error creating client notification:', notifError);
                 }
               }
-              
-              setShowDetailModal(false);
-              Alert.alert('Done', 'Job request has been rejected. Client will be notified.');
-              
+
+              // Process automatic refund if payment was made
+              if (job.isPaidUpfront || job.paid) {
+                try {
+                  const apiUrl = 'https://gss-maasin-app.onrender.com/api';
+                  const refundResponse = await fetch(`${apiUrl}/payments/auto-refund/${job.id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      reason: 'Admin rejected job',
+                      cancelledBy: 'admin'
+                    }),
+                  });
+                  const refundResult = await refundResponse.json();
+
+                  setShowDetailModal(false);
+
+                  if (refundResult.refunded) {
+                    Alert.alert('Done', `Job rejected. Refund of ₱${refundResult.amount} processed.`);
+                  } else {
+                    Alert.alert('Done', 'Job rejected. Client will be notified.');
+                  }
+                } catch (refundError) {
+                  console.error('Refund error:', refundError);
+                  setShowDetailModal(false);
+                  Alert.alert('Done', 'Job rejected. Refund may need manual processing.');
+                }
+              } else {
+                setShowDetailModal(false);
+                Alert.alert('Done', 'Job request has been rejected. Client will be notified.');
+              }
+
               // Send SMS/Email notification to client
               try {
                 const bookingData = {
@@ -504,7 +543,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                   email: job.client?.email,
                 };
                 await smsEmailService.notifyBookingRejected(bookingData, clientData);
-                
+
                 // Send email notification to client via Resend
                 if (job.client?.email) {
                   sendJobRejectionEmail(job.client.email, {
@@ -512,7 +551,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                     scheduledDate: job.scheduledDate,
                   }, 'Your request did not meet our requirements').catch(err => console.log('Rejection email failed:', err));
                 }
-                
+
                 console.log('Rejection notification sent to client');
               } catch (notifError) {
                 console.log('Failed to send rejection notification:', notifError);
@@ -529,7 +568,7 @@ const AdminJobsScreen = ({navigation, route}) => {
       'Cancel Job',
       `Are you sure you want to cancel job ${job.id}?`,
       [
-        {text: 'No', style: 'cancel'},
+        { text: 'No', style: 'cancel' },
         {
           text: 'Yes, Cancel',
           style: 'destructive',
@@ -553,7 +592,7 @@ const AdminJobsScreen = ({navigation, route}) => {
       'Resolve Dispute',
       `Resolve in favor of ${resolution === 'client' ? 'Client' : 'Provider'}?`,
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Confirm',
           onPress: async () => {
@@ -577,7 +616,7 @@ const AdminJobsScreen = ({navigation, route}) => {
       'Process Refund',
       `Issue full refund of ₱${(job.amount || 0).toLocaleString()} to ${job.client?.name || 'client'}?`,
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Process Refund',
           style: 'destructive',
@@ -602,50 +641,50 @@ const AdminJobsScreen = ({navigation, route}) => {
     setShowDetailModal(true);
   };
 
-  const renderJobCard = ({item}) => {
+  const renderJobCard = ({ item }) => {
     const statusStyle = getStatusStyle(item.status, item.adminApproved);
-    
+
     return (
-      <TouchableOpacity 
-        style={[adminStyles.jobCard, isDark && {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}
+      <TouchableOpacity
+        style={[adminStyles.jobCard, isDark && { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
         onPress={() => openJobDetail(item)}
         activeOpacity={0.7}
       >
         <View style={adminStyles.jobHeader}>
-          <View style={{flex: 1}}>
-            <Text style={[adminStyles.jobId, isDark && {color: theme.colors.textSecondary}]}>{item.id}</Text>
-            <Text style={[adminStyles.jobTitle, isDark && {color: theme.colors.text}]}>{item.title}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[adminStyles.jobId, isDark && { color: theme.colors.textSecondary }]}>{item.id}</Text>
+            <Text style={[adminStyles.jobTitle, isDark && { color: theme.colors.text }]}>{item.title}</Text>
             <Text style={adminStyles.jobCategory}>{item.category}</Text>
           </View>
-          <View style={[adminStyles.jobStatusBadge, {backgroundColor: statusStyle.backgroundColor}]}>
-            <Text style={[adminStyles.jobStatusText, {color: statusStyle.color}]}>
+          <View style={[adminStyles.jobStatusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
+            <Text style={[adminStyles.jobStatusText, { color: statusStyle.color }]}>
               {getStatusLabel(item.status, item.adminApproved)}
             </Text>
           </View>
         </View>
 
-        <View style={[adminStyles.jobParties, isDark && {backgroundColor: theme.colors.background}]}>
+        <View style={[adminStyles.jobParties, isDark && { backgroundColor: theme.colors.background }]}>
           <View style={adminStyles.jobParty}>
-            <Text style={[adminStyles.jobPartyLabel, isDark && {color: theme.colors.textSecondary}]}>Client</Text>
-            <Text style={[adminStyles.jobPartyName, isDark && {color: theme.colors.text}]}>{item.client.name}</Text>
+            <Text style={[adminStyles.jobPartyLabel, isDark && { color: theme.colors.textSecondary }]}>Client</Text>
+            <Text style={[adminStyles.jobPartyName, isDark && { color: theme.colors.text }]}>{item.client.name}</Text>
           </View>
-          <View style={[adminStyles.jobPartyDivider, isDark && {backgroundColor: theme.colors.border}]} />
+          <View style={[adminStyles.jobPartyDivider, isDark && { backgroundColor: theme.colors.border }]} />
           <View style={adminStyles.jobParty}>
-            <Text style={[adminStyles.jobPartyLabel, isDark && {color: theme.colors.textSecondary}]}>Provider</Text>
-            <Text style={[adminStyles.jobPartyName, isDark && {color: theme.colors.text}]}>{item.provider.name}</Text>
+            <Text style={[adminStyles.jobPartyLabel, isDark && { color: theme.colors.textSecondary }]}>Provider</Text>
+            <Text style={[adminStyles.jobPartyName, isDark && { color: theme.colors.text }]}>{item.provider.name}</Text>
           </View>
         </View>
 
         {/* Submitted Date/Time */}
-        <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4}}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4 }}>
           <Icon name="time-outline" size={14} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
-          <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#9CA3AF', marginLeft: 6}}>
+          <Text style={{ fontSize: 12, color: isDark ? theme.colors.textSecondary : '#9CA3AF', marginLeft: 6 }}>
             Submitted: {item.createdAt}
           </Text>
         </View>
 
         <View style={adminStyles.jobFooter}>
-          <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={adminStyles.jobAmount}>₱{item.amount.toLocaleString()}</Text>
             {/* Payment Method Badge - Always GCash/Maya */}
             <View style={{
@@ -662,20 +701,20 @@ const AdminJobsScreen = ({navigation, route}) => {
                 {item.rawData?.paymentMethod === 'maya' ? 'MAYA' : 'GCASH'}
               </Text>
             </View>
-            {item.isPaidUpfront && (
-              <View style={{backgroundColor: '#10B981', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4}}>
-                <Text style={{fontSize: 9, fontWeight: '600', color: '#FFFFFF'}}>PAID</Text>
+            {(item.isPaidUpfront || item.status === 'payment_received' || item.status === 'completed') && (
+              <View style={{ backgroundColor: '#10B981', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                <Text style={{ fontSize: 9, fontWeight: '600', color: '#FFFFFF' }}>PAID</Text>
               </View>
             )}
           </View>
-          <Text style={[adminStyles.jobDate, isDark && {color: theme.colors.textSecondary}]}>
+          <Text style={[adminStyles.jobDate, isDark && { color: theme.colors.textSecondary }]}>
             {item.createdAt}
           </Text>
         </View>
 
         {item.status === 'disputed' && (
           <View style={adminStyles.jobActions}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[adminStyles.actionButton, adminStyles.viewButton]}
               onPress={() => openJobDetail(item)}
             >
@@ -700,12 +739,12 @@ const AdminJobsScreen = ({navigation, route}) => {
         onRequestClose={() => setShowDetailModal(false)}
       >
         <View style={adminStyles.modalOverlay}>
-          <View style={[adminStyles.modalContent, isDark && {backgroundColor: theme.colors.surface}]}>
+          <View style={[adminStyles.modalContent, isDark && { backgroundColor: theme.colors.surface }]}>
             <View style={adminStyles.modalHandle} />
-            
-            <View style={[adminStyles.modalHeader, isDark && {borderBottomColor: theme.colors.border}]}>
-              <Text style={[adminStyles.modalTitle, isDark && {color: theme.colors.text}]}>Job Details</Text>
-              <TouchableOpacity 
+
+            <View style={[adminStyles.modalHeader, isDark && { borderBottomColor: theme.colors.border }]}>
+              <Text style={[adminStyles.modalTitle, isDark && { color: theme.colors.text }]}>Job Details</Text>
+              <TouchableOpacity
                 style={adminStyles.modalCloseButton}
                 onPress={() => setShowDetailModal(false)}
               >
@@ -713,29 +752,29 @@ const AdminJobsScreen = ({navigation, route}) => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={adminStyles.modalBody} contentContainerStyle={{paddingBottom: 20}}>
-              <View style={{alignItems: 'center', marginBottom: 20}}>
-                <Text style={{fontSize: 14, color: isDark ? theme.colors.textTertiary : '#9CA3AF'}}>{selectedJob.id}</Text>
-                <Text style={{fontSize: 20, fontWeight: '700', color: isDark ? theme.colors.text : '#1F2937', marginTop: 4}}>
+            <ScrollView style={adminStyles.modalBody} contentContainerStyle={{ paddingBottom: 20 }}>
+              <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                <Text style={{ fontSize: 14, color: isDark ? theme.colors.textTertiary : '#9CA3AF' }}>{selectedJob.id}</Text>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: isDark ? theme.colors.text : '#1F2937', marginTop: 4 }}>
                   {selectedJob.title}
                 </Text>
-                <Text style={{fontSize: 16, color: '#00B14F', marginTop: 4}}>
+                <Text style={{ fontSize: 16, color: '#00B14F', marginTop: 4 }}>
                   {selectedJob.category}
                 </Text>
-                <View style={[adminStyles.statusBadge, {backgroundColor: statusStyle.backgroundColor, marginTop: 8}]}>
-                  <Text style={[adminStyles.statusBadgeText, {color: statusStyle.color}]}>
+                <View style={[adminStyles.statusBadge, { backgroundColor: statusStyle.backgroundColor, marginTop: 8 }]}>
+                  <Text style={[adminStyles.statusBadgeText, { color: statusStyle.color }]}>
                     {getStatusLabel(selectedJob.status, selectedJob.adminApproved)}
                   </Text>
                 </View>
               </View>
 
-              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
-                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Service Amount</Text>
-                <Text style={{fontSize: 28, fontWeight: '700', color: '#00B14F'}}>
+              <View style={[adminStyles.modalSection, isDark && { borderBottomColor: theme.colors.border }]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && { color: theme.colors.textSecondary }]}>Service Amount</Text>
+                <Text style={{ fontSize: 28, fontWeight: '700', color: '#00B14F' }}>
                   ₱{selectedJob.amount.toLocaleString()}
                 </Text>
                 {selectedJob.systemFee > 0 && (
-                  <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginTop: 4}}>
+                  <Text style={{ fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginTop: 4 }}>
                     Provider: ₱{selectedJob.providerPrice?.toLocaleString() || 0} + Fee: ₱{selectedJob.systemFee?.toLocaleString() || 0}
                   </Text>
                 )}
@@ -747,83 +786,54 @@ const AdminJobsScreen = ({navigation, route}) => {
                 padding: 16,
                 borderRadius: 12,
               }]}>
-                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <Icon 
-                      name="wallet" 
-                      size={24} 
-                      color="#059669" 
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon
+                      name="wallet"
+                      size={24}
+                      color="#059669"
                     />
-                    <View style={{marginLeft: 12}}>
-                      <Text style={{fontSize: 14, fontWeight: '700', color: '#059669'}}>
+                    <View style={{ marginLeft: 12 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#059669' }}>
                         {selectedJob.rawData?.paymentMethod === 'maya' ? 'Maya' : 'GCash'}
                       </Text>
-                      <Text style={{fontSize: 12, color: '#047857'}}>
-                        PAID • Protected Payment
+                      <Text style={{ fontSize: 12, color: '#047857' }}>
+                        {(selectedJob.isPaidUpfront || selectedJob.status === 'payment_received' || selectedJob.status === 'completed')
+                          ? 'PAID • Protected Payment'
+                          : 'PENDING PAYMENT • Client pays before service'}
                       </Text>
                     </View>
                   </View>
-                  {selectedJob.isPaidUpfront && (
-                    <View style={{backgroundColor: '#10B981', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6}}>
-                      <Text style={{fontSize: 12, fontWeight: '600', color: '#FFFFFF'}}>PAID ₱{selectedJob.upfrontPaidAmount?.toLocaleString() || 0}</Text>
+                  {(selectedJob.isPaidUpfront || selectedJob.status === 'payment_received' || selectedJob.status === 'completed') && (
+                    <View style={{ backgroundColor: '#10B981', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFFFFF' }}>PAID ₱{(selectedJob.upfrontPaidAmount || selectedJob.finalAmount || selectedJob.totalAmount || 0).toLocaleString()}</Text>
                     </View>
                   )}
                 </View>
               </View>
 
-              {/* Negotiation Info */}
-              {(selectedJob.isNegotiable || selectedJob.status === 'pending_negotiation' || selectedJob.status === 'counter_offer') && (
-                <View style={[adminStyles.modalSection, {backgroundColor: '#FEF3C7', padding: 16, borderRadius: 12}]}>
-                  <Text style={[adminStyles.modalSectionTitle, {color: '#92400E'}]}>Price Negotiation</Text>
-                  <View style={{marginTop: 8}}>
-                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6}}>
-                      <Text style={{color: '#78350F'}}>Provider's Fixed Price:</Text>
-                      <Text style={{fontWeight: '600', color: '#78350F'}}>₱{(selectedJob.providerFixedPrice || 0).toLocaleString()}</Text>
-                    </View>
-                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6}}>
-                      <Text style={{color: '#78350F'}}>Client's Offer:</Text>
-                      <Text style={{fontWeight: '600', color: '#F59E0B'}}>₱{(selectedJob.offeredPrice || 0).toLocaleString()}</Text>
-                    </View>
-                    {selectedJob.counterOfferPrice > 0 && (
-                      <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6}}>
-                        <Text style={{color: '#78350F'}}>Provider's Counter:</Text>
-                        <Text style={{fontWeight: '600', color: '#8B5CF6'}}>₱{selectedJob.counterOfferPrice.toLocaleString()}</Text>
-                      </View>
-                    )}
-                    {selectedJob.priceNote && (
-                      <Text style={{fontSize: 13, color: '#92400E', fontStyle: 'italic', marginTop: 8}}>
-                        Client: "{selectedJob.priceNote}"
-                      </Text>
-                    )}
-                    {selectedJob.counterOfferNote && (
-                      <Text style={{fontSize: 13, color: '#5B21B6', fontStyle: 'italic', marginTop: 4}}>
-                        Provider: "{selectedJob.counterOfferNote}"
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              )}
+              {/* Negotiation Info - REMOVED (feature disabled) */}
 
-              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
-                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Client</Text>
+              <View style={[adminStyles.modalSection, isDark && { borderBottomColor: theme.colors.border }]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && { color: theme.colors.textSecondary }]}>Client</Text>
                 <View style={adminStyles.modalInfoRow}>
                   {selectedJob.client.photo ? (
-                    <Image 
-                      source={{uri: selectedJob.client.photo}} 
-                      style={{width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: '#3B82F6'}}
+                    <Image
+                      source={{ uri: selectedJob.client.photo }}
+                      style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: '#3B82F6' }}
                     />
                   ) : (
-                    <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center'}}>
+                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center' }}>
                       <Icon name="person" size={20} color="#3B82F6" />
                     </View>
                   )}
-                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}, {marginLeft: 12}]}>{selectedJob.client.name}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && { color: theme.colors.text }, { marginLeft: 12 }]}>{selectedJob.client.name}</Text>
                 </View>
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="call" size={20} color="#3B82F6" />
-                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.client.phone}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && { color: theme.colors.text }]}>{selectedJob.client.phone}</Text>
                 </View>
-                <View style={{flexDirection: 'row', marginTop: 10, gap: 8}}>
+                <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
                   <TouchableOpacity
                     style={{
                       flex: 1,
@@ -848,39 +858,39 @@ const AdminJobsScreen = ({navigation, route}) => {
                     }}
                   >
                     <Icon name="chatbubble" size={16} color="#FFFFFF" />
-                    <Text style={{color: '#FFFFFF', marginLeft: 6, fontWeight: '600'}}>
+                    <Text style={{ color: '#FFFFFF', marginLeft: 6, fontWeight: '600' }}>
                       Message Client
                     </Text>
                   </TouchableOpacity>
                 </View>
               </View>
 
-              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
-                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Provider</Text>
+              <View style={[adminStyles.modalSection, isDark && { borderBottomColor: theme.colors.border }]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && { color: theme.colors.textSecondary }]}>Provider</Text>
                 <View style={adminStyles.modalInfoRow}>
                   {selectedJob.provider.photo ? (
-                    <Image 
-                      source={{uri: selectedJob.provider.photo}} 
-                      style={{width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: '#00B14F'}}
+                    <Image
+                      source={{ uri: selectedJob.provider.photo }}
+                      style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: '#00B14F' }}
                     />
                   ) : (
-                    <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center'}}>
+                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center' }}>
                       <Icon name="person" size={20} color="#00B14F" />
                     </View>
                   )}
-                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}, {marginLeft: 12}]}>{selectedJob.provider.name}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && { color: theme.colors.text }, { marginLeft: 12 }]}>{selectedJob.provider.name}</Text>
                 </View>
                 {/* Provider Tier Badge */}
                 {(selectedJob.provider?.tier || selectedJob.provider?.points > 0) && (
-                  <View style={{marginLeft: 28, marginTop: 4, marginBottom: 8}}>
+                  <View style={{ marginLeft: 28, marginTop: 4, marginBottom: 8 }}>
                     <TierBadge tier={selectedJob.provider?.tier || getProviderTier(selectedJob.provider.points)} size="small" />
                   </View>
                 )}
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="call" size={20} color="#00B14F" />
-                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.provider.phone}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && { color: theme.colors.text }]}>{selectedJob.provider.phone}</Text>
                 </View>
-                <View style={{flexDirection: 'row', marginTop: 10, gap: 8}}>
+                <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
                   <TouchableOpacity
                     style={{
                       flex: 1,
@@ -905,34 +915,34 @@ const AdminJobsScreen = ({navigation, route}) => {
                     }}
                   >
                     <Icon name="chatbubble" size={16} color="#FFFFFF" />
-                    <Text style={{color: '#FFFFFF', marginLeft: 6, fontWeight: '600'}}>
+                    <Text style={{ color: '#FFFFFF', marginLeft: 6, fontWeight: '600' }}>
                       Ask Provider
                     </Text>
                   </TouchableOpacity>
                 </View>
               </View>
 
-              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
-                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Booking Submitted</Text>
+              <View style={[adminStyles.modalSection, isDark && { borderBottomColor: theme.colors.border }]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && { color: theme.colors.textSecondary }]}>Booking Submitted</Text>
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="calendar" size={20} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
-                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.createdAt}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && { color: theme.colors.text }]}>{selectedJob.createdAt}</Text>
                 </View>
               </View>
 
-              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
-                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Location</Text>
+              <View style={[adminStyles.modalSection, isDark && { borderBottomColor: theme.colors.border }]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && { color: theme.colors.textSecondary }]}>Location</Text>
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="location" size={20} color="#EF4444" />
-                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.location}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && { color: theme.colors.text }]}>{selectedJob.location}</Text>
                 </View>
               </View>
 
               {/* Additional Notes from Client */}
               {selectedJob.description && selectedJob.description !== 'See attached photos/videos' && (
-                <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
-                  <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Additional Notes</Text>
-                  <Text style={{fontSize: 15, color: isDark ? theme.colors.text : '#4B5563', lineHeight: 22}}>
+                <View style={[adminStyles.modalSection, isDark && { borderBottomColor: theme.colors.border }]}>
+                  <Text style={[adminStyles.modalSectionTitle, isDark && { color: theme.colors.textSecondary }]}>Additional Notes</Text>
+                  <Text style={{ fontSize: 15, color: isDark ? theme.colors.text : '#4B5563', lineHeight: 22 }}>
                     {selectedJob.description}
                   </Text>
                 </View>
@@ -940,14 +950,14 @@ const AdminJobsScreen = ({navigation, route}) => {
 
               {/* Media Gallery - Client's Photos/Videos of the Problem */}
               {selectedJob.media && selectedJob.media.length > 0 && (
-                <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
-                  <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>
+                <View style={[adminStyles.modalSection, isDark && { borderBottomColor: theme.colors.border }]}>
+                  <Text style={[adminStyles.modalSectionTitle, isDark && { color: theme.colors.textSecondary }]}>
                     Problem Photos/Videos ({selectedJob.media.length})
                   </Text>
-                  <Text style={{fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginBottom: 8}}>
+                  <Text style={{ fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginBottom: 8 }}>
                     Uploaded by client showing the issue
                   </Text>
-                  <View style={{flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, gap: 8}}>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, gap: 8 }}>
                     {selectedJob.media.map((item, index) => (
                       <TouchableOpacity
                         key={index}
@@ -967,12 +977,12 @@ const AdminJobsScreen = ({navigation, route}) => {
                       >
                         {(item.url || item.uri || item.thumbnail || (typeof item === 'string' && item)) ? (
                           <Image
-                            source={{uri: item.url || item.uri || item.thumbnail || item}}
-                            style={{width: '100%', height: '100%'}}
+                            source={{ uri: item.url || item.uri || item.thumbnail || item }}
+                            style={{ width: '100%', height: '100%' }}
                             resizeMode="cover"
                           />
                         ) : (
-                          <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                             <Icon name="image-outline" size={24} color="#9CA3AF" />
                           </View>
                         )}
@@ -999,43 +1009,43 @@ const AdminJobsScreen = ({navigation, route}) => {
               )}
 
               {selectedJob.status === 'disputed' && selectedJob.disputeReason && (
-                <View style={[adminStyles.modalSection, {backgroundColor: '#FEF2F2', padding: 16, borderRadius: 12}]}>
-                  <Text style={[adminStyles.modalSectionTitle, {color: '#DC2626'}]}>Dispute Reason</Text>
-                  <Text style={{fontSize: 15, color: '#991B1B', lineHeight: 22}}>
+                <View style={[adminStyles.modalSection, { backgroundColor: '#FEF2F2', padding: 16, borderRadius: 12 }]}>
+                  <Text style={[adminStyles.modalSectionTitle, { color: '#DC2626' }]}>Dispute Reason</Text>
+                  <Text style={{ fontSize: 15, color: '#991B1B', lineHeight: 22 }}>
                     {selectedJob.disputeReason}
                   </Text>
                 </View>
               )}
 
               {selectedJob.status === 'cancelled' && selectedJob.cancelReason && (
-                <View style={[adminStyles.modalSection, {backgroundColor: '#F3F4F6', padding: 16, borderRadius: 12}]}>
+                <View style={[adminStyles.modalSection, { backgroundColor: '#F3F4F6', padding: 16, borderRadius: 12 }]}>
                   <Text style={adminStyles.modalSectionTitle}>Cancellation Reason</Text>
-                  <Text style={{fontSize: 15, color: '#4B5563', lineHeight: 22}}>
+                  <Text style={{ fontSize: 15, color: '#4B5563', lineHeight: 22 }}>
                     {selectedJob.cancelReason}
                   </Text>
                 </View>
               )}
             </ScrollView>
 
-            <View style={[adminStyles.modalFooter, {flexDirection: 'column'}, isDark && {backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border}]}>
+            <View style={[adminStyles.modalFooter, { flexDirection: 'column' }, isDark && { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
               {/* Pending jobs - Admin can approve or reject */}
-              {(selectedJob.status === 'pending' || selectedJob.status === 'pending_negotiation' || selectedJob.status === 'counter_offer') && (
+              {(selectedJob.status === 'pending' || selectedJob.status === 'payment_received') && (
                 <>
                   {!selectedJob.adminApproved ? (
-                    <View style={{width: '100%'}}>
-                      <Text style={{fontSize: 12, color: '#6B7280', textAlign: 'center', marginBottom: 10}}>
+                    <View style={{ width: '100%' }}>
+                      <Text style={{ fontSize: 12, color: '#6B7280', textAlign: 'center', marginBottom: 10 }}>
                         Admin Action: Approve to send to provider, or Reject
                       </Text>
-                      <View style={{flexDirection: 'row', width: '100%', gap: 10}}>
-                        <TouchableOpacity 
-                          style={[adminStyles.actionButton, adminStyles.rejectButton, {flex: 1}]}
+                      <View style={{ flexDirection: 'row', width: '100%', gap: 10 }}>
+                        <TouchableOpacity
+                          style={[adminStyles.actionButton, adminStyles.rejectButton, { flex: 1 }]}
                           onPress={() => handleRejectJob(selectedJob)}
                         >
                           <Icon name="close-circle" size={18} color="#FFFFFF" />
                           <Text style={adminStyles.actionButtonText}>Reject</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={[adminStyles.actionButton, adminStyles.approveButton, {flex: 1}]}
+                        <TouchableOpacity
+                          style={[adminStyles.actionButton, adminStyles.approveButton, { flex: 1 }]}
                           onPress={() => handleApproveJob(selectedJob)}
                         >
                           <Icon name="checkmark-circle" size={18} color="#FFFFFF" />
@@ -1044,16 +1054,16 @@ const AdminJobsScreen = ({navigation, route}) => {
                       </View>
                     </View>
                   ) : (
-                    <View style={{width: '100%'}}>
-                      <View style={{backgroundColor: '#D1FAE5', padding: 12, borderRadius: 10, marginBottom: 10}}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
+                    <View style={{ width: '100%' }}>
+                      <View style={{ backgroundColor: '#D1FAE5', padding: 12, borderRadius: 10, marginBottom: 10 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                           <Icon name="checkmark-circle" size={20} color="#059669" />
-                          <Text style={{fontSize: 14, fontWeight: '600', color: '#059669', marginLeft: 8}}>
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: '#059669', marginLeft: 8 }}>
                             Approved - Waiting for Provider
                           </Text>
                         </View>
                       </View>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={{
                           flexDirection: 'row',
                           alignItems: 'center',
@@ -1066,7 +1076,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                         onPress={() => handleCancelJob(selectedJob)}
                       >
                         <Icon name="close-circle" size={18} color="#FFFFFF" />
-                        <Text style={{fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginLeft: 6}}>Cancel Job</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginLeft: 6 }}>Cancel Job</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -1074,7 +1084,7 @@ const AdminJobsScreen = ({navigation, route}) => {
               )}
               {/* Accepted jobs - can cancel if needed */}
               {selectedJob.status === 'accepted' && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -1087,21 +1097,21 @@ const AdminJobsScreen = ({navigation, route}) => {
                   onPress={() => handleCancelJob(selectedJob)}
                 >
                   <Icon name="close-circle" size={18} color="#FFFFFF" />
-                  <Text style={{fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginLeft: 6}}>Cancel Job</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginLeft: 6 }}>Cancel Job</Text>
                 </TouchableOpacity>
               )}
               {selectedJob.status === 'disputed' && (
                 <>
-                  <View style={{flexDirection: 'row', width: '100%', gap: 10, marginBottom: 10}}>
-                    <TouchableOpacity 
-                      style={[adminStyles.actionButton, adminStyles.viewButton, {flex: 1}]}
+                  <View style={{ flexDirection: 'row', width: '100%', gap: 10, marginBottom: 10 }}>
+                    <TouchableOpacity
+                      style={[adminStyles.actionButton, adminStyles.viewButton, { flex: 1 }]}
                       onPress={() => handleResolveDispute(selectedJob, 'client')}
                     >
                       <Icon name="person" size={18} color="#FFFFFF" />
                       <Text style={adminStyles.actionButtonText}>Favor Client</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[adminStyles.actionButton, adminStyles.approveButton, {flex: 1}]}
+                    <TouchableOpacity
+                      style={[adminStyles.actionButton, adminStyles.approveButton, { flex: 1 }]}
                       onPress={() => handleResolveDispute(selectedJob, 'provider')}
                     >
                       <Icon name="construct" size={18} color="#FFFFFF" />
@@ -1109,7 +1119,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                     </TouchableOpacity>
                   </View>
                   {!selectedJob.refunded && (
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={{
                         flexDirection: 'row',
                         alignItems: 'center',
@@ -1122,7 +1132,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                       onPress={() => handleRefund(selectedJob)}
                     >
                       <Icon name="card" size={18} color="#FFFFFF" />
-                      <Text style={{fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginLeft: 6}}>
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginLeft: 6 }}>
                         Process Refund
                       </Text>
                     </TouchableOpacity>
@@ -1130,7 +1140,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                 </>
               )}
               {selectedJob.status === 'cancelled' && !selectedJob.refunded && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -1143,7 +1153,7 @@ const AdminJobsScreen = ({navigation, route}) => {
                   onPress={() => handleRefund(selectedJob)}
                 >
                   <Icon name="card" size={18} color="#FFFFFF" />
-                  <Text style={{fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginLeft: 6}}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginLeft: 6 }}>
                     Process Refund
                   </Text>
                 </TouchableOpacity>
@@ -1158,17 +1168,17 @@ const AdminJobsScreen = ({navigation, route}) => {
   const stats = getStats();
 
   return (
-    <SafeAreaView style={[adminStyles.container, isDark && {backgroundColor: theme.colors.background}]} edges={['top']}>
-      <View style={[adminStyles.header, isDark && {backgroundColor: theme.colors.surface}]}>
-        <Text style={[adminStyles.headerTitle, isDark && {color: theme.colors.text}]}>Jobs</Text>
-        <Text style={[adminStyles.headerSubtitle, isDark && {color: theme.colors.textSecondary}]}>Monitor and manage all jobs</Text>
+    <SafeAreaView style={[adminStyles.container, isDark && { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <View style={[adminStyles.header, isDark && { backgroundColor: theme.colors.surface }]}>
+        <Text style={[adminStyles.headerTitle, isDark && { color: theme.colors.text }]}>Jobs</Text>
+        <Text style={[adminStyles.headerSubtitle, isDark && { color: theme.colors.textSecondary }]}>Monitor and manage all jobs</Text>
       </View>
 
       {/* Search Bar */}
-      <View style={[adminStyles.searchContainer, isDark && {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
+      <View style={[adminStyles.searchContainer, isDark && { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
         <Icon name="search-outline" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} style={adminStyles.searchIcon} />
         <TextInput
-          style={[adminStyles.searchInput, isDark && {color: theme.colors.text}]}
+          style={[adminStyles.searchInput, isDark && { color: theme.colors.text }]}
           placeholder="Search jobs, clients, providers..."
           placeholderTextColor={isDark ? theme.colors.textTertiary : '#9CA3AF'}
           value={searchQuery}
@@ -1183,10 +1193,10 @@ const AdminJobsScreen = ({navigation, route}) => {
 
       {/* Filter Tabs */}
       <View style={adminStyles.filterContainer}>
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{alignItems: 'center', paddingRight: 16}}
+          contentContainerStyle={{ alignItems: 'center', paddingRight: 16 }}
         >
           {filters.map((filter) => (
             <TouchableOpacity
@@ -1211,25 +1221,25 @@ const AdminJobsScreen = ({navigation, route}) => {
       </View>
 
       {/* Stats Bar */}
-      <View style={[adminStyles.statsBar, isDark && {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
+      <View style={[adminStyles.statsBar, isDark && { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
         <View style={adminStyles.statItem}>
-          <Text style={[adminStyles.statNumber, isDark && {color: theme.colors.text}]}>{stats.pending}</Text>
-          <Text style={[adminStyles.statLabel, isDark && {color: theme.colors.textSecondary}]}>Pending</Text>
+          <Text style={[adminStyles.statNumber, isDark && { color: theme.colors.text }]}>{stats.pending}</Text>
+          <Text style={[adminStyles.statLabel, isDark && { color: theme.colors.textSecondary }]}>Pending</Text>
         </View>
-        <View style={[adminStyles.statDivider, isDark && {backgroundColor: theme.colors.border}]} />
+        <View style={[adminStyles.statDivider, isDark && { backgroundColor: theme.colors.border }]} />
         <View style={adminStyles.statItem}>
-          <Text style={[adminStyles.statNumber, isDark && {color: theme.colors.text}]}>{stats.inProgress}</Text>
-          <Text style={[adminStyles.statLabel, isDark && {color: theme.colors.textSecondary}]}>Active</Text>
+          <Text style={[adminStyles.statNumber, isDark && { color: theme.colors.text }]}>{stats.inProgress}</Text>
+          <Text style={[adminStyles.statLabel, isDark && { color: theme.colors.textSecondary }]}>Active</Text>
         </View>
-        <View style={[adminStyles.statDivider, isDark && {backgroundColor: theme.colors.border}]} />
+        <View style={[adminStyles.statDivider, isDark && { backgroundColor: theme.colors.border }]} />
         <View style={adminStyles.statItem}>
-          <Text style={[adminStyles.statNumber, isDark && {color: theme.colors.text}]}>{stats.completed}</Text>
-          <Text style={[adminStyles.statLabel, isDark && {color: theme.colors.textSecondary}]}>Done</Text>
+          <Text style={[adminStyles.statNumber, isDark && { color: theme.colors.text }]}>{stats.completed}</Text>
+          <Text style={[adminStyles.statLabel, isDark && { color: theme.colors.textSecondary }]}>Done</Text>
         </View>
-        <View style={[adminStyles.statDivider, isDark && {backgroundColor: theme.colors.border}]} />
+        <View style={[adminStyles.statDivider, isDark && { backgroundColor: theme.colors.border }]} />
         <View style={adminStyles.statItem}>
-          <Text style={[adminStyles.statNumber, {color: '#DC2626'}]}>{stats.disputed}</Text>
-          <Text style={[adminStyles.statLabel, isDark && {color: theme.colors.textSecondary}]}>Disputed</Text>
+          <Text style={[adminStyles.statNumber, { color: '#DC2626' }]}>{stats.disputed}</Text>
+          <Text style={[adminStyles.statLabel, isDark && { color: theme.colors.textSecondary }]}>Disputed</Text>
         </View>
       </View>
 
@@ -1240,11 +1250,11 @@ const AdminJobsScreen = ({navigation, route}) => {
         </View>
       ) : jobs.length === 0 ? (
         <View style={adminStyles.emptyContainer}>
-          <View style={[adminStyles.emptyIcon, isDark && {backgroundColor: theme.colors.surface}]}>
+          <View style={[adminStyles.emptyIcon, isDark && { backgroundColor: theme.colors.surface }]}>
             <Icon name="briefcase-outline" size={40} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
           </View>
-          <Text style={[adminStyles.emptyText, isDark && {color: theme.colors.text}]}>No jobs found</Text>
-          <Text style={[adminStyles.emptySubtext, isDark && {color: theme.colors.textSecondary}]}>
+          <Text style={[adminStyles.emptyText, isDark && { color: theme.colors.text }]}>No jobs found</Text>
+          <Text style={[adminStyles.emptySubtext, isDark && { color: theme.colors.textSecondary }]}>
             {searchQuery ? 'Try a different search term' : 'No jobs match the selected filter'}
           </Text>
         </View>
@@ -1295,18 +1305,18 @@ const AdminJobsScreen = ({navigation, route}) => {
           >
             <Icon name="close" size={32} color="#FFFFFF" />
           </TouchableOpacity>
-          
+
           {selectedMedia && (
             selectedMedia.type === 'video' ? (
-              <View style={{alignItems: 'center'}}>
+              <View style={{ alignItems: 'center' }}>
                 {selectedMedia.thumbnail ? (
                   <Image
-                    source={{uri: selectedMedia.thumbnail}}
-                    style={{width: width - 40, height: width - 40, borderRadius: 12}}
+                    source={{ uri: selectedMedia.thumbnail }}
+                    style={{ width: width - 40, height: width - 40, borderRadius: 12 }}
                     resizeMode="contain"
                   />
                 ) : (
-                  <View style={{width: width - 40, height: width - 40, borderRadius: 12, backgroundColor: '#374151', justifyContent: 'center', alignItems: 'center'}}>
+                  <View style={{ width: width - 40, height: width - 40, borderRadius: 12, backgroundColor: '#374151', justifyContent: 'center', alignItems: 'center' }}>
                     <Icon name="videocam" size={60} color="#9CA3AF" />
                   </View>
                 )}
@@ -1333,19 +1343,19 @@ const AdminJobsScreen = ({navigation, route}) => {
                     <Icon name="play" size={40} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
-                <Text style={{color: '#FFFFFF', marginTop: 16, fontSize: 16}}>
+                <Text style={{ color: '#FFFFFF', marginTop: 16, fontSize: 16 }}>
                   Tap to play video
                 </Text>
               </View>
             ) : (
               (selectedMedia.url || selectedMedia.uri || (typeof selectedMedia === 'string' && selectedMedia)) ? (
                 <Image
-                  source={{uri: selectedMedia.url || selectedMedia.uri || selectedMedia}}
-                  style={{width: width - 40, height: width - 40, borderRadius: 12}}
+                  source={{ uri: selectedMedia.url || selectedMedia.uri || selectedMedia }}
+                  style={{ width: width - 40, height: width - 40, borderRadius: 12 }}
                   resizeMode="contain"
                 />
               ) : (
-                <View style={{width: width - 40, height: width - 40, borderRadius: 12, backgroundColor: '#374151', justifyContent: 'center', alignItems: 'center'}}>
+                <View style={{ width: width - 40, height: width - 40, borderRadius: 12, backgroundColor: '#374151', justifyContent: 'center', alignItems: 'center' }}>
                   <Icon name="image-outline" size={60} color="#9CA3AF" />
                 </View>
               )

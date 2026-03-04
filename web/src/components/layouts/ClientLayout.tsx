@@ -157,7 +157,7 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
 
         // Count as unread if status has a notification and not in readIds
         const hasNotification = ['accepted', 'traveling', 'arrived', 'in_progress',
-          'pending_completion', 'pending_payment', 'payment_received', 'counter_offer', 'completed'].includes(status);
+          'pending_completion', 'pending_payment', 'payment_received', 'completed'].includes(status);
 
         if (hasNotification && !readIds.has(notifId)) {
           count++;

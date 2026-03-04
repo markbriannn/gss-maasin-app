@@ -72,15 +72,15 @@ const getCategoryStyle = (category: string) => {
 
 const getStatusStyle = (status: string, adminApproved: boolean) => {
   switch (status) {
-    case "pending": return adminApproved ? { bg: "bg-gradient-to-r from-emerald-500 to-teal-500", label: "Awaiting Provider" } : { bg: "bg-gradient-to-r from-amber-500 to-yellow-500", label: "Pending Approval" };
-    case "pending_negotiation": return { bg: "bg-gradient-to-r from-yellow-500 to-amber-500", label: "Negotiating" };
-    case "counter_offer": return { bg: "bg-gradient-to-r from-purple-500 to-violet-500", label: "Counter Offer" };
-    case "accepted": case "traveling": return { bg: "bg-gradient-to-r from-blue-500 to-indigo-500", label: status === "traveling" ? "Provider Traveling" : "Accepted" };
+    case "pending": return adminApproved ? { bg: "bg-gradient-to-r from-teal-500 to-cyan-500", label: "Awaiting Provider" } : { bg: "bg-gradient-to-r from-amber-500 to-yellow-500", label: "Pending Approval" };
+    case "awaiting_payment": return { bg: "bg-gradient-to-r from-yellow-500 to-amber-500", label: "Awaiting Payment" };
+    case "payment_received": return { bg: "bg-gradient-to-r from-green-500 to-emerald-500", label: "Payment Received" };
+    case "accepted": return { bg: "bg-gradient-to-r from-blue-500 to-indigo-500", label: "Accepted" };
+    case "traveling": return { bg: "bg-gradient-to-r from-blue-500 to-indigo-500", label: "Provider Traveling" };
     case "arrived": return { bg: "bg-gradient-to-r from-indigo-500 to-purple-500", label: "Provider Arrived" };
     case "in_progress": return { bg: "bg-gradient-to-r from-blue-500 to-indigo-500", label: "In Progress" };
     case "pending_completion": return { bg: "bg-gradient-to-r from-amber-500 to-orange-500", label: "Awaiting Confirmation" };
     case "pending_payment": return { bg: "bg-gradient-to-r from-orange-500 to-amber-500", label: "Awaiting Payment" };
-    case "payment_received": return { bg: "bg-gradient-to-r from-emerald-500 to-green-500", label: "Payment Received" };
     case "completed": return { bg: "bg-gradient-to-r from-emerald-500 to-green-500", label: "Completed" };
     case "cancelled": case "rejected": return { bg: "bg-gradient-to-r from-gray-500 to-slate-500", label: status === "cancelled" ? "Cancelled" : "Rejected" };
     default: return { bg: "bg-gray-100", label: status?.replace(/_/g, " ") };
@@ -564,8 +564,17 @@ export default function AdminJobDetailsPage() {
           <div className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl p-6 -mt-8 relative z-10 mb-6 shadow-xl shadow-emerald-500/20">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-emerald-100 text-sm font-medium mb-1">Total Amount</p>
-                <p className="text-5xl font-bold text-white">₱{(job.finalAmount || calculateTotal()).toLocaleString()}</p>
+                <p className="text-emerald-100 text-sm font-medium mb-1">
+                  {(job.isPaidUpfront || job.status === 'payment_received' || job.status === 'completed')
+                    ? 'Client Paid (50% Upfront)'
+                    : 'Total Amount'}
+                </p>
+                <p className="text-5xl font-bold text-white">
+                  ₱{((job.isPaidUpfront || job.status === 'payment_received' || job.status === 'completed')
+                    ? (job.upfrontPaidAmount || (job.finalAmount || calculateTotal()) * 0.5)
+                    : (job.finalAmount || calculateTotal())
+                  ).toLocaleString()}
+                </p>
                 {(job.finalAmount || calculateTotal()) === 0 && (
                   <p className="text-amber-200 text-sm mt-2 bg-amber-500/20 px-3 py-1 rounded-lg inline-block">
                     ⚠️ Price not set - booking may need to be updated
@@ -573,18 +582,25 @@ export default function AdminJobDetailsPage() {
                 )}
                 {job.systemFee > 0 && (
                   <p className="text-emerald-100 text-sm mt-2">
-                    Provider: ₱{job.providerPrice.toLocaleString()} + Fee: ₱{job.systemFee.toLocaleString()}
+                    Provider: ₱{job.providerPrice.toLocaleString()} + Fee: ₱{job.systemFee.toLocaleString()} = Total: ₱{(job.finalAmount || calculateTotal()).toLocaleString()}
                   </p>
                 )}
               </div>
               <div className="text-right">
-                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl ${job.paymentPreference === "pay_first" ? "bg-white/20" : "bg-white/20"}`}>
+                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl ${job.isPaidUpfront || job.status === 'payment_received' || job.status === 'completed'
+                    ? "bg-white/20"
+                    : "bg-white/20"
+                  }`}>
                   <CreditCard className="w-5 h-5 text-white" />
-                  <span className="text-white font-bold">{job.isPaidUpfront ? "PAID" : "PENDING PAYMENT"}</span>
+                  <span className="text-white font-bold">
+                    {job.isPaidUpfront || job.status === 'payment_received' || job.status === 'completed'
+                      ? "PAID"
+                      : "PENDING PAYMENT"}
+                  </span>
                 </div>
-                {job.isPaidUpfront && (
+                {(job.isPaidUpfront || job.status === 'payment_received' || job.status === 'completed') && (
                   <div className="mt-2 bg-white text-emerald-600 px-4 py-2 rounded-xl font-bold text-sm">
-                    ✓ PAID ₱{job.upfrontPaidAmount?.toLocaleString()}
+                    ✓ PAID ₱{(job.upfrontPaidAmount || job.finalAmount || calculateTotal()).toLocaleString()}
                   </div>
                 )}
               </div>
@@ -825,7 +841,7 @@ export default function AdminJobDetailsPage() {
                   <Zap className="w-5 h-5 text-violet-500" /> Admin Actions
                 </h3>
                 <div className="space-y-3">
-                  {job.status === "pending" && !job.adminApproved && (
+                  {(job.status === "pending" || job.status === "payment_received") && !job.adminApproved && (
                     <>
                       <button onClick={handleApprove} disabled={updating}
                         className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 rounded-xl font-bold hover:shadow-lg hover:shadow-emerald-500/30 transition-all disabled:opacity-50">

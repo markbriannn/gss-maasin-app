@@ -206,7 +206,7 @@ export default function NotificationDropdown({
         // Admin: pending jobs
         const pendingJobsQuery = query(
           collection(db, 'bookings'),
-          where('status', 'in', ['pending', 'pending_negotiation'])
+          where('status', 'in', ['pending'])
         );
         const pendingJobsSnapshot = await getDocs(pendingJobsQuery);
         pendingJobsSnapshot.forEach((docSnap) => {
@@ -232,7 +232,7 @@ export default function NotificationDropdown({
         // Provider: available jobs
         const availableJobsQuery = query(
           collection(db, 'bookings'),
-          where('status', 'in', ['pending', 'pending_negotiation'])
+          where('status', 'in', ['pending'])
         );
         const availableJobsSnapshot = await getDocs(availableJobsQuery);
         availableJobsSnapshot.forEach((docSnap) => {
@@ -314,7 +314,6 @@ export default function NotificationDropdown({
             'pending_completion': { icon: 'checkmark-done', iconColor: '#F59E0B', title: 'Work Complete - Confirm', message: `Provider marked work as complete. Please confirm.` },
             'pending_payment': { icon: 'card', iconColor: '#3B82F6', title: 'Payment Required', message: `Please complete payment for your ${data.serviceCategory || 'service'}` },
             'payment_received': { icon: 'cash', iconColor: '#10B981', title: 'Payment Sent', message: `Your payment is being processed` },
-            'counter_offer': { icon: 'pricetag', iconColor: '#EC4899', title: 'Counter Offer Received!', message: `Provider offers ₱${(data.counterOfferPrice || 0).toLocaleString()} - Tap to respond`, urgent: true },
             'completed': { icon: 'checkmark-circle', iconColor: '#10B981', title: 'Job Completed', message: `Your ${data.serviceCategory || 'service'} has been completed` },
             'cancelled': { icon: 'close-circle', iconColor: '#EF4444', title: 'Job Cancelled', message: `Your ${data.serviceCategory || 'service'} request was cancelled` },
             'rejected': { icon: 'close-circle', iconColor: '#EF4444', title: 'Job Rejected', message: `Your ${data.serviceCategory || 'service'} request was rejected` },
@@ -324,7 +323,7 @@ export default function NotificationDropdown({
           if (config) {
             notificationsList.push({
               id: notifId,
-              type: status === 'counter_offer' ? 'counter_offer' : 'job',
+              type: 'job',
               icon: config.icon,
               iconColor: config.iconColor,
               title: config.title,
@@ -441,13 +440,13 @@ export default function NotificationDropdown({
 
       const jobsQuery = query(
         collection(db, 'bookings'),
-        where('status', 'in', ['pending', 'pending_negotiation'])
+        where('status', 'in', ['pending'])
       );
       unsubscribers.push(onSnapshot(jobsQuery, () => generateNotifications()));
     } else if (userRole === 'PROVIDER') {
       const availableJobsQuery = query(
         collection(db, 'bookings'),
-        where('status', 'in', ['pending', 'pending_negotiation'])
+        where('status', 'in', ['pending'])
       );
       unsubscribers.push(onSnapshot(availableJobsQuery, () => generateNotifications()));
 

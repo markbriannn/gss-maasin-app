@@ -278,7 +278,7 @@ export default function ProviderDashboard() {
 
       setStats({ todayEarnings, weekEarnings, totalEarnings, jobsToday, activeJobs, rating: providerRating, completedJobs });
 
-      const availableQuery = query(collection(db, 'bookings'), where('status', 'in', ['pending', 'approved', 'pending_negotiation']));
+      const availableQuery = query(collection(db, 'bookings'), where('status', 'in', ['pending', 'approved']));
       const availableSnapshot = await getDocs(availableQuery);
       const available: Job[] = [];
 

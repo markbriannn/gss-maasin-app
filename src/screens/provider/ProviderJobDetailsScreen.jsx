@@ -35,12 +35,12 @@ import { onBookingCompleted } from '../../services/gamificationService';
 import { PremiumModal, ConfirmModal } from '../../components/common';
 import VoiceCall from '../../components/common/VoiceCall';
 import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall } from '../../services/callService';
-import { 
-  calculateProviderEarnings, 
-  calculateClientTotal, 
-  createAdditionalCharge, 
+import {
+  calculateProviderEarnings,
+  calculateClientTotal,
+  createAdditionalCharge,
   validateAdditionalCharge,
-  formatCurrency 
+  formatCurrency
 } from '../../utils/bookingCalculations';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -361,7 +361,12 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
     switch (status?.toLowerCase()) {
       case 'pending': return '#F59E0B';
       case 'accepted': return '#3B82F6';
+      case 'traveling': return '#6366F1';
+      case 'arrived': return '#8B5CF6';
       case 'in_progress': return '#8B5CF6';
+      case 'pending_completion': return '#F59E0B';
+      case 'pending_payment': return '#F97316';
+      case 'payment_received': return '#10B981';
       case 'completed': return '#10B981';
       case 'cancelled': return '#EF4444';
       default: return '#6B7280';
@@ -372,7 +377,12 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
     switch (status?.toLowerCase()) {
       case 'pending': return 'Pending';
       case 'accepted': return 'Accepted';
+      case 'traveling': return 'Traveling';
+      case 'arrived': return 'Arrived';
       case 'in_progress': return 'In Progress';
+      case 'pending_completion': return 'Pending Completion';
+      case 'pending_payment': return 'Awaiting Payment';
+      case 'payment_received': return 'Payment Received';
       case 'completed': return 'Completed';
       case 'cancelled': return 'Cancelled';
       default: return status || 'Unknown';
@@ -563,7 +573,7 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
 
     try {
       setIsUpdating(true);
-      
+
       // Create charge object using centralized utility
       const newCharge = createAdditionalCharge(parseFloat(additionalAmount), additionalReason);
 

@@ -98,7 +98,7 @@ export default function JobsPage() {
     const availableQuery = query(
       collection(db, 'bookings'),
       where('providerId', '==', userId),
-      where('status', 'in', ['pending', 'pending_negotiation'])
+      where('status', 'in', ['pending'])
     );
     const unsubAvailable = onSnapshot(availableQuery, (snap) => {
       const count = snap.docs.filter(d => !d.data().adminRejected).length;
@@ -144,7 +144,7 @@ export default function JobsPage() {
       // Determine which statuses to listen for based on active tab
       let statuses: string[];
       if (activeTab === 'available') {
-        statuses = ['pending', 'pending_negotiation'];
+        statuses = ['pending'];
       } else if (activeTab === 'my_jobs') {
         statuses = ['accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion', 'pending_payment', 'payment_received'];
       } else {
@@ -260,13 +260,11 @@ export default function JobsPage() {
   };
 
   const getStatusStyle = (status: string, adminApproved: boolean) => {
-    if (!adminApproved && (status === 'pending' || status === 'pending_negotiation')) {
+    if (!adminApproved && status === 'pending') {
       return { bg: 'bg-amber-100', text: 'text-amber-700', label: 'PENDING REVIEW' };
     }
     switch (status) {
       case 'pending': return { bg: 'bg-amber-100', text: 'text-amber-700', label: 'PENDING' };
-      case 'pending_negotiation': return { bg: 'bg-purple-100', text: 'text-purple-700', label: 'OFFER RECEIVED' };
-      case 'counter_offer': return { bg: 'bg-violet-100', text: 'text-violet-700', label: 'COUNTER SENT' };
       case 'accepted': return { bg: 'bg-blue-100', text: 'text-blue-700', label: 'ACCEPTED' };
       case 'traveling': return { bg: 'bg-indigo-100', text: 'text-indigo-700', label: 'TRAVELING' };
       case 'arrived': return { bg: 'bg-purple-100', text: 'text-purple-700', label: 'ARRIVED' };
@@ -361,7 +359,7 @@ export default function JobsPage() {
                     className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all cursor-pointer overflow-hidden border border-gray-100 dark:border-gray-700 ${!job.adminApproved ? 'opacity-90' : ''}`}>
 
                     {/* Admin Approval Banner */}
-                    {!job.adminApproved && (job.status === 'pending' || job.status === 'pending_negotiation') && (
+                    {!job.adminApproved && job.status === 'pending' && (
                       <div className="bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-2.5 flex items-center gap-2 border-b border-amber-100">
                         <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center">
                           <Clock className="w-3.5 h-3.5 text-amber-600" />

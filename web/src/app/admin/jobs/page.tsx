@@ -130,7 +130,7 @@ export default function AdminJobsPage() {
     { id: 'all', label: 'All', color: 'violet' },
     { id: 'pending', label: 'Pending', color: 'amber' },
     { id: 'awaiting_payment', label: 'Awaiting Pay', color: 'yellow' },
-    { id: 'pending_negotiation', label: 'Nego', color: 'yellow' },
+    { id: 'payment_received', label: 'Paid', color: 'green' },
     { id: 'accepted', label: 'Accepted', color: 'blue' },
     { id: 'traveling', label: 'Traveling', color: 'blue' },
     { id: 'arrived', label: 'Arrived', color: 'indigo' },
@@ -288,16 +288,16 @@ export default function AdminJobsPage() {
 
   const getStatusStyle = (status: string, adminApproved: boolean) => {
     switch (status) {
-      case 'pending': return adminApproved ? { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Confirmed' } : { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Pending' };
+      case 'pending': return adminApproved ? { bg: 'bg-teal-100', text: 'text-teal-700', label: 'Awaiting Provider' } : { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Pending Approval' };
       case 'awaiting_payment': return { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Awaiting Payment' };
-      case 'pending_negotiation': return { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Negotiating' };
-      case 'counter_offer': return { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Counter Offer' };
+      case 'payment_received': return { bg: 'bg-green-100', text: 'text-green-700', label: 'Payment Received' };
       case 'accepted': return { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Accepted' };
       case 'traveling': return { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Traveling' };
       case 'arrived': return { bg: 'bg-indigo-100', text: 'text-indigo-700', label: 'Arrived' };
       case 'in_progress': return { bg: 'bg-blue-100', text: 'text-blue-700', label: 'In Progress' };
       case 'pending_completion': return { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Pending Completion' };
-      case 'completed': return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Confirmed' };
+      case 'pending_payment': return { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Awaiting Payment' };
+      case 'completed': return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Completed' };
       case 'cancelled': case 'rejected': return { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Cancelled' };
       default: return { bg: 'bg-gray-100', text: 'text-gray-600', label: status?.replace(/_/g, ' ') };
     }
@@ -307,13 +307,13 @@ export default function AdminJobsPage() {
     switch (status) {
       case 'pending': return adminApproved ? 'Awaiting Provider' : 'Pending Approval';
       case 'awaiting_payment': return 'Awaiting Payment';
-      case 'pending_negotiation': return 'Negotiating';
-      case 'counter_offer': return 'Counter Offer';
+      case 'payment_received': return 'Payment Received';
       case 'accepted': return 'Accepted';
       case 'traveling': return 'Traveling';
       case 'arrived': return 'Arrived';
       case 'in_progress': return 'In Progress';
       case 'pending_completion': return 'Pending Completion';
+      case 'pending_payment': return 'Awaiting Payment';
       case 'completed': return 'Completed';
       case 'cancelled': return 'Cancelled';
       case 'rejected': return 'Rejected';
@@ -784,24 +784,53 @@ export default function AdminJobsPage() {
                 </div>
 
                 {/* Payment Preference */}
-                <div className={`p-4 rounded-2xl mb-6 ${selectedJob.paymentPreference === 'pay_first' ? 'bg-emerald-50 border border-emerald-100' : 'bg-blue-50 border border-blue-100'}`}>
+                <div className={`p-4 rounded-2xl mb-6 ${selectedJob.status === 'payment_received' || selectedJob.isPaidUpfront
+                  ? 'bg-emerald-50 border border-emerald-100'
+                  : selectedJob.paymentPreference === 'pay_first'
+                    ? 'bg-amber-50 border border-amber-100'
+                    : 'bg-blue-50 border border-blue-100'
+                  }`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${selectedJob.paymentPreference === 'pay_first' ? 'bg-emerald-100' : 'bg-blue-100'}`}>
-                        <CreditCard className={`w-6 h-6 ${selectedJob.paymentPreference === 'pay_first' ? 'text-emerald-600' : 'text-blue-600'}`} />
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${selectedJob.status === 'payment_received' || selectedJob.isPaidUpfront
+                        ? 'bg-emerald-100'
+                        : selectedJob.paymentPreference === 'pay_first'
+                          ? 'bg-amber-100'
+                          : 'bg-blue-100'
+                        }`}>
+                        <CreditCard className={`w-6 h-6 ${selectedJob.status === 'payment_received' || selectedJob.isPaidUpfront
+                          ? 'text-emerald-600'
+                          : selectedJob.paymentPreference === 'pay_first'
+                            ? 'text-amber-600'
+                            : 'text-blue-600'
+                          }`} />
                       </div>
                       <div>
-                        <p className={`font-bold ${selectedJob.paymentPreference === 'pay_first' ? 'text-emerald-700' : 'text-blue-700'}`}>
-                          {selectedJob.isPaidUpfront ? 'PAID' : 'PENDING PAYMENT'}
+                        <p className={`font-bold ${selectedJob.status === 'payment_received' || selectedJob.isPaidUpfront
+                          ? 'text-emerald-700'
+                          : selectedJob.paymentPreference === 'pay_first'
+                            ? 'text-amber-700'
+                            : 'text-blue-700'
+                          }`}>
+                          {selectedJob.status === 'payment_received' || selectedJob.isPaidUpfront
+                            ? 'PAYMENT RECEIVED'
+                            : 'PENDING PAYMENT'}
                         </p>
-                        <p className={`text-sm ${selectedJob.paymentPreference === 'pay_first' ? 'text-emerald-600' : 'text-blue-600'}`}>
-                          {'Client pays before service'}
+                        <p className={`text-sm ${selectedJob.status === 'payment_received' || selectedJob.isPaidUpfront
+                          ? 'text-emerald-600'
+                          : selectedJob.paymentPreference === 'pay_first'
+                            ? 'text-amber-600'
+                            : 'text-blue-600'
+                          }`}>
+                          {selectedJob.status === 'payment_received'
+                            ? 'Client has paid the downpayment'
+                            : 'Client pays before service'}
                         </p>
                       </div>
                     </div>
-                    {selectedJob.isPaidUpfront && (
+                    {(selectedJob.isPaidUpfront || selectedJob.status === 'payment_received') && (
                       <span className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg">
-                        ✓ PAID ₱{selectedJob.upfrontPaidAmount.toLocaleString()}
+                        ✓ PAID {selectedJob.upfrontPaidAmount > 0 ? `₱${selectedJob.upfrontPaidAmount.toLocaleString()}` : ''}
                       </span>
                     )}
                   </div>
@@ -924,17 +953,25 @@ export default function AdminJobsPage() {
                   </div>
                 )}
 
-                {/* Actions */}
-                {selectedJob.status === 'pending' && !selectedJob.adminApproved && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => handleApproveJob(selectedJob)} disabled={updating}
-                      className="flex items-center justify-center gap-2 bg-green-600 text-white py-3.5 rounded-xl font-bold hover:bg-green-700 hover:shadow-lg transition-all disabled:opacity-50">
-                      <CheckCircle className="w-5 h-5" /> Approve
-                    </button>
-                    <button onClick={() => handleRejectJob(selectedJob)} disabled={updating}
-                      className="flex items-center justify-center gap-2 bg-red-500 text-white py-3.5 rounded-xl font-bold hover:bg-red-600 hover:shadow-lg transition-all disabled:opacity-50">
-                      <XCircle className="w-5 h-5" /> Reject
-                    </button>
+                {/* Actions — show for pending (unapproved) OR payment_received (unapproved) */}
+                {(selectedJob.status === 'pending' || selectedJob.status === 'payment_received') && !selectedJob.adminApproved && (
+                  <div className="space-y-3">
+                    {selectedJob.status === 'payment_received' && (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                        <p className="text-emerald-700 text-sm font-medium">Payment received — ready to approve and dispatch to provider.</p>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <button onClick={() => handleApproveJob(selectedJob)} disabled={updating}
+                        className="flex items-center justify-center gap-2 bg-green-600 text-white py-3.5 rounded-xl font-bold hover:bg-green-700 hover:shadow-lg transition-all disabled:opacity-50">
+                        <CheckCircle className="w-5 h-5" /> Approve
+                      </button>
+                      <button onClick={() => handleRejectJob(selectedJob)} disabled={updating}
+                        className="flex items-center justify-center gap-2 bg-red-500 text-white py-3.5 rounded-xl font-bold hover:bg-red-600 hover:shadow-lg transition-all disabled:opacity-50">
+                        <XCircle className="w-5 h-5" /> Reject
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

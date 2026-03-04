@@ -231,7 +231,7 @@ export default function ToastNotification() {
 
     const bookingsQuery = query(
       collection(db, 'bookings'),
-      where('status', 'in', ['pending', 'pending_negotiation']),
+      where('status', 'in', ['pending']),
       limit(50)
     );
 

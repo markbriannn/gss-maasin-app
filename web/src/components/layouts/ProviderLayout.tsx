@@ -172,7 +172,7 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
     // Listen to available jobs
     const availableJobsQuery = query(
       collection(db, 'bookings'),
-      where('status', 'in', ['pending', 'pending_negotiation'])
+      where('status', 'in', ['pending'])
     );
 
     unsubscribers.push(onSnapshot(availableJobsQuery, (snapshot) => {

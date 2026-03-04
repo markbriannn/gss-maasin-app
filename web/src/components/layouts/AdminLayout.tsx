@@ -150,7 +150,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     // Listen to pending jobs
     const jobsQuery = query(
       collection(db, 'bookings'),
-      where('status', 'in', ['pending', 'pending_negotiation'])
+      where('status', 'in', ['pending'])
     );
 
     unsubscribers.push(onSnapshot(jobsQuery, (snapshot) => {

@@ -28,16 +28,16 @@ import { getProviderBadges, getProviderTier } from '../../utils/gamification';
 import { BadgeList, TierBadge } from '../../components/gamification';
 import { PremiumModal, ConfirmModal, PaymentModal as PremiumPaymentModal } from '../../components/common';
 import { showInfoModal, showErrorModal, showSuccessModal } from '../../utils/modalManager';
-import VoiceCall from '../../components/common/VoiceCall';
-import QRPaymentModal from '../../components/common/QRPaymentModal';
-import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall } from '../../services/callService';
 import {
   calculateClientTotal,
   calculateUpfrontPayment,
   calculateCompletionPayment,
+  formatCurrency,
   getAdditionalChargesSummary,
-  formatCurrency
 } from '../../utils/bookingCalculations';
+import VoiceCall from '../../components/common/VoiceCall';
+import QRPaymentModal from '../../components/common/QRPaymentModal';
+import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall } from '../../services/callService';
 
 const JobDetailsScreen = ({ navigation, route }) => {
   const { job, jobId } = route.params || {};
@@ -94,7 +94,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
   const appState = useRef(AppState.currentState);
-  
+
   // QR Payment modal state
   const [showQRPayment, setShowQRPayment] = useState(false);
   const [qrPaymentUrl, setQRPaymentUrl] = useState(null);
@@ -335,8 +335,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
     switch (status?.toLowerCase()) {
       case 'awaiting_payment': return '#EA580C';
       case 'pending': return '#F59E0B';
-      case 'pending_negotiation': return '#F59E0B';
-      case 'counter_offer': return '#8B5CF6';
+      case 'payment_received': return '#10B981';
       case 'accepted': return '#3B82F6';
       case 'traveling': return '#3B82F6';
       case 'arrived': return '#10B981';
@@ -352,8 +351,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
     switch (status?.toLowerCase()) {
       case 'awaiting_payment': return 'Awaiting Payment';
       case 'pending': return 'Pending';
-      case 'pending_negotiation': return 'Offer Sent';
-      case 'counter_offer': return 'Counter Offer Received';
+      case 'payment_received': return 'Payment Received';
       case 'accepted': return 'Accepted';
       case 'traveling': return 'Provider On The Way';
       case 'arrived': return 'Provider Arrived';
@@ -578,8 +576,15 @@ const JobDetailsScreen = ({ navigation, route }) => {
     // Prevent double-click
     if (isProcessingPayment || isUpdating) return;
 
-    // Use centralized calculation utility
-    const amount = calculateCompletionPayment(jobData);
+    // Use context-aware payment amount based on current status
+    const isUpfrontPayment = jobData?.status === 'awaiting_payment';
+    const amount = isUpfrontPayment
+      ? calculateUpfrontPayment(jobData)
+      : calculateCompletionPayment(jobData);
+    const paymentType = isUpfrontPayment ? 'upfront' : 'completion';
+    const description = isUpfrontPayment
+      ? `50% Downpayment - ${jobData.title || jobData.serviceCategory}`
+      : `50% Completion - ${jobData.title || jobData.serviceCategory}`;
 
     const bookingId = jobData.id || jobId;
     const userId = user?.uid || user?.id;
@@ -594,13 +599,13 @@ const JobDetailsScreen = ({ navigation, route }) => {
         bookingId,
         userId,
         amount,
-        `50% Completion - ${jobData.title || jobData.serviceCategory}`,
-        { paymentType: 'completion' }
+        description,
+        { paymentType }
       );
 
       if (result.success && result.checkoutUrl) {
         setShowPaymentModal(false);
-        
+
         // Show QR payment in-app modal
         setQRPaymentUrl(result.checkoutUrl);
         setQRPaymentAmount(amount);
@@ -920,7 +925,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         ) : null}
         {/* Admin Review Banner - Show when pending and not yet approved */}
-        {(!jobData.adminApproved && (jobData.status === 'pending' || jobData.status === 'pending_negotiation')) ? (
+        {(!jobData.adminApproved && jobData.status === 'pending') ? (
           <View style={{
             backgroundColor: '#EFF6FF',
             padding: 14,
@@ -1248,61 +1253,6 @@ const JobDetailsScreen = ({ navigation, route }) => {
             </View>
           </View>
         ) : null}
-        {/* Counter Offer Section */}
-        {jobData.status?.toLowerCase() === 'counter_offer' ? (
-          <View style={styles.section}>
-            <View style={{
-              backgroundColor: '#EDE9FE',
-              borderRadius: 12,
-              padding: 16,
-              borderWidth: 1,
-              borderColor: '#8B5CF6',
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                <Icon name="pricetag" size={20} color="#8B5CF6" />
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#5B21B6', marginLeft: 8 }}>
-                  Provider's Counter Offer
-                </Text>
-              </View>
-              <Text style={{ fontSize: 28, fontWeight: '700', color: '#8B5CF6' }}>
-                ₱{(jobData.counterOfferPrice || 0).toLocaleString()}
-              </Text>
-              {jobData.counterOfferNote ? (
-                <Text style={{ fontSize: 14, color: '#5B21B6', marginTop: 8, fontStyle: 'italic' }}>
-                  "{jobData.counterOfferNote}"
-                </Text>
-              ) : null}
-
-              <View style={{ flexDirection: 'row', marginTop: 16 }}>
-                <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    backgroundColor: '#FFFFFF',
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    marginRight: 8,
-                    alignItems: 'center',
-                    borderWidth: 1,
-                    borderColor: '#8B5CF6',
-                  }}
-                  onPress={() => setShowNewOfferModal(true)}>
-                  <Text style={{ fontSize: 14, color: '#8B5CF6', fontWeight: '600' }}>Make New Offer</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    backgroundColor: '#8B5CF6',
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    alignItems: 'center',
-                  }}
-                  onPress={handleAcceptCounterOffer}>
-                  <Text style={{ fontSize: 14, color: '#FFFFFF', fontWeight: '600' }}>Accept</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        ) : null}
         {/* Review Prompt - Show when job is completed and not yet reviewed */}
         {(jobData.status === 'completed' && !jobData.reviewed) ? (
           <View style={{
@@ -1433,7 +1383,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
           </Text>
         </View>
         {/* Action Buttons */}
-        {(jobData.status === 'pending' || jobData.status === 'pending_negotiation' || jobData.status === 'awaiting_payment') ? (
+        {(jobData.status === 'pending' || jobData.status === 'awaiting_payment') ? (
           <View style={styles.actionSection}>
             {/* Pay Now button for awaiting_payment */}
             {jobData.status === 'awaiting_payment' && (
@@ -1449,13 +1399,16 @@ const JobDetailsScreen = ({ navigation, route }) => {
                 }}>
                   <Icon name="card" size={32} color="#EA580C" />
                   <Text style={{ fontSize: 16, fontWeight: '600', color: '#9A3412', marginTop: 8 }}>
-                    Complete Your Payment
+                    50% Downpayment Required
                   </Text>
                   <Text style={{ fontSize: 22, fontWeight: '700', color: '#EA580C', marginTop: 8 }}>
-                    ₱{(jobData?.totalAmount || jobData?.amount || 0).toLocaleString()}
+                    {formatCurrency(calculateUpfrontPayment(jobData))}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: '#C2410C', marginTop: 2 }}>
+                    (50% of {formatCurrency(calculateClientTotal(jobData))} total)
                   </Text>
                   <Text style={{ fontSize: 13, color: '#C2410C', marginTop: 4, textAlign: 'center' }}>
-                    Complete payment to submit your booking for admin approval.
+                    Pay 50% now to submit your booking. Remaining 50% after the job is done.
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -1471,7 +1424,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
                   onPress={handleMakePayment}>
                   <Icon name="wallet" size={20} color="#FFFFFF" />
                   <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>
-                    Pay Now
+                    Pay 50% Downpayment
                   </Text>
                 </TouchableOpacity>
               </>
@@ -1663,22 +1616,16 @@ const JobDetailsScreen = ({ navigation, route }) => {
             }}>
               <Icon name="card" size={32} color="#3B82F6" />
               <Text style={{ fontSize: 16, fontWeight: '600', color: '#1E40AF', marginTop: 8 }}>
-                {jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront
-                  ? 'Additional Payment Required'
-                  : 'Payment Required'}
+                Remaining 50% Balance Due
               </Text>
               <Text style={{ fontSize: 22, fontWeight: '700', color: '#1E40AF', marginTop: 8 }}>
                 {formatCurrency(calculateCompletionPayment(jobData))}
               </Text>
-              {(jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront) ? (
-                <Text style={{ fontSize: 12, color: '#3B82F6', marginTop: 2 }}>
-                  (Original {formatCurrency(jobData.upfrontPaidAmount || jobData.totalAmount || 0)} already paid)
-                </Text>
-              ) : null}
+              <Text style={{ fontSize: 12, color: '#3B82F6', marginTop: 2 }}>
+                (Already paid 50% = {formatCurrency(jobData.upfrontPaidAmount || calculateUpfrontPayment(jobData))})
+              </Text>
               <Text style={{ fontSize: 13, color: '#3B82F6', marginTop: 4, textAlign: 'center' }}>
-                {jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront
-                  ? 'Please pay the additional charges to complete this job.'
-                  : 'Please pay the provider to complete this job.'}
+                Work is complete! Pay the remaining balance to finalize the job.
               </Text>
             </View>
             <TouchableOpacity
@@ -1694,7 +1641,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
               disabled={isCheckingPayment}>
               <Icon name={paymentError ? 'refresh' : 'wallet'} size={20} color="#FFFFFF" />
               <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>
-                {paymentError ? 'Retry Payment' : 'Pay Now'}
+                {paymentError ? 'Retry Payment' : 'Pay Remaining 50%'}
               </Text>
             </TouchableOpacity>
 
@@ -1979,9 +1926,19 @@ const JobDetailsScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             </View>
 
+            <Text style={{ fontSize: 14, color: '#6B7280', marginBottom: 4 }}>
+              {jobData?.status === 'awaiting_payment' ? '50% Downpayment' :
+                jobData?.status === 'pending_payment' ? 'Remaining 50% Balance' : 'Amount to Pay'}
+            </Text>
             <Text style={{ fontSize: 14, color: '#6B7280', marginBottom: 16 }}>
               Amount to pay: <Text style={{ fontWeight: '700', color: '#00B14F' }}>
-                ₱{(jobData?.totalAmount || jobData?.amount || 0).toLocaleString()}
+                {formatCurrency(
+                  jobData?.status === 'pending_payment'
+                    ? calculateCompletionPayment(jobData)
+                    : jobData?.status === 'awaiting_payment'
+                      ? calculateUpfrontPayment(jobData)
+                      : (jobData?.totalAmount || jobData?.amount || 0)
+                )}
               </Text>
             </Text>
 

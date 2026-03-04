@@ -343,7 +343,8 @@ function BookServiceContent() {
       setProcessingPayment(true);
 
       // For 50/50 split: client pays 50% upfront, 50% after completion
-      const upfrontAmount = Math.ceil(totalAmount * 0.5); // Round up to ensure we collect at least 50%
+      // Keep decimal precision - backend will convert to centavos (₱1.32 = 132 centavos)
+      const upfrontAmount = Math.round(totalAmount * 0.5 * 100) / 100; // Round to 2 decimal places
 
       const paymentResult = await processPayment({
         amount: upfrontAmount, // Pay 50% upfront
@@ -834,9 +835,31 @@ function BookServiceContent() {
                   </div>
 
                   <div className="p-5">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-gray-900">Total</span>
-                      <span className="text-2xl font-bold text-[#00B14F]">₱{getTotalAmount().toLocaleString()}</span>
+                    <div className="space-y-3 mb-4 pb-4 border-b border-gray-200">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Provider Price</span>
+                        <span className="font-semibold text-gray-900">₱{getPrice().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">System Fee (5%)</span>
+                        <span className="font-semibold text-gray-900">₱{getSystemFee().toFixed(2)}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-between items-center mb-4">
+                      <span className="font-bold text-gray-900">Total Amount</span>
+                      <span className="text-2xl font-bold text-gray-900">₱{getTotalAmount().toFixed(2)}</span>
+                    </div>
+
+                    <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl p-4 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-semibold text-emerald-900">Pay Now (50%)</span>
+                        <span className="text-lg font-bold text-[#00B14F]">₱{(getTotalAmount() * 0.5).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-emerald-700">After Completion (50%)</span>
+                        <span className="text-sm font-semibold text-emerald-900">₱{(getTotalAmount() * 0.5).toFixed(2)}</span>
+                      </div>
                     </div>
 
                   </div>

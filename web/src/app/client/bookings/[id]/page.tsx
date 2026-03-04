@@ -100,8 +100,7 @@ interface JobData {
 const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
   awaiting_payment: { label: 'Awaiting Payment', color: 'text-orange-600', bgColor: 'bg-orange-100' },
   pending: { label: 'Pending', color: 'text-amber-600', bgColor: 'bg-amber-100' },
-  pending_negotiation: { label: 'Offer Sent', color: 'text-amber-600', bgColor: 'bg-amber-100' },
-  counter_offer: { label: 'Counter Offer Received', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  payment_received: { label: 'Payment Received', color: 'text-green-600', bgColor: 'bg-green-100' },
   accepted: { label: 'Accepted', color: 'text-green-600', bgColor: 'bg-green-100' },
   traveling: { label: 'Provider On The Way', color: 'text-blue-600', bgColor: 'bg-blue-100' },
   arrived: { label: 'Provider Arrived', color: 'text-emerald-600', bgColor: 'bg-emerald-100' },
@@ -377,89 +376,47 @@ function JobDetailsContent() {
     return calculateClientTotal(job as Booking);
   }, [job]);
 
+  // Calculate the correct payment amount based on current status
+  const getPaymentAmount = useCallback(() => {
+    if (!job) return 0;
+    // For initial booking payment (awaiting_payment) → pay 50% upfront
+    if (job.status === 'awaiting_payment') {
+      return calculateUpfrontPayment(job as Booking);
+    }
+    // For final payment after work done (pending_payment) → pay remaining 50% + additional charges
+    if (job.status === 'pending_payment') {
+      return calculateCompletionPayment(job as Booking);
+    }
+    // Default: full total
+    return calculateTotal();
+  }, [job, calculateTotal]);
+
   const handleConfirmCompletion = async () => {
     if (!job || !user) return;
     if (updating) return; // Prevent double-click
 
-    // Check if this is an escrow payment that needs to be released
-    const isEscrowPayment = job.paymentStatus === 'held';
-
-    const additionalChargesTotal = (job.additionalCharges || [])
-      .filter(c => c.status === 'approved')
-      .reduce((sum, c) => sum + (c.total || 0), 0);
-    const hasAdditionalToPay = additionalChargesTotal > 0;
-    const isPayFirstComplete = job.paymentPreference === 'pay_first' && job.isPaidUpfront && !hasAdditionalToPay;
-
     setConfirmDialog({
       show: true,
-      title: isEscrowPayment ? 'Release Payment to Provider? 💰' : (isPayFirstComplete ? 'Confirm Job Complete? ✅' : 'Confirm & Proceed to Pay?'),
-      message: isEscrowPayment
-        ? 'Are you satisfied with the work? This will release the payment from escrow to the provider.'
-        : (isPayFirstComplete
-          ? 'Are you satisfied with the work? This will mark the job as complete.'
-          : 'Are you satisfied with the work? This will proceed to payment.'),
+      title: 'Confirm Work Complete? ✅',
+      message: 'Are you satisfied with the work? You will be asked to pay the remaining 50% balance to complete the job.',
       onConfirm: async () => {
         setConfirmDialog({ show: false, title: '', message: '', onConfirm: () => { } });
         setUpdating(true);
 
-        // Optimistic update - update local state immediately
-        const newStatus = isEscrowPayment || isPayFirstComplete ? 'payment_received' : 'pending_payment';
-        setJob(prev => prev ? { ...prev, status: newStatus } : null);
+        // Move to pending_payment so client pays remaining 50%
+        setJob(prev => prev ? { ...prev, status: 'pending_payment' } : null);
 
         try {
-          if (isEscrowPayment) {
-            // Call backend to release escrow (fire and forget pattern for UI)
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
-            fetch(`${apiUrl}/payments/release-escrow/${job.id}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ clientId: user.uid }),
-            }).then(async response => {
-              const result = await response.json();
-              if (result.success) {
-                showAlert('success', 'Payment Released! 🎉', `₱${result.providerShare?.toLocaleString() || ''} has been released to the provider. Thank you!`);
-              } else {
-                // Revert on error
-                setJob(prev => prev ? { ...prev, status: job.status } : null);
-                showAlert('error', 'Error', result.error || 'Failed to release payment. Please try again.');
-              }
-            }).catch(error => {
-              console.error('Error releasing escrow:', error);
-              setJob(prev => prev ? { ...prev, status: job.status } : null);
-              showAlert('error', 'Error', 'Failed to release payment. Please try again.');
-            });
-          } else if (isPayFirstComplete) {
-            // Fire and forget Firestore update
-            updateDoc(doc(db, 'bookings', job.id), {
-              status: 'payment_received',
-              clientConfirmedAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            }).catch(err => {
-              console.error('Error updating booking:', err);
-              setJob(prev => prev ? { ...prev, status: job.status } : null);
-            });
-            // Send FCM push to provider about payment received (fire and forget)
-            if (job.providerId) {
-              pushNotifications.paymentReceivedToProvider(job.providerId, job.id, calculateTotal()).catch(console.error);
-            }
-            showAlert('success', 'Job Complete! 🎉', 'Waiting for provider to confirm completion.');
-          } else {
-            // Fire and forget Firestore update
-            updateDoc(doc(db, 'bookings', job.id), {
-              status: 'pending_payment',
-              clientConfirmedAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            }).catch(err => {
-              console.error('Error updating booking:', err);
-              setJob(prev => prev ? { ...prev, status: job.status } : null);
-            });
-            showAlert('info', 'Confirmed! 👍', 'Please proceed to pay the provider.');
-          }
+          await updateDoc(doc(db, 'bookings', job.id), {
+            status: 'pending_payment',
+            clientConfirmedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+          showAlert('info', 'Work Confirmed! 💳', 'Please pay the remaining 50% balance to complete the job.');
         } catch (error) {
           console.error('Error confirming:', error);
-          // Revert optimistic update on error
           setJob(prev => prev ? { ...prev, status: job.status } : null);
-          showAlert('error', 'Error', 'Failed to confirm completion. Please try again.');
+          showAlert('error', 'Error', 'Failed to confirm. Please try again.');
         } finally {
           setUpdating(false);
         }
@@ -471,56 +428,52 @@ function JobDetailsContent() {
     if (!job || !user) return;
     if (updating) return; // Prevent double-click
 
-    const baseAmount = job.totalAmount || job.price || 0;
-    const additionalChargesTotal = (job.additionalCharges || [])
-      .filter(c => c.status === 'approved')
-      .reduce((sum, c) => sum + (c.total || 0), 0);
-    const discount = job.discountAmount || job.discount || 0;
-    const isPayFirstWithAdditional = job.paymentPreference === 'pay_first' && job.isPaidUpfront && additionalChargesTotal > 0;
-    const amount = job.finalAmount || (isPayFirstWithAdditional ? additionalChargesTotal : (baseAmount + additionalChargesTotal - discount));
-    const isUpfrontPayment = job.paymentPreference === 'pay_first' && !job.isPaidUpfront &&
-      ['accepted', 'traveling', 'arrived'].includes(job.status);
+    // Use context-aware payment amount based on current status
+    const amount = getPaymentAmount();
+    // true when client is paying the initial 50% upfront (awaiting_payment)
+    const isUpfrontPayment = job.status === 'awaiting_payment';
+    // true when client is paying the remaining 50% after work done (pending_payment)
+    const isCompletionPayment = job.status === 'pending_payment';
 
     setUpdating(true);
     try {
       if (method === 'cash') {
-        // Optimistic update for cash payments
         if (isUpfrontPayment) {
-          setJob(prev => prev ? { ...prev, isPaidUpfront: true, upfrontPaidAmount: amount, paymentMethod: 'cash' } : null);
-          // Fire and forget Firestore update
+          // 50% upfront — move from awaiting_payment → pending (awaiting admin approval)
+          setJob(prev => prev ? { ...prev, isPaidUpfront: true, upfrontPaidAmount: amount, paymentMethod: 'cash', status: 'pending' } : null);
           updateDoc(doc(db, 'bookings', job.id), {
             isPaidUpfront: true,
             upfrontPaidAmount: amount,
             upfrontPaidAt: serverTimestamp(),
             paymentMethod: 'cash',
+            status: 'pending',
             updatedAt: serverTimestamp(),
           }).catch(err => {
             console.error('Error updating booking:', err);
-            setJob(prev => prev ? { ...prev, isPaidUpfront: false } : null);
+            setJob(prev => prev ? { ...prev, isPaidUpfront: false, status: 'awaiting_payment' } : null);
           });
-          showAlert('success', 'Payment Recorded! 💵', 'The provider can now start working on your job.');
-        } else if (isPayFirstWithAdditional) {
-          setJob(prev => prev ? { ...prev, status: 'payment_received', additionalChargesPaid: true, paymentMethod: 'cash' } : null);
-          // Fire and forget Firestore update
+          showAlert('success', '50% Downpayment Recorded! 💵', 'Your booking is submitted. Waiting for admin approval.');
+        } else if (isCompletionPayment) {
+          // Remaining 50% — move to payment_received so provider can confirm
+          setJob(prev => prev ? { ...prev, status: 'payment_received', paymentMethod: 'cash', finalAmount: amount } : null);
           updateDoc(doc(db, 'bookings', job.id), {
             status: 'payment_received',
-            additionalChargesPaid: true,
-            additionalChargesPaidAmount: amount,
+            remainingPaidAmount: amount,
             clientPaidAt: serverTimestamp(),
             paymentMethod: 'cash',
+            finalAmount: amount,
             updatedAt: serverTimestamp(),
           }).catch(err => {
             console.error('Error updating booking:', err);
-            setJob(prev => prev ? { ...prev, status: job.status } : null);
+            setJob(prev => prev ? { ...prev, status: 'pending_payment' } : null);
           });
-          // Send FCM push to provider about payment received (fire and forget)
           if (job.providerId) {
             pushNotifications.paymentReceivedToProvider(job.providerId, job.id, amount).catch(console.error);
           }
-          showAlert('success', 'Additional Payment Complete! ✅', 'Provider will confirm to complete the job.');
+          showAlert('success', 'Payment Complete! ✅', 'Provider will confirm receipt to finalize the job.');
         } else {
+          // Fallback
           setJob(prev => prev ? { ...prev, status: 'payment_received', paymentMethod: 'cash', finalAmount: amount } : null);
-          // Fire and forget Firestore update
           updateDoc(doc(db, 'bookings', job.id), {
             status: 'payment_received',
             clientPaidAt: serverTimestamp(),
@@ -531,7 +484,6 @@ function JobDetailsContent() {
             console.error('Error updating booking:', err);
             setJob(prev => prev ? { ...prev, status: job.status } : null);
           });
-          // Send FCM push to provider about payment received (fire and forget)
           if (job.providerId) {
             pushNotifications.paymentReceivedToProvider(job.providerId, job.id, amount).catch(console.error);
           }
@@ -540,6 +492,12 @@ function JobDetailsContent() {
         setShowPaymentModal(false);
       } else {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
+        const paymentDescription = isUpfrontPayment
+          ? `50% Downpayment for ${job.title || job.serviceCategory}`
+          : isCompletionPayment
+            ? `Remaining 50% Payment for ${job.title || job.serviceCategory}`
+            : `Payment for ${job.title || job.serviceCategory}`;
+        const paymentType = isUpfrontPayment ? 'upfront' : isCompletionPayment ? 'completion' : 'booking';
         const response = await fetch(`${apiUrl}/payments/create-qrph-payment`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -547,8 +505,9 @@ function JobDetailsContent() {
             bookingId: job.id,
             userId: user.uid,
             amount,
-            description: `Payment for ${job.title || job.serviceCategory}`,
+            description: paymentDescription,
             platform: 'web',
+            paymentType,
           }),
         });
 
@@ -563,7 +522,10 @@ function JobDetailsContent() {
         if (result.success && result.checkoutUrl) {
           setShowPaymentModal(false);
           window.open(result.checkoutUrl, '_blank');
-          showAlert('payment', 'Complete Your Payment 💳', 'A new tab has opened for QR Ph payment. Scan the QR code with any banking or e-wallet app (GCash, Maya, BPI, etc.) to complete payment, then return here.');
+          const payMsg = isUpfrontPayment
+            ? '50% downpayment tab opened. Complete QR payment then return here — your booking will be submitted for admin approval.'
+            : 'Remaining 50% payment tab opened. Complete QR payment then return here to finalize the job.';
+          showAlert('payment', 'Complete Your Payment 💳', payMsg);
         } else {
           showAlert('error', 'Payment Failed', result.error || 'Failed to create payment. Please try again.');
         }
@@ -1390,17 +1352,18 @@ function JobDetailsContent() {
             </button>
           )}
 
-          {/* AWAITING PAYMENT - Initial booking payment not yet completed */}
+          {/* AWAITING PAYMENT - Initial booking 50% downpayment not yet completed */}
           {job.status === 'awaiting_payment' && (
             <div className="space-y-4">
               <div className="bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-400 rounded-2xl p-5 text-center">
                 <div className="p-3 bg-orange-100 rounded-xl inline-block mb-3">
                   <CreditCard className="w-8 h-8 text-orange-500" />
                 </div>
-                <p className="text-xl font-bold text-orange-800">Complete Your Payment</p>
-                <p className="text-3xl font-black text-orange-600 mt-3">{formatCurrency(calculateTotal())}</p>
+                <p className="text-xl font-bold text-orange-800">50% Downpayment Required</p>
+                <p className="text-3xl font-black text-orange-600 mt-3">{formatCurrency(calculateUpfrontPayment(job as Booking))}</p>
+                <p className="text-sm text-orange-500 mt-1">(50% of {formatCurrency(calculateTotal())} total)</p>
                 <p className="text-sm text-orange-700 mt-3 leading-relaxed">
-                  Your booking is awaiting payment. Please complete the payment to submit your booking for admin approval.
+                  Pay 50% now to submit your booking for admin approval. The remaining 50% will be paid after the job is done.
                 </p>
               </div>
               <button
@@ -1408,7 +1371,7 @@ function JobDetailsContent() {
                 className="w-full py-4 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 flex items-center justify-center gap-2 shadow-lg transition-all"
               >
                 <CreditCard className="w-5 h-5" />
-                Pay Now
+                Pay 50% Downpayment
               </button>
             </div>
           )}
@@ -1534,39 +1497,25 @@ function JobDetailsContent() {
             </div>
           )}
 
-          {/* Pending Payment - Pay Button */}
+          {/* Pending Payment - Pay remaining 50% button */}
           {job.status === 'pending_payment' && (
             <div className="space-y-4">
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-5 text-center border-2 border-blue-200">
                 <div className="p-3 bg-blue-100 rounded-xl inline-block mb-3">
                   <CreditCard className="w-8 h-8 text-blue-500" />
                 </div>
-                <p className="font-bold text-blue-800 text-lg">
-                  {job.paymentPreference === 'pay_first' && job.isPaidUpfront
-                    ? 'Additional Payment Required'
-                    : 'Payment Required'}
-                </p>
+                <p className="font-bold text-blue-800 text-lg">Remaining 50% Balance Due</p>
                 <p className="text-3xl font-black text-blue-700 mt-3">
-                  {formatCurrency((() => {
-                    const baseAmount = job.totalAmount || job.price || 0;
-                    const additionalTotal = (job.additionalCharges || [])
-                      .filter(c => c.status === 'approved')
-                      .reduce((sum, c) => sum + (c.total || 0), 0);
-                    if (job.paymentPreference === 'pay_first' && job.isPaidUpfront) {
-                      return additionalTotal;
-                    }
-                    return baseAmount + additionalTotal;
-                  })())}
+                  {formatCurrency(calculateCompletionPayment(job as Booking))}
                 </p>
-                {job.paymentPreference === 'pay_first' && job.isPaidUpfront && (
-                  <p className="text-sm text-blue-500 mt-2">
-                    (Original {formatCurrency(job.upfrontPaidAmount || job.totalAmount || 0)} already paid)
-                  </p>
+                <p className="text-sm text-blue-500 mt-1">
+                  (Already paid 50% = {formatCurrency(job.upfrontPaidAmount || calculateUpfrontPayment(job as Booking))})
+                </p>
+                {((job.additionalCharges || []).filter(c => c.status === 'approved').length > 0) && (
+                  <p className="text-xs text-blue-600 mt-1">Includes additional charges</p>
                 )}
                 <p className="text-sm text-blue-600 mt-3 leading-relaxed">
-                  {job.paymentPreference === 'pay_first' && job.isPaidUpfront
-                    ? 'Please pay the additional charges to complete this job.'
-                    : 'Please pay the provider to complete this job.'}
+                  Work is complete! Please pay the remaining balance to finalize the job.
                 </p>
               </div>
               <button
@@ -1574,7 +1523,7 @@ function JobDetailsContent() {
                 className="w-full py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-bold hover:from-blue-600 hover:to-blue-700 flex items-center justify-center gap-2 shadow-lg transition-all"
               >
                 <Wallet className="w-5 h-5" />
-                Pay Now
+                Pay Remaining 50%
               </button>
             </div>
           )}
@@ -1727,8 +1676,14 @@ function JobDetailsContent() {
             </div>
 
             <div className="mb-4 p-4 bg-gray-50 rounded-xl">
-              <p className="text-sm text-gray-500">Amount to Pay</p>
-              <p className="text-2xl font-bold text-[#00B14F]">{formatCurrency(calculateTotal())}</p>
+              <p className="text-sm text-gray-500">
+                {job.status === 'awaiting_payment' ? '50% Downpayment' :
+                  job.status === 'pending_payment' ? 'Remaining 50% Balance' : 'Amount to Pay'}
+              </p>
+              <p className="text-2xl font-bold text-[#00B14F]">{formatCurrency(getPaymentAmount())}</p>
+              {job.status === 'awaiting_payment' && (
+                <p className="text-xs text-gray-400 mt-1">Total job cost: {formatCurrency(calculateTotal())}</p>
+              )}
             </div>
 
             <div className="space-y-3 mb-6">
