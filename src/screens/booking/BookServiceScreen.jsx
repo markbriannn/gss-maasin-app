@@ -56,7 +56,6 @@ const BookServiceScreen = ({ navigation, route }) => {
 
   const [serviceCategory, setServiceCategory] = useState(providerService);
   const [additionalNotes, setAdditionalNotes] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('qrph');
   const [isLoading, setIsLoading] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
   
@@ -457,11 +456,10 @@ const BookServiceScreen = ({ navigation, route }) => {
         clientPhone: user?.phoneNumber,
         providerId: actualProviderId || null,
         providerName: displayProviderName || null,
-        // Smart Payment Split (100% if under ₱200, 50/50 if ₱200+)
+        // Always use 50/50 split with QR payment
         status: 'awaiting_payment', // Start as awaiting_payment - becomes 'pending' after upfront paid
-        paymentPreference: 'pay_first', // ALWAYS pay first
-        paymentSplitType: paymentSplitType, // '100_0' or '50_50' based on amount
-        paymentMethod: paymentMethod, // gcash or maya
+        paymentSplitType: paymentSplitType, // Always '50_50'
+        paymentMethod: 'qrph', // Always QR Ph
         paymentStatus: 'pending', // pending -> partial -> paid -> held -> released
         isPaidUpfront: false,
         upfrontPaidAmount: 0,
@@ -1010,94 +1008,27 @@ const BookServiceScreen = ({ navigation, route }) => {
           onChangeText={setAdditionalNotes}
         />
 
-        {/* Payment Method - Escrow System */}
-        <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.textSecondary : '#374151', marginBottom: 8 }}>
-          Payment Method *
-        </Text>
-
-        {/* Escrow Info Banner */}
+        {/* Payment Info Banner */}
         <View style={{
-          backgroundColor: isDark ? '#064E3B' : '#ECFDF5',
-          padding: 12,
+          backgroundColor: isDark ? '#2E1065' : '#F5F3FF',
+          padding: 16,
           borderRadius: 12,
-          marginBottom: 16,
-          flexDirection: 'row',
-          alignItems: 'flex-start',
+          marginBottom: 20,
           borderWidth: 1,
-          borderColor: isDark ? '#065F46' : '#A7F3D0',
+          borderColor: isDark ? '#5B21B6' : '#DDD6FE',
         }}>
-          <Icon name="shield-checkmark" size={20} color="#10B981" />
-          <View style={{ marginLeft: 10, flex: 1 }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: isDark ? '#A7F3D0' : '#065F46', marginBottom: 2 }}>
-              Protected Payment
-            </Text>
-            <Text style={{ fontSize: 12, color: isDark ? '#6EE7B7' : '#047857', lineHeight: 18 }}>
-              Your payment is held securely until the job is completed and you confirm satisfaction.
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <Icon name="shield-checkmark" size={22} color="#7C3AED" />
+            <Text style={{ fontSize: 15, fontWeight: '700', color: isDark ? '#C4B5FD' : '#6B21A8', marginLeft: 8 }}>
+              50/50 Payment Split
             </Text>
           </View>
+          <Text style={{ fontSize: 13, color: isDark ? '#C4B5FD' : '#7C3AED', lineHeight: 20 }}>
+            • Pay 50% upfront via QR code{'\n'}
+            • Pay remaining 50% after service completion{'\n'}
+            • Your payment is held securely until job is done
+          </Text>
         </View>
-
-        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              padding: 16,
-              borderRadius: 12,
-              borderWidth: 2,
-              borderColor: paymentMethod === 'qrph' ? '#7C3AED' : isDark ? theme.colors.border : '#E5E7EB',
-              backgroundColor: paymentMethod === 'qrph' ? (isDark ? '#2E1065' : '#F5F3FF') : (isDark ? theme.colors.card : '#FFFFFF'),
-              alignItems: 'center',
-            }}
-            onPress={() => setPaymentMethod('qrph')}>
-            <View style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              backgroundColor: '#7C3AED',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginBottom: 8,
-            }}>
-              <Icon name="qr-code" size={22} color="#FFFFFF" />
-            </View>
-            <Text style={{
-              fontSize: 13,
-              fontWeight: '600',
-              color: paymentMethod === 'qrph' ? '#7C3AED' : isDark ? theme.colors.text : '#1F2937',
-            }}>
-              QR Ph
-            </Text>
-            <Text style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>Scan to Pay</Text>
-            {paymentMethod === 'qrph' && (
-              <View style={{
-                position: 'absolute',
-                top: 8,
-                right: 8,
-                width: 20,
-                height: 20,
-                borderRadius: 10,
-                backgroundColor: '#7C3AED',
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}>
-                <Icon name="checkmark" size={12} color="#FFFFFF" />
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-
-
-        {/* Payment Info Note */}
-        <View style={{
-          backgroundColor: isDark ? '#1E3A5F' : '#FEF3C7',
-          padding: 12,
-          borderRadius: 8,
-          marginBottom: 20,
-          flexDirection: 'row',
-          alignItems: 'flex-start',
-        }}>
-          <Icon name="information-circle" size={18} color={isDark ? '#60A5FA' : '#F59E0B'} />
           <Text style={{ fontSize: 12, color: isDark ? '#93C5FD' : '#92400E', marginLeft: 8, flex: 1, lineHeight: 18 }}>
             You'll be shown a QR code to scan with any banking or e-wallet app (GCash, Maya, BPI, etc.). Money will be held until the provider completes the job and you confirm.
           </Text>
@@ -1585,6 +1516,7 @@ const BookServiceScreen = ({ navigation, route }) => {
         visible={showQRPayment}
         checkoutUrl={qrPaymentUrl}
         amount={qrPaymentAmount}
+        bookingId={currentBookingId}
         onClose={() => {
           setShowQRPayment(false);
           setQRPaymentUrl(null);

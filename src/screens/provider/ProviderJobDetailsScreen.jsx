@@ -35,6 +35,13 @@ import { onBookingCompleted } from '../../services/gamificationService';
 import { PremiumModal, ConfirmModal } from '../../components/common';
 import VoiceCall from '../../components/common/VoiceCall';
 import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall } from '../../services/callService';
+import { 
+  calculateProviderEarnings, 
+  calculateClientTotal, 
+  createAdditionalCharge, 
+  validateAdditionalCharge,
+  formatCurrency 
+} from '../../utils/bookingCalculations';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -52,10 +59,6 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
   const [showAdditionalModal, setShowAdditionalModal] = useState(false);
   const [additionalAmount, setAdditionalAmount] = useState('');
   const [additionalReason, setAdditionalReason] = useState('');
-  // Discount modal state
-  const [showDiscountModal, setShowDiscountModal] = useState(false);
-  const [discountAmount, setDiscountAmount] = useState('');
-  const [discountReason, setDiscountReason] = useState('');
   // Media viewer state
   const [showMediaViewer, setShowMediaViewer] = useState(false);
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
@@ -551,31 +554,20 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
 
   // Handle additional charges request
   const handleRequestAdditional = async () => {
-    if (!additionalAmount || parseFloat(additionalAmount) <= 0) {
-      showErrorModal('Error', 'Please enter a valid amount');
-      return;
-    }
-    if (!additionalReason.trim()) {
-      showErrorModal('Error', 'Please provide a reason for the additional charge');
+    // Validate input using centralized utility
+    const validation = validateAdditionalCharge(additionalAmount, additionalReason);
+    if (!validation.isValid) {
+      showErrorModal('Error', validation.errors.join('\n'));
       return;
     }
 
     try {
       setIsUpdating(true);
-      const addAmount = parseFloat(additionalAmount);
-      const addSystemFee = addAmount * 0.05;
-      const addTotal = addAmount + addSystemFee;
+      
+      // Create charge object using centralized utility
+      const newCharge = createAdditionalCharge(parseFloat(additionalAmount), additionalReason);
 
       const currentAdditionalCharges = jobData.additionalCharges || [];
-      const newCharge = {
-        id: Date.now().toString(),
-        amount: addAmount,
-        systemFee: addSystemFee,
-        total: addTotal,
-        reason: additionalReason,
-        status: 'pending',
-        requestedAt: new Date().toISOString(),
-      };
 
       await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
         additionalCharges: [...currentAdditionalCharges, newCharge],
@@ -594,61 +586,6 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
     } catch (error) {
       console.error('Error requesting additional charge:', error);
       showErrorModal('Error', 'Failed to request additional charge');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  // Handle discount offer from provider (for easy jobs)
-  const handleOfferDiscount = async () => {
-    if (!discountAmount || parseFloat(discountAmount) <= 0) {
-      showErrorModal('Error', 'Please enter a valid discount amount');
-      return;
-    }
-
-    // For pay-first jobs, discount adjusts provider earnings
-    // The client's upfront payment stays the same - admin can process refund if needed
-
-    const currentPrice = jobData.providerPrice || jobData.totalAmount || 0;
-    const discount = parseFloat(discountAmount);
-
-    if (discount >= currentPrice) {
-      showErrorModal('Error', 'Discount cannot be equal to or greater than the service price');
-      return;
-    }
-
-    try {
-      setIsUpdating(true);
-      const newPrice = currentPrice - discount;
-      const newSystemFee = newPrice * 0.05;
-      const newTotal = newPrice + newSystemFee;
-
-      await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
-        discountAmount: discount,
-        discountReason: discountReason || 'Easy job discount',
-        providerPrice: newPrice,
-        systemFee: newSystemFee,
-        totalAmount: newTotal,
-        hasDiscount: true,
-        discountAppliedAt: serverTimestamp(),
-      });
-
-      setJobData(prev => ({
-        ...prev,
-        discountAmount: discount,
-        discountReason: discountReason || 'Easy job discount',
-        providerPrice: newPrice,
-        systemFee: newSystemFee,
-        totalAmount: newTotal,
-        hasDiscount: true,
-      }));
-      setShowDiscountModal(false);
-      setDiscountAmount('');
-      setDiscountReason('');
-      showSuccessModal('Discount Applied', `You've reduced the price by ₱${discount.toLocaleString()}. The client will pay ₱${newTotal.toLocaleString()}.`);
-    } catch (error) {
-      console.error('Error applying discount:', error);
-      showErrorModal('Error', 'Failed to apply discount');
     } finally {
       setIsUpdating(false);
     }
@@ -2002,54 +1939,28 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
 
               {jobData.status === 'in_progress' && (
                 <View>
-                  {/* Price Adjustment Buttons */}
-                  <View style={{ flexDirection: 'row', marginBottom: 12 }}>
-                    {/* Offer Discount Button */}
-                    <TouchableOpacity
-                      style={{
-                        flex: 1,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: '#D1FAE5',
-                        paddingVertical: 14,
-                        paddingHorizontal: 12,
-                        borderRadius: 12,
-                        borderWidth: 1,
-                        borderColor: '#10B981',
-                        marginRight: 5,
-                      }}
-                      onPress={() => setShowDiscountModal(true)}>
-                      <Icon name="pricetag" size={18} color="#059669" />
-                      <Text style={{ color: '#065F46', fontWeight: '600', marginLeft: 6, fontSize: 13 }}>
-                        Give Discount
-                      </Text>
-                    </TouchableOpacity>
-
-                    {/* Request Additional Charge Button */}
-                    <TouchableOpacity
-                      style={{
-                        flex: 1,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: '#FEF3C7',
-                        paddingVertical: 14,
-                        paddingHorizontal: 12,
-                        borderRadius: 12,
-                        borderWidth: 1,
-                        borderColor: '#F59E0B',
-                        marginLeft: 5,
-                      }}
-                      onPress={() => setShowAdditionalModal(true)}>
-                      <Icon name="add-circle" size={18} color="#F59E0B" />
-                      <Text style={{ color: '#92400E', fontWeight: '600', marginLeft: 6, fontSize: 13 }}>
-                        Add Charge
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  {/* Request Additional Charge Button */}
+                  <TouchableOpacity
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: '#FEF3C7',
+                      paddingVertical: 14,
+                      paddingHorizontal: 12,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: '#F59E0B',
+                      marginBottom: 12,
+                    }}
+                    onPress={() => setShowAdditionalModal(true)}>
+                    <Icon name="add-circle" size={18} color="#F59E0B" />
+                    <Text style={{ color: '#92400E', fontWeight: '600', marginLeft: 6, fontSize: 13 }}>
+                      Add Charge
+                    </Text>
+                  </TouchableOpacity>
                   <Text style={{ fontSize: 12, color: '#6B7280', textAlign: 'center', marginBottom: 12 }}>
-                    Easy job? Give a discount. Extra work needed? Add a charge.
+                    Extra work or materials needed? Add a charge for client approval.
                   </Text>
 
                   <TouchableOpacity
@@ -2478,127 +2389,6 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Send Request to Client</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Discount Modal */}
-      <Modal
-        visible={showDiscountModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowDiscountModal(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <View style={{
-            backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            padding: 20,
-          }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: isDark ? '#F9FAFB' : '#1F2937' }}>Give Discount</Text>
-              <TouchableOpacity onPress={() => setShowDiscountModal(false)}>
-                <Icon name="close" size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={{
-              backgroundColor: isDark ? '#064E3B' : '#D1FAE5',
-              borderRadius: 12,
-              padding: 12,
-              marginBottom: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}>
-              <Icon name="heart" size={20} color="#10B981" />
-              <Text style={{ fontSize: 13, color: isDark ? '#6EE7B7' : '#065F46', marginLeft: 8, flex: 1 }}>
-                Job was easier than expected? Give the client a discount as a goodwill gesture!
-              </Text>
-            </View>
-
-            <View style={{
-              backgroundColor: isDark ? '#374151' : '#F3F4F6',
-              borderRadius: 12,
-              padding: 12,
-              marginBottom: 16,
-            }}>
-              <Text style={{ fontSize: 13, color: isDark ? '#9CA3AF' : '#6B7280' }}>Current Price</Text>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: isDark ? '#F9FAFB' : '#1F2937' }}>
-                ₱{(jobData?.providerPrice || jobData?.totalAmount || 0).toLocaleString()}
-              </Text>
-            </View>
-
-            <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? '#D1D5DB' : '#374151', marginBottom: 8 }}>
-              Discount Amount (₱) *
-            </Text>
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: isDark ? '#374151' : '#F9FAFB',
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: '#10B981',
-              paddingHorizontal: 12,
-              marginBottom: 16,
-            }}>
-              <Text style={{ fontSize: 18, color: '#10B981', fontWeight: '700' }}>-₱</Text>
-              <TextInput
-                style={{ flex: 1, fontSize: 18, color: isDark ? '#F9FAFB' : '#1F2937', paddingVertical: 14, paddingHorizontal: 8 }}
-                placeholder="Enter discount"
-                placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                keyboardType="numeric"
-                value={discountAmount}
-                onChangeText={setDiscountAmount}
-              />
-            </View>
-
-            <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? '#D1D5DB' : '#374151', marginBottom: 8 }}>
-              Reason (Optional)
-            </Text>
-            <TextInput
-              style={{
-                backgroundColor: isDark ? '#374151' : '#F9FAFB',
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: isDark ? '#4B5563' : '#E5E7EB',
-                padding: 12,
-                fontSize: 14,
-                color: isDark ? '#F9FAFB' : '#1F2937',
-                marginBottom: 20,
-              }}
-              placeholder="e.g., Quick fix, simple job..."
-              placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-              value={discountReason}
-              onChangeText={setDiscountReason}
-            />
-
-            {discountAmount && (
-              <View style={{ backgroundColor: isDark ? '#064E3B' : '#D1FAE5', borderRadius: 12, padding: 12, marginBottom: 16 }}>
-                <Text style={{ fontSize: 13, color: isDark ? '#6EE7B7' : '#065F46' }}>New price after discount:</Text>
-                <Text style={{ fontSize: 20, fontWeight: '700', color: '#10B981' }}>
-                  ₱{(((jobData?.providerPrice || jobData?.totalAmount || 0) - parseFloat(discountAmount || 0)) * 1.05).toLocaleString()}
-                </Text>
-                <Text style={{ fontSize: 12, color: isDark ? '#6EE7B7' : '#065F46', marginTop: 4 }}>
-                  You'll receive: ₱{((jobData?.providerPrice || jobData?.totalAmount || 0) - parseFloat(discountAmount || 0)).toLocaleString()}
-                </Text>
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={{
-                backgroundColor: '#10B981',
-                borderRadius: 12,
-                paddingVertical: 16,
-                alignItems: 'center',
-              }}
-              onPress={handleOfferDiscount}
-              disabled={isUpdating}>
-              {isUpdating ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Apply Discount</Text>
               )}
             </TouchableOpacity>
           </View>

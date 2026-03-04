@@ -12,7 +12,7 @@ const getBaseUrl = () => {
   return APP_URL;
 };
 
-export type PaymentMethod = 'gcash' | 'maya' | 'card' | 'cash' | 'qrph';
+export type PaymentMethod = 'qrph';
 
 interface PaymentSourceResponse {
   success: boolean;
@@ -206,62 +206,24 @@ export const createQrphPayment = async (params: CreatePaymentParams): Promise<Pa
   }
 };
 
+/**
+ * Process payment - QR Ph only
+ */
 export const processPayment = async (params: CreatePaymentParams): Promise<{
   success: boolean;
   redirectUrl?: string;
   error?: string;
 }> => {
-  const { paymentMethod } = params;
-
-  if (paymentMethod === 'cash') {
-    // Cash payments don't need PayMongo
-    return { success: true };
-  }
-
-  if (paymentMethod === 'qrph') {
-    const result = await createQrphPayment(params);
-    if (result.success && result.checkoutUrl) {
-      return {
-        success: true,
-        redirectUrl: result.checkoutUrl,
-      };
-    }
+  const result = await createQrphPayment(params);
+  if (result.success && result.checkoutUrl) {
     return {
-      success: false,
-      error: result.error,
+      success: true,
+      redirectUrl: result.checkoutUrl,
     };
   }
-
-  if (paymentMethod === 'gcash' || paymentMethod === 'maya') {
-    const result = await createPaymentSource(params);
-    if (result.success && result.checkoutUrl) {
-      return {
-        success: true,
-        redirectUrl: result.checkoutUrl,
-      };
-    }
-    return {
-      success: false,
-      error: result.error,
-    };
-  }
-
-  if (paymentMethod === 'card') {
-    const result = await createPaymentIntent(params);
-    if (result.success) {
-      return {
-        success: true,
-      };
-    }
-    return {
-      success: false,
-      error: result.error,
-    };
-  }
-
   return {
     success: false,
-    error: 'Invalid payment method',
+    error: result.error || 'Failed to create payment',
   };
 };
 

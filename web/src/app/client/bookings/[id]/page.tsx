@@ -15,6 +15,14 @@ import {
 import { pushNotifications } from '@/lib/pushNotifications';
 import VoiceCall from '@/components/VoiceCall';
 import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall, canMakeCall } from '@/services/callService';
+import {
+  calculateClientTotal,
+  calculateUpfrontPayment,
+  calculateCompletionPayment,
+  getAdditionalChargesSummary,
+  formatCurrency,
+  type Booking
+} from '@/lib/bookingCalculations';
 
 interface AdditionalCharge {
   id: string;
@@ -364,15 +372,9 @@ function JobDetailsContent() {
     });
   }, [user, job]);
 
+  // Use centralized calculation utilities
   const calculateTotal = useCallback(() => {
-    if (!job) return 0;
-    // Use totalAmount if available (already includes system fee), otherwise calculate
-    const basePrice = job.totalAmount || ((job.providerPrice || job.fixedPrice || job.price || 0) + (job.systemFee || 0));
-    const approvedCharges = (job.additionalCharges || [])
-      .filter(c => c.status === 'approved')
-      .reduce((sum, c) => sum + (c.total || c.amount || 0), 0);
-    const discount = job.discountAmount || job.discount || 0;
-    return basePrice + approvedCharges - discount;
+    return calculateClientTotal(job as Booking);
   }, [job]);
 
   const handleConfirmCompletion = async () => {

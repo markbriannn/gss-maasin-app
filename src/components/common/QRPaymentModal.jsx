@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -8,20 +8,86 @@ import {
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import paymentService from '../../services/paymentService';
 
 const QRPaymentModal = ({
   visible,
   checkoutUrl,
   amount,
+  bookingId, // Add bookingId prop
   onClose,
   onPaymentComplete,
 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [checkingPayment, setCheckingPayment] = useState(false);
   const webViewRef = useRef(null);
+  const pollIntervalRef = useRef(null);
+
+  // Poll payment status every 5 seconds
+  useEffect(() => {
+    if (!visible || !bookingId) {
+      // Clear polling when modal closes
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+      return;
+    }
+
+    console.log('[QRPayment] Starting payment status polling for booking:', bookingId);
+    
+    // Check immediately
+    checkPaymentStatus();
+    
+    // Then check every 5 seconds
+    pollIntervalRef.current = setInterval(() => {
+      checkPaymentStatus();
+    }, 5000);
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [visible, bookingId]);
+
+  const checkPaymentStatus = async () => {
+    if (!bookingId || checkingPayment) return;
+    
+    try {
+      setCheckingPayment(true);
+      const result = await paymentService.verifyAndProcessPayment(bookingId);
+      
+      if (result.success && result.status === 'paid') {
+        console.log('[QRPayment] Payment detected as paid!');
+        // Clear polling
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
+        // Notify parent
+        if (onPaymentComplete) {
+          onPaymentComplete();
+        }
+        // Show success message
+        Alert.alert(
+          'Payment Successful! 💰',
+          'Your payment has been received. Your booking is now being processed.',
+          [{ text: 'OK', onPress: onClose }]
+        );
+      }
+    } catch (err) {
+      console.log('[QRPayment] Error checking payment status:', err);
+    } finally {
+      setCheckingPayment(false);
+    }
+  };
 
   const handleNavigationStateChange = (navState) => {
     const { url } = navState;

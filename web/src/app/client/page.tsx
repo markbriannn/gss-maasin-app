@@ -12,6 +12,12 @@ import {
   Navigation, User, Loader2, MapPin, DollarSign,
   ChevronRight, Clock, MessageCircle
 } from 'lucide-react';
+import {
+  calculateDistance,
+  getEstimatedJobTime,
+  getTierStyle,
+  getDefaultCenter
+} from '@/lib/locationUtils';
 
 const ClientMapView = dynamic(
   () => import('@/components/ClientMapView'),
@@ -75,37 +81,7 @@ const FILTERS: { id: FilterType; label: string; icon: React.ReactNode }[] = [
   { id: 'top_rated', label: 'Top Rated', icon: <Star className="w-4 h-4" /> },
 ];
 
-const DEFAULT_CENTER = { lat: 10.1335, lng: 124.8513 };
-
-const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
-
-const getEstimatedJobTime = (avgMinutes?: number): string | null => {
-  if (!avgMinutes || avgMinutes <= 0) return null;
-  if (avgMinutes >= 60) {
-    const hrs = (avgMinutes / 60).toFixed(1);
-    return `Est. ~${hrs} hr/job`;
-  }
-  return `Est. ~${Math.round(avgMinutes)} min/job`;
-};
-
-const getTierStyle = (tier?: string) => {
-  switch (tier) {
-    case 'diamond': return { bg: 'from-cyan-400 to-blue-500', label: 'DIAMOND' };
-    case 'platinum': return { bg: 'from-indigo-400 to-purple-500', label: 'PLATINUM' };
-    case 'gold': return { bg: 'from-amber-400 to-yellow-500', label: 'GOLD' };
-    case 'silver': return { bg: 'from-gray-400 to-slate-500', label: 'SILVER' };
-    default: return null;
-  }
-};
+const DEFAULT_CENTER = getDefaultCenter();
 
 const PANEL_MIN = 180;
 const PANEL_MID = 400;

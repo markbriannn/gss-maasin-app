@@ -17,6 +17,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { calculateDistance, getEstimatedJobTime } from '../../utils/locationUtils';
 
 const { width, height } = Dimensions.get('window');
 const MAP_HEIGHT = height * 0.38;
@@ -29,30 +30,6 @@ const FILTERS = [
 const getServiceImage = (category) => {
   // Return placeholder - in production, use actual service images
   return null;
-};
-
-const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  if (!lat1 || !lon1 || !lat2 || !lon2) return 999;
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLon / 2) *
-    Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
-
-const getEstimatedJobTime = (avgMinutes) => {
-  if (!avgMinutes || avgMinutes <= 0) return null;
-  if (avgMinutes >= 60) {
-    const hrs = (avgMinutes / 60).toFixed(1);
-    return `Est. ~${hrs} hrs per job`;
-  }
-  return `Est. ~${Math.round(avgMinutes)} mins per job`;
 };
 
 const SelectProviderScreen = ({ navigation, route }) => {

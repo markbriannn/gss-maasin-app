@@ -83,7 +83,6 @@ function BookServiceContent() {
 
   // Form state
   const [additionalNotes, setAdditionalNotes] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('qrph');
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [uploadingMedia, setUploadingMedia] = useState(false);
@@ -319,10 +318,11 @@ function BookServiceContent() {
         systemFee: systemFee,
         systemFeePercentage: 5,
         totalAmount: totalAmount,
-        // Escrow payment - always pay first
-        paymentMethod: paymentMethod,
-        paymentPreference: 'pay_first', // ALWAYS pay first
-        paymentStatus: 'pending', // pending -> paid -> held -> released
+        // Always use 50/50 split with QR payment
+        status: 'awaiting_payment',
+        paymentSplitType: '50_50',
+        paymentMethod: 'qrph',
+        paymentStatus: 'pending',
         isPaidUpfront: false,
         upfrontPaidAmount: 0,
         escrowAmount: totalAmount, // Amount held in escrow
@@ -348,7 +348,7 @@ function BookServiceContent() {
         bookingId: newBookingId,
         clientId: user.uid,
         providerId: provider.id,
-        paymentMethod: paymentMethod,
+        paymentMethod: 'qrph',
       });
 
       if (paymentResult.success && paymentResult.redirectUrl) {
@@ -731,58 +731,39 @@ function BookServiceContent() {
                 <p className="text-xs text-gray-400 mt-2 text-right">{additionalNotes.length}/500 characters</p>
               </div>
 
-              {/* Payment Method - Escrow System */}
+              {/* Payment Info Banner */}
               <div className="bg-white rounded-3xl shadow-xl shadow-gray-100 p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-green-500 rounded-xl flex items-center justify-center">
+                  <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
                     <Shield className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900">Secure Payment</h3>
-                    <p className="text-sm text-gray-500">Pay now, money released after job completion</p>
+                    <h3 className="font-bold text-gray-900">50/50 Payment Split</h3>
+                    <p className="text-sm text-gray-500">Secure QR payment</p>
                   </div>
                 </div>
 
-                {/* Escrow Info */}
-                <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-2xl p-4 mb-4">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-emerald-800">Protected Payment</p>
-                      <p className="text-sm text-emerald-700 mt-1">
-                        Your payment is held securely until the job is completed and you confirm satisfaction.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <p className="text-sm font-medium text-gray-700 mb-3">Payment Method</p>
-                <div className="grid grid-cols-1 gap-3">
-                  <button
-                    onClick={() => setPaymentMethod('qrph')}
-                    className={`relative p-4 rounded-2xl border-2 text-center transition-all ${paymentMethod === 'qrph'
-                      ? 'border-violet-500 bg-violet-50 shadow-lg shadow-violet-100'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                  >
-                    {paymentMethod === 'qrph' && (
-                      <div className="absolute top-2 right-2 w-5 h-5 bg-violet-500 rounded-full flex items-center justify-center">
-                        <Check className="w-3 h-3 text-white" />
-                      </div>
-                    )}
-                    <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-2">
-                      <QrCode className="w-6 h-6 text-white" />
-                    </div>
-                    <p className={`font-semibold text-sm ${paymentMethod === 'qrph' ? 'text-violet-600' : 'text-gray-900'}`}>QR Ph</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Scan to Pay</p>
-                  </button>
+                <div className="bg-violet-50 rounded-2xl p-4 border border-violet-100">
+                  <ul className="space-y-2 text-sm text-violet-900">
+                    <li className="flex items-start gap-2">
+                      <Check className="w-4 h-4 text-violet-600 mt-0.5 flex-shrink-0" />
+                      <span>Pay 50% upfront via QR code</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="w-4 h-4 text-violet-600 mt-0.5 flex-shrink-0" />
+                      <span>Pay remaining 50% after service completion</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="w-4 h-4 text-violet-600 mt-0.5 flex-shrink-0" />
+                      <span>Your payment is held securely until job is done</span>
+                    </li>
+                  </ul>
                 </div>
 
                 <div className="mt-4 p-4 bg-amber-50 rounded-xl flex gap-3">
                   <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-amber-800">
-                    You'll be shown a QR code to scan with any banking or e-wallet app (GCash, Maya, BPI, etc.).
-                    {' '}Money will be held until the provider completes the job and you confirm.
+                    Scan QR code with any banking or e-wallet app (GCash, Maya, BPI, etc.)
                   </p>
                 </div>
               </div>

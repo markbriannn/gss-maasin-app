@@ -12,6 +12,7 @@ import {
   Zap, DollarSign, Navigation, CheckCircle, Sparkles,
   ChevronRight, Shield, Award
 } from 'lucide-react';
+import { calculateDistance, getEstimatedJobTime } from '@/lib/locationUtils';
 
 const LeafletMap = dynamic(() => import('@/components/LeafletMap'), { ssr: false });
 
@@ -72,27 +73,6 @@ function SelectProviderContent() {
   useEffect(() => {
     applyFilter();
   }, [providers, activeFilter]);
-
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    if (!lat1 || !lon1 || !lat2 || !lon2) return 999;
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  const getEstimatedJobTime = (avgMinutes?: number): string | null => {
-    if (!avgMinutes || avgMinutes <= 0) return null;
-    if (avgMinutes >= 60) {
-      const hrs = (avgMinutes / 60).toFixed(1);
-      return `Est. ~${hrs} hr/job`;
-    }
-    return `Est. ~${Math.round(avgMinutes)} min/job`;
-  };
 
   // Real-time listener for providers
   const fetchProviders = () => {

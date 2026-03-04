@@ -41,6 +41,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import { useFocusEffect } from '@react-navigation/native';
+import { calculateDistance, getEstimatedJobTime, decodePolyline } from '../../utils/locationUtils';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAP_HEIGHT = SCREEN_HEIGHT * 0.45;
@@ -72,53 +73,6 @@ const mapStyle = [
   { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#e5f5e0' }] },
   { featureType: 'transit', stylers: [{ visibility: 'off' }] },
 ];
-
-const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  if (!lat1 || !lon1 || !lat2 || !lon2) return 999;
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-};
-
-const getEstimatedJobTime = (avgMinutes) => {
-  if (!avgMinutes || avgMinutes <= 0) return null;
-  if (avgMinutes >= 60) {
-    const hrs = (avgMinutes / 60).toFixed(1);
-    return `Est. ~${hrs} hrs per job`;
-  }
-  return `Est. ~${Math.round(avgMinutes)} mins per job`;
-};
-
-// Decode Google polyline
-const decodePolyline = (encoded) => {
-  const points = [];
-  let index = 0, lat = 0, lng = 0;
-  while (index < encoded.length) {
-    let b, shift = 0, result = 0;
-    do {
-      b = encoded.charCodeAt(index++) - 63;
-      result |= (b & 0x1f) << shift;
-      shift += 5;
-    } while (b >= 0x20);
-    const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
-    lat += dlat;
-    shift = 0;
-    result = 0;
-    do {
-      b = encoded.charCodeAt(index++) - 63;
-      result |= (b & 0x1f) << shift;
-      shift += 5;
-    } while (b >= 0x20);
-    const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
-    lng += dlng;
-    points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
-  }
-  return points;
-};
 
 // Fetch directions - use Google Directions API
 const fetchDirections = async (origin, destination) => {

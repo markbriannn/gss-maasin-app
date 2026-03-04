@@ -31,6 +31,13 @@ import { showInfoModal, showErrorModal, showSuccessModal } from '../../utils/mod
 import VoiceCall from '../../components/common/VoiceCall';
 import QRPaymentModal from '../../components/common/QRPaymentModal';
 import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall } from '../../services/callService';
+import {
+  calculateClientTotal,
+  calculateUpfrontPayment,
+  calculateCompletionPayment,
+  getAdditionalChargesSummary,
+  formatCurrency
+} from '../../utils/bookingCalculations';
 
 const JobDetailsScreen = ({ navigation, route }) => {
   const { job, jobId } = route.params || {};
@@ -522,16 +529,13 @@ const JobDetailsScreen = ({ navigation, route }) => {
 
   // Client confirms work is complete and proceeds to remaining 50% payment
   const handleConfirmCompletion = () => {
-    // Check if there are approved additional charges that need to be paid
-    const additionalChargesTotal = jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || 0), 0) || 0;
+    // Use centralized calculation utilities
+    const chargesSummary = getAdditionalChargesSummary(jobData?.additionalCharges);
+    const completionAmount = calculateCompletionPayment(jobData);
 
-    // Calculate remaining amount: 50% of total + additional charges
-    const upfrontPaid = jobData?.upfrontPaidAmount || 0;
-    const remaining = (jobData?.remainingAmount || (jobData?.totalAmount - upfrontPaid) || 0) + additionalChargesTotal;
-
-    const message = additionalChargesTotal > 0
-      ? `Are you satisfied with the work? You need to pay the remaining 50% (₱${(jobData?.remainingAmount || 0).toLocaleString()}) plus ₱${additionalChargesTotal.toLocaleString()} in additional charges. Total: ₱${remaining.toLocaleString()}`
-      : `Are you satisfied with the work? You need to pay the remaining 50% (₱${remaining.toLocaleString()}) to complete the job.`;
+    const message = chargesSummary.approved.count > 0
+      ? `Are you satisfied with the work? You need to pay the remaining 50% plus ${formatCurrency(chargesSummary.approved.total)} in additional charges. Total: ${formatCurrency(completionAmount)}`
+      : `Are you satisfied with the work? You need to pay the remaining 50% (${formatCurrency(completionAmount)}) to complete the job.`;
 
     Alert.alert(
       'Confirm Work Complete',
@@ -567,111 +571,43 @@ const JobDetailsScreen = ({ navigation, route }) => {
     setShowPaymentModal(true);
   };
 
-  // PAID - Client pays upfront before service starts
-  const handlePayUpfront = () => {
-    Alert.alert(
-      'Pay Now',
-      `Pay ₱${(jobData?.totalAmount || jobData?.amount || 0).toLocaleString()} now before the service starts?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Pay Now',
-          onPress: () => setShowPaymentModal(true),
-        },
-      ]
-    );
-  };
 
-  // Process payment based on selected method
+
+  // Process payment - QR Ph only
   const processPayment = async (method) => {
     // Prevent double-click
     if (isProcessingPayment || isUpdating) return;
 
-    // Calculate remaining amount for completion payment (50% remaining + additional charges)
-    const baseAmount = jobData?.totalAmount || jobData?.amount || 0;
-    const upfrontPaid = jobData?.upfrontPaidAmount || 0;
-    const additionalChargesTotal = jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || 0), 0) || 0;
-    const discount = jobData?.discountAmount || jobData?.discount || 0;
-
-    // Remaining 50% + any additional charges - discount
-    const remainingBase = jobData?.remainingAmount || (baseAmount - upfrontPaid);
-    const amount = jobData?.finalAmount || (remainingBase + additionalChargesTotal - discount);
+    // Use centralized calculation utility
+    const amount = calculateCompletionPayment(jobData);
 
     const bookingId = jobData.id || jobId;
     const userId = user?.uid || user?.id;
-
-    // This is always a completion payment (remaining 50%)
-    const isCompletionPayment = true;
 
     setIsProcessingPayment(true);
     setSelectedPaymentMethod(method);
     setPaymentError(null);
 
     try {
-      if (method === 'cash') {
-        // Record cash payment
-        const result = await paymentService.recordCashPayment(
-          bookingId,
-          userId,
-          amount,
-          jobData.providerId
-        );
+      // QRPh - create payment
+      const result = await paymentService.createQRPhPayment(
+        bookingId,
+        userId,
+        amount,
+        `50% Completion - ${jobData.title || jobData.serviceCategory}`,
+        { paymentType: 'completion' }
+      );
 
-        if (result.success) {
-          // Completion payment via cash
-          await updateDoc(doc(db, 'bookings', bookingId), {
-            status: 'payment_received',
-            completionPaidAmount: amount,
-            completionPaidAt: serverTimestamp(),
-            clientPaidAt: serverTimestamp(),
-            paymentMethod: 'cash',
-            additionalChargesPaid: additionalChargesTotal > 0,
-            updatedAt: serverTimestamp(),
-          });
-          setJobData(prev => ({ ...prev, status: 'payment_received', completionPaidAmount: amount }));
-          notificationService.notifyPaymentReceived?.(jobData);
-          setShowPaymentModal(false);
-          showSuccessModal('Payment Complete', 'The remaining balance has been paid. Waiting for provider confirmation.');
-
-          // Send payment receipt email to client via Brevo
-          if (user?.email) {
-            const clientName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Client';
-            sendPaymentReceipt(user.email, clientName, {
-              bookingId: bookingId,
-              serviceName: jobData.title || jobData.serviceCategory,
-              providerName: jobData.provider?.name || jobData.providerName || 'Provider',
-              amount: amount,
-              paymentMethod: 'Cash',
-            }).catch(err => console.log('Payment receipt email failed:', err));
-          }
-        } else {
-          setPaymentError(result.error || 'Failed to record payment');
-          showErrorModal('Error', result.error || 'Failed to record payment');
-        }
+      if (result.success && result.checkoutUrl) {
+        setShowPaymentModal(false);
+        
+        // Show QR payment in-app modal
+        setQRPaymentUrl(result.checkoutUrl);
+        setQRPaymentAmount(amount);
+        setShowQRPayment(true);
       } else {
-        // QRPh - create payment
-        const createPayment = paymentService.createQRPhPayment;
-        const methodLabel = 'QR Ph';
-
-        const result = await createPayment(
-          bookingId,
-          userId,
-          amount,
-          `50% Completion - ${jobData.title || jobData.serviceCategory}`,
-          { paymentType: 'completion' }
-        );
-
-        if (result.success && result.checkoutUrl) {
-          setShowPaymentModal(false);
-          
-          // Show QR payment in-app modal
-          setQRPaymentUrl(result.checkoutUrl);
-          setQRPaymentAmount(amount);
-          setShowQRPayment(true);
-        } else {
-          setPaymentError(result.error || 'Failed to create payment');
-          showErrorModal('Payment Error', result.error || 'Failed to create payment. Please try again.');
-        }
+        setPaymentError(result.error || 'Failed to create payment');
+        showErrorModal('Payment Error', result.error || 'Failed to create payment. Please try again.');
       }
     } catch (error) {
       console.error('Payment error:', error);
@@ -1306,10 +1242,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
               }}>
                 <Text style={{ fontSize: 16, fontWeight: '700', color: '#1F2937' }}>Total Amount</Text>
                 <Text style={{ fontSize: 18, fontWeight: '700', color: '#00B14F' }}>
-                  ₱{(
-                    (jobData.totalAmount || jobData.price || 0) +
-                    (jobData.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + c.total, 0) || 0)
-                  ).toLocaleString()}
+                  {formatCurrency(calculateClientTotal(jobData))}
                 </Text>
               </View>
             </View>
@@ -1670,10 +1603,10 @@ const JobDetailsScreen = ({ navigation, route }) => {
               <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>
                 {(() => {
                   if (jobData.hasAdditionalPending) return 'Review Additional Charges First';
-                  const approvedCharges = jobData.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || c.amount || 0), 0) || 0;
+                  const chargesSummary = getAdditionalChargesSummary(jobData.additionalCharges);
                   const discount = jobData.discountAmount || jobData.discount || 0;
-                  if (approvedCharges > discount) return 'Confirm & Pay';
-                  if (discount > approvedCharges) return 'Confirm & Get Refund';
+                  if (chargesSummary.approved.total > discount) return 'Confirm & Pay';
+                  if (discount > chargesSummary.approved.total) return 'Confirm & Get Refund';
                   return 'Confirm';
                 })()}
               </Text>
@@ -1735,19 +1668,11 @@ const JobDetailsScreen = ({ navigation, route }) => {
                   : 'Payment Required'}
               </Text>
               <Text style={{ fontSize: 22, fontWeight: '700', color: '#1E40AF', marginTop: 8 }}>
-                ₱{(() => {
-                  const baseAmount = jobData?.totalAmount || jobData?.amount || 0;
-                  const additionalTotal = jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || 0), 0) || 0;
-                  // For Pay First with upfront payment, only show additional charges
-                  if (jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront) {
-                    return additionalTotal;
-                  }
-                  return baseAmount + additionalTotal;
-                })().toLocaleString()}
+                {formatCurrency(calculateCompletionPayment(jobData))}
               </Text>
               {(jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront) ? (
                 <Text style={{ fontSize: 12, color: '#3B82F6', marginTop: 2 }}>
-                  (Original ₱{(jobData.upfrontPaidAmount || jobData.totalAmount || 0).toLocaleString()} already paid)
+                  (Original {formatCurrency(jobData.upfrontPaidAmount || jobData.totalAmount || 0)} already paid)
                 </Text>
               ) : null}
               <Text style={{ fontSize: 13, color: '#3B82F6', marginTop: 4, textAlign: 'center' }}>
@@ -2095,40 +2020,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
               )}
             </TouchableOpacity>
 
-            {/* Cash Option */}
-            <TouchableOpacity
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                padding: 16,
-                backgroundColor: selectedPaymentMethod === 'cash' ? '#FFFBEB' : '#F9FAFB',
-                borderRadius: 12,
-                marginBottom: 12,
-                borderWidth: 2,
-                borderColor: selectedPaymentMethod === 'cash' ? '#F59E0B' : '#E5E7EB',
-              }}
-              onPress={() => processPayment('cash')}
-              disabled={isProcessingPayment}>
-              <View style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: '#F59E0B',
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}>
-                <Icon name="cash" size={22} color="#FFFFFF" />
-              </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={{ fontSize: 16, fontWeight: '600', color: '#1F2937' }}>Cash</Text>
-                <Text style={{ fontSize: 13, color: '#6B7280' }}>Pay cash to provider</Text>
-              </View>
-              {isProcessingPayment && selectedPaymentMethod === 'cash' ? (
-                <ActivityIndicator color="#F59E0B" />
-              ) : (
-                <Icon name="chevron-forward" size={20} color="#9CA3AF" />
-              )}
-            </TouchableOpacity>
+
 
             <Text style={{ fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginTop: 16 }}>
               Secure payment powered by PayMongo
@@ -2168,6 +2060,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
         visible={showQRPayment}
         checkoutUrl={qrPaymentUrl}
         amount={qrPaymentAmount}
+        bookingId={jobData?.id || jobId}
         onClose={() => {
           setShowQRPayment(false);
           setQRPaymentUrl(null);

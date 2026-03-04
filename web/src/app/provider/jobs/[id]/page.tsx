@@ -10,11 +10,18 @@ import Link from 'next/link';
 import {
   ArrowLeft, Phone, MessageCircle, MapPin, Calendar,
   CheckCircle, AlertCircle, User, Navigation, Play,
-  Plus, Minus, Loader2, Banknote, Image as ImageIcon, Clock, PhoneCall
+  Plus, Loader2, Banknote, Image as ImageIcon, Clock, PhoneCall
 } from 'lucide-react';
 import { pushNotifications } from '@/lib/pushNotifications';
 import VoiceCall from '@/components/VoiceCall';
 import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall, canMakeCall } from '@/services/callService';
+import { 
+  calculateProviderEarnings, 
+  calculateClientTotal, 
+  createAdditionalCharge, 
+  validateAdditionalCharge,
+  formatCurrency 
+} from '@/lib/bookingCalculations';
 
 interface AdditionalCharge {
   id: string;
@@ -147,9 +154,6 @@ export default function ProviderJobDetailsPage() {
   const [showChargeModal, setShowChargeModal] = useState(false);
   const [chargeAmount, setChargeAmount] = useState('');
   const [chargeDescription, setChargeDescription] = useState('');
-  const [showDiscountModal, setShowDiscountModal] = useState(false);
-  const [discountAmount, setDiscountAmount] = useState('');
-  const [discountReason, setDiscountReason] = useState('');
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<string>('');
   
@@ -247,13 +251,7 @@ export default function ProviderJobDetailsPage() {
   }, [jobId, user]);
 
   const calculateTotal = useCallback(() => {
-    if (!job) return 0;
-    const basePrice = job.providerPrice || job.fixedPrice || job.totalAmount || job.price || 0;
-    const approvedCharges = (job.additionalCharges || [])
-      .filter(c => c.status === 'approved')
-      .reduce((sum, c) => sum + (c.total || c.amount || 0), 0);
-    const discount = job.discount || 0;
-    return basePrice + approvedCharges - discount;
+    return calculateProviderEarnings(job);
   }, [job]);
 
   const updateJobStatus = async (newStatus: string, extraData: Record<string, unknown> = {}) => {
@@ -637,28 +635,20 @@ export default function ProviderJobDetailsPage() {
   };
 
   const handleAddCharge = async () => {
-    if (!job || !chargeAmount || !chargeDescription) {
-      alert('Please enter amount and description');
-      return;
-    }
-    const amount = parseFloat(chargeAmount);
-    if (isNaN(amount) || amount <= 0) {
-      alert('Please enter a valid amount');
+    // Validate input
+    const validation = validateAdditionalCharge(chargeAmount, chargeDescription);
+    if (!validation.isValid) {
+      alert(validation.errors.join('\n'));
       return;
     }
 
-    const systemFee = amount * 0.05;
-    const total = amount + systemFee;
+    if (!job) {
+      alert('Job data not available');
+      return;
+    }
 
-    const newCharge: AdditionalCharge = {
-      id: Date.now().toString(),
-      description: chargeDescription,
-      reason: chargeDescription,
-      amount,
-      total,
-      status: 'pending',
-      requestedAt: new Date().toISOString(),
-    };
+    // Create charge object
+    const newCharge = createAdditionalCharge(parseFloat(chargeAmount), chargeDescription);
 
     try {
       await updateDoc(doc(db, 'bookings', job.id), {
@@ -674,48 +664,9 @@ export default function ProviderJobDetailsPage() {
     }
   };
 
-  const handleAddDiscount = async () => {
-    if (!job || !discountAmount) {
-      alert('Please enter discount amount');
-      return;
-    }
-    const amount = parseFloat(discountAmount);
-    if (isNaN(amount) || amount <= 0) {
-      alert('Please enter a valid amount');
-      return;
-    }
 
-    const currentPrice = job.providerPrice || job.totalAmount || job.price || 0;
-    if (amount >= currentPrice) {
-      alert('Discount cannot be equal to or greater than the service price');
-      return;
-    }
 
-    const newProviderPrice = currentPrice - amount;
-    const newSystemFee = newProviderPrice * 0.05;
-    const newTotal = newProviderPrice + newSystemFee;
 
-    try {
-      await updateDoc(doc(db, 'bookings', job.id), {
-        discount: amount,
-        discountAmount: amount,
-        discountReason: discountReason || 'Discount applied',
-        hasDiscount: true,
-        providerPrice: newProviderPrice,
-        systemFee: newSystemFee,
-        totalAmount: newTotal,
-        discountAppliedAt: serverTimestamp(),
-      });
-      setShowDiscountModal(false);
-      setDiscountAmount('');
-      setDiscountReason('');
-    } catch (error) {
-      console.error('Error adding discount:', error);
-      alert('Failed to add discount');
-    }
-  };
-
-  const formatCurrency = (amount: number) => `₱${amount.toLocaleString()}`;
 
   const statusConfig = job ? STATUS_CONFIG[job.status] || STATUS_CONFIG.pending : STATUS_CONFIG.pending;
 
@@ -998,20 +949,12 @@ export default function ProviderJobDetailsPage() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-gray-900">Pricing</h3>
               {canModifyPricing && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowChargeModal(true)}
-                    className="text-sm px-3 py-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-600 rounded-lg flex items-center gap-1 font-medium border border-blue-100 hover:shadow-sm transition-all"
-                  >
-                    <Plus className="w-4 h-4" /> Charge
-                  </button>
-                  <button
-                    onClick={() => setShowDiscountModal(true)}
-                    className="text-sm px-3 py-1.5 bg-gradient-to-r from-emerald-50 to-green-50 text-emerald-600 rounded-lg flex items-center gap-1 font-medium border border-emerald-100 hover:shadow-sm transition-all"
-                  >
-                    <Minus className="w-4 h-4" /> Discount
-                  </button>
-                </div>
+                <button
+                  onClick={() => setShowChargeModal(true)}
+                  className="text-sm px-3 py-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-600 rounded-lg flex items-center gap-1 font-medium border border-blue-100 hover:shadow-sm transition-all"
+                >
+                  <Plus className="w-4 h-4" /> Add Charge
+                </button>
               )}
             </div>
             <div className="space-y-3">
@@ -1035,12 +978,7 @@ export default function ProviderJobDetailsPage() {
                   </span>
                 </div>
               ))}
-              {job.discount && job.discount > 0 && (
-                <div className="flex justify-between items-center text-sm text-emerald-600">
-                  <span>Discount {job.discountReason && `(${job.discountReason})`}</span>
-                  <span className="font-medium">-{formatCurrency(job.discount)}</span>
-                </div>
-              )}
+
               <div className="border-t border-gray-100 pt-3 space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-gray-900">Your Earnings</span>
@@ -1245,50 +1183,7 @@ export default function ProviderJobDetailsPage() {
         </div>
       )}
 
-      {/* Add Discount Modal */}
-      {showDiscountModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Add Discount</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-600 mb-1 block">Amount (₱)</label>
-                <input
-                  type="number"
-                  value={discountAmount}
-                  onChange={(e) => setDiscountAmount(e.target.value)}
-                  placeholder="0"
-                  className="w-full p-3 border border-gray-200 rounded-lg"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600 mb-1 block">Reason (optional)</label>
-                <input
-                  type="text"
-                  value={discountReason}
-                  onChange={(e) => setDiscountReason(e.target.value)}
-                  placeholder="e.g., Loyal customer"
-                  className="w-full p-3 border border-gray-200 rounded-lg"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowDiscountModal(false)}
-                className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddDiscount}
-                className="flex-1 py-3 bg-green-500 text-white rounded-lg font-medium"
-              >
-                Add Discount
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Photo Modal */}
       {showPhotoModal && selectedPhoto && (
