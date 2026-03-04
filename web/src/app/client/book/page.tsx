@@ -339,12 +339,15 @@ function BookServiceContent() {
       // Note: Admin notification will be sent by the backend after payment is confirmed
       // (when status transitions from 'awaiting_payment' to 'pending')
 
-      // Now redirect to payment
+      // Now redirect to payment - Calculate 50% upfront payment
       setProcessingPayment(true);
 
+      // For 50/50 split: client pays 50% upfront, 50% after completion
+      const upfrontAmount = Math.ceil(totalAmount * 0.5); // Round up to ensure we collect at least 50%
+
       const paymentResult = await processPayment({
-        amount: totalAmount,
-        description: `${provider.serviceCategory} Service - ${provider.firstName} ${provider.lastName}`,
+        amount: upfrontAmount, // Pay 50% upfront
+        description: `${provider.serviceCategory} Service - ${provider.firstName} ${provider.lastName} (50% upfront)`,
         bookingId: newBookingId,
         clientId: user.uid,
         providerId: provider.id,
