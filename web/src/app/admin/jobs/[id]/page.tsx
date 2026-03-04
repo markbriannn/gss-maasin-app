@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import VoiceCall from "@/components/VoiceCall";
 import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall } from "@/services/callService";
-import { calculateProviderEarnings, formatCurrency } from "@/lib/bookingCalculations";
+import { calculateProviderEarnings, formatCurrency, AdditionalCharge } from "@/lib/bookingCalculations";
 
 interface JobData {
   id: string;
@@ -48,7 +48,7 @@ interface JobData {
   isNegotiable: boolean;
   offeredPrice?: number;
   counterOfferPrice?: number;
-  additionalCharges?: Array<{ id: string; description: string; amount: number; status: string }>;
+  additionalCharges?: AdditionalCharge[];
   discount?: number;
   discountReason?: string;
   createdAt?: Date;
