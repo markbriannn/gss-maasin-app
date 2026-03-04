@@ -258,7 +258,7 @@ function BookServiceContent() {
 
     // Check if client already has an active booking with this provider
     try {
-      const activeStatuses = ['pending', 'approved', 'accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion', 'pending_payment', 'payment_received'];
+      const activeStatuses = ['awaiting_payment', 'pending', 'approved', 'accepted', 'traveling', 'arrived', 'in_progress', 'pending_completion', 'pending_payment', 'payment_received'];
       const existingBookingsQuery = query(
         collection(db, 'bookings'),
         where('clientId', '==', user.uid),
