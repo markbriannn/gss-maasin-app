@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ClientLayout from '@/components/layouts/ClientLayout';
+import { calculateClientTotal } from '@/lib/bookingCalculations';
 
 export default function ServiceReceiptPage() {
   const params = useParams();
@@ -227,12 +228,11 @@ Thank you for using Maasin City H.E.L.P!
     );
   }
 
-  const baseAmount = booking.totalAmount || booking.providerPrice || booking.offeredPrice || booking.price || 0;
+  // Use centralized calculation utilities for accurate totals
+  const finalTotal = calculateClientTotal(booking as any);
   const additionalCharges = booking.additionalCharges || [];
   const approvedCharges = additionalCharges.filter((c: any) => c.status === 'approved');
-  const additionalTotal = approvedCharges.reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
   const discount = booking.discount || 0;
-  const finalTotal = booking.finalAmount || (baseAmount + additionalTotal - discount);
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
