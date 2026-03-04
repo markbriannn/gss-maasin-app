@@ -972,7 +972,6 @@ export default function ProviderJobDetailsPage() {
                   <span className="font-bold text-gray-900">Your Earnings</span>
                   <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">{formatCurrency(calculateTotal())}</span>
                 </div>
-                <p className="text-xs text-gray-500 text-right">Client pays {formatCurrency(Math.round(calculateTotal() * 1.05))} (includes 5% platform fee)</p>
               </div>
             </div>
           </div>

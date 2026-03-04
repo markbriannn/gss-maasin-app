@@ -1726,12 +1726,6 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
               </View>
             )}
           </View>
-          <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 8, textAlign: 'center' }}>
-            Client pays {APP_CONFIG.CURRENCY_SYMBOL}{(
-              (jobData.totalAmount || jobData.price || 0) +
-              (jobData.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + c.total, 0) || 0)
-            ).toLocaleString()} (includes {APP_CONFIG.SERVICE_FEE_PERCENTAGE}% system fee)
-          </Text>
         </View>
 
         {/* Job ID */}
