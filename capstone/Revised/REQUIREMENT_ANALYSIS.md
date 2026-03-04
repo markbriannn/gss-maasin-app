@@ -22,7 +22,7 @@ Service categories managed through the system include electrical work, plumbing,
 
 ### Where: Location and Setting
 
-The General Service System operates within Maasin City, Southern Leyte, serving residential neighborhoods, small commercial areas, and barangay communities throughout the city. The platform is accessible through two channels: a web application accessible via internet browsers on desktop computers, laptops, tablets, and mobile devices, and native mobile applications for Android and iOS devices available through Google Play Store and Apple App Store.
+The General Service System operates within Maasin City, Southern Leyte, serving residential neighborhoods, small commercial areas, and barangay communities throughout the city. The platform is accessible through two channels: a web application accessible via internet browsers on desktop computers, laptops, tablets, and mobile devices, and native mobile applications for Android and iOS devices available through App.
 
 Service coordination happens entirely through the digital platform, eliminating the need for physical meeting places or informal communication channels. Providers and clients interact through the system's built-in messaging feature, booking interface, and real-time tracking capabilities. The centralized digital platform ensures that all users across Maasin City can access services regardless of their barangay or social network, breaking down geographic and social barriers that previously limited service access.
 

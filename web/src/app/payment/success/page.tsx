@@ -76,7 +76,7 @@ function PaymentSuccessContent() {
 
         // Send SMS notification to client
         if (clientPhone) {
-          const smsMessage = `GSS Maasin: Your booking for ${booking.serviceCategory} with ${providerName} is confirmed! ${dateStr !== 'ASAP' ? `Date: ${dateStr} at ${timeStr}.` : ''} Total: ₱${booking.totalAmount?.toLocaleString()}. Job ID: ${bookingId.slice(-6)}`;
+          const smsMessage = `H.E.L.P Maasin: Your booking for ${booking.serviceCategory} with ${providerName} is confirmed! ${dateStr !== 'ASAP' ? `Date: ${dateStr} at ${timeStr}.` : ''} Total: ₱${booking.totalAmount?.toLocaleString()}. Job ID: ${bookingId.slice(-6)}`;
 
           fetch(`${API_URL}/sms/send-sms`, {
             method: 'POST',
@@ -178,7 +178,7 @@ function PaymentSuccessContent() {
           className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 px-6 rounded-xl font-semibold hover:shadow-lg hover:shadow-emerald-500/30 transition-all"
         >
           <ExternalLink className="w-5 h-5" />
-          Open GSS Maasin App
+          Open H.E.L.P Maasin App
         </button>
 
         <p className="text-xs text-gray-400 mt-4">

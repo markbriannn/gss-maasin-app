@@ -1,9 +1,9 @@
 /**
- * Reusable Animation Components for GSS Maasin
+ * Reusable Animation Components for Maasin City H.E.L.P
  * Provides smooth, polished animations throughout the app
  */
 
-import React, {useRef, useEffect, useState} from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   Animated,
   TouchableOpacity,
@@ -52,7 +52,7 @@ export const AnimatedButton = ({
       disabled={disabled}
       activeOpacity={1}
       {...props}>
-      <Animated.View style={[style, {transform: [{scale: scaleAnim}]}]}>
+      <Animated.View style={[style, { transform: [{ scale: scaleAnim }] }]}>
         {children}
       </Animated.View>
     </TouchableOpacity>
@@ -97,7 +97,7 @@ export const AnimatedCard = ({
       onPressOut={handlePressOut}
       activeOpacity={1}
       {...props}>
-      <Animated.View style={[style, {transform: [{scale: scaleAnim}]}]}>
+      <Animated.View style={[style, { transform: [{ scale: scaleAnim }] }]}>
         {children}
       </Animated.View>
     </TouchableOpacity>
@@ -108,13 +108,13 @@ export const AnimatedCard = ({
  * 3. STAGGERED LIST ITEM ANIMATION
  * Fade in and slide up with staggered delay
  */
-export const AnimatedListItem = ({children, index, style, delay = 50}) => {
+export const AnimatedListItem = ({ children, index, style, delay = 50 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
   useEffect(() => {
     const staggerDelay = index * delay;
-    
+
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -139,7 +139,7 @@ export const AnimatedListItem = ({children, index, style, delay = 50}) => {
         style,
         {
           opacity: fadeAnim,
-          transform: [{translateY: slideAnim}],
+          transform: [{ translateY: slideAnim }],
         },
       ]}>
       {children}
@@ -150,7 +150,7 @@ export const AnimatedListItem = ({children, index, style, delay = 50}) => {
 /**
  * 4. PULSE ANIMATION (for Online status badges)
  */
-export const PulsingDot = ({size = 10, color = '#10B981', style}) => {
+export const PulsingDot = ({ size = 10, color = '#10B981', style }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(1)).current;
 
@@ -186,7 +186,7 @@ export const PulsingDot = ({size = 10, color = '#10B981', style}) => {
   }, []);
 
   return (
-    <View style={[{width: size, height: size}, style]}>
+    <View style={[{ width: size, height: size }, style]}>
       <Animated.View
         style={{
           position: 'absolute',
@@ -195,7 +195,7 @@ export const PulsingDot = ({size = 10, color = '#10B981', style}) => {
           borderRadius: size / 2,
           backgroundColor: color,
           opacity: opacityAnim,
-          transform: [{scale: pulseAnim}],
+          transform: [{ scale: pulseAnim }],
         }}
       />
       <View
@@ -213,7 +213,7 @@ export const PulsingDot = ({size = 10, color = '#10B981', style}) => {
 /**
  * 5. SUCCESS CHECKMARK ANIMATION
  */
-export const SuccessCheckmark = ({size = 60, color = '#10B981', onComplete}) => {
+export const SuccessCheckmark = ({ size = 60, color = '#10B981', onComplete }) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
@@ -256,7 +256,7 @@ export const SuccessCheckmark = ({size = 60, color = '#10B981', onComplete}) => 
         backgroundColor: color,
         justifyContent: 'center',
         alignItems: 'center',
-        transform: [{scale: scaleAnim}, {rotate}],
+        transform: [{ scale: scaleAnim }, { rotate }],
       }}>
       <View style={{
         width: size * 0.3,
@@ -264,7 +264,7 @@ export const SuccessCheckmark = ({size = 60, color = '#10B981', onComplete}) => 
         borderRightWidth: 4,
         borderBottomWidth: 4,
         borderColor: '#FFFFFF',
-        transform: [{rotate: '45deg'}, {translateX: -2}, {translateY: -2}],
+        transform: [{ rotate: '45deg' }, { translateX: -2 }, { translateY: -2 }],
       }} />
     </Animated.View>
   );
@@ -273,23 +273,23 @@ export const SuccessCheckmark = ({size = 60, color = '#10B981', onComplete}) => 
 /**
  * 6. SHAKE ANIMATION (for errors)
  */
-export const ShakeView = ({children, shake, style}) => {
+export const ShakeView = ({ children, shake, style }) => {
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (shake) {
       Animated.sequence([
-        Animated.timing(shakeAnim, {toValue: 10, duration: 50, useNativeDriver: true}),
-        Animated.timing(shakeAnim, {toValue: -10, duration: 50, useNativeDriver: true}),
-        Animated.timing(shakeAnim, {toValue: 10, duration: 50, useNativeDriver: true}),
-        Animated.timing(shakeAnim, {toValue: -10, duration: 50, useNativeDriver: true}),
-        Animated.timing(shakeAnim, {toValue: 0, duration: 50, useNativeDriver: true}),
+        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
       ]).start();
     }
   }, [shake]);
 
   return (
-    <Animated.View style={[style, {transform: [{translateX: shakeAnim}]}]}>
+    <Animated.View style={[style, { transform: [{ translateX: shakeAnim }] }]}>
       {children}
     </Animated.View>
   );
@@ -298,7 +298,7 @@ export const ShakeView = ({children, shake, style}) => {
 /**
  * 7. SKELETON LOADING PLACEHOLDER
  */
-export const SkeletonLoader = ({width, height, borderRadius = 8, style}) => {
+export const SkeletonLoader = ({ width, height, borderRadius = 8, style }) => {
   const shimmerAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -334,7 +334,7 @@ export const SkeletonLoader = ({width, height, borderRadius = 8, style}) => {
           width: '100%',
           height: '100%',
           backgroundColor: '#F3F4F6',
-          transform: [{translateX}],
+          transform: [{ translateX }],
         }}
       />
     </View>
@@ -393,7 +393,7 @@ export const FloatingActionButton = ({
         style,
         {
           transform: [
-            {scale: Animated.multiply(scaleAnim, bounceAnim)},
+            { scale: Animated.multiply(scaleAnim, bounceAnim) },
           ],
         },
       ]}>
@@ -411,7 +411,7 @@ export const FloatingActionButton = ({
 /**
  * 9. SLIDE UP MODAL/BOTTOM SHEET
  */
-export const SlideUpView = ({children, visible, style, onClose}) => {
+export const SlideUpView = ({ children, visible, style, onClose }) => {
   const slideAnim = useRef(new Animated.Value(300)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -452,7 +452,7 @@ export const SlideUpView = ({children, visible, style, onClose}) => {
         style,
         {
           opacity: opacityAnim,
-          transform: [{translateY: slideAnim}],
+          transform: [{ translateY: slideAnim }],
         },
       ]}>
       {children}
@@ -463,7 +463,7 @@ export const SlideUpView = ({children, visible, style, onClose}) => {
 /**
  * 10. CHAT MESSAGE ANIMATION
  */
-export const AnimatedMessage = ({children, isOwn, style}) => {
+export const AnimatedMessage = ({ children, isOwn, style }) => {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -489,7 +489,7 @@ export const AnimatedMessage = ({children, isOwn, style}) => {
         style,
         {
           opacity: fadeAnim,
-          transform: [{translateY: slideAnim}],
+          transform: [{ translateY: slideAnim }],
         },
       ]}>
       {children}
@@ -521,15 +521,15 @@ export const ProviderCardSkeleton = () => {
 
   return (
     <View style={skeletonStyles.card}>
-      <Animated.View style={[skeletonStyles.avatar, {backgroundColor}]} />
+      <Animated.View style={[skeletonStyles.avatar, { backgroundColor }]} />
       <View style={skeletonStyles.content}>
-        <Animated.View style={[skeletonStyles.title, {backgroundColor}]} />
-        <Animated.View style={[skeletonStyles.subtitle, {backgroundColor}]} />
-        <Animated.View style={[skeletonStyles.rating, {backgroundColor}]} />
+        <Animated.View style={[skeletonStyles.title, { backgroundColor }]} />
+        <Animated.View style={[skeletonStyles.subtitle, { backgroundColor }]} />
+        <Animated.View style={[skeletonStyles.rating, { backgroundColor }]} />
       </View>
       <View style={skeletonStyles.actions}>
-        <Animated.View style={[skeletonStyles.button, {backgroundColor}]} />
-        <Animated.View style={[skeletonStyles.buttonPrimary, {backgroundColor}]} />
+        <Animated.View style={[skeletonStyles.button, { backgroundColor }]} />
+        <Animated.View style={[skeletonStyles.buttonPrimary, { backgroundColor }]} />
       </View>
     </View>
   );

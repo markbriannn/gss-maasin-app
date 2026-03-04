@@ -23,7 +23,7 @@ async function testBookingSMS() {
   console.log('Booking:', TEST_BOOKING);
   console.log('\n');
 
-  const smsMessage = `GSS Maasin: Your booking for ${TEST_BOOKING.serviceCategory} is confirmed! Date: ${TEST_BOOKING.scheduledDate} at ${TEST_BOOKING.scheduledTime}. Total: ₱${TEST_BOOKING.totalAmount.toLocaleString()}. Job ID: ${TEST_BOOKING.id.slice(-6)}`;
+  const smsMessage = `H.E.L.P Maasin: Your booking for ${TEST_BOOKING.serviceCategory} is confirmed! Date: ${TEST_BOOKING.scheduledDate} at ${TEST_BOOKING.scheduledTime}. Total: ₱${TEST_BOOKING.totalAmount.toLocaleString()}. Job ID: ${TEST_BOOKING.id.slice(-6)}`;
 
   console.log('Message:', smsMessage);
   console.log('Message length:', smsMessage.length, 'characters');

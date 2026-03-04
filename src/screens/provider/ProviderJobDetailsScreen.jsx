@@ -88,16 +88,15 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
     };
   }, []);
 
-  // Listen for incoming calls - DISABLED (causes white screen crashes)
+  // Listen for incoming calls
   useEffect(() => {
     if (!user) return;
-    
-    // Voice calls disabled - Agora SDK initialization causes app crashes
-    // const unsubscribe = listenToIncomingCalls(user.uid, (call) => {
-    //   setIncomingCall(call);
-    // });
 
-    // return () => unsubscribe();
+    const unsubscribe = listenToIncomingCalls(user.uid, (call) => {
+      setIncomingCall(call);
+    });
+
+    return () => unsubscribe();
   }, [user]);
 
   // Start location tracking if status is traveling when screen loads
@@ -388,7 +387,7 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
       showErrorModal('Error', 'Unable to initiate call');
       return;
     }
-    
+
     try {
       const call = await initiateCall(
         user.uid,
@@ -423,7 +422,7 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
   // Voice call handlers
   const handleAnswerCall = async () => {
     if (!incomingCall) return;
-    
+
     try {
       await answerCall(incomingCall.id);
       setActiveCall(incomingCall);
@@ -435,7 +434,7 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
 
   const handleDeclineCall = async () => {
     if (!incomingCall) return;
-    
+
     try {
       await declineCall(incomingCall.id);
       setIncomingCall(null);
@@ -446,7 +445,7 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
 
   const handleEndCall = async (duration) => {
     if (!activeCall) return;
-    
+
     try {
       await endCall(activeCall.id, duration || 0);
       setActiveCall(null);
@@ -889,7 +888,7 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
                 const providerName = capitalize(`${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Provider');
 
                 if (clientPhone) {
-                  smsEmailService.sendSMS(clientPhone, `GSS Maasin: ${providerName} has arrived at your location for ${jobData.serviceCategory}. Please meet them now.`)
+                  smsEmailService.sendSMS(clientPhone, `H.E.L.P Maasin: ${providerName} has arrived at your location for ${jobData.serviceCategory}. Please meet them now.`)
                     .catch(err => console.log('SMS notification failed:', err));
                 }
 
@@ -1055,7 +1054,7 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
                 const providerName = capitalize(`${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Provider');
 
                 if (clientPhone) {
-                  smsEmailService.sendSMS(clientPhone, `GSS Maasin: ${providerName} has completed your ${jobData.serviceCategory} service! Please confirm the work and leave a review. Thank you!`)
+                  smsEmailService.sendSMS(clientPhone, `H.E.L.P Maasin: ${providerName} has completed your ${jobData.serviceCategory} service! Please confirm the work and leave a review. Thank you!`)
                     .catch(err => console.log('SMS notification failed:', err));
                 }
 
@@ -1222,7 +1221,7 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
                   const providerName = capitalize(`${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Provider');
 
                   if (clientPhone) {
-                    smsEmailService.sendSMS(clientPhone, `GSS Maasin: Hi ${clientName}! How was your ${jobData.serviceCategory} service with ${providerName}? Please take a moment to leave a review. Your feedback helps others!`)
+                    smsEmailService.sendSMS(clientPhone, `H.E.L.P Maasin: Hi ${clientName}! How was your ${jobData.serviceCategory} service with ${providerName}? Please take a moment to leave a review. Your feedback helps others!`)
                       .catch(err => console.log('Review reminder SMS failed:', err));
                   }
 
@@ -1672,13 +1671,13 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
                     {jobData.paymentMethod === 'maya' ? 'Maya' : 'GCash'}
                   </Text>
                   <Text style={{ fontSize: 12, color: isDark ? '#6EE7B7' : '#047857' }}>
-                    PAID • Protected Payment
+                    {jobData.isPaidUpfront ? '50% PAID UPFRONT' : 'PENDING'} • 50/50 Split Payment
                   </Text>
                 </View>
               </View>
               {jobData.isPaidUpfront && (
                 <View style={{ backgroundColor: '#10B981', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>PAID</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>50% PAID</Text>
                 </View>
               )}
             </View>
@@ -1872,10 +1871,10 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
                     }}>
                       <Icon name="time" size={32} color="#F59E0B" />
                       <Text style={{ fontSize: 16, fontWeight: '700', color: '#92400E', marginTop: 8 }}>
-                        Waiting for Client Payment
+                        Waiting for Client's 50% Upfront
                       </Text>
                       <Text style={{ fontSize: 13, color: '#B45309', marginTop: 4, textAlign: 'center' }}>
-                        The client needs to pay before you can start traveling.
+                        The client needs to pay 50% (₱{(jobData.upfrontAmount || Math.round((jobData.totalAmount || 0) * 0.5)).toLocaleString()}) before you can start traveling.
                       </Text>
                     </View>
                   )}
@@ -1893,7 +1892,7 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
                     }}>
                       <Icon name="checkmark-circle" size={20} color="#059669" />
                       <Text style={{ fontSize: 14, fontWeight: '600', color: '#065F46', marginLeft: 8 }}>
-                        Client Paid ₱{(jobData.upfrontPaidAmount || jobData.totalAmount || 0).toLocaleString()} - Ready to Start!
+                        Client Paid 50% (₱{(jobData.upfrontPaidAmount || 0).toLocaleString()}) - Ready to Start!
                       </Text>
                     </View>
                   )}
@@ -2076,7 +2075,7 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
                       Waiting for Client Confirmation
                     </Text>
                     <Text style={{ fontSize: 13, color: '#B45309', marginTop: 4, textAlign: 'center' }}>
-                      The client needs to confirm the work is complete and proceed to payment.
+                      The client needs to confirm the work is complete and pay the remaining 50% (₱{(jobData.remainingAmount || Math.round((jobData.totalAmount || 0) * 0.5)).toLocaleString()}).
                     </Text>
                   </View>
                 </View>
@@ -2632,8 +2631,8 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
         isLoading={isUpdating}
       />
 
-      {/* Voice Call Modals - DISABLED */}
-      {false && activeCall && (
+      {/* Voice Call Modals */}
+      {activeCall && (
         <Modal visible={true} transparent={false} animationType="slide">
           <VoiceCall
             callId={activeCall.id}
@@ -2645,7 +2644,7 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
         </Modal>
       )}
 
-      {false && incomingCall && (
+      {incomingCall && (
         <Modal visible={true} transparent={false} animationType="slide">
           <VoiceCall
             callId={incomingCall.id}

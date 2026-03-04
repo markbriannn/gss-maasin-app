@@ -198,7 +198,7 @@ function JobDetailsContent() {
   const [cancelReason, setCancelReason] = useState('');
   const [selectedCancelReason, setSelectedCancelReason] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  
+
   // Call state
   const [activeCall, setActiveCall] = useState<any>(null);
   const [incomingCall, setIncomingCall] = useState<any>(null);
@@ -347,7 +347,7 @@ function JobDetailsContent() {
   // Listen for incoming calls
   useEffect(() => {
     if (!user) return;
-    
+
     const unsubscribe = listenToIncomingCalls(user.uid, (call) => {
       setIncomingCall(call);
     });
@@ -358,7 +358,7 @@ function JobDetailsContent() {
   // Check if call is allowed when job loads
   useEffect(() => {
     if (!user || !job) return;
-    
+
     canMakeCall(user.uid, job.providerId, job.id).then(result => {
       setIsCallAllowed(result.allowed);
     });
@@ -473,8 +473,9 @@ function JobDetailsContent() {
     const additionalChargesTotal = (job.additionalCharges || [])
       .filter(c => c.status === 'approved')
       .reduce((sum, c) => sum + (c.total || 0), 0);
+    const discount = job.discountAmount || job.discount || 0;
     const isPayFirstWithAdditional = job.paymentPreference === 'pay_first' && job.isPaidUpfront && additionalChargesTotal > 0;
-    const amount = isPayFirstWithAdditional ? additionalChargesTotal : (baseAmount + additionalChargesTotal);
+    const amount = job.finalAmount || (isPayFirstWithAdditional ? additionalChargesTotal : (baseAmount + additionalChargesTotal - discount));
     const isUpfrontPayment = job.paymentPreference === 'pay_first' && !job.isPaidUpfront &&
       ['accepted', 'traveling', 'arrived'].includes(job.status);
 
@@ -684,7 +685,7 @@ function JobDetailsContent() {
   // Call handlers
   const handleCallProvider = async () => {
     if (!user || !job) return;
-    
+
     // Check if call is allowed
     const permission = await canMakeCall(user.uid, job.providerId, job.id);
     if (!permission.allowed) {
@@ -709,7 +710,7 @@ function JobDetailsContent() {
 
   const handleAnswerCall = async () => {
     if (!incomingCall) return;
-    
+
     try {
       await answerCall(incomingCall.id);
       setActiveCall(incomingCall);
@@ -721,7 +722,7 @@ function JobDetailsContent() {
 
   const handleDeclineCall = async () => {
     if (!incomingCall) return;
-    
+
     try {
       await declineCall(incomingCall.id);
       setIncomingCall(null);
@@ -732,7 +733,7 @@ function JobDetailsContent() {
 
   const handleEndCall = async (duration?: number) => {
     if (!activeCall) return;
-    
+
     try {
       await endCall(activeCall.id, duration || 0);
       setActiveCall(null);
@@ -753,21 +754,41 @@ function JobDetailsContent() {
       return;
     }
 
-    if (!confirm(`Pay ₱${chargeAmount.toLocaleString()} for:\n"${charge.reason || charge.description}"\n\nYou will be redirected to QR payment (GCash/Maya).`)) return;
+    if (!confirm(`Pay ₱${chargeAmount.toLocaleString()} for:\n"${charge.reason || charge.description}"\n\nYou will be redirected to QR Ph payment.`)) return;
 
     setUpdating(true);
     try {
-      // Mark charge as approved in Firestore first
+      // Mark charge as approved in Firestore
       const updatedCharges = (job.additionalCharges || []).map(c =>
         c.id === chargeId ? { ...c, status: 'approved' as const, approvedAt: new Date().toISOString() } : c
       );
       const hasPending = updatedCharges.some(c => c.status === 'pending');
+
+      // Calculate new total with approved charges and discount
+      const basePrice = job.totalAmount || ((job.providerPrice || job.fixedPrice || job.price || 0) + (job.systemFee || 0));
+      const approvedTotal = updatedCharges
+        .filter(c => c.status === 'approved')
+        .reduce((sum, c) => sum + (c.total || c.amount || 0), 0);
+      const discount = job.discountAmount || job.discount || 0;
+      const newFinalAmount = basePrice + approvedTotal - discount;
+
       await updateDoc(doc(db, 'bookings', job.id), {
         additionalCharges: updatedCharges,
         hasAdditionalPending: hasPending,
+        finalAmount: newFinalAmount,
+        approvedAdditionalCharges: updatedCharges.filter(c => c.status === 'approved'),
+        updatedAt: serverTimestamp(),
       });
 
-      // Create QR payment for the additional charge
+      // Update local state
+      setJob(prev => prev ? {
+        ...prev,
+        additionalCharges: updatedCharges,
+        hasAdditionalPending: hasPending,
+        finalAmount: newFinalAmount,
+      } : null);
+
+      // Create real QR payment for the additional charge via PayMongo
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
       const response = await fetch(`${apiUrl}/payments/create-qrph-payment`, {
         method: 'POST',
@@ -793,7 +814,7 @@ function JobDetailsContent() {
 
       if (result.success && result.checkoutUrl) {
         window.open(result.checkoutUrl, '_blank');
-        showAlert('payment', 'Complete Your Payment 💳', 'A new tab has opened for QR Ph payment. Scan the QR code with GCash, Maya, or any banking app. The charge will be marked as paid automatically once complete.');
+        showAlert('payment', 'Complete Your Payment 💳', `Pay ₱${chargeAmount.toLocaleString()} — A new tab has opened for QR Ph payment. Scan the QR code with any banking or e-wallet app to complete payment. The charge will be marked as paid automatically once complete.`);
       } else {
         showAlert('error', 'Payment Failed', result.error || 'Failed to create payment. Please try again.');
       }

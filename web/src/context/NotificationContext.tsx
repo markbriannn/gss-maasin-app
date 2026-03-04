@@ -2,12 +2,12 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
-import { 
-  registerDeviceToken, 
-  onForegroundMessage, 
+import {
+  registerDeviceToken,
+  onForegroundMessage,
   showLocalNotification,
   requestNotificationPermission,
-  isPushSupported 
+  isPushSupported
 } from '@/lib/pushNotifications';
 
 interface NotificationContextType {
@@ -50,9 +50,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           console.log('[NotificationContext Web] VAPID key not configured, push notifications disabled');
           return;
         }
-        
+
         console.log('[NotificationContext Web] Initializing push for user:', user.uid);
-        
+
         // Request permission if not granted
         if (Notification.permission !== 'granted') {
           const granted = await requestNotificationPermission();
@@ -83,11 +83,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     const cleanup = onForegroundMessage((payload) => {
       console.log('[NotificationContext Web] Foreground message:', payload);
-      
+
       // Show local notification for foreground messages
       if (payload.notification) {
         showLocalNotification(
-          payload.notification.title || 'GSS Notification',
+          payload.notification.title || 'H.E.L.P Notification',
           payload.notification.body || 'You have a new notification',
           payload.data
         );
@@ -124,12 +124,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const requestPermissionHandler = useCallback(async () => {
     const granted = await requestNotificationPermission();
     setHasPermission(granted);
-    
+
     if (granted && user?.uid) {
       const result = await registerDeviceToken(user.uid);
       setIsRegistered(result.success);
     }
-    
+
     return granted;
   }, [user?.uid]);
 

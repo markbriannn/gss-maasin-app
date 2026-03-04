@@ -29,9 +29,8 @@ import { BadgeList, TierBadge } from '../../components/gamification';
 import { PremiumModal, ConfirmModal, PaymentModal as PremiumPaymentModal } from '../../components/common';
 import { showInfoModal, showErrorModal, showSuccessModal } from '../../utils/modalManager';
 import VoiceCall from '../../components/common/VoiceCall';
+import QRPaymentModal from '../../components/common/QRPaymentModal';
 import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall } from '../../services/callService';
-// import VoiceCall from '../../components/common/VoiceCall';
-// import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall } from '../../services/callService';
 
 const JobDetailsScreen = ({ navigation, route }) => {
   const { job, jobId } = route.params || {};
@@ -88,6 +87,11 @@ const JobDetailsScreen = ({ navigation, route }) => {
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
   const appState = useRef(AppState.currentState);
+  
+  // QR Payment modal state
+  const [showQRPayment, setShowQRPayment] = useState(false);
+  const [qrPaymentUrl, setQRPaymentUrl] = useState(null);
+  const [qrPaymentAmount, setQRPaymentAmount] = useState(0);
 
   // Premium modal states
   const [premiumModal, setPremiumModal] = useState({ visible: false, variant: 'success', title: '', message: '' });
@@ -183,16 +187,15 @@ const JobDetailsScreen = ({ navigation, route }) => {
     };
   }, [jobData?.status, jobData?.id, jobId, jobData?.paymentPreference, jobData?.isPaidUpfront]);
 
-  // Listen for incoming calls - DISABLED (causes white screen crashes)
+  // Listen for incoming calls
   useEffect(() => {
     if (!user) return;
-    
-    // Voice calls disabled - Agora SDK initialization causes app crashes
-    // const unsubscribe = listenToIncomingCalls(user.uid, (call) => {
-    //   setIncomingCall(call);
-    // });
 
-    // return () => unsubscribe();
+    const unsubscribe = listenToIncomingCalls(user.uid, (call) => {
+      setIncomingCall(call);
+    });
+
+    return () => unsubscribe();
   }, [user]);
 
   const CANCEL_REASONS = [
@@ -366,7 +369,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
       showErrorModal('Error', 'Unable to initiate call');
       return;
     }
-    
+
     try {
       const call = await initiateCall(
         user.uid,
@@ -401,7 +404,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
   // Voice call handlers
   const handleAnswerCall = async () => {
     if (!incomingCall) return;
-    
+
     try {
       await answerCall(incomingCall.id);
       setActiveCall(incomingCall);
@@ -413,7 +416,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
 
   const handleDeclineCall = async () => {
     if (!incomingCall) return;
-    
+
     try {
       await declineCall(incomingCall.id);
       setIncomingCall(null);
@@ -424,7 +427,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
 
   const handleEndCall = async (duration) => {
     if (!activeCall) return;
-    
+
     try {
       await endCall(activeCall.id, duration || 0);
       setActiveCall(null);
@@ -517,81 +520,36 @@ const JobDetailsScreen = ({ navigation, route }) => {
     }
   };
 
-  // Client confirms work is complete and proceeds to payment
+  // Client confirms work is complete and proceeds to remaining 50% payment
   const handleConfirmCompletion = () => {
     // Check if there are approved additional charges that need to be paid
     const additionalChargesTotal = jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || 0), 0) || 0;
-    const hasAdditionalToPay = additionalChargesTotal > 0;
 
-    // Check if this is an escrow payment that needs to be released
-    const isEscrowPayment = jobData.paymentStatus === 'held';
+    // Calculate remaining amount: 50% of total + additional charges
+    const upfrontPaid = jobData?.upfrontPaidAmount || 0;
+    const remaining = (jobData?.remainingAmount || (jobData?.totalAmount - upfrontPaid) || 0) + additionalChargesTotal;
 
-    // For Pay First: if already paid upfront and no additional charges, go straight to payment_received
-    const isPayFirstComplete = jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront && !hasAdditionalToPay;
-
-    let message, buttonText;
-
-    if (isEscrowPayment) {
-      message = 'Are you satisfied with the work? This will release the payment from escrow to the provider.';
-      buttonText = 'Yes, Release Payment';
-    } else if (isPayFirstComplete) {
-      message = 'Are you satisfied with the work? This will complete the job.';
-      buttonText = 'Yes, Complete Job';
-    } else if (hasAdditionalToPay && jobData.isPaidUpfront) {
-      message = `Are you satisfied with the work? You have ₱${additionalChargesTotal.toLocaleString()} in additional charges to pay.`;
-      buttonText = 'Yes, Proceed to Pay';
-    } else {
-      message = 'Are you satisfied with the work? This will proceed to payment.';
-      buttonText = 'Yes, Proceed to Pay';
-    }
+    const message = additionalChargesTotal > 0
+      ? `Are you satisfied with the work? You need to pay the remaining 50% (₱${(jobData?.remainingAmount || 0).toLocaleString()}) plus ₱${additionalChargesTotal.toLocaleString()} in additional charges. Total: ₱${remaining.toLocaleString()}`
+      : `Are you satisfied with the work? You need to pay the remaining 50% (₱${remaining.toLocaleString()}) to complete the job.`;
 
     Alert.alert(
-      isEscrowPayment ? 'Release Payment to Provider?' : 'Confirm Work Complete',
+      'Confirm Work Complete',
       message,
       [
         { text: 'Not Yet', style: 'cancel' },
         {
-          text: buttonText,
+          text: 'Yes, Proceed to Pay',
           onPress: async () => {
             try {
               setIsUpdating(true);
-
-              if (isEscrowPayment) {
-                // Call backend to release escrow
-                const apiUrl = APP_CONFIG?.API_URL || 'https://gss-maasin-app.onrender.com/api';
-                const response = await fetch(`${apiUrl}/payments/release-escrow/${jobData.id || jobId}`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ clientId: user?.uid || user?.id }),
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                  setJobData(prev => ({ ...prev, status: 'completed', paymentStatus: 'released' }));
-                  showSuccessModal('Payment Released', `₱${result.providerShare?.toLocaleString() || ''} has been released to the provider. Thank you!`);
-                } else {
-                  showErrorModal('Error', result.error || 'Failed to release payment. Please try again.');
-                }
-              } else if (isPayFirstComplete) {
-                // Pay First with no additional charges - go straight to payment_received
-                await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
-                  status: 'payment_received',
-                  clientConfirmedAt: serverTimestamp(),
-                  updatedAt: serverTimestamp(),
-                });
-                setJobData(prev => ({ ...prev, status: 'payment_received' }));
-                showSuccessModal('Completed', 'Job marked as complete. Waiting for provider confirmation.');
-              } else {
-                // Pay First with additional charges or pending balance - need payment
-                await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
-                  status: 'pending_payment',
-                  clientConfirmedAt: serverTimestamp(),
-                  updatedAt: serverTimestamp(),
-                });
-                setJobData(prev => ({ ...prev, status: 'pending_payment' }));
-                showSuccessModal('Confirmed', 'Please proceed to pay the provider.');
-              }
+              await updateDoc(doc(db, 'bookings', jobData.id || jobId), {
+                status: 'pending_payment',
+                clientConfirmedAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              });
+              setJobData(prev => ({ ...prev, status: 'pending_payment' }));
+              showSuccessModal('Confirmed', 'Please proceed to pay the remaining balance.');
             } catch (error) {
               console.error('Error confirming completion:', error);
               showErrorModal('Error', 'Failed to confirm. Please try again.');
@@ -629,13 +587,15 @@ const JobDetailsScreen = ({ navigation, route }) => {
     // Prevent double-click
     if (isProcessingPayment || isUpdating) return;
 
-    // Calculate total including approved additional charges
+    // Calculate remaining amount for completion payment (50% remaining + additional charges)
     const baseAmount = jobData?.totalAmount || jobData?.amount || 0;
+    const upfrontPaid = jobData?.upfrontPaidAmount || 0;
     const additionalChargesTotal = jobData?.additionalCharges?.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.total || 0), 0) || 0;
+    const discount = jobData?.discountAmount || jobData?.discount || 0;
 
-    // For Pay First: if already paid upfront, only charge additional charges
-    const isPayFirstWithAdditional = jobData.paymentPreference === 'pay_first' && jobData.isPaidUpfront && additionalChargesTotal > 0;
-    const amount = isPayFirstWithAdditional ? additionalChargesTotal : (baseAmount + additionalChargesTotal);
+    // Remaining 50% + any additional charges - discount
+    const remainingBase = jobData?.remainingAmount || (baseAmount - upfrontPaid);
+    const amount = jobData?.finalAmount || (remainingBase + additionalChargesTotal - discount);
 
     const bookingId = jobData.id || jobId;
     const userId = user?.uid || user?.id;
@@ -650,10 +610,8 @@ const JobDetailsScreen = ({ navigation, route }) => {
       return;
     }
 
-    // Check if this is an upfront payment (Pay First flow - initial payment before work starts)
-    const isUpfrontPayment = jobData.paymentPreference === 'pay_first' &&
-      !jobData.isPaidUpfront &&
-      (jobData.status === 'accepted' || jobData.status === 'traveling' || jobData.status === 'arrived');
+    // This is always a completion payment (remaining 50%)
+    const isCompletionPayment = true;
 
     setIsProcessingPayment(true);
     setSelectedPaymentMethod(method);
@@ -670,47 +628,20 @@ const JobDetailsScreen = ({ navigation, route }) => {
         );
 
         if (result.success) {
-          // Different update based on payment type
-          if (isUpfrontPayment) {
-            // Initial upfront payment for Pay First
-            await updateDoc(doc(db, 'bookings', bookingId), {
-              isPaidUpfront: true,
-              upfrontPaidAmount: amount,
-              upfrontPaidAt: serverTimestamp(),
-              paymentMethod: 'cash',
-              updatedAt: serverTimestamp(),
-            });
-            setJobData(prev => ({ ...prev, isPaidUpfront: true, upfrontPaidAmount: amount }));
-            setShowPaymentModal(false);
-            showSuccessModal('Payment Complete', 'Thank you! The provider can now start working on your job.');
-          } else if (isPayFirstWithAdditional) {
-            // Pay First - paying additional charges only (already paid upfront)
-            await updateDoc(doc(db, 'bookings', bookingId), {
-              status: 'payment_received',
-              additionalChargesPaid: true,
-              additionalChargesPaidAmount: amount,
-              additionalChargesPaidAt: serverTimestamp(),
-              clientPaidAt: serverTimestamp(),
-              paymentMethod: 'cash',
-              updatedAt: serverTimestamp(),
-            });
-            setJobData(prev => ({ ...prev, status: 'payment_received', additionalChargesPaid: true }));
-            notificationService.notifyPaymentReceived?.(jobData);
-            setShowPaymentModal(false);
-            showSuccessModal('Additional Payment Complete', 'The provider will confirm receipt to complete the job.');
-          } else {
-            // Fallback payment - additional charges after work
-            await updateDoc(doc(db, 'bookings', bookingId), {
-              status: 'payment_received',
-              clientPaidAt: serverTimestamp(),
-              paymentMethod: 'cash',
-              updatedAt: serverTimestamp(),
-            });
-            setJobData(prev => ({ ...prev, status: 'payment_received' }));
-            notificationService.notifyPaymentReceived?.(jobData);
-            setShowPaymentModal(false);
-            showSuccessModal('Payment Recorded', 'The provider will confirm receipt of payment to complete the job.');
-          }
+          // Completion payment via cash
+          await updateDoc(doc(db, 'bookings', bookingId), {
+            status: 'payment_received',
+            completionPaidAmount: amount,
+            completionPaidAt: serverTimestamp(),
+            clientPaidAt: serverTimestamp(),
+            paymentMethod: 'cash',
+            additionalChargesPaid: additionalChargesTotal > 0,
+            updatedAt: serverTimestamp(),
+          });
+          setJobData(prev => ({ ...prev, status: 'payment_received', completionPaidAmount: amount }));
+          notificationService.notifyPaymentReceived?.(jobData);
+          setShowPaymentModal(false);
+          showSuccessModal('Payment Complete', 'The remaining balance has been paid. Waiting for provider confirmation.');
 
           // Send payment receipt email to client via Brevo
           if (user?.email) {
@@ -736,33 +667,17 @@ const JobDetailsScreen = ({ navigation, route }) => {
           bookingId,
           userId,
           amount,
-          `Payment for ${jobData.title || jobData.serviceCategory}`
+          `50% Completion - ${jobData.title || jobData.serviceCategory}`,
+          { paymentType: 'completion' }
         );
 
         if (result.success && result.checkoutUrl) {
           setShowPaymentModal(false);
-
-          // Open checkout URL
-          const openResult = await paymentService.openPaymentCheckout(result.checkoutUrl);
-
-          if (openResult.success) {
-            // Show info that they need to complete payment
-            const instructions = 'Please scan the QR code with your banking or e-wallet app (GCash, Maya, BPI, etc.) to complete payment.';
-            Alert.alert(
-              'Complete Payment',
-              `${instructions}\n\nIf the page appears blank or doesn't load, please wait a few seconds and refresh the page.\n\nOnce payment is complete, return to the app and tap "Verify Payment" to confirm.`,
-              [{ text: 'OK' }]
-            );
-          } else {
-            // Show URL so user can copy it manually
-            Alert.alert(
-              'Open in Browser',
-              `Could not open automatically. Please copy this link and open in your browser:\n\n${result.checkoutUrl}`,
-              [
-                { text: 'OK' },
-              ]
-            );
-          }
+          
+          // Show QR payment in-app modal
+          setQRPaymentUrl(result.checkoutUrl);
+          setQRPaymentAmount(amount);
+          setShowQRPayment(true);
         } else {
           setPaymentError(result.error || 'Failed to create payment');
           showErrorModal('Payment Error', result.error || 'Failed to create payment. Please try again.');
@@ -878,7 +793,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
     }
   };
 
-  // Approve additional charge and trigger QR payment
+  // Approve additional charge and create real QR payment
   const handleApproveAdditional = (chargeId) => {
     const charge = jobData.additionalCharges?.find(c => c.id === chargeId);
     if (!charge) return;
@@ -887,7 +802,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
 
     Alert.alert(
       'Pay Additional Charge',
-      `Pay ₱${chargeAmount.toLocaleString()} for:\n\n"${charge.reason}"\n\nYou will be redirected to QR payment (GCash/Maya).`,
+      `Pay ₱${chargeAmount.toLocaleString()} for:\n\n"${charge.reason}"\n\nYou will be redirected to QR Ph payment.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -904,18 +819,35 @@ const JobDetailsScreen = ({ navigation, route }) => {
                 return;
               }
 
-              // Mark charge as approved in Firestore first
+              // Mark charge as approved in Firestore
               const updatedCharges = jobData.additionalCharges.map(c =>
                 c.id === chargeId ? { ...c, status: 'approved', approvedAt: new Date().toISOString() } : c
               );
               const hasPending = updatedCharges.some(c => c.status === 'pending');
+
+              // Calculate new total with approved charges and discount
+              const basePrice = jobData.totalAmount || ((jobData.providerPrice || jobData.fixedPrice || jobData.price || 0) + (jobData.systemFee || 0));
+              const approvedTotal = updatedCharges
+                .filter(c => c.status === 'approved')
+                .reduce((sum, c) => sum + (c.total || c.amount || 0), 0);
+              const discount = jobData.discountAmount || jobData.discount || 0;
+              const newFinalAmount = basePrice + approvedTotal - discount;
+
               await updateDoc(doc(db, 'bookings', bookingId), {
                 additionalCharges: updatedCharges,
                 hasAdditionalPending: hasPending,
+                finalAmount: newFinalAmount,
+                approvedAdditionalCharges: updatedCharges.filter(c => c.status === 'approved'),
+                updatedAt: serverTimestamp(),
               });
-              setJobData(prev => ({ ...prev, additionalCharges: updatedCharges, hasAdditionalPending: hasPending }));
+              setJobData(prev => ({
+                ...prev,
+                additionalCharges: updatedCharges,
+                hasAdditionalPending: hasPending,
+                finalAmount: newFinalAmount,
+              }));
 
-              // Create QR payment for the additional charge amount
+              // Create real QR payment for the additional charge amount
               const result = await paymentService.createQRPhPayment(
                 bookingId,
                 userId,
@@ -925,20 +857,10 @@ const JobDetailsScreen = ({ navigation, route }) => {
               );
 
               if (result.success && result.checkoutUrl) {
-                const openResult = await paymentService.openPaymentCheckout(result.checkoutUrl);
-                if (openResult.success) {
-                  Alert.alert(
-                    'Complete Payment',
-                    'Please scan the QR code with GCash, Maya, or your banking app to pay the additional charge.\n\nOnce done, return to the app — the charge will be marked as paid automatically.',
-                    [{ text: 'OK' }]
-                  );
-                } else {
-                  Alert.alert(
-                    'Open in Browser',
-                    `Could not open automatically. Copy this link and open in your browser:\n\n${result.checkoutUrl}`,
-                    [{ text: 'OK' }]
-                  );
-                }
+                // Show QR payment in-app modal
+                setQRPaymentUrl(result.checkoutUrl);
+                setQRPaymentAmount(chargeAmount);
+                setShowQRPayment(true);
               } else {
                 showErrorModal('Payment Error', result.error || 'Failed to create payment. Please try again.');
               }
@@ -2257,8 +2179,24 @@ const JobDetailsScreen = ({ navigation, route }) => {
         isLoading={isUpdating}
       />
 
-      {/* Voice Call Modals - DISABLED */}
-      {false && activeCall && (
+      {/* QR Payment Modal */}
+      <QRPaymentModal
+        visible={showQRPayment}
+        checkoutUrl={qrPaymentUrl}
+        amount={qrPaymentAmount}
+        onClose={() => {
+          setShowQRPayment(false);
+          setQRPaymentUrl(null);
+          setQRPaymentAmount(0);
+        }}
+        onPaymentComplete={() => {
+          // Payment completed, verify it
+          handleVerifyPayment();
+        }}
+      />
+
+      {/* Voice Call Modals */}
+      {activeCall && (
         <Modal visible={true} transparent={false} animationType="slide">
           <VoiceCall
             callId={activeCall.id}
@@ -2270,7 +2208,7 @@ const JobDetailsScreen = ({ navigation, route }) => {
         </Modal>
       )}
 
-      {false && incomingCall && (
+      {incomingCall && (
         <Modal visible={true} transparent={false} animationType="slide">
           <VoiceCall
             callId={incomingCall.id}

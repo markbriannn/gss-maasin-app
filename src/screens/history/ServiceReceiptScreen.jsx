@@ -178,7 +178,7 @@ const ServiceReceiptScreen = ({ navigation, route }) => {
   const handleShare = async () => {
     try {
       const receiptText = `
-GSS Maasin Service Receipt
+Maasin City H.E.L.P Service Receipt
 --------------------------
 Receipt #: ${id?.slice(-8).toUpperCase() || 'N/A'}
 Date: ${formatDate(completedAt || createdAt)}
@@ -192,7 +192,7 @@ Location: ${streetAddress ? `${streetAddress}, ${barangay}` : location || 'N/A'}
 ${additionalCharges.length > 0 ? `Additional Charges: ₱${additionalTotal.toLocaleString()}\n` : ''}--------------------------
 ${isProvider ? 'Your Earnings' : 'Total Paid'}: ₱${finalTotal.toLocaleString()}
 
-Thank you for using GSS Maasin!
+Thank you for using Maasin City H.E.L.P!
       `.trim();
 
       await Share.share({
@@ -208,7 +208,7 @@ Thank you for using GSS Maasin!
     // Create a detailed receipt text that can be shared/saved
     const receiptText = `
 ════════════════════════════════════════
-         GSS MAASIN SERVICE RECEIPT
+         MAASIN CITY H.E.L.P SERVICE RECEIPT
 ════════════════════════════════════════
 
 Receipt #: ${id?.slice(-8).toUpperCase() || 'N/A'}
@@ -247,14 +247,14 @@ ${review ? `"${review}"` : 'No written review'}
 ` : ''}
 Generated: ${new Date().toLocaleString()}
 
-Thank you for using GSS Maasin!
+Thank you for using Maasin City H.E.L.P!
 ════════════════════════════════════════
     `.trim();
 
     try {
       await Share.share({
         message: receiptText,
-        title: `GSS Receipt ${id?.slice(-8).toUpperCase()}`,
+        title: `H.E.L.P Receipt ${id?.slice(-8).toUpperCase()}`,
       });
     } catch (error) {
       console.error('Error sharing receipt:', error);
@@ -314,7 +314,7 @@ Thank you for using GSS Maasin!
             <View style={styles.receiptLogo}>
               <Text style={styles.receiptLogoText}>G</Text>
             </View>
-            <Text style={styles.receiptTitle}>GSS Maasin</Text>
+            <Text style={styles.receiptTitle}>Maasin City H.E.L.P</Text>
             <Text style={styles.receiptSubtitle}>Service Receipt</Text>
           </View>
 

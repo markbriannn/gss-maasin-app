@@ -1112,7 +1112,7 @@ export default function ClientRegistration() {
             <div className="w-24 h-24 bg-green-100 rounded-full mx-auto mb-6 flex items-center justify-center">
               <Check className="w-12 h-12 text-[#00B14F]" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to GSS Maasin!</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to H.E.L.P Maasin!</h2>
             <p className="text-gray-500 mb-8">Your account has been created successfully.</p>
             <button
               onClick={() => router.push('/onboarding')}
@@ -1147,7 +1147,7 @@ export default function ClientRegistration() {
               <div className="w-8 h-8 bg-[#00B14F] rounded-lg flex items-center justify-center">
                 <Wrench className="w-5 h-5 text-white" />
               </div>
-              <span className="font-bold text-gray-900">GSS Maasin</span>
+              <span className="font-bold text-gray-900">H.E.L.P Maasin</span>
             </div>
           </div>
           <div className="w-9" />
@@ -1210,7 +1210,7 @@ export default function ClientRegistration() {
                     }
                   }}
                 >
-                  <p>Welcome to GSS Maasin Service App. By registering as a Client, you agree to the following terms:</p>
+                  <p>Welcome to H.E.L.P Maasin Service App. By registering as a Client, you agree to the following terms:</p>
 
                   <div>
                     <p className="font-semibold text-gray-900 mb-1">1. Account Registration</p>

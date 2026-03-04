@@ -214,7 +214,7 @@ export default function SettingsPage() {
 
         {/* Version */}
         <p className="text-center text-gray-400 dark:text-gray-500 text-sm mt-8">
-          GSS Maasin Web v1.0.0
+          H.E.L.P Maasin Web v1.0.0
         </p>
       </div>
     </div>

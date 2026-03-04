@@ -52,7 +52,7 @@ export default function RegisterPage() {
             <div className="w-10 h-10 bg-[#00B14F] rounded-lg flex items-center justify-center">
               <Wrench className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold text-gray-900">GSS Maasin</span>
+            <span className="text-xl font-bold text-gray-900">H.E.L.P Maasin</span>
           </Link>
         </div>
       </header>
@@ -60,7 +60,7 @@ export default function RegisterPage() {
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="max-w-md w-full">
           <h1 className="text-2xl font-bold text-gray-900 text-center mb-2">
-            Join GSS Maasin
+            Join H.E.L.P Maasin
           </h1>
           <p className="text-gray-600 text-center mb-8">
             Choose how you want to use the platform
@@ -136,7 +136,7 @@ export default function RegisterPage() {
               onScroll={handleTermsScroll}
             >
               <p>
-                Welcome to GSS Maasin Service App. By registering as a{' '}
+                Welcome to H.E.L.P Maasin Service App. By registering as a{' '}
                 {selectedRole === 'CLIENT' ? 'Client' : 'Service Provider'}, you agree to the following terms:
               </p>
 

@@ -11,7 +11,7 @@ import { Toaster } from "sonner";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "GSS Maasin - General Service System",
+  title: "Maasin City H.E.L.P App - Household Essential Logistics Portal",
   description: "Connect with trusted local service providers in Maasin City",
 };
 

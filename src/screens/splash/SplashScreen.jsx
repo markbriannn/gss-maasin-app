@@ -195,14 +195,14 @@ const SplashScreen = () => {
 
           {/* App Name - Staggered reveal */}
           <Animated.Text style={[styles.appName, titleStyle]}>
-            General Service System
+            Household Essential Logistics Portal
           </Animated.Text>
 
           {/* Tagline */}
           <Animated.View style={[styles.taglineContainer, taglineStyle]}>
             <View style={styles.taglineLine} />
             <Text style={styles.tagline}>
-              Your trusted local service marketplace
+              One tap away from expert help
             </Text>
             <View style={styles.taglineLine} />
           </Animated.View>
@@ -233,7 +233,7 @@ const SplashScreen = () => {
               />
             </Animated.View>
           </View>
-          <Text style={styles.footerText}>Getting things ready...</Text>
+          <Text style={styles.footerText}>Finding the best pros near you...</Text>
         </Animated.View>
       </LinearGradient>
     </View>

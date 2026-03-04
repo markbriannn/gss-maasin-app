@@ -669,7 +669,7 @@ const AdminJobsScreen = ({navigation, route}) => {
             )}
           </View>
           <Text style={[adminStyles.jobDate, isDark && {color: theme.colors.textSecondary}]}>
-            {item.scheduledDate} • {item.scheduledTime}
+            {item.createdAt}
           </Text>
         </View>
 
@@ -913,14 +913,10 @@ const AdminJobsScreen = ({navigation, route}) => {
               </View>
 
               <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
-                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Schedule</Text>
+                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Booking Submitted</Text>
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="calendar" size={20} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
-                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.scheduledDate}</Text>
-                </View>
-                <View style={adminStyles.modalInfoRow}>
-                  <Icon name="time" size={20} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
-                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.scheduledTime}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedJob.createdAt}</Text>
                 </View>
               </View>
 

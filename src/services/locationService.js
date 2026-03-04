@@ -1,7 +1,7 @@
 import Geolocation from 'react-native-geolocation-service';
-import {Platform, PermissionsAndroid, Alert, Linking} from 'react-native';
-import {PERMISSIONS, request, check, RESULTS} from 'react-native-permissions';
-import {MAPS_CONFIG} from '../config/config';
+import { Platform, PermissionsAndroid, Alert, Linking } from 'react-native';
+import { PERMISSIONS, request, check, RESULTS } from 'react-native-permissions';
+import { MAPS_CONFIG } from '../config/config';
 
 class LocationService {
   constructor() {
@@ -19,7 +19,7 @@ class LocationService {
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
           {
             title: 'Location Permission',
-            message: 'GSS needs access to your location to show nearby providers and enable tracking.',
+            message: 'H.E.L.P needs access to your location to show nearby providers and enable tracking.',
             buttonNeutral: 'Ask Me Later',
             buttonNegative: 'Cancel',
             buttonPositive: 'OK',
@@ -55,7 +55,7 @@ class LocationService {
   async getCurrentLocation() {
     return new Promise(async (resolve, reject) => {
       const hasPermission = await this.checkLocationPermission();
-      
+
       if (!hasPermission) {
         const granted = await this.requestLocationPermission();
         if (!granted) {
@@ -77,7 +77,7 @@ class LocationService {
         },
         (error) => {
           console.log('High accuracy location failed, trying low accuracy fallback:', error);
-          
+
           // Fallback: Try with low accuracy (faster, uses network/cell towers)
           Geolocation.getCurrentPosition(
             (position) => {
@@ -155,17 +155,17 @@ class LocationService {
     const R = 6371; // Radius of Earth in kilometers
     const dLat = this.toRad(lat2 - lat1);
     const dLon = this.toRad(lon2 - lon1);
-    
+
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(this.toRad(lat1)) *
-        Math.cos(this.toRad(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    
+      Math.cos(this.toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const distance = R * c;
-    
+
     return parseFloat(distance.toFixed(2)); // Returns distance in km
   }
 
@@ -186,10 +186,10 @@ class LocationService {
     try {
       const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${MAPS_CONFIG.API_KEY}`;
       console.log('Geocoding URL:', url.replace(MAPS_CONFIG.API_KEY, 'API_KEY_HIDDEN'));
-      
+
       const response = await fetch(url);
       const data = await response.json();
-      
+
       console.log('Geocoding response status:', data.status);
       if (data.error_message) {
         console.log('Geocoding error:', data.error_message);
@@ -198,7 +198,7 @@ class LocationService {
       if (data.status === 'OK' && data.results.length > 0) {
         const result = data.results[0];
         const addressComponents = result.address_components;
-        
+
         console.log('Formatted address:', result.formatted_address);
         console.log('Address components:', JSON.stringify(addressComponents, null, 2));
 
@@ -210,11 +210,11 @@ class LocationService {
 
         addressComponents.forEach((component) => {
           // Check for barangay in multiple possible types
-          if (component.types.includes('sublocality') || 
-              component.types.includes('sublocality_level_1') ||
-              component.types.includes('sublocality_level_2') ||
-              component.types.includes('neighborhood') ||
-              component.types.includes('political')) {
+          if (component.types.includes('sublocality') ||
+            component.types.includes('sublocality_level_1') ||
+            component.types.includes('sublocality_level_2') ||
+            component.types.includes('neighborhood') ||
+            component.types.includes('political')) {
             if (!barangay) {
               barangay = component.long_name;
             }
@@ -278,7 +278,7 @@ class LocationService {
   showLocationPermissionAlert() {
     Alert.alert(
       'Location Permission Required',
-      'GSS needs access to your location to show nearby providers and enable tracking features. Please enable location permission in Settings.',
+      'H.E.L.P needs access to your location to show nearby providers and enable tracking features. Please enable location permission in Settings.',
       [
         {
           text: 'Cancel',

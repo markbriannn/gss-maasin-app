@@ -1,5 +1,5 @@
 /**
- * Email Service for GSS Maasin Web
+ * Email Service for Maasin City H.E.L.P Web
  * Uses backend Brevo API for reliable email delivery
  */
 
@@ -16,10 +16,10 @@ interface EmailResponse {
 const sendViaBackend = async (endpoint: string, data: Record<string, unknown>): Promise<EmailResponse> => {
   try {
     console.log('[Email] Sending via Brevo backend:', endpoint);
-    
+
     // Remove /api from API_URL if it exists to avoid double /api/api
     const baseUrl = API_URL.replace(/\/api\/?$/, '');
-    
+
     const response = await fetch(`${baseUrl}/api/email${endpoint}`, {
       method: 'POST',
       headers: {
@@ -29,7 +29,7 @@ const sendViaBackend = async (endpoint: string, data: Record<string, unknown>): 
     });
 
     const result = await response.json();
-    
+
     if (response.ok && result.success) {
       console.log('[Email] Sent successfully via Brevo');
       return { success: true };
@@ -62,16 +62,16 @@ export const sendPasswordResetCode = async (email: string, code: string): Promis
  * Send general notification email
  */
 export const sendNotificationEmail = async (
-  email: string, 
-  name: string, 
-  subject: string, 
-  message: string, 
+  email: string,
+  name: string,
+  subject: string,
+  message: string,
   details: string = ''
 ): Promise<EmailResponse> => {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #00B14F; padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+        <h1 style="color: white; margin: 0;">Maasin City H.E.L.P</h1>
       </div>
       <div style="padding: 30px; background: #f9f9f9;">
         <h2 style="color: #1F2937;">${subject}</h2>
@@ -81,7 +81,7 @@ export const sendNotificationEmail = async (
       </div>
     </div>
   `;
-  
+
   return sendViaBackend('/send', { to: email, subject, html });
 };
 
@@ -110,12 +110,12 @@ interface Payment {
  * Send booking confirmation email
  */
 export const sendBookingConfirmation = async (
-  email: string, 
-  _clientName: string, 
+  email: string,
+  _clientName: string,
   booking: Booking
 ): Promise<EmailResponse> => {
-  return sendViaBackend('/booking-confirmation', { 
-    clientEmail: email, 
+  return sendViaBackend('/booking-confirmation', {
+    clientEmail: email,
     booking
   });
 };
@@ -124,15 +124,15 @@ export const sendBookingConfirmation = async (
  * Send job accepted email to client
  */
 export const sendJobAcceptedEmail = async (
-  email: string, 
-  _clientName: string, 
-  booking: Booking, 
+  email: string,
+  _clientName: string,
+  booking: Booking,
   provider: Provider
 ): Promise<EmailResponse> => {
-  return sendViaBackend('/job-accepted', { 
-    clientEmail: email, 
+  return sendViaBackend('/job-accepted', {
+    clientEmail: email,
     booking,
-    provider 
+    provider
   });
 };
 
@@ -140,13 +140,13 @@ export const sendJobAcceptedEmail = async (
  * Send payment receipt email
  */
 export const sendPaymentReceipt = async (
-  email: string, 
-  _clientName: string, 
+  email: string,
+  _clientName: string,
   payment: Payment
 ): Promise<EmailResponse> => {
-  return sendViaBackend('/payment-receipt', { 
-    clientEmail: email, 
-    payment 
+  return sendViaBackend('/payment-receipt', {
+    clientEmail: email,
+    payment
   });
 };
 
@@ -154,14 +154,14 @@ export const sendPaymentReceipt = async (
  * Send provider approval email
  */
 export const sendProviderApprovalEmail = async (
-  email: string, 
-  providerName: string, 
+  email: string,
+  providerName: string,
   approved: boolean
 ): Promise<EmailResponse> => {
-  return sendViaBackend('/provider-approval', { 
-    providerEmail: email, 
-    providerName, 
-    approved 
+  return sendViaBackend('/provider-approval', {
+    providerEmail: email,
+    providerName,
+    approved
   });
 };
 

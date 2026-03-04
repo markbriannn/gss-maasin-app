@@ -214,7 +214,7 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
                 <div className="w-10 h-10 bg-[#00B14F] rounded-lg flex items-center justify-center">
                   <Wrench className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-xl font-bold text-gray-900 dark:text-white hidden sm:block">GSS Provider</span>
+                <span className="text-xl font-bold text-gray-900 dark:text-white hidden sm:block">H.E.L.P Provider</span>
               </Link>
             </div>
 
@@ -227,8 +227,8 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
                     key={item.href}
                     href={item.href}
                     className={`relative flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${pathname === item.href
-                        ? 'text-[#00B14F] bg-[#00B14F]/10'
-                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                      ? 'text-[#00B14F] bg-[#00B14F]/10'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
                   >
                     <item.icon className="w-5 h-5" />
@@ -305,8 +305,8 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center justify-between gap-3 px-3 py-3 rounded-lg ${pathname === item.href
-                        ? 'text-[#00B14F] bg-[#00B14F]/10'
-                        : 'text-gray-600 dark:text-gray-300'
+                      ? 'text-[#00B14F] bg-[#00B14F]/10'
+                      : 'text-gray-600 dark:text-gray-300'
                       }`}
                   >
                     <div className="flex items-center gap-3">

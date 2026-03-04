@@ -118,7 +118,12 @@ export default function AdminJobDetailsPage() {
   const [job, setJob] = useState<JobData | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  
+
+  // Discount state
+  const [discountAmount, setDiscountAmount] = useState('');
+  const [discountReason, setDiscountReason] = useState('');
+  const [showDiscountForm, setShowDiscountForm] = useState(false);
+
   // Call state
   const [activeCall, setActiveCall] = useState<any>(null);
   const [incomingCall, setIncomingCall] = useState<any>(null);
@@ -130,7 +135,7 @@ export default function AdminJobDetailsPage() {
   // Listen for incoming calls
   useEffect(() => {
     if (!user) return;
-    
+
     const unsubscribe = listenToIncomingCalls(user.uid, (call) => {
       setIncomingCall(call);
     });
@@ -299,7 +304,7 @@ export default function AdminJobDetailsPage() {
   // Call handlers - Admin can call anyone without approval check
   const handleCallProvider = async () => {
     if (!user || !job || !job.providerId) return;
-    
+
     try {
       const call = await initiateCall(
         user.uid,
@@ -317,7 +322,7 @@ export default function AdminJobDetailsPage() {
 
   const handleCallClient = async () => {
     if (!user || !job) return;
-    
+
     try {
       const call = await initiateCall(
         user.uid,
@@ -335,7 +340,7 @@ export default function AdminJobDetailsPage() {
 
   const handleAnswerCall = async () => {
     if (!incomingCall) return;
-    
+
     try {
       await answerCall(incomingCall.id);
       setActiveCall(incomingCall);
@@ -347,7 +352,7 @@ export default function AdminJobDetailsPage() {
 
   const handleDeclineCall = async () => {
     if (!incomingCall) return;
-    
+
     try {
       await declineCall(incomingCall.id);
       setIncomingCall(null);
@@ -358,7 +363,7 @@ export default function AdminJobDetailsPage() {
 
   const handleEndCall = async (duration?: number) => {
     if (!activeCall) return;
-    
+
     try {
       await endCall(activeCall.id, duration || 0);
       setActiveCall(null);
@@ -482,6 +487,74 @@ export default function AdminJobDetailsPage() {
     } catch (error) {
       console.error("Error cancelling job:", error);
       alert("Failed to cancel job");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // Apply discount and process real PayMongo refund
+  const handleApplyDiscount = async () => {
+    if (!job) return;
+    const amount = parseFloat(discountAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert('Please enter a valid discount amount.');
+      return;
+    }
+    if (!discountReason.trim()) {
+      alert('Please enter a reason for the discount.');
+      return;
+    }
+    if (!confirm(`Apply discount of ₱${amount.toLocaleString()} for: "${discountReason}"?\n\nThis will process a real refund to the client.`)) return;
+
+    setUpdating(true);
+    try {
+      const base = job.amount || 0;
+      const approved = (job.additionalCharges || []).filter((c) => c.status === 'approved').reduce((sum, c) => sum + c.amount, 0);
+      const newFinalAmount = base + approved - amount;
+
+      // Update booking with discount and new finalAmount
+      await updateDoc(doc(db, 'bookings', job.id), {
+        discount: amount,
+        discountAmount: amount,
+        discountReason: discountReason.trim(),
+        discountAppliedAt: serverTimestamp(),
+        discountAppliedBy: user?.uid,
+        finalAmount: newFinalAmount,
+        updatedAt: serverTimestamp(),
+      });
+
+      // Process real PayMongo refund for the discount amount
+      if (job.isPaidUpfront || (job as any).paid) {
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
+          const refundResponse = await fetch(`${apiUrl}/payments/discount-refund/${job.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              amount: amount,
+              reason: `Discount: ${discountReason.trim()}`,
+            }),
+          });
+          const refundResult = await refundResponse.json();
+          if (refundResult.success) {
+            alert(`Discount applied! Refund of ₱${amount.toLocaleString()} processed to client's payment method.`);
+          } else {
+            alert(`Discount applied to booking. Refund may need manual processing: ${refundResult.error || 'Unknown error'}`);
+          }
+        } catch (refundError) {
+          console.error('Refund error:', refundError);
+          alert('Discount applied to booking. Refund may need manual processing.');
+        }
+      } else {
+        alert(`Discount of ₱${amount.toLocaleString()} applied. Total updated to ₱${newFinalAmount.toLocaleString()}.`);
+      }
+
+      setDiscountAmount('');
+      setDiscountReason('');
+      setShowDiscountForm(false);
+    } catch (error) {
+      console.error('Error applying discount:', error);
+      alert('Failed to apply discount.');
     } finally {
       setUpdating(false);
     }
@@ -849,6 +922,50 @@ export default function AdminJobDetailsPage() {
                       <Ban className="w-5 h-5" /> Cancel Job
                     </button>
                   )}
+
+                  {/* Discount Section */}
+                  {!["cancelled", "rejected"].includes(job.status) && (
+                    <div className="border-t pt-3 mt-3">
+                      {!showDiscountForm ? (
+                        <button onClick={() => setShowDiscountForm(true)} disabled={updating}
+                          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-bold hover:shadow-lg hover:shadow-green-500/30 transition-all disabled:opacity-50">
+                          <DollarSign className="w-5 h-5" /> {job.discount ? 'Update Discount' : 'Apply Discount'}
+                        </button>
+                      ) : (
+                        <div className="space-y-3">
+                          <h4 className="font-bold text-gray-900 text-sm">Apply Discount (Real Refund)</h4>
+                          <input
+                            type="number"
+                            placeholder="Discount amount (₱)"
+                            value={discountAmount}
+                            onChange={(e) => setDiscountAmount(e.target.value)}
+                            className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Reason for discount"
+                            value={discountReason}
+                            onChange={(e) => setDiscountReason(e.target.value)}
+                            className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                          />
+                          <div className="flex gap-2">
+                            <button onClick={handleApplyDiscount} disabled={updating}
+                              className="flex-1 bg-green-600 text-white py-2.5 rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50">
+                              {updating ? 'Processing...' : 'Apply & Refund'}
+                            </button>
+                            <button onClick={() => { setShowDiscountForm(false); setDiscountAmount(''); setDiscountReason(''); }}
+                              className="px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50">
+                              Cancel
+                            </button>
+                          </div>
+                          {job.isPaidUpfront && (
+                            <p className="text-xs text-green-600 bg-green-50 p-2 rounded-lg">💰 A real PayMongo refund will be processed to the client.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {["completed", "cancelled", "rejected"].includes(job.status) && (
                     <p className="text-center text-gray-400 py-4">No actions available</p>
                   )}

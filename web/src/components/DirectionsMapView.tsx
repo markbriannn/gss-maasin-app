@@ -14,7 +14,7 @@ async function fetchRoute(
     const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
     const response = await fetch(url);
     const data = await response.json();
-    
+
     if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates) {
       // OSRM returns [lng, lat], we need [lat, lng] for Leaflet
       return data.routes[0].geometry.coordinates.map(
@@ -34,29 +34,42 @@ interface DirectionsMapViewProps {
   destinationLabel?: string;
 }
 
-// Blue marker for user location
-const userIcon = new L.Icon({
-  iconUrl: 'data:image/svg+xml;base64,' + btoa(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32">
-      <circle fill="#3B82F6" cx="12" cy="12" r="8" stroke="white" stroke-width="3"/>
-    </svg>
-  `),
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-  popupAnchor: [0, -16],
+// Green pulsing dot for user/provider location
+const userIcon = L.divIcon({
+  className: 'custom-user-marker',
+  html: `
+    <div style="display:flex;align-items:center;justify-content:center;">
+      <div style="
+        width:18px;height:18px;border-radius:50%;
+        background:#00B14F;
+        border:3px solid white;
+        box-shadow:0 2px 8px rgba(0,177,79,0.4);
+      "></div>
+    </div>
+  `,
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+  popupAnchor: [0, -12],
 });
 
-// Red marker for destination
-const destinationIcon = new L.Icon({
-  iconUrl: 'data:image/svg+xml;base64,' + btoa(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="40">
-      <path fill="#EF4444" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-      <circle fill="white" cx="12" cy="9" r="2.5"/>
-    </svg>
-  `),
-  iconSize: [32, 40],
-  iconAnchor: [16, 40],
-  popupAnchor: [0, -40],
+// Green destination marker with home icon
+const destinationIcon = L.divIcon({
+  className: 'custom-dest-marker',
+  html: `
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div style="
+        width:36px;height:36px;border-radius:50%;
+        background:#00B14F;
+        box-shadow:0 2px 10px rgba(0,177,79,0.4);
+        display:flex;align-items:center;justify-content:center;
+      ">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+      </div>
+    </div>
+  `,
+  iconSize: [36, 36],
+  iconAnchor: [18, 18],
+  popupAnchor: [0, -18],
 });
 
 // Component to fit bounds
@@ -95,7 +108,7 @@ export default function DirectionsMapView({ destination, currentLocation, destin
 
     // Create a key to avoid refetching for small movements
     const routeKey = `${currentLocation.lat.toFixed(4)},${currentLocation.lng.toFixed(4)}-${destination.lat.toFixed(4)},${destination.lng.toFixed(4)}`;
-    
+
     if (routeKey === lastRouteKey.current) return;
     lastRouteKey.current = routeKey;
 
@@ -125,24 +138,24 @@ export default function DirectionsMapView({ destination, currentLocation, destin
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <MapController destination={destination} currentLocation={currentLocation} />
-      
+
       {/* User location marker */}
       {currentLocation && (
         <Marker position={[currentLocation.lat, currentLocation.lng]} icon={userIcon}>
           <Popup>Your Location</Popup>
         </Marker>
       )}
-      
+
       {/* Destination marker */}
       <Marker position={[destination.lat, destination.lng]} icon={destinationIcon}>
         <Popup>{destinationLabel || 'Destination'}</Popup>
       </Marker>
-      
+
       {/* Route line following actual roads */}
       {routeCoordinates && routeCoordinates.length > 0 && (
         <Polyline
           positions={routeCoordinates}
-          pathOptions={{ color: '#3B82F6', weight: 5, opacity: 0.8 }}
+          pathOptions={{ color: '#00B14F', weight: 5, opacity: 0.85 }}
         />
       )}
     </MapContainer>

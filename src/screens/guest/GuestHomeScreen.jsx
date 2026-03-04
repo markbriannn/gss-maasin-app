@@ -79,8 +79,8 @@ const HeroHeader = ({ onSignUp, providerCount }) => {
             <Icon name="construct" size={20} color="#FFFFFF" />
           </View>
           <View>
-            <Text style={styles.headerLogoText}>GSS Maasin</Text>
-            <Text style={styles.headerLogoSub}>General Service System</Text>
+            <Text style={styles.headerLogoText}>H.E.L.P Maasin</Text>
+            <Text style={styles.headerLogoSub}>Household Essential Logistics Portal</Text>
           </View>
         </View>
       </View>
@@ -92,11 +92,11 @@ const HeroHeader = ({ onSignUp, providerCount }) => {
           transform: [{ translateY: slideAnim }],
         }}>
         <Text style={styles.headerTitle}>
-          Find Trusted{'\n'}Services Near You
+          Your Home Deserves{"\n"}the Best Pro
         </Text>
         <Text style={styles.headerSubtitle}>
-          Connect with verified electricians, plumbers, carpenters & cleaners in
-          Maasin City.
+          Book verified electricians, plumbers, carpenters & cleaners in
+          Maasin City — fast & hassle-free.
         </Text>
 
         <TouchableOpacity
@@ -606,26 +606,26 @@ const GuestHomeScreen = ({ navigation }) => {
   const features = [
     {
       icon: 'shield-checkmark',
-      title: 'Verified Providers',
-      desc: 'All service providers are vetted and approved',
+      title: 'Trusted Pros',
+      desc: 'Every provider is background-checked & approved',
       color: '#10B981',
     },
     {
       icon: 'location',
-      title: 'Local Services',
-      desc: 'Find skilled workers in Maasin City',
+      title: 'Right in Your Area',
+      desc: 'Skilled workers just minutes away from you',
       color: '#3B82F6',
     },
     {
       icon: 'time',
-      title: 'Fast Booking',
-      desc: 'Book services quickly and easily',
+      title: 'Book in Seconds',
+      desc: 'Pick a pro, set a time, done — that easy',
       color: '#8B5CF6',
     },
     {
       icon: 'cash',
-      title: 'Fair Pricing',
-      desc: 'Transparent rates with no hidden fees',
+      title: 'No Surprises',
+      desc: 'Upfront pricing with zero hidden charges',
       color: '#F59E0B',
     },
   ];
@@ -697,7 +697,7 @@ const GuestHomeScreen = ({ navigation }) => {
             onPress={() => navigation.navigate('Login')}
             activeOpacity={0.7}>
             <View>
-              <Text style={styles.sectionTitle}>Service Providers</Text>
+              <Text style={styles.sectionTitle}>Available Pros Near You</Text>
               <Text style={styles.sectionSubtitle}>
                 {filteredProviders.length} available nearby
               </Text>
@@ -737,7 +737,7 @@ const GuestHomeScreen = ({ navigation }) => {
 
         {/* Why Choose GSS */}
         <View style={styles.whySection}>
-          <Text style={styles.sectionTitle}>Why Choose GSS Maasin?</Text>
+          <Text style={styles.sectionTitle}>Why Maasinons Love H.E.L.P</Text>
           <View style={styles.featuresGrid}>
             {features.map((feature, index) => (
               <FeatureCard

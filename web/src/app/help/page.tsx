@@ -57,7 +57,7 @@ const providerFaqs = [
   },
   {
     question: 'What is the service fee?',
-    answer: 'GSS Maasin charges a 5% service fee on completed jobs. This fee is automatically deducted from your earnings and helps maintain the platform.',
+    answer: 'Maasin City H.E.L.P App charges a 5% service fee on completed jobs. This fee is automatically deducted from your earnings and helps maintain the platform.',
     icon: CreditCard,
   },
   {
@@ -323,7 +323,7 @@ export default function HelpPage() {
             >
               <div className="flex items-center gap-3">
                 <HelpCircle className={`w-5 h-5 ${currentColors.iconColor}`} />
-                <span className="font-medium text-gray-900">About GSS Maasin</span>
+                <span className="font-medium text-gray-900">About Maasin City H.E.L.P App</span>
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400" />
             </Link>
@@ -332,8 +332,8 @@ export default function HelpPage() {
 
         {/* App Info */}
         <div className="text-center py-6 text-gray-500 text-sm">
-          <p className="font-medium">GSS Maasin Web v1.0.0</p>
-          <p className="mt-1">© 2024 GSS Maasin. All rights reserved.</p>
+          <p className="font-medium">Maasin City H.E.L.P App Web v1.0.0</p>
+          <p className="mt-1">© 2024 Maasin City H.E.L.P App. All rights reserved.</p>
         </div>
       </div>
     </div>

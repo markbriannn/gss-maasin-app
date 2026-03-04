@@ -9,7 +9,7 @@ const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
 // Default from email - use your verified sender email
 const FROM_EMAIL = process.env.FROM_EMAIL || 'gssmaasin@gmail.com';
-const FROM_NAME = 'GSS Maasin';
+const FROM_NAME = 'H.E.L.P Maasin';
 
 /**
  * Send a generic email via Brevo
@@ -19,7 +19,7 @@ const sendEmail = async (to, subject, html, text = null) => {
     console.log('Brevo API key not configured, skipping email');
     return { success: true, message: 'Email skipped - API key not configured' };
   }
-  
+
   try {
     const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
     sendSmtpEmail.sender = { name: FROM_NAME, email: FROM_EMAIL };
@@ -45,7 +45,7 @@ const sendBookingConfirmation = async (clientEmail, booking) => {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #00B14F; padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+        <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
       </div>
       <div style="padding: 30px; background: #f9f9f9;">
         <h2 style="color: #1F2937;">Booking Confirmed! ✓</h2>
@@ -64,12 +64,12 @@ const sendBookingConfirmation = async (clientEmail, booking) => {
         </p>
       </div>
       <div style="padding: 20px; text-align: center; color: #9CA3AF; font-size: 12px;">
-        <p>GSS Maasin - General Service System</p>
+        <p>H.E.L.P Maasin - Household Essential Logistics Portal</p>
         <p>Maasin City, Southern Leyte</p>
       </div>
     </div>
   `;
-  
+
   return sendEmail(clientEmail, subject, html);
 };
 
@@ -81,7 +81,7 @@ const sendJobAcceptedNotification = async (clientEmail, booking, provider) => {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #00B14F; padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+        <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
       </div>
       <div style="padding: 30px; background: #f9f9f9;">
         <h2 style="color: #1F2937;">Great News! 🎉</h2>
@@ -95,12 +95,12 @@ const sendJobAcceptedNotification = async (clientEmail, booking, provider) => {
         </div>
         
         <p style="color: #6B7280; font-size: 14px;">
-          Open the GSS Maasin app to track your provider and communicate with them.
+          Open the H.E.L.P Maasin app to track your provider and communicate with them.
         </p>
       </div>
     </div>
   `;
-  
+
   return sendEmail(clientEmail, subject, html);
 };
 
@@ -108,14 +108,14 @@ const sendJobAcceptedNotification = async (clientEmail, booking, provider) => {
  * Send provider approval notification
  */
 const sendProviderApprovalNotification = async (providerEmail, providerName, approved) => {
-  const subject = approved 
-    ? 'Welcome to GSS Maasin - Account Approved!' 
-    : 'GSS Maasin - Application Update';
-  
+  const subject = approved
+    ? 'Welcome to H.E.L.P Maasin - Account Approved!'
+    : 'H.E.L.P Maasin - Application Update';
+
   const html = approved ? `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #00B14F; padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+        <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
       </div>
       <div style="padding: 30px; background: #f9f9f9;">
         <h2 style="color: #1F2937;">Congratulations, ${providerName}! 🎉</h2>
@@ -128,19 +128,19 @@ const sendProviderApprovalNotification = async (providerEmail, providerName, app
         </div>
         
         <p style="color: #6B7280; font-size: 14px;">
-          Open the GSS Maasin app to start accepting jobs and earning!
+          Open the H.E.L.P Maasin app to start accepting jobs and earning!
         </p>
       </div>
     </div>
   ` : `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #00B14F; padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+        <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
       </div>
       <div style="padding: 30px; background: #f9f9f9;">
         <h2 style="color: #1F2937;">Application Update</h2>
         <p style="color: #4B5563;">
-          Thank you for your interest in becoming a GSS Maasin provider.
+          Thank you for your interest in becoming a H.E.L.P Maasin provider.
           Unfortunately, we couldn't approve your application at this time.
         </p>
         <p style="color: #6B7280; font-size: 14px;">
@@ -149,7 +149,7 @@ const sendProviderApprovalNotification = async (providerEmail, providerName, app
       </div>
     </div>
   `;
-  
+
   return sendEmail(providerEmail, subject, html);
 };
 
@@ -161,7 +161,7 @@ const sendPaymentReceipt = async (clientEmail, payment) => {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #00B14F; padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+        <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
       </div>
       <div style="padding: 30px; background: #f9f9f9;">
         <h2 style="color: #1F2937;">Payment Successful ✓</h2>
@@ -174,12 +174,12 @@ const sendPaymentReceipt = async (clientEmail, payment) => {
         </div>
         
         <p style="color: #6B7280; font-size: 14px;">
-          Thank you for using GSS Maasin!
+          Thank you for using H.E.L.P Maasin!
         </p>
       </div>
     </div>
   `;
-  
+
   return sendEmail(clientEmail, subject, html);
 };
 
@@ -187,11 +187,11 @@ const sendPaymentReceipt = async (clientEmail, payment) => {
  * Send password reset email
  */
 const sendPasswordResetEmail = async (email, resetCode) => {
-  const subject = 'GSS Maasin - Password Reset Code';
+  const subject = 'H.E.L.P Maasin - Password Reset Code';
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #00B14F; padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+        <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
       </div>
       <div style="padding: 30px; background: #f9f9f9;">
         <h2 style="color: #1F2937;">Password Reset Request</h2>
@@ -209,7 +209,7 @@ const sendPasswordResetEmail = async (email, resetCode) => {
       </div>
     </div>
   `;
-  
+
   return sendEmail(email, subject, html);
 };
 
@@ -217,11 +217,11 @@ const sendPasswordResetEmail = async (email, resetCode) => {
  * Send email verification code for registration
  */
 const sendVerificationCode = async (email, code, name = '') => {
-  const subject = 'GSS Maasin - Email Verification Code';
+  const subject = 'H.E.L.P Maasin - Email Verification Code';
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #00B14F; padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+        <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
       </div>
       <div style="padding: 30px; background: #f9f9f9;">
         <h2 style="color: #1F2937;">Verify Your Email</h2>
@@ -238,12 +238,12 @@ const sendVerificationCode = async (email, code, name = '') => {
         </p>
       </div>
       <div style="padding: 20px; text-align: center; color: #9CA3AF; font-size: 12px;">
-        <p>GSS Maasin - General Service System</p>
+        <p>H.E.L.P Maasin - Household Essential Logistics Portal</p>
         <p>Maasin City, Southern Leyte</p>
       </div>
     </div>
   `;
-  
+
   return sendEmail(email, subject, html);
 };
 
@@ -255,7 +255,7 @@ const sendJobRejectionNotification = async (clientEmail, booking, reason = null)
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #00B14F; padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+        <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
       </div>
       <div style="padding: 30px; background: #f9f9f9;">
         <h2 style="color: #1F2937;">Booking Update</h2>
@@ -274,11 +274,11 @@ const sendJobRejectionNotification = async (clientEmail, booking, reason = null)
         </p>
       </div>
       <div style="padding: 20px; text-align: center; color: #9CA3AF; font-size: 12px;">
-        <p>GSS Maasin - General Service System</p>
+        <p>H.E.L.P Maasin - Household Essential Logistics Portal</p>
       </div>
     </div>
   `;
-  
+
   return sendEmail(clientEmail, subject, html);
 };
 
@@ -290,7 +290,7 @@ const sendRefundNotification = async (clientEmail, refundData) => {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #00B14F; padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+        <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
       </div>
       <div style="padding: 30px; background: #f9f9f9;">
         <h2 style="color: #1F2937;">Refund Processed ✓</h2>
@@ -319,12 +319,12 @@ const sendRefundNotification = async (clientEmail, refundData) => {
         </p>
       </div>
       <div style="padding: 20px; text-align: center; color: #9CA3AF; font-size: 12px;">
-        <p>GSS Maasin - General Service System</p>
+        <p>H.E.L.P Maasin - Household Essential Logistics Portal</p>
         <p>Maasin City, Southern Leyte</p>
       </div>
     </div>
   `;
-  
+
   return sendEmail(clientEmail, subject, html);
 };
 
@@ -336,7 +336,7 @@ const sendProviderArrivedEmail = async (clientEmail, clientName, providerName, s
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #00B14F; padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+        <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
       </div>
       <div style="padding: 30px; background: #f9f9f9;">
         <h2 style="color: #1F2937;">Provider Has Arrived! 📍</h2>
@@ -351,16 +351,16 @@ const sendProviderArrivedEmail = async (clientEmail, clientName, providerName, s
         </div>
         
         <p style="color: #6B7280; font-size: 14px;">
-          You can track the service progress in the GSS Maasin app.
+          You can track the service progress in the H.E.L.P Maasin app.
         </p>
       </div>
       <div style="padding: 20px; text-align: center; color: #9CA3AF; font-size: 12px;">
-        <p>GSS Maasin - General Service System</p>
+        <p>H.E.L.P Maasin - Household Essential Logistics Portal</p>
         <p>Maasin City, Southern Leyte</p>
       </div>
     </div>
   `;
-  
+
   return sendEmail(clientEmail, subject, html);
 };
 
@@ -372,7 +372,7 @@ const sendWorkCompletedEmail = async (clientEmail, clientName, providerName, ser
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #00B14F; padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+        <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
       </div>
       <div style="padding: 30px; background: #f9f9f9;">
         <h2 style="color: #1F2937;">Work Completed! ✅</h2>
@@ -394,16 +394,16 @@ const sendWorkCompletedEmail = async (clientEmail, clientName, providerName, ser
         </div>
         
         <p style="color: #6B7280; font-size: 14px;">
-          Open the GSS Maasin app to confirm completion and leave your review.
+          Open the H.E.L.P Maasin app to confirm completion and leave your review.
         </p>
       </div>
       <div style="padding: 20px; text-align: center; color: #9CA3AF; font-size: 12px;">
-        <p>GSS Maasin - General Service System</p>
+        <p>H.E.L.P Maasin - Household Essential Logistics Portal</p>
         <p>Maasin City, Southern Leyte</p>
       </div>
     </div>
   `;
-  
+
   return sendEmail(clientEmail, subject, html);
 };
 
@@ -415,7 +415,7 @@ const sendReviewReminderEmail = async (clientEmail, clientName, providerName, se
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #00B14F; padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+        <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
       </div>
       <div style="padding: 30px; background: #f9f9f9;">
         <h2 style="color: #1F2937;">How Was Your Experience? ⭐</h2>
@@ -440,18 +440,18 @@ const sendReviewReminderEmail = async (clientEmail, clientName, providerName, se
         </div>
         
         <p style="color: #6B7280; font-size: 14px;">
-          Open the GSS Maasin app to leave your review now.
+          Open the H.E.L.P Maasin app to leave your review now.
         </p>
         
-        <p style="margin-top: 30px;">Thank you for using GSS Maasin!</p>
+        <p style="margin-top: 30px;">Thank you for using H.E.L.P Maasin!</p>
       </div>
       <div style="padding: 20px; text-align: center; color: #9CA3AF; font-size: 12px;">
-        <p>GSS Maasin - General Service System</p>
+        <p>H.E.L.P Maasin - Household Essential Logistics Portal</p>
         <p>Maasin City, Southern Leyte</p>
       </div>
     </div>
   `;
-  
+
   return sendEmail(clientEmail, subject, html);
 };
 

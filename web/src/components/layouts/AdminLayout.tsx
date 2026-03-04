@@ -180,7 +180,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <Wrench className="w-6 h-6 text-white" />
             </div>
             <div>
-              <span className="text-lg font-bold text-gray-900 dark:text-white">GSS Admin</span>
+              <span className="text-lg font-bold text-gray-900 dark:text-white">H.E.L.P Admin</span>
               <p className="text-xs text-gray-500 dark:text-gray-400">Management Panel</p>
             </div>
           </div>
@@ -248,7 +248,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 <div className="w-10 h-10 bg-[#00B14F] rounded-lg flex items-center justify-center">
                   <Wrench className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-lg font-bold text-gray-900 dark:text-white">GSS Admin</span>
+                <span className="text-lg font-bold text-gray-900 dark:text-white">H.E.L.P Admin</span>
               </div>
               <button onClick={() => setSidebarOpen(false)}>
                 <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />

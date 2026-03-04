@@ -376,6 +376,17 @@ router.post('/create-qrph-payment', async (req, res) => {
       return res.status(400).json({ error: 'amount and bookingId are required' });
     }
 
+    // Validate amount is a positive number
+    if (amount <= 0) {
+      return res.status(400).json({ 
+        error: `Payment amount must be greater than ₱0. Current amount: ₱${amount.toLocaleString()}`,
+        currentAmount: amount
+      });
+    }
+
+    // Note: PayMongo has a minimum of ₱100 for QR Ph, but we'll let PayMongo return their own error
+    // This allows the system to work with any amount the admin sets
+
     const db = getDb();
 
     // Check for existing pending payment for this booking with same amount
@@ -416,6 +427,14 @@ router.post('/create-qrph-payment', async (req, res) => {
       : `${webUrl}/payment/failed?bookingId=${bookingId}`;
 
     const amountInCentavos = Math.round(amount * 100);
+
+    console.log('[QRPh Payment] Creating checkout session:', {
+      amount,
+      amountInCentavos,
+      bookingId,
+      paymentType,
+      description
+    });
 
     // Create a Checkout Session with QRPh as the payment method
     const checkoutResponse = await axios.post(
@@ -1530,6 +1549,103 @@ router.post('/refund', async (req, res) => {
   } catch (error) {
     console.error('Error processing refund:', error.response?.data || error.message);
     res.status(500).json({ error: error.response?.data?.errors?.[0]?.detail || error.message });
+  }
+});
+
+// Partial refund for discount applied by admin
+router.post('/discount-refund/:bookingId', async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { amount, reason } = req.body;
+    const db = getDb();
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ success: false, error: 'Valid discount amount is required' });
+    }
+
+    // Get booking data
+    const bookingDoc = await db.collection('bookings').doc(bookingId).get();
+    if (!bookingDoc.exists) {
+      return res.status(404).json({ success: false, error: 'Booking not found' });
+    }
+
+    const bookingData = bookingDoc.data();
+
+    // Check if booking was paid
+    if (!bookingData.paid && !bookingData.isPaidUpfront) {
+      return res.json({ success: true, message: 'No payment to refund - discount applied to total only', refunded: false });
+    }
+
+    // Get payment record to find PayMongo payment ID
+    const paymentsSnapshot = await db.collection('payments')
+      .where('bookingId', '==', bookingId)
+      .where('status', '==', 'paid')
+      .get();
+
+    const paymentDoc = paymentsSnapshot.docs[0];
+    const paymentData = paymentDoc?.data();
+    const paymentId = paymentData?.paymentId || bookingData.paymentId;
+
+    if (!paymentId) {
+      return res.json({ success: true, message: 'No PayMongo payment ID found - discount applied to total only', refunded: false });
+    }
+
+    console.log(`Processing discount refund for booking ${bookingId}: ₱${amount}`);
+
+    // Process partial refund via PayMongo
+    const refundResponse = await axios.post(
+      `${PAYMONGO_API}/refunds`,
+      {
+        data: {
+          attributes: {
+            amount: Math.round(amount * 100), // Convert to centavos
+            payment_id: paymentId,
+            reason: 'requested_by_customer',
+            notes: `Discount refund: ${reason || 'Admin applied discount'}`,
+          },
+        },
+      },
+      paymongoAuth
+    );
+
+    const refund = refundResponse.data.data;
+
+    // Update booking with discount refund info
+    await db.collection('bookings').doc(bookingId).update({
+      discountRefunded: true,
+      discountRefundId: refund.id,
+      discountRefundAmount: refund.attributes.amount / 100,
+      discountRefundStatus: refund.attributes.status,
+      updatedAt: new Date(),
+    });
+
+    // Create refund transaction record
+    await db.collection('transactions').add({
+      bookingId,
+      userId: bookingData.clientId,
+      providerId: bookingData.providerId || null,
+      type: 'discount_refund',
+      amount: refund.attributes.amount / 100,
+      refundId: refund.id,
+      reason: reason || 'Discount applied by admin',
+      createdAt: new Date(),
+    });
+
+    console.log(`Discount refund successful for booking ${bookingId}: ₱${refund.attributes.amount / 100}`);
+
+    res.json({
+      success: true,
+      refunded: true,
+      refundId: refund.id,
+      amount: refund.attributes.amount / 100,
+      status: refund.attributes.status,
+    });
+  } catch (error) {
+    console.error('Error processing discount refund:', error.response?.data || error.message);
+    res.status(500).json({
+      success: false,
+      error: error.response?.data?.errors?.[0]?.detail || error.message,
+    });
   }
 });
 

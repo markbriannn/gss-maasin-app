@@ -1529,7 +1529,7 @@ export default function ProviderRegistration() {
               <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
                 <Wrench className="w-5 h-5 text-white" />
               </div>
-              <span className="font-bold text-gray-900">GSS Maasin</span>
+              <span className="font-bold text-gray-900">H.E.L.P Maasin</span>
             </div>
           </div>
           <div className="w-9" />
@@ -1592,7 +1592,7 @@ export default function ProviderRegistration() {
                     }
                   }}
                 >
-                  <p>Welcome to GSS Maasin Service App. By registering as a Service Provider, you agree to the following terms:</p>
+                  <p>Welcome to H.E.L.P Maasin Service App. By registering as a Service Provider, you agree to the following terms:</p>
 
                   <div>
                     <p className="font-semibold text-gray-900 mb-1">1. Account Registration</p>

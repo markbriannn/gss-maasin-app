@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,13 @@ import {
   Alert,
   Modal,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {useAuth} from '../../context/AuthContext';
-import {authStyles} from '../../css/authStyles';
+import { useAuth } from '../../context/AuthContext';
+import { authStyles } from '../../css/authStyles';
 
-const LoginScreen = ({navigation}) => {
-  const {login} = useAuth();
+const LoginScreen = ({ navigation }) => {
+  const { login } = useAuth();
   const [selectedRole, setSelectedRole] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,7 +24,7 @@ const LoginScreen = ({navigation}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
-  
+
   // Suspended account modal state
   const [showSuspendedModal, setShowSuspendedModal] = useState(false);
   const [suspensionDetails, setSuspensionDetails] = useState(null);
@@ -50,7 +50,7 @@ const LoginScreen = ({navigation}) => {
           'Wrong Account Type',
           result.error,
           [
-            {text: 'OK', onPress: () => setSelectedRole(null)},
+            { text: 'OK', onPress: () => setSelectedRole(null) },
           ]
         );
       } else {
@@ -108,7 +108,7 @@ const LoginScreen = ({navigation}) => {
         <ScrollView
           contentContainerStyle={authStyles.scrollContent}
           keyboardShouldPersistTaps="handled">
-          
+
           {/* Back Button */}
           <TouchableOpacity
             style={{
@@ -118,12 +118,12 @@ const LoginScreen = ({navigation}) => {
             }}
             onPress={() => navigation.goBack()}>
             <Icon name="arrow-back" size={24} color="#374151" />
-            <Text style={{marginLeft: 8, fontSize: 16, color: '#374151'}}>Back</Text>
+            <Text style={{ marginLeft: 8, fontSize: 16, color: '#374151' }}>Back</Text>
           </TouchableOpacity>
 
           <View style={authStyles.logoContainer}>
             <View style={authStyles.logo}>
-              <Text style={authStyles.logoText}>GSS</Text>
+              <Text style={authStyles.logoText}>H.E.L.P</Text>
             </View>
             <Text style={authStyles.logoSubtext}>Maasin City</Text>
           </View>
@@ -135,7 +135,7 @@ const LoginScreen = ({navigation}) => {
             </Text>
           </View>
 
-          <View style={{marginTop: 24}}>
+          <View style={{ marginTop: 24 }}>
             {/* Client Option */}
             <TouchableOpacity
               style={{
@@ -146,7 +146,7 @@ const LoginScreen = ({navigation}) => {
                 flexDirection: 'row',
                 alignItems: 'center',
                 shadowColor: '#000',
-                shadowOffset: {width: 0, height: 2},
+                shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.05,
                 shadowRadius: 8,
                 elevation: 2,
@@ -165,11 +165,11 @@ const LoginScreen = ({navigation}) => {
                 }}>
                 <Icon name={roleConfig.CLIENT.icon} size={28} color={roleConfig.CLIENT.color} />
               </View>
-              <View style={{flex: 1, marginLeft: 16}}>
-                <Text style={{fontSize: 18, fontWeight: '600', color: '#1F2937'}}>
+              <View style={{ flex: 1, marginLeft: 16 }}>
+                <Text style={{ fontSize: 18, fontWeight: '600', color: '#1F2937' }}>
                   Login as Client
                 </Text>
-                <Text style={{fontSize: 14, color: '#6B7280', marginTop: 2}}>
+                <Text style={{ fontSize: 14, color: '#6B7280', marginTop: 2 }}>
                   {roleConfig.CLIENT.description}
                 </Text>
               </View>
@@ -186,7 +186,7 @@ const LoginScreen = ({navigation}) => {
                 flexDirection: 'row',
                 alignItems: 'center',
                 shadowColor: '#000',
-                shadowOffset: {width: 0, height: 2},
+                shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.05,
                 shadowRadius: 8,
                 elevation: 2,
@@ -205,11 +205,11 @@ const LoginScreen = ({navigation}) => {
                 }}>
                 <Icon name={roleConfig.PROVIDER.icon} size={28} color={roleConfig.PROVIDER.color} />
               </View>
-              <View style={{flex: 1, marginLeft: 16}}>
-                <Text style={{fontSize: 18, fontWeight: '600', color: '#1F2937'}}>
+              <View style={{ flex: 1, marginLeft: 16 }}>
+                <Text style={{ fontSize: 18, fontWeight: '600', color: '#1F2937' }}>
                   Login as Provider
                 </Text>
-                <Text style={{fontSize: 14, color: '#6B7280', marginTop: 2}}>
+                <Text style={{ fontSize: 14, color: '#6B7280', marginTop: 2 }}>
                   {roleConfig.PROVIDER.description}
                 </Text>
               </View>
@@ -226,7 +226,7 @@ const LoginScreen = ({navigation}) => {
                 flexDirection: 'row',
                 alignItems: 'center',
                 shadowColor: '#000',
-                shadowOffset: {width: 0, height: 2},
+                shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.05,
                 shadowRadius: 8,
                 elevation: 2,
@@ -245,11 +245,11 @@ const LoginScreen = ({navigation}) => {
                 }}>
                 <Icon name={roleConfig.ADMIN.icon} size={28} color={roleConfig.ADMIN.color} />
               </View>
-              <View style={{flex: 1, marginLeft: 16}}>
-                <Text style={{fontSize: 18, fontWeight: '600', color: '#1F2937'}}>
+              <View style={{ flex: 1, marginLeft: 16 }}>
+                <Text style={{ fontSize: 18, fontWeight: '600', color: '#1F2937' }}>
                   Login as Admin
                 </Text>
-                <Text style={{fontSize: 14, color: '#6B7280', marginTop: 2}}>
+                <Text style={{ fontSize: 14, color: '#6B7280', marginTop: 2 }}>
                   {roleConfig.ADMIN.description}
                 </Text>
               </View>
@@ -258,7 +258,7 @@ const LoginScreen = ({navigation}) => {
           </View>
 
           {/* Sign Up Link */}
-          <View style={[authStyles.signUpContainer, {marginTop: 32}]}>
+          <View style={[authStyles.signUpContainer, { marginTop: 32 }]}>
             <Text style={authStyles.signUpText}>Don't have an account? </Text>
             <TouchableOpacity onPress={handleSignUp}>
               <Text style={authStyles.linkText}>Sign Up</Text>
@@ -277,7 +277,7 @@ const LoginScreen = ({navigation}) => {
       <ScrollView
         contentContainerStyle={authStyles.scrollContent}
         keyboardShouldPersistTaps="handled">
-        
+
         {/* Back to Role Selection */}
         <TouchableOpacity
           style={{
@@ -287,10 +287,10 @@ const LoginScreen = ({navigation}) => {
           }}
           onPress={handleBackToRoleSelection}>
           <Icon name="arrow-back" size={24} color="#374151" />
-          <Text style={{marginLeft: 8, fontSize: 16, color: '#374151'}}>Back</Text>
+          <Text style={{ marginLeft: 8, fontSize: 16, color: '#374151' }}>Back</Text>
         </TouchableOpacity>
 
-        <View style={{alignItems: 'center', marginBottom: 24}}>
+        <View style={{ alignItems: 'center', marginBottom: 24 }}>
           <View
             style={{
               width: 80,
@@ -395,7 +395,7 @@ const LoginScreen = ({navigation}) => {
           <TouchableOpacity
             style={[
               authStyles.buttonPrimary,
-              {backgroundColor: currentRole.color},
+              { backgroundColor: currentRole.color },
               isLoading && authStyles.buttonDisabled,
             ]}
             onPress={handleLogin}
@@ -411,9 +411,9 @@ const LoginScreen = ({navigation}) => {
 
           {selectedRole !== 'ADMIN' && (
             <View style={authStyles.signUpContainer}>
-              <Text style={authStyles.signUpText}>New to GSS Maasin? </Text>
+              <Text style={authStyles.signUpText}>New to H.E.L.P Maasin? </Text>
               <TouchableOpacity onPress={handleSignUp}>
-                <Text style={[authStyles.linkText, {color: currentRole.color}]}>
+                <Text style={[authStyles.linkText, { color: currentRole.color }]}>
                   Create {currentRole.label} Account
                 </Text>
               </TouchableOpacity>

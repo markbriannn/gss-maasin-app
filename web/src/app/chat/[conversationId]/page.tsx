@@ -9,9 +9,11 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
-import { ArrowLeft, Send, User, Loader2, Image as ImageIcon, X, Check, CheckCheck, Smile } from 'lucide-react';
+import { ArrowLeft, Send, User, Loader2, Image as ImageIcon, X, Check, CheckCheck, Smile, Phone } from 'lucide-react';
 import { uploadImage } from '@/lib/cloudinary';
 import { pushNotifications } from '@/lib/pushNotifications';
+import VoiceCall from '@/components/VoiceCall';
+import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall } from '@/services/callService';
 
 interface Reaction {
   emoji: string;
@@ -72,6 +74,75 @@ export default function ChatPage() {
   // Reaction picker state
   const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
   const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+
+  // Voice call state
+  const [activeCall, setActiveCall] = useState<any>(null);
+  const [incomingCall, setIncomingCall] = useState<any>(null);
+  const [callStatus, setCallStatus] = useState<'ringing' | 'ongoing' | 'incoming' | null>(null);
+  const callStartTimeRef = useRef<number | null>(null);
+
+  // Send a call event message to the chat (like Messenger)
+  const sendCallEventMessage = async (callType: string, durationSeconds = 0) => {
+    if (!conversationId || !user?.uid) return;
+    try {
+      const senderName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User';
+      let text = '';
+      if (callType === 'completed') {
+        const mins = Math.floor(durationSeconds / 60);
+        const secs = durationSeconds % 60;
+        text = mins > 0 ? `📞 Voice call · ${mins} min ${secs > 0 ? secs + ' sec' : ''}` : `📞 Voice call · ${secs} sec`;
+      } else if (callType === 'missed') {
+        text = '📞 Missed voice call';
+      } else if (callType === 'declined') {
+        text = '📞 Declined voice call';
+      } else {
+        text = '📞 Voice call';
+      }
+      await addDoc(collection(db, 'conversations', conversationId, 'messages'), {
+        text,
+        senderId: user.uid,
+        senderName,
+        createdAt: serverTimestamp(),
+        read: false,
+      });
+    } catch (err) {
+      console.log('Error sending call event message:', err);
+    }
+  };
+
+  // Start a call
+  const handleStartCall = async () => {
+    if (!recipient?.id || !user?.uid) return;
+    try {
+      const callerName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email?.split('@')[0] || 'User';
+      const actualRecipientId = recipient.id || resolvedRecipientIdRef.current;
+      if (!actualRecipientId) return;
+      const call = await initiateCall(
+        user.uid,
+        callerName,
+        actualRecipientId,
+        recipient.name || 'User',
+        jobId || null
+      );
+      setActiveCall(call);
+      setCallStatus('ringing');
+      callStartTimeRef.current = Date.now();
+    } catch (err: any) {
+      alert(err.message || 'Could not start call');
+    }
+  };
+
+  // Listen for incoming calls
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsubscribe = listenToIncomingCalls(user.uid, (call: any) => {
+      if (call.callerId === recipient?.id || call.callerId === resolvedRecipientIdRef.current) {
+        setIncomingCall(call);
+        setCallStatus('incoming');
+      }
+    });
+    return () => unsubscribe?.();
+  }, [user?.uid, recipient?.id]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -187,7 +258,7 @@ export default function ChatPage() {
           let reactionUserName = 'User';
           const isAdmin = user.role?.toUpperCase() === 'ADMIN';
           if (isAdmin) {
-            reactionUserName = 'GSS Support';
+            reactionUserName = 'H.E.L.P Support';
           } else {
             const contextName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
             if (contextName) {
@@ -307,7 +378,7 @@ export default function ChatPage() {
                 const isAdmin = userData.role?.toUpperCase() === 'ADMIN';
                 setRecipient({
                   id: otherUserId,
-                  name: isAdmin ? 'GSS Support' : (`${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.displayName || 'User'),
+                  name: isAdmin ? 'H.E.L.P Support' : (`${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.displayName || 'User'),
                   photo: userData.profilePhoto,
                   role: isAdmin ? 'Support Team' : userData.role,
                 });
@@ -359,7 +430,7 @@ export default function ChatPage() {
             resolvedRecipientIdRef.current = actualRecipientId; // Store in ref
             setRecipient({
               id: actualRecipientId,
-              name: isAdmin ? 'GSS Support' : (`${recipientData.firstName || ''} ${recipientData.lastName || ''}`.trim() || recipientData.displayName || 'User'),
+              name: isAdmin ? 'H.E.L.P Support' : (`${recipientData.firstName || ''} ${recipientData.lastName || ''}`.trim() || recipientData.displayName || 'User'),
               photo: recipientData.profilePhoto,
               role: isAdmin ? 'Support Team' : recipientData.role,
             });
@@ -457,16 +528,16 @@ export default function ChatPage() {
           autoReplySentRef.current = true;
           // Send welcome message from admin
           await addDoc(collection(db, 'conversations', conversationId, 'messages'), {
-            text: '👋 Welcome to GSS Live Support!\n\nHow can we help you today? Please describe your concern and our support team will respond as soon as possible.\n\n⏱ Typical response time: within a few minutes during business hours.',
+            text: '👋 Welcome to H.E.L.P Live Support!\n\nHow can we help you today? Please describe your concern and our support team will respond as soon as possible.\n\n⏱ Typical response time: within a few minutes during business hours.',
             senderId: recipient.id,
-            senderName: 'GSS Support',
+            senderName: 'H.E.L.P Support',
             timestamp: serverTimestamp(),
             read: false,
           });
 
           // Update conversation last message
           await updateDoc(doc(db, 'conversations', conversationId), {
-            lastMessage: '👋 Welcome to GSS Live Support!',
+            lastMessage: '👋 Welcome to H.E.L.P Live Support!',
             lastMessageTime: serverTimestamp(),
             lastSenderId: recipient.id,
             updatedAt: serverTimestamp(),
@@ -675,7 +746,7 @@ export default function ChatPage() {
       const isAdmin = user.role?.toUpperCase() === 'ADMIN';
 
       if (isAdmin) {
-        senderName = 'GSS Support';
+        senderName = 'H.E.L.P Support';
       } else {
         // Always fetch from Firestore to get the most accurate name
         console.log('[Chat] Fetching name from Firestore for user:', user.uid);
@@ -857,8 +928,55 @@ export default function ChatPage() {
               </p>
             )}
           </div>
+          <button
+            onClick={handleStartCall}
+            className="p-2.5 hover:bg-white/20 rounded-full transition-colors"
+          >
+            <Phone className="w-5 h-5 text-white" />
+          </button>
         </div>
       </div>
+
+      {/* Call Status Banner - Messenger style */}
+      {callStatus && (
+        <div className={`${callStatus === 'incoming' ? 'bg-green-700' : callStatus === 'ongoing' ? 'bg-emerald-600' : 'bg-green-500'
+          } px-4 py-2.5 flex items-center justify-center gap-3 text-white/90 text-sm font-semibold`}>
+          <Phone className="w-4 h-4" />
+          <span>
+            {recipient?.name || 'User'} · {callStatus === 'ringing' ? 'Ringing...' : callStatus === 'ongoing' ? 'Ongoing call' : 'Incoming call'}
+          </span>
+          {callStatus === 'incoming' && (
+            <div className="flex gap-3 ml-auto">
+              <button
+                onClick={async () => {
+                  if (incomingCall?.id) {
+                    await declineCall(incomingCall.id);
+                    setIncomingCall(null);
+                    setCallStatus(null);
+                  }
+                }}
+                className="px-4 py-1.5 bg-red-500 text-white text-xs font-bold rounded-full hover:bg-red-600 transition-colors"
+              >
+                Decline
+              </button>
+              <button
+                onClick={async () => {
+                  if (incomingCall?.id) {
+                    await answerCall(incomingCall.id);
+                    setActiveCall(incomingCall);
+                    setCallStatus('ongoing');
+                    setIncomingCall(null);
+                    callStartTimeRef.current = Date.now();
+                  }
+                }}
+                className="px-4 py-1.5 bg-white text-green-700 text-xs font-bold rounded-full hover:bg-gray-100 transition-colors"
+              >
+                Answer
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto">
@@ -874,6 +992,39 @@ export default function ChatPage() {
                 const isOwn = message.senderId === user?.uid;
                 const isLastOwnMessage = isOwn && index === msgs.length - 1;
                 const showReadReceipt = isOwn;
+                const isCallEvent = message.text?.startsWith('📞');
+
+                // Render call event message (Messenger-style)
+                if (isCallEvent) {
+                  const isMissed = message.text.includes('Missed') || message.text.includes('Declined');
+                  return (
+                    <div key={message.id} className="flex justify-center my-3">
+                      <div className="bg-gray-100 rounded-2xl px-5 py-3 min-w-[200px] text-center">
+                        <div className="flex items-center justify-center gap-3">
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center ${isMissed ? 'bg-red-100' : 'bg-emerald-100'}`}>
+                            <Phone className={`w-4 h-4 ${isMissed ? 'text-red-500' : 'text-emerald-500'}`} />
+                          </div>
+                          <div className="text-left">
+                            <p className="text-sm font-semibold text-gray-800">
+                              {isMissed ? (message.text.includes('Missed') ? 'Missed voice call' : 'Declined voice call') : 'Voice call'}
+                            </p>
+                            {!isMissed && message.text.includes('·') && (
+                              <p className="text-xs text-gray-500">{message.text.split('·')[1]?.trim()}</p>
+                            )}
+                            <p className="text-[11px] text-gray-400 mt-0.5">{formatTime(message.createdAt)}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleStartCall}
+                          className="mt-2.5 w-full py-2 bg-gray-200 hover:bg-gray-300 rounded-full text-sm font-semibold text-gray-700 transition-colors"
+                        >
+                          Call again
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div
                     key={message.id}
@@ -1041,6 +1192,30 @@ export default function ChatPage() {
           </button>
         </div>
       </div>
+
+      {/* Voice Call Overlay */}
+      {activeCall && (callStatus === 'ringing' || callStatus === 'ongoing') && (
+        <VoiceCall
+          callId={activeCall.id}
+          channelName={activeCall.channelName}
+          isIncoming={false}
+          callerName={activeCall.callerName || recipient?.name || 'User'}
+          onEnd={() => {
+            const durationSec = callStartTimeRef.current
+              ? Math.round((Date.now() - callStartTimeRef.current) / 1000)
+              : 0;
+            endCall(activeCall.id, durationSec).catch(() => { });
+            if (durationSec > 5) {
+              sendCallEventMessage('completed', durationSec);
+            } else {
+              sendCallEventMessage('missed');
+            }
+            setActiveCall(null);
+            setCallStatus(null);
+            callStartTimeRef.current = null;
+          }}
+        />
+      )}
     </div>
   );
 }

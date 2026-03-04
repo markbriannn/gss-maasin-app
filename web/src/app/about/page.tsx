@@ -6,7 +6,7 @@ import { ArrowLeft, Wrench, Users, Shield, Star } from 'lucide-react';
 
 export default function AboutPage() {
   const router = useRouter();
-  
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -25,16 +25,16 @@ export default function AboutPage() {
           <div className="w-20 h-20 bg-[#00B14F] rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Wrench className="w-10 h-10 text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">GSS Maasin</h2>
-          <p className="text-gray-500 mt-1">General Services System</p>
+          <h2 className="text-2xl font-bold text-gray-900">Maasin City H.E.L.P App</h2>
+          <p className="text-gray-500 mt-1">Household Essential Logistics Portal</p>
         </div>
 
         {/* Description */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
           <p className="text-gray-600 leading-relaxed">
-            GSS Maasin is a platform connecting service providers with clients in Maasin City, 
-            Southern Leyte. Our mission is to make it easy for residents to find reliable, 
-            skilled professionals for their home and business needs.
+            Maasin City H.E.L.P App makes it effortless to find reliable, skilled professionals
+            right in your neighborhood. Whether it's a leaky faucet or a full home rewiring,
+            we connect you with trusted pros who get the job done right.
           </p>
         </div>
 
@@ -42,23 +42,23 @@ export default function AboutPage() {
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="bg-white rounded-xl shadow-sm p-4 text-center">
             <Users className="w-8 h-8 text-[#00B14F] mx-auto mb-2" />
-            <p className="font-semibold text-gray-900">Verified Providers</p>
-            <p className="text-sm text-gray-500 mt-1">All providers are verified</p>
+            <p className="font-semibold text-gray-900">Trusted Pros</p>
+            <p className="text-sm text-gray-500 mt-1">Background-checked & approved</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm p-4 text-center">
             <Shield className="w-8 h-8 text-[#00B14F] mx-auto mb-2" />
-            <p className="font-semibold text-gray-900">Secure Payments</p>
-            <p className="text-sm text-gray-500 mt-1">Safe & secure transactions</p>
+            <p className="font-semibold text-gray-900">Safe Payments</p>
+            <p className="text-sm text-gray-500 mt-1">Pay securely via QR Ph</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm p-4 text-center">
             <Star className="w-8 h-8 text-[#00B14F] mx-auto mb-2" />
-            <p className="font-semibold text-gray-900">Rated Services</p>
-            <p className="text-sm text-gray-500 mt-1">Reviews from real clients</p>
+            <p className="font-semibold text-gray-900">Real Reviews</p>
+            <p className="text-sm text-gray-500 mt-1">Honest feedback from locals</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm p-4 text-center">
             <Wrench className="w-8 h-8 text-[#00B14F] mx-auto mb-2" />
-            <p className="font-semibold text-gray-900">Many Services</p>
-            <p className="text-sm text-gray-500 mt-1">Wide range of categories</p>
+            <p className="font-semibold text-gray-900">All-in-One</p>
+            <p className="text-sm text-gray-500 mt-1">Electrical, plumbing, carpentry & more</p>
           </div>
         </div>
 
@@ -81,7 +81,7 @@ export default function AboutPage() {
         {/* Version */}
         <div className="text-center text-gray-500 text-sm">
           <p>Version 1.0.0</p>
-          <p className="mt-1">© 2024 GSS Maasin. All rights reserved.</p>
+          <p className="mt-1">© 2024 Maasin City H.E.L.P App. All rights reserved.</p>
         </div>
       </div>
     </div>

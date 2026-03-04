@@ -149,13 +149,13 @@ class SMSEmailService {
     const dateStr = booking.scheduledDate || formatDate(booking.createdAt) || 'ASAP';
     const timeStr = booking.scheduledTime || 'As soon as possible';
 
-    const smsMessage = `GSS Maasin: Your booking for ${booking.serviceCategory} with ${this.capitalize(provider.name)} is confirmed! ${dateStr !== 'ASAP' ? `Date: ${dateStr} at ${timeStr}.` : ''} Total: ₱${booking.totalAmount?.toLocaleString()}. Job ID: ${booking.id?.slice(-6)}`;
+    const smsMessage = `H.E.L.P Maasin: Your booking for ${booking.serviceCategory} with ${this.capitalize(provider.name)} is confirmed! ${dateStr !== 'ASAP' ? `Date: ${dateStr} at ${timeStr}.` : ''} Total: ₱${booking.totalAmount?.toLocaleString()}. Job ID: ${booking.id?.slice(-6)}`;
 
     const emailSubject = `Booking Confirmed - ${booking.serviceCategory}`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #00B14F; padding: 20px; text-align: center;">
-          <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+          <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
         </div>
         <div style="padding: 30px; background: #f9f9f9;">
           <h2 style="color: #1F2937;">Booking Confirmed! ✅</h2>
@@ -175,10 +175,10 @@ class SMSEmailService {
           
           <p>The provider will contact you soon. You can also message them directly through the app.</p>
           
-          <p style="margin-top: 30px;">Thank you for using GSS Maasin!</p>
+          <p style="margin-top: 30px;">Thank you for using H.E.L.P Maasin!</p>
         </div>
         <div style="background: #1F2937; padding: 15px; text-align: center;">
-          <p style="color: #9CA3AF; margin: 0; font-size: 12px;">© 2024 GSS Maasin. All rights reserved.</p>
+          <p style="color: #9CA3AF; margin: 0; font-size: 12px;">© 2024 H.E.L.P Maasin. All rights reserved.</p>
         </div>
       </div>
     `;
@@ -199,7 +199,7 @@ class SMSEmailService {
    * Notify provider about new job request
    */
   async notifyProviderNewJob(booking, provider) {
-    const smsMessage = `GSS Maasin: New job request! ${booking.serviceCategory} on ${booking.scheduledDate}. Client: ${booking.clientName}. Price: ₱${booking.totalAmount?.toLocaleString()}. Open app to accept.`;
+    const smsMessage = `H.E.L.P Maasin: New job request! ${booking.serviceCategory} on ${booking.scheduledDate}. Client: ${booking.clientName}. Price: ₱${booking.totalAmount?.toLocaleString()}. Open app to accept.`;
 
     if (provider.phone) {
       return this.sendSMS(provider.phone, smsMessage);
@@ -211,7 +211,7 @@ class SMSEmailService {
    * Notify client when job is accepted
    */
   async notifyJobAccepted(booking, client, provider) {
-    const smsMessage = `GSS Maasin: Great news! ${this.capitalize(provider.name)} accepted your ${booking.serviceCategory} booking for ${booking.scheduledDate}. They will arrive at ${booking.scheduledTime}.`;
+    const smsMessage = `H.E.L.P Maasin: Great news! ${this.capitalize(provider.name)} accepted your ${booking.serviceCategory} booking for ${booking.scheduledDate}. They will arrive at ${booking.scheduledTime}.`;
 
     if (client.phone) {
       return this.sendSMS(client.phone, smsMessage);
@@ -223,7 +223,7 @@ class SMSEmailService {
    * Notify about job start
    */
   async notifyJobStarted(booking, client) {
-    const smsMessage = `GSS Maasin: Your ${booking.serviceCategory} service has started! The provider is now working on your job.`;
+    const smsMessage = `H.E.L.P Maasin: Your ${booking.serviceCategory} service has started! The provider is now working on your job.`;
 
     if (client.phone) {
       return this.sendSMS(client.phone, smsMessage);
@@ -235,13 +235,13 @@ class SMSEmailService {
    * Notify about job completion
    */
   async notifyJobCompleted(booking, client, provider) {
-    const smsMessage = `GSS Maasin: Your ${booking.serviceCategory} job is complete! Total: ₱${booking.totalAmount?.toLocaleString()}. Please rate ${this.capitalize(provider.name)} in the app. Thank you!`;
+    const smsMessage = `H.E.L.P Maasin: Your ${booking.serviceCategory} job is complete! Total: ₱${booking.totalAmount?.toLocaleString()}. Please rate ${this.capitalize(provider.name)} in the app. Thank you!`;
 
     const emailSubject = `Job Completed - Please Leave a Review`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #00B14F; padding: 20px; text-align: center;">
-          <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+          <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
         </div>
         <div style="padding: 30px; background: #f9f9f9;">
           <h2 style="color: #1F2937;">Job Completed! 🎉</h2>
@@ -259,10 +259,10 @@ class SMSEmailService {
             <p style="margin: 0; color: #92400E;">Please open the app to leave a review for ${provider.name}. Your feedback helps other clients!</p>
           </div>
           
-          <p style="margin-top: 30px;">Thank you for using GSS Maasin!</p>
+          <p style="margin-top: 30px;">Thank you for using H.E.L.P Maasin!</p>
         </div>
         <div style="background: #1F2937; padding: 15px; text-align: center;">
-          <p style="color: #9CA3AF; margin: 0; font-size: 12px;">© 2024 GSS Maasin. All rights reserved.</p>
+          <p style="color: #9CA3AF; margin: 0; font-size: 12px;">© 2024 H.E.L.P Maasin. All rights reserved.</p>
         </div>
       </div>
     `;
@@ -283,7 +283,7 @@ class SMSEmailService {
    */
   async notifyJobCancelled(booking, recipient, cancelledBy, reason) {
     const byText = cancelledBy === 'client' ? 'The client' : 'The provider';
-    const smsMessage = `GSS Maasin: ${byText} cancelled the ${booking.serviceCategory} booking for ${booking.scheduledDate}.${reason ? ` Reason: ${reason}` : ''} We apologize for any inconvenience.`;
+    const smsMessage = `H.E.L.P Maasin: ${byText} cancelled the ${booking.serviceCategory} booking for ${booking.scheduledDate}.${reason ? ` Reason: ${reason}` : ''} We apologize for any inconvenience.`;
 
     if (recipient.phone) {
       return this.sendSMS(recipient.phone, smsMessage);
@@ -297,16 +297,16 @@ class SMSEmailService {
    * Notify provider about account approval
    */
   async notifyProviderApproved(provider) {
-    const smsMessage = `GSS Maasin: Congratulations ${provider.firstName}! Your provider account has been approved. You can now receive job requests. Open the app to get started!`;
+    const smsMessage = `H.E.L.P Maasin: Congratulations ${provider.firstName}! Your provider account has been approved. You can now receive job requests. Open the app to get started!`;
 
-    const emailSubject = `Welcome to GSS Maasin - Account Approved!`;
+    const emailSubject = `Welcome to H.E.L.P Maasin - Account Approved!`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #00B14F; padding: 20px; text-align: center;">
-          <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+          <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
         </div>
         <div style="padding: 30px; background: #f9f9f9;">
-          <h2 style="color: #1F2937;">Welcome to GSS Maasin! 🎉</h2>
+          <h2 style="color: #1F2937;">Welcome to H.E.L.P Maasin! 🎉</h2>
           <p>Hi ${provider.firstName || 'there'},</p>
           <p>Great news! Your provider account has been <strong style="color: #00B14F;">approved</strong>.</p>
           
@@ -323,10 +323,10 @@ class SMSEmailService {
           </ol>
           
           <p style="margin-top: 30px;">Welcome aboard!</p>
-          <p><strong>The GSS Maasin Team</strong></p>
+          <p><strong>The H.E.L.P Maasin Team</strong></p>
         </div>
         <div style="background: #1F2937; padding: 15px; text-align: center;">
-          <p style="color: #9CA3AF; margin: 0; font-size: 12px;">© 2024 GSS Maasin. All rights reserved.</p>
+          <p style="color: #9CA3AF; margin: 0; font-size: 12px;">© 2024 H.E.L.P Maasin. All rights reserved.</p>
         </div>
       </div>
     `;
@@ -346,18 +346,18 @@ class SMSEmailService {
    * Notify provider about account rejection
    */
   async notifyProviderRejected(provider, reason = '') {
-    const smsMessage = `GSS Maasin: We're sorry, your provider application was not approved.${reason ? ` Reason: ${reason}` : ''} Please contact support for more information.`;
+    const smsMessage = `H.E.L.P Maasin: We're sorry, your provider application was not approved.${reason ? ` Reason: ${reason}` : ''} Please contact support for more information.`;
 
-    const emailSubject = `GSS Maasin - Application Status Update`;
+    const emailSubject = `H.E.L.P Maasin - Application Status Update`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #00B14F; padding: 20px; text-align: center;">
-          <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+          <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
         </div>
         <div style="padding: 30px; background: #f9f9f9;">
           <h2 style="color: #1F2937;">Application Status Update</h2>
           <p>Hi ${provider.firstName || 'there'},</p>
-          <p>Thank you for your interest in becoming a service provider on GSS Maasin.</p>
+          <p>Thank you for your interest in becoming a service provider on H.E.L.P Maasin.</p>
           
           <div style="background: #FEE2E2; padding: 20px; border-radius: 10px; margin: 20px 0;">
             <p style="margin: 0; font-size: 16px; color: #991B1B;">Unfortunately, we were unable to approve your application at this time.</p>
@@ -373,10 +373,10 @@ class SMSEmailService {
           </ul>
           
           <p style="margin-top: 30px;">If you have questions, please contact us at support@gssmaasin.com</p>
-          <p><strong>The GSS Maasin Team</strong></p>
+          <p><strong>The H.E.L.P Maasin Team</strong></p>
         </div>
         <div style="background: #1F2937; padding: 15px; text-align: center;">
-          <p style="color: #9CA3AF; margin: 0; font-size: 12px;">© 2024 GSS Maasin. All rights reserved.</p>
+          <p style="color: #9CA3AF; margin: 0; font-size: 12px;">© 2024 H.E.L.P Maasin. All rights reserved.</p>
         </div>
       </div>
     `;
@@ -398,13 +398,13 @@ class SMSEmailService {
    * Notify client when their booking request is approved by admin
    */
   async notifyBookingApproved(booking, client, provider) {
-    const smsMessage = `GSS Maasin: Your ${booking.serviceCategory || 'service'} request has been approved! ${this.capitalize(provider?.name) || 'The provider'} will review and accept your booking soon. Job ID: ${booking.id?.slice(-6)}`;
+    const smsMessage = `H.E.L.P Maasin: Your ${booking.serviceCategory || 'service'} request has been approved! ${this.capitalize(provider?.name) || 'The provider'} will review and accept your booking soon. Job ID: ${booking.id?.slice(-6)}`;
 
     const emailSubject = `Booking Request Approved - ${booking.serviceCategory || 'Service'}`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #00B14F; padding: 20px; text-align: center;">
-          <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+          <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
         </div>
         <div style="padding: 30px; background: #f9f9f9;">
           <h2 style="color: #1F2937;">Booking Request Approved! ✅</h2>
@@ -426,10 +426,10 @@ class SMSEmailService {
           
           <p style="color: #6B7280; font-size: 14px;">Job ID: ${booking.id}</p>
           
-          <p style="margin-top: 30px;">Thank you for using GSS Maasin!</p>
+          <p style="margin-top: 30px;">Thank you for using H.E.L.P Maasin!</p>
         </div>
         <div style="background: #1F2937; padding: 15px; text-align: center;">
-          <p style="color: #9CA3AF; margin: 0; font-size: 12px;">© 2024 GSS Maasin. All rights reserved.</p>
+          <p style="color: #9CA3AF; margin: 0; font-size: 12px;">© 2024 H.E.L.P Maasin. All rights reserved.</p>
         </div>
       </div>
     `;
@@ -449,18 +449,18 @@ class SMSEmailService {
    * Notify client when their booking request is rejected by admin
    */
   async notifyBookingRejected(booking, client, reason = '') {
-    const smsMessage = `GSS Maasin: We're sorry, your ${booking.serviceCategory || 'service'} request was not approved.${reason ? ` Reason: ${reason}` : ''} Please try again or contact support.`;
+    const smsMessage = `H.E.L.P Maasin: We're sorry, your ${booking.serviceCategory || 'service'} request was not approved.${reason ? ` Reason: ${reason}` : ''} Please try again or contact support.`;
 
     const emailSubject = `Booking Request Update - ${booking.serviceCategory || 'Service'}`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #00B14F; padding: 20px; text-align: center;">
-          <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+          <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
         </div>
         <div style="padding: 30px; background: #f9f9f9;">
           <h2 style="color: #1F2937;">Booking Request Update</h2>
           <p>Hi ${client.firstName || 'there'},</p>
-          <p>Thank you for using GSS Maasin.</p>
+          <p>Thank you for using H.E.L.P Maasin.</p>
           
           <div style="background: #FEE2E2; padding: 20px; border-radius: 10px; margin: 20px 0;">
             <p style="margin: 0; font-size: 16px; color: #991B1B;">Unfortunately, your service request could not be approved at this time.</p>
@@ -481,10 +481,10 @@ class SMSEmailService {
           </ul>
           
           <p style="margin-top: 30px;">We apologize for any inconvenience. Thank you for your understanding.</p>
-          <p><strong>The GSS Maasin Team</strong></p>
+          <p><strong>The H.E.L.P Maasin Team</strong></p>
         </div>
         <div style="background: #1F2937; padding: 15px; text-align: center;">
-          <p style="color: #9CA3AF; margin: 0; font-size: 12px;">© 2024 GSS Maasin. All rights reserved.</p>
+          <p style="color: #9CA3AF; margin: 0; font-size: 12px;">© 2024 H.E.L.P Maasin. All rights reserved.</p>
         </div>
       </div>
     `;
@@ -504,13 +504,13 @@ class SMSEmailService {
    * Notify provider about new approved job request
    */
   async notifyProviderNewApprovedJob(booking, provider, client) {
-    const smsMessage = `GSS Maasin: New job ${provider.firstName || 'Provider'}! ${booking.serviceCategory || 'Service'} from ${client?.name || 'a client'}. Open app to accept!`;
+    const smsMessage = `H.E.L.P Maasin: New job ${provider.firstName || 'Provider'}! ${booking.serviceCategory || 'Service'} from ${client?.name || 'a client'}. Open app to accept!`;
 
     const emailSubject = `New Job Request - ${booking.serviceCategory || 'Service'}`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #00B14F; padding: 20px; text-align: center;">
-          <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+          <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
         </div>
         <div style="padding: 30px; background: #f9f9f9;">
           <h2 style="color: #1F2937;">New Job Request! 🔔</h2>
@@ -534,7 +534,7 @@ class SMSEmailService {
           <p style="color: #6B7280; font-size: 14px;">Job ID: ${booking.id}</p>
         </div>
         <div style="background: #1F2937; padding: 15px; text-align: center;">
-          <p style="color: #9CA3AF; margin: 0; font-size: 12px;">© 2024 GSS Maasin. All rights reserved.</p>
+          <p style="color: #9CA3AF; margin: 0; font-size: 12px;">© 2024 H.E.L.P Maasin. All rights reserved.</p>
         </div>
       </div>
     `;
@@ -595,7 +595,7 @@ class SMSEmailService {
         const params = new URLSearchParams();
         params.append('apikey', this.semaphoreApiKey);
         params.append('number', formattedPhone);
-        params.append('message', `Your GSS Maasin verification code is ${otp}. Valid for 5 minutes.`);
+        params.append('message', `Your H.E.L.P Maasin verification code is ${otp}. Valid for 5 minutes.`);
 
         const response = await axios.post(
           'https://api.semaphore.co/api/v4/messages',
@@ -651,11 +651,11 @@ class SMSEmailService {
    * Send password reset email
    */
   async sendPasswordReset(email, resetLink) {
-    const emailSubject = `Reset Your GSS Maasin Password`;
+    const emailSubject = `Reset Your H.E.L.P Maasin Password`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #00B14F; padding: 20px; text-align: center;">
-          <h1 style="color: white; margin: 0;">GSS Maasin</h1>
+          <h1 style="color: white; margin: 0;">H.E.L.P Maasin</h1>
         </div>
         <div style="padding: 30px; background: #f9f9f9;">
           <h2 style="color: #1F2937;">Password Reset Request</h2>
@@ -668,10 +668,10 @@ class SMSEmailService {
           <p style="color: #6B7280; font-size: 14px;">If you didn't request this, you can safely ignore this email. The link will expire in 1 hour.</p>
           
           <p style="margin-top: 30px;">Stay safe!</p>
-          <p><strong>The GSS Maasin Team</strong></p>
+          <p><strong>The H.E.L.P Maasin Team</strong></p>
         </div>
         <div style="background: #1F2937; padding: 15px; text-align: center;">
-          <p style="color: #9CA3AF; margin: 0; font-size: 12px;">© 2024 GSS Maasin. All rights reserved.</p>
+          <p style="color: #9CA3AF; margin: 0; font-size: 12px;">© 2024 H.E.L.P Maasin. All rights reserved.</p>
         </div>
       </div>
     `;

@@ -316,7 +316,7 @@ function ProvidersPageContent() {
         try {
           await sendNotificationEmail(confirmProvider.email, confirmProvider.name, 'Account Reactivated',
             'Great news! Your provider account has been reactivated. You can now start receiving job requests again.',
-            'Open the GSS Maasin app to view available jobs.');
+            'Open the H.E.L.P Maasin app to view available jobs.');
         } catch (e) { }
       }
     }

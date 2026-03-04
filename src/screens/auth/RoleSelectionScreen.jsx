@@ -55,7 +55,7 @@ const RoleSelectionScreen = ({ navigation }) => {
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             <View style={styles.logo}>
-              <Text style={styles.logoText}>GSS</Text>
+              <Text style={styles.logoText}>H.E.L.P</Text>
             </View>
           </View>
           <Text style={styles.title}>Choose Your Role</Text>
@@ -171,7 +171,7 @@ const RoleSelectionScreen = ({ navigation }) => {
             {/* Content - Role-specific terms */}
             <ScrollView style={{ padding: 20, maxHeight: 400 }} onScroll={handleTermsScroll} scrollEventThrottle={16}>
               <Text style={{ fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 16 }}>
-                Welcome to GSS Maasin Service App. By registering as a {selectedRole === 'CLIENT' ? 'Client' : 'Service Provider'}, you agree to the following terms:
+                Welcome to H.E.L.P Maasin Service App. By registering as a {selectedRole === 'CLIENT' ? 'Client' : 'Service Provider'}, you agree to the following terms:
               </Text>
 
               <Text style={{ fontSize: 15, fontWeight: '600', color: '#1F2937', marginBottom: 8 }}>

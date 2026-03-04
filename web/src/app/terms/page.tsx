@@ -95,7 +95,7 @@ export default function TermsPage() {
           </div>
           <div className="p-6 space-y-6 text-sm text-gray-600 leading-relaxed">
             <p>
-              Welcome to GSS Maasin Service App. By using this platform as a {role === 'PROVIDER' ? 'Service Provider' : role === 'ADMIN' ? 'Administrator' : 'Client'}, you agree to the following terms:
+              Welcome to Maasin City H.E.L.P App. By using this platform as a {role === 'PROVIDER' ? 'Service Provider' : role === 'ADMIN' ? 'Administrator' : 'Client'}, you agree to the following terms:
             </p>
 
             <div>
@@ -223,20 +223,20 @@ export default function TermsPage() {
                 <div
                   key={index}
                   className={`flex items-center justify-between p-3 rounded-xl ${item.severity === 'low' ? 'bg-yellow-50 border border-yellow-200' :
-                      item.severity === 'medium' ? 'bg-orange-50 border border-orange-200' :
-                        item.severity === 'high' ? 'bg-red-50 border border-red-200' :
-                          'bg-red-100 border border-red-300'
+                    item.severity === 'medium' ? 'bg-orange-50 border border-orange-200' :
+                      item.severity === 'high' ? 'bg-red-50 border border-red-200' :
+                        'bg-red-100 border border-red-300'
                     }`}
                 >
                   <span className={`font-medium ${item.severity === 'low' ? 'text-yellow-800' :
-                      item.severity === 'medium' ? 'text-orange-800' :
-                        item.severity === 'high' ? 'text-red-800' :
-                          'text-red-900'
+                    item.severity === 'medium' ? 'text-orange-800' :
+                      item.severity === 'high' ? 'text-red-800' :
+                        'text-red-900'
                     }`}>{item.offense}</span>
                   <span className={`text-sm ${item.severity === 'low' ? 'text-yellow-700' :
-                      item.severity === 'medium' ? 'text-orange-700' :
-                        item.severity === 'high' ? 'text-red-700' :
-                          'text-red-800'
+                    item.severity === 'medium' ? 'text-orange-700' :
+                      item.severity === 'high' ? 'text-red-700' :
+                        'text-red-800'
                     }`}>{item.consequence}</span>
                 </div>
               ))}
@@ -260,7 +260,7 @@ export default function TermsPage() {
         {/* Agreement Footer */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center">
           <CheckCircle className={`w-12 h-12 ${currentColors.iconColor} mx-auto mb-3`} />
-          <h3 className="font-semibold text-gray-900">By using GSS Maasin</h3>
+          <h3 className="font-semibold text-gray-900">By using Maasin City H.E.L.P App</h3>
           <p className="text-sm text-gray-600 mt-2">
             You acknowledge that you have read, understood, and agree to be bound by these Terms of Service.
           </p>
@@ -268,8 +268,8 @@ export default function TermsPage() {
 
         {/* App Info */}
         <div className="text-center py-6 text-gray-500 text-sm">
-          <p className="font-medium">GSS Maasin Web v1.0.0</p>
-          <p className="mt-1">© 2025 GSS Maasin. All rights reserved.</p>
+          <p className="font-medium">Maasin City H.E.L.P App Web v1.0.0</p>
+          <p className="mt-1">© 2025 Maasin City H.E.L.P App. All rights reserved.</p>
         </div>
       </div>
     </div>

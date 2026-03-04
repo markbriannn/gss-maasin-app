@@ -59,8 +59,8 @@ const HelpScreen = ({ navigation }) => {
           await sendFirebaseMessage(
             conversation.id,
             adminId,
-            '👋 Welcome to GSS Live Support!\n\nHow can we help you today? Please describe your concern and our support team will respond as soon as possible.\n\n⏱ Typical response time: within a few minutes during business hours.',
-            'GSS Support',
+            '👋 Welcome to H.E.L.P Live Support!\n\nHow can we help you today? Please describe your concern and our support team will respond as soon as possible.\n\n⏱ Typical response time: within a few minutes during business hours.',
+            'H.E.L.P Support',
           );
         }
 
@@ -69,7 +69,7 @@ const HelpScreen = ({ navigation }) => {
           conversationId: conversation.id,
           recipient: {
             id: adminId,
-            name: 'GSS Support',
+            name: 'H.E.L.P Support',
             role: 'ADMIN',
             profilePhoto: adminData.profilePhoto || null,
           },
@@ -167,7 +167,7 @@ const HelpScreen = ({ navigation }) => {
   const contactOptions = [
     { id: 1, icon: 'call', title: 'Call Us', value: '+63 917 123 4567', action: () => Linking.openURL('tel:+639171234567') },
     { id: 2, icon: 'mail', title: 'Email Us', value: 'gssmaasin@gmail.com', action: () => Linking.openURL('mailto:gssmaasin@gmail.com') },
-    { id: 3, icon: 'logo-facebook', title: 'Facebook', value: 'GSS Maasin', action: () => Linking.openURL('https://facebook.com/gssmaasin') },
+    { id: 3, icon: 'logo-facebook', title: 'Facebook', value: 'H.E.L.P Maasin', action: () => Linking.openURL('https://facebook.com/gssmaasin') },
   ];
 
   return (
@@ -309,7 +309,7 @@ const HelpScreen = ({ navigation }) => {
                 Live Chat
               </Text>
               <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFFFFF' }}>
-                Chat with GSS Support
+                Chat with H.E.L.P Support
               </Text>
             </View>
             <Icon name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />

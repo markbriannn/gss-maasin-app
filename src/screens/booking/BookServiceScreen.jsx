@@ -35,6 +35,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import voiceInstructions from '../../utils/voiceInstructions';
 import PhotoGuideModal from '../../components/PhotoGuideModal';
+import QRPaymentModal from '../../components/common/QRPaymentModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -58,6 +59,13 @@ const BookServiceScreen = ({ navigation, route }) => {
   const [paymentMethod, setPaymentMethod] = useState('qrph');
   const [isLoading, setIsLoading] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
+  
+  // QR Payment modal state
+  const [showQRPayment, setShowQRPayment] = useState(false);
+  const [qrPaymentUrl, setQRPaymentUrl] = useState(null);
+  const [qrPaymentAmount, setQRPaymentAmount] = useState(0);
+  const [currentBookingId, setCurrentBookingId] = useState(null);
+  
   const [mediaFiles, setMediaFiles] = useState([]);
   const [previewImage, setPreviewImage] = useState(null);
   const [showPhotoGuide, setShowPhotoGuide] = useState(false);
@@ -406,6 +414,21 @@ const BookServiceScreen = ({ navigation, route }) => {
     try {
       const systemFee = Math.round(providerFixedPrice * 0.05 * 100) / 100;
       const totalAmount = Math.round((providerFixedPrice + systemFee) * 100) / 100;
+      
+      // Always use 50/50 split
+      const upfrontAmount = Math.round(totalAmount * 0.5 * 100) / 100;
+      const remainingAmount = Math.round((totalAmount - upfrontAmount) * 100) / 100;
+      const paymentSplitType = '50_50'; // Always 50% upfront, 50% on completion
+      
+      console.log('[BookService] Payment calculation:', {
+        providerFixedPrice,
+        systemFee,
+        totalAmount,
+        upfrontAmount,
+        remainingAmount,
+        paymentSplitType
+      });
+
       const autoTitle = `${serviceCategory} Service Request`;
 
       // Upload media files first
@@ -434,14 +457,17 @@ const BookServiceScreen = ({ navigation, route }) => {
         clientPhone: user?.phoneNumber,
         providerId: actualProviderId || null,
         providerName: displayProviderName || null,
-        // Pay First ONLY - no cash, no pay later
-        status: 'awaiting_payment', // Start as awaiting_payment - only becomes 'pending' after payment confirmed
+        // Smart Payment Split (100% if under ₱200, 50/50 if ₱200+)
+        status: 'awaiting_payment', // Start as awaiting_payment - becomes 'pending' after upfront paid
         paymentPreference: 'pay_first', // ALWAYS pay first
+        paymentSplitType: paymentSplitType, // '100_0' or '50_50' based on amount
         paymentMethod: paymentMethod, // gcash or maya
-        paymentStatus: 'pending', // pending -> paid -> held -> released
+        paymentStatus: 'pending', // pending -> partial -> paid -> held -> released
         isPaidUpfront: false,
         upfrontPaidAmount: 0,
-        escrowAmount: totalAmount, // Amount held in escrow
+        upfrontAmount: upfrontAmount, // Amount to pay upfront
+        remainingAmount: remainingAmount, // Amount to pay on completion (0 if 100% upfront)
+        escrowAmount: totalAmount, // Total amount held
         providerFixedPrice: providerFixedPrice,
         providerPrice: providerFixedPrice,
         priceType: provider?.priceType || 'per_job',
@@ -485,32 +511,23 @@ const BookServiceScreen = ({ navigation, route }) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            amount: totalAmount,
+            amount: upfrontAmount, // Charge 50% upfront
             bookingId: bookingId,
             userId: user?.uid,
-            description: `${serviceCategory} Service - ${displayProviderName || 'Provider'}`,
+            description: `50% Upfront - ${serviceCategory} Service - ${displayProviderName || 'Provider'}`,
             platform: 'mobile',
+            paymentType: 'upfront',
           }),
         });
         paymentResult = await response.json();
 
         if (paymentResult.success && paymentResult.checkoutUrl) {
-          // Open PayMongo checkout in in-app browser
-          try {
-            const openResult = await paymentService.openPaymentCheckout(paymentResult.checkoutUrl);
-
-            if (openResult.success) {
-              // Navigate back to ClientMain - booking details will show inline in the modal
-              navigation.replace('ClientMain');
-            } else {
-              Alert.alert('Error', 'Cannot open payment page. Please try again.');
-              setProcessingPayment(false);
-            }
-          } catch (linkError) {
-            console.error('Failed to open URL:', linkError);
-            Alert.alert('Error', 'Cannot open payment page. Please try again.');
-            setProcessingPayment(false);
-          }
+          // Store booking ID and show QR payment modal
+          setCurrentBookingId(bookingId);
+          setQRPaymentUrl(paymentResult.checkoutUrl);
+          setQRPaymentAmount(upfrontAmount);
+          setShowQRPayment(true);
+          setProcessingPayment(false);
         } else {
           Alert.alert('Payment Error', paymentResult.error || 'Failed to process payment');
           setProcessingPayment(false);
@@ -1562,6 +1579,28 @@ const BookServiceScreen = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
+
+      {/* QR Payment Modal */}
+      <QRPaymentModal
+        visible={showQRPayment}
+        checkoutUrl={qrPaymentUrl}
+        amount={qrPaymentAmount}
+        onClose={() => {
+          setShowQRPayment(false);
+          setQRPaymentUrl(null);
+          setQRPaymentAmount(0);
+          // Navigate to ClientMain after closing
+          navigation.replace('ClientMain');
+        }}
+        onPaymentComplete={() => {
+          // Payment completed, navigate to booking details
+          if (currentBookingId) {
+            navigation.replace('ClientMain');
+            // Could also navigate directly to job details
+            // navigation.navigate('JobDetails', { jobId: currentBookingId });
+          }
+        }}
+      />
     </SafeAreaView>
   );
 };

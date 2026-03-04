@@ -408,35 +408,68 @@ const JobTrackingScreen = ({ navigation, route }) => {
             ref={markerRef}
             coordinate={providerCoordinate}
             title={providerInfo?.name || 'Provider'}
-            anchor={{ x: 0.5, y: 0.5 }}
-            flat={true}
-            rotation={heading}>
+            anchor={{ x: 0.15, y: 0.5 }}
+            flat={false}
+            tracksViewChanges={true}>
             <View style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              backgroundColor: '#FFF',
-              justifyContent: 'center',
+              flexDirection: 'row',
               alignItems: 'center',
-              borderWidth: 3,
-              borderColor: '#00B14F',
-              overflow: 'hidden',
-              elevation: 5,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.3,
-              shadowRadius: 4,
+              gap: 6,
             }}>
-              {providerInfo?.photo ? (
-                <Image
-                  source={{ uri: providerInfo.photo }}
-                  style={{ width: 38, height: 38, borderRadius: 19 }}
-                />
-              ) : (
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#00B14F' }}>
-                  {providerInfo?.name?.charAt(0)?.toUpperCase() || 'P'}
+              {/* Profile Photo Circle */}
+              <View style={{
+                width: 42,
+                height: 42,
+                borderRadius: 21,
+                backgroundColor: '#FFF',
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderWidth: 3,
+                borderColor: '#00B14F',
+                overflow: 'hidden',
+                elevation: 5,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 4,
+              }}>
+                {providerInfo?.photo ? (
+                  <Image
+                    source={{ uri: providerInfo.photo }}
+                    style={{ width: 36, height: 36, borderRadius: 18 }}
+                  />
+                ) : (
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#00B14F' }}>
+                    {providerInfo?.name?.charAt(0)?.toUpperCase() || 'P'}
+                  </Text>
+                )}
+              </View>
+              {/* Info Label Card */}
+              <View style={{
+                backgroundColor: '#FFF',
+                borderRadius: 10,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                elevation: 4,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.15,
+                shadowRadius: 6,
+                minWidth: 100,
+              }}>
+                <Text style={{ fontSize: 9, color: '#F59E0B', letterSpacing: 1 }}>★★★★★</Text>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#1f2937' }} numberOfLines={1}>
+                  {providerInfo?.name || 'Provider'}{jobData?.serviceCategory ? ` - ${jobData.serviceCategory}` : ''}
                 </Text>
-              )}
+                {distance && duration ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 3 }}>
+                    <Icon name="location" size={10} color="#00B14F" />
+                    <Text style={{ fontSize: 9, color: '#6B7280' }}>
+                      {distance} km away - {duration} min
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
           </Marker.Animated>
         )}
@@ -448,31 +481,28 @@ const JobTrackingScreen = ({ navigation, route }) => {
             title="Your Location"
             tracksViewChanges={false}>
             <View style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              backgroundColor: '#FFF',
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: '#00B14F',
               justifyContent: 'center',
               alignItems: 'center',
-              borderWidth: 3,
-              borderColor: '#EF4444',
-              overflow: 'hidden',
               elevation: 5,
-              shadowColor: '#000',
+              shadowColor: '#00B14F',
               shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.3,
+              shadowOpacity: 0.4,
               shadowRadius: 4,
             }}>
-              <Icon name="home" size={22} color="#EF4444" />
+              <Icon name="home" size={20} color="#FFFFFF" />
             </View>
           </Marker>
         )}
 
-        {/* Route Line - Same blue color as ClientHomeScreen */}
+        {/* Route Line - Green like reference */}
         {routeCoordinates.length > 0 && (
           <Polyline
             coordinates={routeCoordinates}
-            strokeColor="#1A73E8"
+            strokeColor="#00B14F"
             strokeWidth={5}
           />
         )}

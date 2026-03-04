@@ -12,7 +12,7 @@ function PaymentFailedContent() {
   useEffect(() => {
     // Try to redirect to mobile app via deep link
     const deepLink = `gssmaasin://payment/failed?bookingId=${bookingId}`;
-    
+
     // Attempt deep link redirect
     const timer = setTimeout(() => {
       window.location.href = deepLink;
@@ -45,10 +45,10 @@ function PaymentFailedContent() {
         <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-rose-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-red-500/30">
           <XCircle className="w-10 h-10 text-white" />
         </div>
-        
+
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment Failed</h1>
         <p className="text-gray-600 mb-6">Your payment could not be processed. Please try again.</p>
-        
+
         {bookingId && (
           <p className="text-sm text-gray-500 mb-6">Booking ID: {bookingId}</p>
         )}
@@ -65,7 +65,7 @@ function PaymentFailedContent() {
           className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-red-500 to-rose-500 text-white py-3 px-6 rounded-xl font-semibold hover:shadow-lg hover:shadow-red-500/30 transition-all mb-3"
         >
           <ExternalLink className="w-5 h-5" />
-          Open GSS Maasin App
+          Open H.E.L.P Maasin App
         </button>
 
         <button

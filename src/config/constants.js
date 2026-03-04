@@ -40,25 +40,25 @@ export const PAYMENT_METHODS = {
 
 // Service Categories (limited to requested set)
 export const SERVICE_CATEGORIES = [
-  {id: 'electrician', name: 'Electrician', icon: 'flash', color: '#F59E0B'},
-  {id: 'plumber', name: 'Plumber', icon: 'water', color: '#3B82F6'},
-  {id: 'carpenter', name: 'Carpenter', icon: 'hammer', color: '#8B4513'},
-  {id: 'cleaner', name: 'Cleaner', icon: 'sparkles', color: '#10B981'},
+  { id: 'electrician', name: 'Electrician', icon: 'flash', color: '#F59E0B' },
+  { id: 'plumber', name: 'Plumber', icon: 'water', color: '#3B82F6' },
+  { id: 'carpenter', name: 'Carpenter', icon: 'hammer', color: '#8B4513' },
+  { id: 'cleaner', name: 'Cleaner', icon: 'sparkles', color: '#10B981' },
 ];
 
 // Maasin City Barangays (All 70)
 export const MAASIN_BARANGAYS = [
-  'Abgao', 'Acasia', 'Asuncion', 'Bactul I', 'Bactul II', 'Badiang', 
-  'Bagtican', 'Basak', 'Bato I', 'Bato II', 'Batuan', 'Baugo', 
-  'Bilibol', 'Bogo', 'Cabadiangan', 'Cabulihan', 'Cagnituan', 'Cambooc', 
-  'Cansirong', 'Canturing', 'Canyuom', 'Combado', 'Dongon', 'Gawisan', 
-  'Guadalupe', 'Hanginan', 'Hantag', 'Hinapu Daku', 'Hinapu Gamay', 'Ibarra', 
-  'Isagani (Pugaling)', 'Laboon', 'Lanao', 'Libertad', 'Libhu', 'Lib-og', 
-  'Lonoy', 'Lunas', 'Mahayahay', 'Malapoc Norte', 'Malapoc Sur', 'Mambajao', 
-  'Manhilo', 'Mantahan', 'Maria Clara', 'Matin-ao', 'Nasaug', 'Nati', 
-  'Nonok Norte', 'Nonok Sur', 'Panan-awan', 'Pansaan', 'Pasay', 'Pinaskohan', 
-  'Rizal', 'San Agustin (Lundag)', 'San Isidro', 'San Jose', 'San Rafael', 
-  'Santa Cruz', 'Santo Niño', 'Santa Rosa', 'Santo Rosario', 'Soro-soro', 
+  'Abgao', 'Acasia', 'Asuncion', 'Bactul I', 'Bactul II', 'Badiang',
+  'Bagtican', 'Basak', 'Bato I', 'Bato II', 'Batuan', 'Baugo',
+  'Bilibol', 'Bogo', 'Cabadiangan', 'Cabulihan', 'Cagnituan', 'Cambooc',
+  'Cansirong', 'Canturing', 'Canyuom', 'Combado', 'Dongon', 'Gawisan',
+  'Guadalupe', 'Hanginan', 'Hantag', 'Hinapu Daku', 'Hinapu Gamay', 'Ibarra',
+  'Isagani (Pugaling)', 'Laboon', 'Lanao', 'Libertad', 'Libhu', 'Lib-og',
+  'Lonoy', 'Lunas', 'Mahayahay', 'Malapoc Norte', 'Malapoc Sur', 'Mambajao',
+  'Manhilo', 'Mantahan', 'Maria Clara', 'Matin-ao', 'Nasaug', 'Nati',
+  'Nonok Norte', 'Nonok Sur', 'Panan-awan', 'Pansaan', 'Pasay', 'Pinaskohan',
+  'Rizal', 'San Agustin (Lundag)', 'San Isidro', 'San Jose', 'San Rafael',
+  'Santa Cruz', 'Santo Niño', 'Santa Rosa', 'Santo Rosario', 'Soro-soro',
   'Tagnipa', 'Tam-is', 'Tawid', 'Tigbawan', 'Tomoy-tomoy', 'Tunga-tunga'
 ];
 
@@ -104,13 +104,13 @@ export const REGEX_PATTERNS = {
 
 // Provider Badges
 export const PROVIDER_BADGES = [
-  {id: 'newcomer', name: 'Newcomer', icon: 'star-outline', requirement: 1},
-  {id: 'rising_star', name: 'Rising Star', icon: 'star-half', requirement: 10},
-  {id: 'professional', name: 'Professional', icon: 'star', requirement: 50},
-  {id: 'expert', name: 'Expert', icon: 'shield-checkmark', requirement: 100},
-  {id: 'highly_rated', name: 'Highly Rated', icon: 'thumbs-up', requirement: 4.8},
-  {id: 'speedy', name: 'Speedy', icon: 'speedometer', requirement: '10min'},
-  {id: 'reliable', name: 'Reliable', icon: 'checkmark-circle', requirement: '98%'},
+  { id: 'newcomer', name: 'Newcomer', icon: 'star-outline', requirement: 1 },
+  { id: 'rising_star', name: 'Rising Star', icon: 'star-half', requirement: 10 },
+  { id: 'professional', name: 'Professional', icon: 'star', requirement: 50 },
+  { id: 'expert', name: 'Expert', icon: 'shield-checkmark', requirement: 100 },
+  { id: 'highly_rated', name: 'Highly Rated', icon: 'thumbs-up', requirement: 4.8 },
+  { id: 'speedy', name: 'Speedy', icon: 'speedometer', requirement: '10min' },
+  { id: 'reliable', name: 'Reliable', icon: 'checkmark-circle', requirement: '98%' },
 ];
 
 // Withdrawal Status
@@ -126,7 +126,7 @@ export const APP_CONFIG = {
   SERVICE_FEE_PERCENTAGE: 5,
   MINIMUM_PAYOUT_AMOUNT: 100,
   CURRENCY_SYMBOL: '₱',
-  APP_NAME: 'GSS Maasin',
+  APP_NAME: 'Maasin City H.E.L.P App',
   SUPPORT_EMAIL: 'support@gssmaasin.com',
   DEFAULT_LOCATION: {
     latitude: 10.1347,

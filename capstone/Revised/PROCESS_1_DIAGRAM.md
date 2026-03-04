@@ -1,204 +1,139 @@
-# PROCESS 1: USER REGISTRATION AND AUTHENTICATION
+# PROCESS 1: CLIENT REGISTRATION
 
-## Level 1 DFD - User Registration and Authentication
+## Level 1 DFD - Client Registration Process
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                      PROCESS 1: USER REGISTRATION AND AUTHENTICATION                     │
+│                           PROCESS 1: CLIENT REGISTRATION                                 │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 
-┌──────────────┐                                                          ┌──────────────┐
-│              │                                                          │              │
-│    CLIENT    │                                                          │   PROVIDER   │
-│              │                                                          │              │
-└──────┬───────┘                                                          └──────┬───────┘
-       │                                                                         │
-       │ Login/Register                                                          │ Login/Register
-       │                                                                         │
-       ▼                                                                         ▼
-╭───────────────╮                                                        ╭───────────────╮
-│      1.1      │                                                        │      1.1      │
-│     LOGIN     │────────┐                                       ┌───────│     LOGIN     │
-│               │        │                                       │       │               │
-╰───────────────╯        │                                       │       ╰───────────────╯
-                         │                                       │
-                         │ Query                                 │ Query
-                         │                                       │
-                         ▼                                       ▼
-                  ╔═══════════════╗                      ╔═══════════════╗
-                  ║               ║                      ║               ║
-                  ║    USERS      ║◀─────────────────────║    USERS      ║
-                  ║  (Firestore)  ║                      ║  (Firestore)  ║
-                  ║               ║                      ║               ║
-                  ╚═══════╤═══════╝                      ╚═══════╤═══════╝
-                          │                                      │
-                          │ Validate                             │ Validate
-                          │                                      │
-                          ▼                                      ▼
-                  ╭───────────────╮                      ╭───────────────╮
-                  │      1.4      │                      │      1.4      │
-                  │AUTHENTICATION │                      │AUTHENTICATION │
-                  │               │                      │               │
-                  ╰───────┬───────╯                      ╰───────┬───────╯
-                          │                                      │
-              ┌───────────┼───────────┐                ┌─────────┼─────────┐
-              │           │           │                │         │         │
-              │ Valid     │ Invalid   │ New            │ Valid   │ Invalid │ New
-              │           │           │                │         │         │
-              ▼           ▼           ▼                ▼         ▼         ▼
-      ╭───────────╮ ╭─────────╮ ╭───────────╮  ╭───────────╮ ╭─────────╮ ╭───────────╮
-      │    1.2    │ │  ERROR  │ │    1.3    │  │    1.2    │ │  ERROR  │ │    1.3    │
-      │  CLIENT   │ │ MESSAGE │ │ REGISTER  │  │ PROVIDER  │ │ MESSAGE │ │ REGISTER  │
-      │ DASHBOARD │ │         │ │  CLIENT   │  │ DASHBOARD │ │         │ │ PROVIDER  │
-      ╰─────┬─────╯ ╰────┬────╯ ╰─────┬─────╯  ╰─────┬─────╯ ╰────┬────╯ ╰─────┬─────╯
-            │            │            │                │            │            │
-            │            │            │ Save           │            │            │ Save
-            │            │            ▼                │            │            ▼
-            │            │     ╔═══════════╗           │            │     ╔═══════════╗
-            │            │     ║   USERS   ║           │            │     ║   USERS   ║
-            │            │     ║(Firestore)║           │            │     ║(Firestore)║
-            │            │     ╚═════╤═════╝           │            │     ╚═════╤═════╝
-            │            │           │                 │            │           │
-            ▼            ▼           ▼                 ▼            ▼           ▼
-      ┌──────────┐ ┌──────────┐ ┌──────────┐    ┌──────────┐ ┌──────────┐ ┌──────────┐
-      │  CLIENT  │ │  CLIENT  │ │  CLIENT  │    │ PROVIDER │ │ PROVIDER │ │ PROVIDER │
-      │(Dashboard│ │(Try Again│ │(Dashboard│    │(Dashboard│ │(Try Again│ │(Dashboard│
-      └──────────┘ └──────────┘ └──────────┘    └──────────┘ └──────────┘ └──────────┘
-
-
-                                    ┌──────────────┐
-                                    │              │
-                                    │    ADMIN     │
-                                    │              │
-                                    └──────┬───────┘
-                                           │
-                                           │ Login
-                                           │
-                                           ▼
-                                    ╭───────────────╮
-                                    │      1.1      │
-                                    │     LOGIN     │
-                                    │               │
-                                    ╰───────┬───────╯
-                                            │
-                                            │ Query
-                                            │
-                                            ▼
-                                     ╔═══════════════╗
-                                     ║               ║
-                                     ║    USERS      ║
-                                     ║  (Firestore)  ║
-                                     ║               ║
-                                     ╚═══════╤═══════╝
-                                             │
-                                             │ Validate
-                                             │
-                                             ▼
-                                     ╭───────────────╮
-                                     │      1.4      │
-                                     │AUTHENTICATION │
-                                     │               │
-                                     ╰───────┬───────╯
-                                             │
-                                   ┌─────────┼─────────┐
-                                   │         │         │
-                                   │ Valid   │ Invalid │
-                                   │         │         │
-                                   ▼         ▼         ▼
-                           ╭───────────╮ ╭─────────╮
-                           │    1.2    │ │  ERROR  │
-                           │   ADMIN   │ │ MESSAGE │
-                           │ DASHBOARD │ │         │
-                           ╰─────┬─────╯ ╰────┬────╯
-                                 │            │
-                                 ▼            ▼
-                           ┌──────────┐ ┌──────────┐
-                           │  ADMIN   │ │  ADMIN   │
-                           │(Dashboard│ │(Try Again│
-                           └──────────┘ └──────────┘
+    ┌──────────────┐                                                    
+    │              │                                                    
+    │    CLIENT    │                                                    
+    │              │                                                    
+    └──────┬───────┘                                                    
+           │                                                            
+           │ Registration Info                                          
+           │ (Name, Email, Phone)                                       
+           │                                                            
+           ▼                                                            
+    ╭───────────────╮                                                   
+    │      1.1      │                                                   
+    │ COLLECT INFO  │                                                   
+    │               │                                                   
+    ╰───────┬───────╯                                                   
+            │                                                           
+            │ Personal Details                                          
+            │                                                           
+            ▼                                                           
+    ╭───────────────╮                                                   
+    │      1.2      │                                                   
+    │ VERIFY EMAIL  │──────────────┐                                   
+    │               │              │ Request Code                       
+    ╰───────┬───────╯              │                                   
+            │                      ▼                                   
+            │              ╔═══════════════╗                           
+            │              ║               ║                           
+            │              ║ EMAIL SERVICE ║                           
+            │              ║    (Brevo)    ║                           
+            │              ║               ║                           
+            │              ╚═══════╤═══════╝                           
+            │                      │                                   
+            │                      │ Send Code                         
+            │                      │                                   
+            │                      ▼                                   
+            │              ┌──────────────┐                            
+            │              │              │                            
+            │              │    CLIENT    │                            
+            │              │              │                            
+            │              └──────┬───────┘                            
+            │                     │                                    
+            │ Verification Code   │                                    
+            │◄────────────────────┘                                    
+            │                                                           
+            │ Verified Email                                            
+            │                                                           
+            ▼                                                           
+    ╭───────────────╮                                                   
+    │      1.3      │                                                   
+    │ VERIFY PHONE  │──────────────┐                                   
+    │               │              │ Request OTP                        
+    ╰───────┬───────╯              │                                   
+            │                      ▼                                   
+            │              ╔═══════════════╗                           
+            │              ║               ║                           
+            │              ║  SMS SERVICE  ║                           
+            │              ║  (Semaphore)  ║                           
+            │              ║               ║                           
+            │              ╚═══════╤═══════╝                           
+            │                      │                                   
+            │                      │ Send OTP                          
+            │                      │                                   
+            │                      ▼                                   
+            │              ┌──────────────┐                            
+            │              │              │                            
+            │              │    CLIENT    │                            
+            │              │              │                            
+            │              └──────┬───────┘                            
+            │                     │                                    
+            │ OTP Code            │                                    
+            │◄────────────────────┘                                   
+            │                                                           
+            │ Verified Phone                                            
+            │                                                           
+            ▼                                                           
+    ╭───────────────╮                                                   
+    │      1.4      │                                                   
+    │ CREATE ACCOUNT│──────────────┐                                   
+    │               │              │ Store Data                         
+    ╰───────┬───────╯              │                                   
+            │                      ▼                                   
+            │              ╔═══════════════╗                           
+            │              ║               ║                           
+            │              ║    USERS      ║                           
+            │              ║  (Firestore)  ║                           
+            │              ║               ║                           
+            │              ╚═══════════════╝                           
+            │                      │                                   
+            │ Success              │ Confirmation                      
+            │                      │                                   
+            ▼                      ▼                                   
+    ┌──────────────┐       ┌──────────────┐                           
+    │              │       │              │                           
+    │    CLIENT    │◄──────│    CLIENT    │                           
+    │              │       │              │                           
+    └──────────────┘       └──────────────┘                           
+    Account Created        Welcome Message                             
 ```
-
----
 
 ## Process Descriptions
 
 | Process | Name | Description |
 |---------|------|-------------|
-| **1.1** | Login | User enters login credentials (email/password) |
-| **1.2** | Dashboard | Successfully authenticated, redirect to role-specific dashboard |
-| **1.3** | Registration | New Client/Provider completes registration with profile details |
-| **1.4** | Authentication | System validates credentials against database |
+| **1.1** | Collect Info | Client enters personal information (name, email, phone, password) |
+| **1.2** | Verify Email | System sends verification code to email, client enters code to verify |
+| **1.3** | Verify Phone | System sends OTP to phone number, client enters OTP to verify |
+| **1.4** | Create Account | System creates client account and stores data in Firestore database |
 
----
+## Data Flows
 
-## User Roles and Access
+- **Registration Info**: Name, email, phone number, password from client
+- **Personal Details**: Validated registration information
+- **Request Code**: System requests email verification code from Brevo Email Service
+- **Send Code**: Brevo Email Service sends 6-digit verification code to client's email
+- **Verification Code**: Client enters 6-digit code received via email
+- **Verified Email**: Confirmation that email is verified
+- **Request OTP**: System requests SMS OTP from Semaphore SMS Service
+- **Send OTP**: Semaphore SMS Service sends 6-digit OTP to client's phone
+- **OTP Code**: Client enters 6-digit OTP received via SMS
+- **Verified Phone**: Confirmation that phone is verified
+- **Store Data**: Save client account data to Firestore
+- **Success**: Account creation successful
+- **Confirmation**: Database confirms data stored
+- **Account Created**: Client receives confirmation of account creation
+- **Welcome Message**: System sends welcome notification to client
 
-| Role | Registration | Dashboard Access | Key Features |
-|------|--------------|------------------|--------------|
-| **CLIENT** | Yes | Client Dashboard | Browse providers, book services, track jobs, leave reviews |
-| **PROVIDER** | Yes | Provider Dashboard | Receive job requests, accept/decline jobs, track earnings |
-| **ADMIN** | No (Pre-created) | Admin Dashboard | Approve providers, manage bookings, view analytics |
+## External Services
 
----
-
-## Data Dictionary - Process 1
-
-| Data Element | Description | Source | Destination |
-|--------------|-------------|--------|-------------|
-| **email** | Email address | User Input | Firestore (users) |
-| **password** | Password (hashed) | User Input | Firestore (users) |
-| **role** | User role (CLIENT/PROVIDER/ADMIN) | Registration Selection | Firestore (users) |
-| **firstName** | First name | User Input | Firestore (users) |
-| **lastName** | Last name | User Input | Firestore (users) |
-| **phoneNumber** | Phone number | User Input | Firestore (users) |
-| **createdAt** | Account creation timestamp | System | Firestore (users) |
-
----
-
-## Authentication Flow Summary
-
-**CLIENT Flow:**
-1. Client enters login credentials OR chooses to register
-2. System validates against database
-3. If valid → Client Dashboard
-4. If invalid → Error message, try again
-5. If new user → Complete registration → Save to database → Client Dashboard
-
-**PROVIDER Flow:**
-1. Provider enters login credentials OR chooses to register
-2. System validates against database
-3. If valid → Provider Dashboard
-4. If invalid → Error message, try again
-5. If new user → Complete registration (with documents) → Save to database → Provider Dashboard
-
-**ADMIN Flow:**
-1. Admin enters login credentials (no registration option)
-2. System validates against database
-3. If valid → Admin Dashboard
-4. If invalid → Error message, try again
-
----
-
-## Legend
-
-```
-┌───────────────┐
-│               │     External Entity
-│    ENTITY     │
-│               │
-└───────────────┘
-
-╭───────────────╮
-│     1.X       │     Process
-│   PROCESS     │
-│               │
-╰───────────────╯
-
-╔═══════════════╗
-║               ║     Data Store
-║  DATA STORE   ║
-║               ║
-╚═══════════════╝
-
-─────────────────▶    Data Flow
-```
+- **Email Service (Brevo)**: Third-party service that sends verification codes to client's email address
+- **SMS Service (Semaphore)**: Third-party service that sends OTP codes to client's phone number via SMS

@@ -24,7 +24,7 @@ export default function ProviderReceiptPage() {
         const bookingData = docSnap.data();
         const data = { id: docSnap.id, ...bookingData };
         setBooking(data);
-        
+
         if (bookingData.clientId) {
           try {
             const clientDoc = await getDoc(doc(db, 'users', bookingData.clientId));
@@ -63,7 +63,7 @@ export default function ProviderReceiptPage() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>GSS Maasin Earnings Receipt - ${booking?.id?.slice(-8).toUpperCase()}</title>
+        <title>Maasin City H.E.L.P Earnings Receipt - ${booking?.id?.slice(-8).toUpperCase()}</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; }
@@ -103,7 +103,7 @@ export default function ProviderReceiptPage() {
       <body>
         <div class="header">
           <div class="logo"><span>G</span></div>
-          <h1>GSS Maasin</h1>
+          <h1>Maasin City H.E.L.P</h1>
           <p>Earnings Receipt</p>
         </div>
         
@@ -161,7 +161,7 @@ export default function ProviderReceiptPage() {
         <div class="footer">
           <p>Receipt #${booking?.id?.slice(-8).toUpperCase()}</p>
           <p>Generated on ${new Date().toLocaleDateString()}</p>
-          <p style="margin-top: 10px;">Thank you for being a GSS Maasin provider!</p>
+          <p style="margin-top: 10px;">Thank you for being a Maasin City H.E.L.P provider!</p>
         </div>
       </body>
       </html>
@@ -169,7 +169,7 @@ export default function ProviderReceiptPage() {
 
     printWindow.document.write(receiptHTML);
     printWindow.document.close();
-    
+
     printWindow.onload = () => {
       printWindow.print();
     };
@@ -217,7 +217,7 @@ export default function ProviderReceiptPage() {
             <div className="w-16 h-16 bg-white rounded-full mx-auto mb-3 flex items-center justify-center">
               <span className="text-2xl font-bold text-green-600">G</span>
             </div>
-            <h2 className="text-xl font-bold">GSS Maasin</h2>
+            <h2 className="text-xl font-bold">Maasin City H.E.L.P</h2>
             <p className="text-sm opacity-90">Earnings Receipt</p>
           </div>
 

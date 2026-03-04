@@ -8,7 +8,7 @@ import { Hand, Users, MapPin, ShieldCheck, Sparkles, Search, Navigation, Star, R
 const onboardingData = [
   {
     id: 1,
-    title: 'Welcome to GSS',
+    title: 'Welcome to H.E.L.P',
     subtitle: 'Connect with trusted local service providers in Maasin City',
     backgroundColor: 'bg-green-50',
     iconBg: 'bg-green-100',
@@ -122,10 +122,10 @@ export default function OnboardingPage() {
           <div className={`absolute top-8 -left-4 ${currentSlide.iconColor} animate-pulse delay-300`}>
             <Star className="w-5 h-5" />
           </div>
-          
+
           {/* Main Icon */}
           <Icon className={`w-24 h-24 ${currentSlide.iconColor} animate-bounce-slow`} />
-          
+
           {/* Secondary Icon */}
           <div className={`absolute -bottom-2 -right-4 ${currentSlide.iconBg} p-3 rounded-xl shadow-lg`}>
             <SecondaryIcon className={`w-6 h-6 ${currentSlide.iconColor}`} />
@@ -151,11 +151,10 @@ export default function OnboardingPage() {
             <button
               key={index}
               onClick={() => setCurrentIndex(index)}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                index === currentIndex
+              className={`h-2 rounded-full transition-all duration-300 ${index === currentIndex
                   ? 'w-6 bg-[#00B14F]'
                   : 'w-2 bg-gray-300 hover:bg-gray-400'
-              }`}
+                }`}
             />
           ))}
         </div>
@@ -164,11 +163,10 @@ export default function OnboardingPage() {
         <div className="flex justify-center">
           <button
             onClick={handleNext}
-            className={`flex items-center gap-2 px-8 py-4 rounded-xl font-semibold text-white transition-all duration-300 ${
-              isLastSlide
+            className={`flex items-center gap-2 px-8 py-4 rounded-xl font-semibold text-white transition-all duration-300 ${isLastSlide
                 ? 'bg-[#00B14F] hover:bg-[#009940] shadow-lg shadow-green-500/30 hover:shadow-xl hover:shadow-green-500/40'
                 : 'bg-[#00B14F] hover:bg-[#009940]'
-            }`}
+              }`}
           >
             <span>{isLastSlide ? 'Get Started' : 'Next'}</span>
             {isLastSlide ? (

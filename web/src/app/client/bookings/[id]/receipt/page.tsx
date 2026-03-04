@@ -60,7 +60,7 @@ export default function ServiceReceiptPage() {
 
   const handleShare = async () => {
     const receiptText = `
-GSS Maasin Service Receipt
+Maasin City H.E.L.P Service Receipt
 --------------------------
 Receipt #: ${booking?.id?.slice(-8).toUpperCase() || 'N/A'}
 Date: ${formatDate(booking?.completedAt || booking?.createdAt)}
@@ -69,7 +69,7 @@ Provider: ${otherParty?.name || 'N/A'}
 Location: ${booking?.streetAddress ? `${booking.streetAddress}, ${booking.barangay}` : booking?.location || 'N/A'}
 --------------------------
 Total: ₱${(booking?.finalAmount || booking?.providerPrice || booking?.totalAmount || 0).toLocaleString()}
-Thank you for using GSS Maasin!
+Thank you for using Maasin City H.E.L.P!
     `.trim();
 
     if (navigator.share) {
@@ -92,7 +92,7 @@ Thank you for using GSS Maasin!
       <!DOCTYPE html>
       <html>
       <head>
-        <title>GSS Maasin Receipt - ${booking?.id?.slice(-8).toUpperCase()}</title>
+        <title>Maasin City H.E.L.P Receipt - ${booking?.id?.slice(-8).toUpperCase()}</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; }
@@ -131,7 +131,7 @@ Thank you for using GSS Maasin!
       <body>
         <div class="header">
           <div class="logo"><span>G</span></div>
-          <h1>GSS Maasin</h1>
+          <h1>Maasin City H.E.L.P</h1>
           <p>Service Receipt</p>
         </div>
         
@@ -191,7 +191,7 @@ Thank you for using GSS Maasin!
         <div class="footer">
           <p>Receipt #${booking?.id?.slice(-8).toUpperCase()}</p>
           <p>Generated on ${new Date().toLocaleDateString()}</p>
-          <p style="margin-top: 10px;">Thank you for using GSS Maasin!</p>
+          <p style="margin-top: 10px;">Thank you for using Maasin City H.E.L.P!</p>
         </div>
       </body>
       </html>
@@ -267,7 +267,7 @@ Thank you for using GSS Maasin!
             <div className="w-16 h-16 bg-white rounded-full mx-auto mb-3 flex items-center justify-center">
               <span className="text-2xl font-bold text-green-600">G</span>
             </div>
-            <h2 className="text-xl font-bold">GSS Maasin</h2>
+            <h2 className="text-xl font-bold">Maasin City H.E.L.P</h2>
             <p className="text-sm opacity-90">Service Receipt</p>
           </div>
 

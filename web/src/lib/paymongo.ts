@@ -1,5 +1,5 @@
 /**
- * PayMongo Payment Service for GSS Maasin Web
+ * PayMongo Payment Service for Maasin City H.E.L.P Web
  * Handles GCash, Maya, and Card payments
  */
 

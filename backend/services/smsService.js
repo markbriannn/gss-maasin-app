@@ -83,7 +83,7 @@ function generateOTP() {
  */
 async function sendOTP(phoneNumber) {
   const otp = generateOTP();
-  const message = `Your GSS Maasin verification code is ${otp}. Valid for 5 minutes.`;
+  const message = `Your H.E.L.P Maasin verification code is ${otp}. Valid for 5 minutes.`;
 
   const result = await sendSMS(phoneNumber, message);
 
@@ -99,8 +99,8 @@ async function sendOTP(phoneNumber) {
  */
 async function sendProviderApprovalSMS(phoneNumber, providerName, isApproved) {
   const message = isApproved
-    ? `GSS Maasin: Congratulations ${capitalize(providerName)}! Your provider account has been approved. You can now receive job requests. Open the app to get started!`
-    : `GSS Maasin: We're sorry, your provider application was not approved. Please contact support for more information.`;
+    ? `H.E.L.P Maasin: Congratulations ${capitalize(providerName)}! Your provider account has been approved. You can now receive job requests. Open the app to get started!`
+    : `H.E.L.P Maasin: We're sorry, your provider application was not approved. Please contact support for more information.`;
 
   return await sendSMS(phoneNumber, message);
 }
@@ -109,7 +109,7 @@ async function sendProviderApprovalSMS(phoneNumber, providerName, isApproved) {
  * Send provider rejection notification with reason
  */
 async function sendProviderRejectionSMS(phoneNumber, providerName, reason = '') {
-  const message = `GSS Maasin: We're sorry, your provider application was not approved.${reason ? ` Reason: ${reason}` : ''} Please contact support for more information.`;
+  const message = `H.E.L.P Maasin: We're sorry, your provider application was not approved.${reason ? ` Reason: ${reason}` : ''} Please contact support for more information.`;
 
   return await sendSMS(phoneNumber, message);
 }
@@ -118,7 +118,7 @@ async function sendProviderRejectionSMS(phoneNumber, providerName, reason = '') 
  * Send booking accepted notification to client
  */
 async function sendBookingAcceptedSMS(phoneNumber, clientName, providerName, serviceCategory) {
-  const message = `GSS Maasin: Great news ${capitalize(clientName)}! ${capitalize(providerName)} accepted your ${serviceCategory} booking. They will arrive soon. Track them in the app!`;
+  const message = `H.E.L.P Maasin: Great news ${capitalize(clientName)}! ${capitalize(providerName)} accepted your ${serviceCategory} booking. They will arrive soon. Track them in the app!`;
 
   return await sendSMS(phoneNumber, message);
 }
@@ -127,7 +127,7 @@ async function sendBookingAcceptedSMS(phoneNumber, clientName, providerName, ser
  * Send booking declined notification to client
  */
 async function sendBookingDeclinedSMS(phoneNumber, clientName, providerName, serviceCategory) {
-  const message = `GSS Maasin: Sorry ${capitalize(clientName)}, ${capitalize(providerName)} declined your ${serviceCategory} booking. We're finding you another provider. Please wait.`;
+  const message = `H.E.L.P Maasin: Sorry ${capitalize(clientName)}, ${capitalize(providerName)} declined your ${serviceCategory} booking. We're finding you another provider. Please wait.`;
 
   return await sendSMS(phoneNumber, message);
 }
@@ -136,7 +136,7 @@ async function sendBookingDeclinedSMS(phoneNumber, clientName, providerName, ser
  * Send new job notification to provider
  */
 async function sendNewJobSMS(phoneNumber, providerName, serviceCategory, clientName, amount) {
-  const message = `GSS Maasin: New job ${capitalize(providerName)}! ${serviceCategory} from ${capitalize(clientName)}. Amount: ₱${amount}. Open app to accept!`;
+  const message = `H.E.L.P Maasin: New job ${capitalize(providerName)}! ${serviceCategory} from ${capitalize(clientName)}. Amount: ₱${amount}. Open app to accept!`;
 
   return await sendSMS(phoneNumber, message);
 }
@@ -145,7 +145,7 @@ async function sendNewJobSMS(phoneNumber, providerName, serviceCategory, clientN
  * Send booking approved by admin notification to client
  */
 async function sendBookingApprovedByAdminSMS(phoneNumber, clientName, serviceCategory) {
-  const message = `GSS Maasin: Your ${serviceCategory} booking has been approved ${capitalize(clientName)}! The provider will review and accept it soon.`;
+  const message = `H.E.L.P Maasin: Your ${serviceCategory} booking has been approved ${capitalize(clientName)}! The provider will review and accept it soon.`;
 
   return await sendSMS(phoneNumber, message);
 }
@@ -154,7 +154,7 @@ async function sendBookingApprovedByAdminSMS(phoneNumber, clientName, serviceCat
  * Send booking rejected by admin notification to client
  */
 async function sendBookingRejectedByAdminSMS(phoneNumber, clientName, serviceCategory, reason = '') {
-  const message = `GSS Maasin: Sorry ${capitalize(clientName)}, your ${serviceCategory} booking was not approved.${reason ? ` Reason: ${reason}` : ''} Please try again or contact support.`;
+  const message = `H.E.L.P Maasin: Sorry ${capitalize(clientName)}, your ${serviceCategory} booking was not approved.${reason ? ` Reason: ${reason}` : ''} Please try again or contact support.`;
 
   return await sendSMS(phoneNumber, message);
 }
@@ -163,7 +163,7 @@ async function sendBookingRejectedByAdminSMS(phoneNumber, clientName, serviceCat
  * Send provider arrived notification to client
  */
 async function sendProviderArrivedSMS(phoneNumber, clientName, providerName, serviceCategory) {
-  const message = `GSS Maasin: ${capitalize(providerName)} has arrived at your location for ${serviceCategory}. Please meet them now.`;
+  const message = `H.E.L.P Maasin: ${capitalize(providerName)} has arrived at your location for ${serviceCategory}. Please meet them now.`;
 
   return await sendSMS(phoneNumber, message);
 }
@@ -172,7 +172,7 @@ async function sendProviderArrivedSMS(phoneNumber, clientName, providerName, ser
  * Send work completed notification to client
  */
 async function sendWorkCompletedSMS(phoneNumber, clientName, providerName, serviceCategory) {
-  const message = `GSS Maasin: ${capitalize(providerName)} has completed your ${serviceCategory} service! Please confirm the work and leave a review. Thank you!`;
+  const message = `H.E.L.P Maasin: ${capitalize(providerName)} has completed your ${serviceCategory} service! Please confirm the work and leave a review. Thank you!`;
 
   return await sendSMS(phoneNumber, message);
 }
@@ -181,7 +181,7 @@ async function sendWorkCompletedSMS(phoneNumber, clientName, providerName, servi
  * Send review reminder to client
  */
 async function sendReviewReminderSMS(phoneNumber, clientName, providerName, serviceCategory) {
-  const message = `GSS Maasin: Hi ${capitalize(clientName)}! How was your ${serviceCategory} service with ${capitalize(providerName)}? Please take a moment to leave a review. Your feedback helps others!`;
+  const message = `H.E.L.P Maasin: Hi ${capitalize(clientName)}! How was your ${serviceCategory} service with ${capitalize(providerName)}? Please take a moment to leave a review. Your feedback helps others!`;
 
   return await sendSMS(phoneNumber, message);
 }

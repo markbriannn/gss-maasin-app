@@ -1,10 +1,10 @@
 {
   "name": "GSSMaasin",
-  "displayName": "GSS - General Service System",
+  "displayName": "H.E.L.P Maasin",
   "description": "Connect with trusted local service providers in Maasin City, Southern Leyte",
   "expo": {
-    "name": "GSS Maasin",
-    "slug": "gss-maasin",
+    "name": "H.E.L.P Maasin",
+    "slug": "help-maasin",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -12,11 +12,11 @@
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.gss.maasin",
+      "bundleIdentifier": "com.help.maasin",
       "buildNumber": "1.0.0",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "We need your location to show nearby service providers and enable real-time tracking.",
@@ -25,11 +25,14 @@
         "NSPhotoLibraryUsageDescription": "We need photo library access to upload images for your profile and jobs.",
         "NSMicrophoneUsageDescription": "We need microphone access for voice messages in chat.",
         "NSFaceIDUsageDescription": "Enable Face ID for quick and secure login.",
-        "UIBackgroundModes": ["location", "remote-notification"]
+        "UIBackgroundModes": [
+          "location",
+          "remote-notification"
+        ]
       }
     },
     "android": {
-      "package": "com.gss.maasin",
+      "package": "com.help.maasin",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -56,7 +59,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow GSS to use your location to show nearby providers and enable tracking."
+          "locationAlwaysAndWhenInUsePermission": "Allow H.E.L.P to use your location to show nearby providers and enable tracking."
         }
       ]
     ]

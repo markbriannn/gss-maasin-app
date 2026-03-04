@@ -20,10 +20,10 @@ const SERVICE_CATEGORIES = [
 ];
 
 const FEATURES = [
-  { icon: Shield, title: 'Verified Providers', desc: 'All providers are vetted and approved', color: '#10B981', bg: 'bg-emerald-50' },
-  { icon: MapPin, title: 'Local Services', desc: 'Find skilled workers nearby', color: '#3B82F6', bg: 'bg-blue-50' },
-  { icon: Clock, title: 'Fast Booking', desc: 'Book services in minutes', color: '#8B5CF6', bg: 'bg-violet-50' },
-  { icon: DollarSign, title: 'Fair Pricing', desc: 'Transparent rates, no hidden fees', color: '#F59E0B', bg: 'bg-amber-50' },
+  { icon: Shield, title: 'Trusted Pros', desc: 'Every provider is background-checked & approved', color: '#10B981', bg: 'bg-emerald-50' },
+  { icon: MapPin, title: 'Right in Your Area', desc: 'Skilled workers just minutes away', color: '#3B82F6', bg: 'bg-blue-50' },
+  { icon: Clock, title: 'Book in Seconds', desc: 'Pick a pro, set a time, done', color: '#8B5CF6', bg: 'bg-violet-50' },
+  { icon: DollarSign, title: 'No Surprises', desc: 'Upfront pricing, zero hidden fees', color: '#F59E0B', bg: 'bg-amber-50' },
 ];
 
 interface Provider {
@@ -150,8 +150,8 @@ export default function GuestHomePage() {
                 <Wrench className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-extrabold text-white tracking-tight">GSS Maasin</h1>
-                <p className="text-emerald-100 text-xs font-medium">General Service System</p>
+                <h1 className="text-xl font-extrabold text-white tracking-tight">H.E.L.P Maasin</h1>
+                <p className="text-emerald-100 text-xs font-medium">Household Essential Logistics Portal</p>
               </div>
             </div>
             <Link href="/login" className="px-5 py-2.5 bg-white/20 backdrop-blur-sm rounded-xl text-white font-semibold hover:bg-white/30 transition-all duration-200">
@@ -162,10 +162,10 @@ export default function GuestHomePage() {
           {/* Hero Copy */}
           <div className="max-w-2xl mb-10">
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-4 tracking-tight leading-tight">
-              Find Trusted Service Providers in Maasin City
+              Your Home Deserves the Best — We&apos;ll Send the Right Pro
             </h2>
             <p className="text-emerald-100 text-base sm:text-lg mb-8 leading-relaxed max-w-xl">
-              Connect with verified electricians, plumbers, carpenters, and cleaners near you.
+              Book verified electricians, plumbers, carpenters, and cleaners in Maasin City — fast, affordable, and hassle-free.
             </p>
             <Link href="/register"
               className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-white text-emerald-600 rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]">
@@ -251,7 +251,7 @@ export default function GuestHomePage() {
         <div className="mb-10">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="text-lg font-extrabold text-gray-900 tracking-tight">Service Providers</h3>
+              <h3 className="text-lg font-extrabold text-gray-900 tracking-tight">Available Pros Near You</h3>
               <p className="text-sm text-gray-500 mt-0.5">{filteredProviders.length} available nearby</p>
             </div>
           </div>
@@ -347,7 +347,7 @@ export default function GuestHomePage() {
 
         {/* Features Section */}
         <div className="mb-10">
-          <h3 className="text-lg font-extrabold text-gray-900 mb-5 tracking-tight">Why Choose GSS Maasin?</h3>
+          <h3 className="text-lg font-extrabold text-gray-900 mb-5 tracking-tight">Why Maasinons Love H.E.L.P</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {FEATURES.map((feature, index) => (
               <div key={index} className="bg-white rounded-2xl shadow-lg p-5 text-center hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 group">
@@ -366,8 +366,8 @@ export default function GuestHomePage() {
           <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
           <div className="relative">
-            <h3 className="text-2xl sm:text-3xl font-extrabold text-white mb-3 tracking-tight">Ready to get started?</h3>
-            <p className="text-emerald-100 mb-7 text-base sm:text-lg">Join thousands of satisfied customers in Maasin City</p>
+            <h3 className="text-2xl sm:text-3xl font-extrabold text-white mb-3 tracking-tight">Your next fix is one tap away</h3>
+            <p className="text-emerald-100 mb-7 text-base sm:text-lg">Join the growing community of happy homeowners in Maasin City</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link href="/register"
                 className="px-8 py-3.5 bg-white text-emerald-600 rounded-xl font-bold hover:shadow-lg transition-all duration-300 hover:scale-[1.03]">

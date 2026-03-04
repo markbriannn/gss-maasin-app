@@ -1181,7 +1181,7 @@ const ClientHomeScreen = ({ navigation }) => {
                         if (status === 'pending_completion') return 'Please confirm the work';
                         if (status === 'pending_payment') return 'Complete your payment';
                         if (status === 'payment_received') return 'Waiting for confirmation';
-                        if (status === 'completed') return 'Thank you for using GSS';
+                        if (status === 'completed') return 'Thank you for using H.E.L.P';
                         return 'Waiting for response';
                       })()}
                     </Text>

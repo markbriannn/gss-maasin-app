@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>H.E.L.P Maasin — Expo Tarpaulin 2x6ft</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #111;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .tarp {
+            width: 600px;
+            background: #f5f5f5;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* ═══ HERO / HEADER ═══ */
+        .hero {
+            background: linear-gradient(160deg, #003D1A 0%, #006B2D 40%, #009940 100%);
+            padding: 24px 28px 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -80px;
+            right: -80px;
+            width: 300px;
+            height: 300px;
+            border: 2px solid rgba(255, 255, 255, 0.06);
+            border-radius: 50%;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: -100px;
+            left: -60px;
+            width: 250px;
+            height: 250px;
+            border: 2px solid rgba(255, 255, 255, 0.04);
+            border-radius: 50%;
+        }
+
+        /* School logos bar */
+        .school-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .school-badge {
+            width: 42px;
+            height: 42px;
+            background: #FFD700;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 900;
+            color: #006B2D;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .school-center {
+            text-align: center;
+        }
+
+        .school-center h3 {
+            color: #FFD700;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .school-center p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 8px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* Title + phone */
+        .hero-content {
+            display: flex;
+            gap: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-left {
+            flex: 1;
+        }
+
+        .hero-right {
+            width: 180px;
+            position: relative;
+        }
+
+        .app-title {
+            color: #FFFFFF;
+            font-size: 52px;
+            font-weight: 900;
+            line-height: 0.95;
+            letter-spacing: -2px;
+            margin-bottom: 4px;
+        }
+
+        .app-title .dot {
+            color: #FFD700;
+        }
+
+        .app-subtitle {
+            color: #FFD700;
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 14px;
+        }
+
+        /* Hero phone */
+        .hero-phone {
+            width: 170px;
+            background: #111;
+            border-radius: 26px;
+            padding: 8px;
+            transform: rotate(5deg);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero-phone-screen {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .hero-phone-screen img {
+            width: 100%;
+            display: block;
+        }
+
+        /* ═══ ABOUT SECTION ═══ */
+        .about-section {
+            padding: 20px 24px;
+            background: white;
+            position: relative;
+        }
+
+        .about-text {
+            font-size: 10px;
+            color: #444;
+            line-height: 1.65;
+            text-align: justify;
+            margin-bottom: 12px;
+        }
+
+        .about-text strong {
+            color: #006B2D;
+        }
+
+        .stat-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .stat-badge {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #006B2D, #009940);
+            border-radius: 10px;
+            padding: 10px 12px;
+            color: white;
+        }
+
+        .stat-badge .num {
+            font-size: 22px;
+            font-weight: 900;
+        }
+
+        .stat-badge .label {
+            font-size: 7.5px;
+            font-weight: 600;
+            line-height: 1.2;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ═══ FEATURES GRID ═══ */
+        .features-section {
+            padding: 16px 24px 20px;
+            background: #f8f8f8;
+        }
+
+        .sec-label {
+            font-size: 13px;
+            font-weight: 900;
+            color: #006B2D;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .sec-label::after {
+            content: '';
+            display: block;
+            width: 40px;
+            height: 3px;
+            background: linear-gradient(90deg, #00A843, #FFD700);
+            margin: 5px auto 0;
+            border-radius: 2px;
+        }
+
+        .feat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .feat-card {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            background: white;
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .feat-icon {
+            width: 36px;
+            height: 36px;
+            background: #F0FFF4;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .feat-info h4 {
+            font-size: 9px;
+            font-weight: 800;
+            color: #006B2D;
+            margin-bottom: 2px;
+        }
+
+        .feat-info p {
+            font-size: 7px;
+            color: #888;
+            line-height: 1.3;
+        }
+
+        /* ═══ MORE FEATURES (circles row) ═══ */
+        .extra-feats {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            padding: 14px 24px;
+            background: #f8f8f8;
+        }
+
+        .extra-feat {
+            text-align: center;
+            width: 80px;
+        }
+
+        .extra-feat-icon {
+            width: 48px;
+            height: 48px;
+            background: white;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            margin: 0 auto 5px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            border: 1.5px solid #E8F5E9;
+        }
+
+        .extra-feat span {
+            font-size: 7px;
+            font-weight: 700;
+            color: #333;
+            line-height: 1.2;
+        }
+
+        /* ═══ HOW IT WORKS ═══ */
+        .flow-section {
+            padding: 16px 24px;
+            background: white;
+        }
+
+        .flow-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .flow-step {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 0;
+        }
+
+        .flow-num {
+            width: 26px;
+            height: 26px;
+            background: linear-gradient(135deg, #00A843, #006B2D);
+            color: white;
+            font-size: 12px;
+            font-weight: 800;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .flow-emoji {
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .flow-desc {
+            font-size: 8.5px;
+            color: #444;
+            font-weight: 500;
+        }
+
+        .flow-desc strong {
+            color: #006B2D;
+        }
+
+        .flow-arrow {
+            text-align: center;
+            color: #C8E6C9;
+            font-size: 8px;
+            margin-left: 9px;
+        }
+
+        /* ═══ PHONE SCREENSHOTS SECTION ═══ */
+        .screenshots-section {
+            padding: 16px 24px 20px;
+            background: linear-gradient(160deg, #003D1A, #006B2D);
+            position: relative;
+        }
+
+        .sec-label-white {
+            font-size: 13px;
+            font-weight: 900;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-align: center;
+            margin-bottom: 14px;
+        }
+
+        .sec-label-white::after {
+            content: '';
+            display: block;
+            width: 40px;
+            height: 3px;
+            background: linear-gradient(90deg, #FFD700, #FFFFFF);
+            margin: 5px auto 0;
+            border-radius: 2px;
+        }
+
+        .phones-showcase {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            align-items: flex-end;
+        }
+
+        .showcase-phone {
+            text-align: center;
+        }
+
+        .showcase-phone .frame {
+            width: 155px;
+            background: #1a1a1a;
+            border-radius: 22px;
+            padding: 7px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+        }
+
+        .showcase-phone .frame.center-phone {
+            width: 170px;
+            border-radius: 24px;
+            padding: 8px;
+        }
+
+        .showcase-phone .screen {
+            background: white;
+            border-radius: 16px;
+            padding: 10px 8px;
+            min-height: 240px;
+        }
+
+        .showcase-phone .screen.center-screen {
+            min-height: 260px;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .showcase-phone .screen.center-screen img {
+            width: 100%;
+            display: block;
+        }
+
+        .showcase-phone .lbl {
+            font-size: 7.5px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Mini phone UI elements */
+        .mini-notch {
+            width: 50px;
+            height: 5px;
+            background: #1a1a1a;
+            border-radius: 3px;
+            margin: 0 auto 6px;
+        }
+
+        .mini-check {
+            width: 30px;
+            height: 30px;
+            background: #00B14F;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 4px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .mini-title {
+            font-size: 8px;
+            font-weight: 800;
+            color: #1a1a1a;
+            text-align: center;
+            margin-bottom: 6px;
+        }
+
+        .mini-card {
+            background: #f5f5f5;
+            border-radius: 6px;
+            padding: 6px;
+            margin-bottom: 4px;
+        }
+
+        .mini-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 6px;
+            color: #666;
+            margin-bottom: 2px;
+        }
+
+        .mini-row .v {
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+
+        .mini-row .v.green {
+            color: #00B14F;
+            font-size: 8px;
+        }
+
+        .mini-badge {
+            display: inline-block;
+            background: #00B14F;
+            color: white;
+            font-size: 5.5px;
+            font-weight: 700;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+
+        .mini-stars {
+            text-align: center;
+            font-size: 12px;
+            margin: 4px 0;
+        }
+
+        .mini-avatar {
+            width: 24px;
+            height: 24px;
+            background: #E8F5E9;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 3px;
+            font-size: 12px;
+        }
+
+        .mini-input {
+            background: #f0f0f0;
+            border-radius: 5px;
+            padding: 4px 6px;
+            font-size: 6px;
+            color: #555;
+            font-style: italic;
+            margin-bottom: 4px;
+        }
+
+        .mini-thumbs {
+            display: flex;
+            gap: 3px;
+            margin-bottom: 4px;
+        }
+
+        .mini-thumb {
+            flex: 1;
+            height: 22px;
+            background: #eee;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+        }
+
+        .mini-btn {
+            background: #00B14F;
+            color: white;
+            text-align: center;
+            font-size: 7px;
+            font-weight: 700;
+            padding: 5px;
+            border-radius: 6px;
+        }
+
+        /* ═══ LAPTOP ═══ */
+        .laptop-section {
+            padding: 16px 24px;
+            background: #f8f8f8;
+        }
+
+        .laptop-img {
+            text-align: center;
+        }
+
+        .laptop-img img {
+            width: 88%;
+            border-radius: 8px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        .laptop-label {
+            text-align: center;
+            font-size: 8px;
+            font-weight: 700;
+            color: #888;
+            margin-top: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* ═══ PAYMENT MODEL ═══ */
+        .payment-section {
+            padding: 16px 24px;
+            background: white;
+        }
+
+        .pay-card {
+            background: linear-gradient(135deg, #F0FFF4, #E8F5E9);
+            border: 1.5px solid #00A843;
+            border-radius: 12px;
+            padding: 12px 14px;
+        }
+
+        .pay-card-title {
+            text-align: center;
+            font-size: 10px;
+            font-weight: 800;
+            color: #006B2D;
+            margin-bottom: 8px;
+        }
+
+        .pay-line {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            border-bottom: 1px dashed #C8E6C9;
+            font-size: 8.5px;
+        }
+
+        .pay-line:last-child {
+            border-bottom: none;
+        }
+
+        .pay-line .k {
+            color: #555;
+        }
+
+        .pay-line .v {
+            color: #006B2D;
+            font-weight: 700;
+        }
+
+        .pay-line .v.big {
+            font-size: 11px;
+        }
+
+        .pay-note {
+            text-align: center;
+            font-size: 6.5px;
+            color: #999;
+            margin-top: 6px;
+            font-style: italic;
+        }
+
+        /* ═══ TECH STACK ═══ */
+        .tech-section {
+            padding: 14px 24px;
+            background: linear-gradient(160deg, #003D1A, #006B2D);
+        }
+
+        .tech-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+        }
+
+        .tech-pill {
+            background: rgba(255, 255, 255, 0.12);
+            border: 1.5px solid rgba(255, 255, 255, 0.25);
+            border-radius: 20px;
+            padding: 5px 14px;
+            font-size: 9px;
+            font-weight: 700;
+            color: white;
+        }
+
+        /* ═══ TEAM ═══ */
+        .team-section {
+            padding: 16px 24px 20px;
+            background: #f8f8f8;
+        }
+
+        .team-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .team-member {
+            text-align: center;
+            width: 90px;
+        }
+
+        .team-pic {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #00A843, #006B2D);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 5px;
+            font-size: 20px;
+            border: 2.5px solid #006B2D;
+        }
+
+        .team-pic.lead {
+            width: 58px;
+            height: 58px;
+            border-color: #FFD700;
+            font-size: 24px;
+            background: linear-gradient(135deg, #FFD700, #FFA000);
+        }
+
+        .team-member h5 {
+            font-size: 7.5px;
+            font-weight: 700;
+            color: #333;
+            line-height: 1.2;
+        }
+
+        .team-member p {
+            font-size: 6.5px;
+            font-weight: 500;
+            color: #00A843;
+        }
+
+        /* ═══ FOOTER ═══ */
+        .footer {
+            background: linear-gradient(160deg, #003D1A, #006B2D);
+            padding: 14px 24px 18px;
+            text-align: center;
+        }
+
+        .footer-tag {
+            color: #FFD700;
+            font-size: 10px;
+            font-weight: 700;
+            font-style: italic;
+            margin-bottom: 3px;
+        }
+
+        .footer-loc {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 7px;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+                background: white;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="tarp">
+
+        <!-- ═══ HERO HEADER ═══ -->
+        <div class="hero">
+            <div class="school-row">
+                <div class="school-badge">SJC</div>
+                <div class="school-center">
+                    <h3>Saint Joseph College</h3>
+                    <p>College of Computer Studies</p>
+                </div>
+                <div class="school-badge" style="font-size:14px;">🖥️</div>
+            </div>
+
+            <div class="hero-content">
+                <div class="hero-left">
+                    <div class="app-title">H<span class="dot">.</span>E<span class="dot">.</span>L<span
+                            class="dot">.</span>P</div>
+                    <div class="app-subtitle">Household Essential Logistics Portal</div>
+                    <div style="color:rgba(255,255,255,0.75);font-size:9.5px;line-height:1.6;">
+                        A mobile and web-based on-demand <strong style="color:white;">home service booking
+                            system</strong>
+                        that connects clients with <strong style="color:#FFD700;">verified service providers</strong>
+                        in Maasin City. Browse providers, compare ratings, and book with secure QR Ph payments.
+                    </div>
+                </div>
+                <div class="hero-right">
+                    <div class="hero-phone">
+                        <div class="hero-phone-screen">
+                            <img src="expo_phone1.png" alt="H.E.L.P App">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ ABOUT + STAT ═══ -->
+        <div class="about-section">
+            <div class="about-text">
+                <strong>H.E.L.P Maasin</strong> makes it effortless to find reliable, skilled professionals
+                right in your neighborhood. Clients browse verified providers by category, compare ratings
+                and reviews, then book and pay securely via <strong>QR Ph</strong>. With real-time tracking,
+                in-app chat, provider price adjustments, and transparent pricing, every booking is smooth
+                from start to finish.
+            </div>
+            <div class="stat-row">
+                <div class="stat-badge">
+                    <div class="num">4</div>
+                    <div class="label">Service<br>Categories</div>
+                </div>
+                <div class="stat-badge" style="background:linear-gradient(135deg,#FFB300,#FF8F00);">
+                    <div class="num">⭐</div>
+                    <div class="label">Ratings &<br>Reviews</div>
+                </div>
+                <div class="stat-badge" style="background:linear-gradient(135deg,#1976D2,#0D47A1);">
+                    <div class="num">50%</div>
+                    <div class="label">Upfront<br>Payment</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ FEATURES GRID (2x3) ═══ -->
+        <div class="features-section">
+            <div class="sec-label">Key Features</div>
+            <div class="feat-grid">
+                <div class="feat-card">
+                    <div class="feat-icon">📂</div>
+                    <div class="feat-info">
+                        <h4>Browse by Category</h4>
+                        <p>Electrician, Plumber, Carpenter, Cleaner</p>
+                    </div>
+                </div>
+                <div class="feat-card">
+                    <div class="feat-icon">👤</div>
+                    <div class="feat-info">
+                        <h4>Choose Your Provider</h4>
+                        <p>View profiles, ratings, and estimated prices</p>
+                    </div>
+                </div>
+                <div class="feat-card">
+                    <div class="feat-icon">💳</div>
+                    <div class="feat-info">
+                        <h4>QR Ph Payments</h4>
+                        <p>Secure digital payments via PayMongo</p>
+                    </div>
+                </div>
+                <div class="feat-card">
+                    <div class="feat-icon">📍</div>
+                    <div class="feat-info">
+                        <h4>Real-Time Tracking</h4>
+                        <p>Track provider location on live map</p>
+                    </div>
+                </div>
+                <div class="feat-card">
+                    <div class="feat-icon">💬</div>
+                    <div class="feat-info">
+                        <h4>In-App Chat</h4>
+                        <p>Message your provider directly</p>
+                    </div>
+                </div>
+                <div class="feat-card">
+                    <div class="feat-icon">⭐</div>
+                    <div class="feat-info">
+                        <h4>Ratings & Reviews</h4>
+                        <p>Rate and review after every job</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ EXTRA FEATURES (icon row) ═══ -->
+        <div class="extra-feats">
+            <div class="extra-feat">
+                <div class="extra-feat-icon">🛡️</div>
+                <span>Verified<br>Providers</span>
+            </div>
+            <div class="extra-feat">
+                <div class="extra-feat-icon">📝</div>
+                <span>Provider Price<br>Adjustment</span>
+            </div>
+            <div class="extra-feat">
+                <div class="extra-feat-icon">➕</div>
+                <span>Additional<br>Charges</span>
+            </div>
+            <div class="extra-feat">
+                <div class="extra-feat-icon">↩️</div>
+                <span>Auto-Refund<br>System</span>
+            </div>
+            <div class="extra-feat">
+                <div class="extra-feat-icon">🔔</div>
+                <span>Push<br>Notifications</span>
+            </div>
+        </div>
+
+        <!-- ═══ HOW IT WORKS ═══ -->
+        <div class="flow-section">
+            <div class="sec-label">How It Works</div>
+            <div class="flow-steps">
+                <div class="flow-step">
+                    <div class="flow-num">1</div>
+                    <div class="flow-emoji">📱</div>
+                    <div class="flow-desc"><strong>Client browses</strong> providers by category, views ratings &
+                        reviews</div>
+                </div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step">
+                    <div class="flow-num">2</div>
+                    <div class="flow-emoji">👤</div>
+                    <div class="flow-desc"><strong>Client picks a provider</strong>, describes problem, uploads photo
+                    </div>
+                </div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step">
+                    <div class="flow-num">3</div>
+                    <div class="flow-emoji">💳</div>
+                    <div class="flow-desc"><strong>Pays 50% upfront</strong> via QR Ph to secure the booking</div>
+                </div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step">
+                    <div class="flow-num">4</div>
+                    <div class="flow-emoji">✅</div>
+                    <div class="flow-desc"><strong>Admin approves</strong> — provider gets notified & travels to client
+                    </div>
+                </div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step">
+                    <div class="flow-num">5</div>
+                    <div class="flow-emoji">🔧</div>
+                    <div class="flow-desc"><strong>Provider completes job</strong> — can adjust price or add charges
+                    </div>
+                </div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step">
+                    <div class="flow-num">6</div>
+                    <div class="flow-emoji">💰</div>
+                    <div class="flow-desc"><strong>Client pays remaining 50%</strong>, then rates & reviews the provider
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ APP SCREENSHOTS ═══ -->
+        <div class="screenshots-section">
+            <div class="sec-label-white">App Screenshots</div>
+            <div class="phones-showcase">
+                <!-- Phone: Payment (in phone frame) -->
+                <div class="showcase-phone">
+                    <div
+                        style="width:165px;background:#1a1a1a;border-radius:24px;padding:7px;box-shadow:0 8px 25px rgba(0,0,0,0.4);">
+                        <div style="background:white;border-radius:18px;overflow:hidden;">
+                            <img src="expo_phone3.png" style="width:100%;display:block;" alt="Payment">
+                        </div>
+                    </div>
+                    <div class="lbl">Payment</div>
+                </div>
+
+                <!-- Phone: Tracking (generated image, center bigger) -->
+                <div class="showcase-phone">
+                    <img src="expo_phone2.png"
+                        style="width:185px;border-radius:18px;box-shadow:0 8px 25px rgba(0,0,0,0.4);" alt="Tracking">
+                    <div class="lbl">Track & Chat</div>
+                </div>
+
+                <!-- Phone: Review (generated image) -->
+                <div class="showcase-phone">
+                    <img src="expo_phone4.png"
+                        style="width:165px;border-radius:16px;box-shadow:0 8px 25px rgba(0,0,0,0.4);" alt="Review">
+                    <div class="lbl">Review</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ ADMIN DASHBOARD ═══ -->
+        <div class="laptop-section">
+            <div class="sec-label">Admin Dashboard</div>
+            <div class="laptop-img">
+                <img src="expo_laptop.png" alt="Admin Dashboard">
+                <div class="laptop-label">Web-Based Admin Management System</div>
+            </div>
+        </div>
+
+        <!-- ═══ PAYMENT MODEL ═══ -->
+        <div class="payment-section">
+            <div class="sec-label">Payment Model</div>
+            <div class="pay-card">
+                <div class="pay-card-title">💳 50/50 Split + 5% System Commission</div>
+                <div class="pay-line"><span class="k">Provider Rate</span><span class="v">₱1,000</span></div>
+                <div class="pay-line"><span class="k">System Commission (5%)</span><span class="v">+₱50</span></div>
+                <div class="pay-line"><span class="k">Client Pays Total</span><span class="v big">₱1,050</span></div>
+                <div class="pay-line"><span class="k">Pay on Booking (50%)</span><span class="v">₱525</span></div>
+                <div class="pay-line"><span class="k">Pay on Completion (50%)</span><span class="v">₱525</span></div>
+                <div class="pay-note">Provider receives 100% of their rate • 5% fee auto-added • Payments via QR Ph
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ TECH STACK ═══ -->
+        <div class="tech-section">
+            <div class="sec-label-white">Technologies Used</div>
+            <div class="tech-pills">
+                <div class="tech-pill">⚛️ React Native</div>
+                <div class="tech-pill">▲ Next.js</div>
+                <div class="tech-pill">🟢 Node.js</div>
+                <div class="tech-pill">🔥 Firebase</div>
+                <div class="tech-pill">💳 PayMongo</div>
+                <div class="tech-pill">🗺️ Google Maps</div>
+                <div class="tech-pill">▲ Vercel</div>
+                <div class="tech-pill">🖥️ Render</div>
+            </div>
+        </div>
+
+        <!-- ═══ TEAM ═══ -->
+        <div class="team-section">
+            <div class="sec-label">Meet The Team</div>
+            <div class="team-row">
+                <div class="team-member">
+                    <div class="team-pic lead">👨‍💻</div>
+                    <h5>Mark Brian Lloyd<br>D. Cardoza</h5>
+                    <p>Full Stack Developer</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-pic">👤</div>
+                    <h5>Member 2</h5>
+                    <p>Developer</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-pic">👤</div>
+                    <h5>Member 3</h5>
+                    <p>Developer</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-pic">👤</div>
+                    <h5>Member 4</h5>
+                    <p>Developer</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-pic">👤</div>
+                    <h5>Member 5</h5>
+                    <p>Developer</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ FOOTER ═══ -->
+        <div class="footer">
+            <div class="footer-tag">"Empowering Maasin City with Reliable On-Demand Home Services"</div>
+            <div class="footer-loc">📍 Maasin City, Southern Leyte, Philippines</div>
+        </div>
+
+    </div>
+</body>
+
+</html>

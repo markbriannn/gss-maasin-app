@@ -22,7 +22,7 @@ export const MAPS_CONFIG = {
 
 // App Configuration
 export const APP_CONFIG = {
-  NAME: 'GSS Maasin',
+  NAME: 'Maasin City H.E.L.P App',
   VERSION: '1.0.0',
   MIN_WITHDRAWAL_AMOUNT: 500,
   LOCATION_UPDATE_INTERVAL: 5000,

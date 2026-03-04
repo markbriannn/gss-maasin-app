@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,12 @@ import {
   FlatList,
   Image,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {Swipeable} from 'react-native-gesture-handler';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Swipeable } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {globalStyles} from '../../css/globalStyles';
-import {useAuth} from '../../context/AuthContext';
-import {useTheme} from '../../context/ThemeContext';
+import { globalStyles } from '../../css/globalStyles';
+import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import {
   subscribeToConversations,
   deleteConversation,
@@ -24,9 +24,9 @@ import {
   scanAndFixBrokenConversations,
 } from '../../services/messageService';
 
-const ProviderMessagesScreen = ({navigation}) => {
-  const {user} = useAuth();
-  const {isDark, theme} = useTheme();
+const ProviderMessagesScreen = ({ navigation }) => {
+  const { user } = useAuth();
+  const { isDark, theme } = useTheme();
   const [conversations, setConversations] = useState([]);
   const [archivedConversations, setArchivedConversations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +40,7 @@ const ProviderMessagesScreen = ({navigation}) => {
     console.log('[ProviderMessages] user?.uid:', user?.uid);
     console.log('[ProviderMessages] typeof user?.uid:', typeof user?.uid);
     console.log('[ProviderMessages] ========================================');
-    
+
     if (!user?.uid) {
       console.log('[ProviderMessages] No user.uid, returning early');
       return;
@@ -88,7 +88,7 @@ const ProviderMessagesScreen = ({navigation}) => {
       'Delete Conversation',
       'Are you sure you want to delete this conversation? This cannot be undone.',
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
@@ -167,7 +167,7 @@ const ProviderMessagesScreen = ({navigation}) => {
       outputRange: [1, 0.9, 0.8],
       extrapolate: 'clamp',
     });
-    
+
     // Opacity animation
     const opacity = dragX.interpolate({
       inputRange: [-160, -40, 0],
@@ -176,8 +176,8 @@ const ProviderMessagesScreen = ({navigation}) => {
     });
 
     return (
-      <Animated.View style={{flexDirection: 'row', opacity}}>
-        <Animated.View style={{transform: [{scale}]}}>
+      <Animated.View style={{ flexDirection: 'row', opacity }}>
+        <Animated.View style={{ transform: [{ scale }] }}>
           <TouchableOpacity
             style={{
               backgroundColor: isArchived ? '#10B981' : '#F59E0B',
@@ -190,12 +190,12 @@ const ProviderMessagesScreen = ({navigation}) => {
               isArchived ? handleUnarchive(conversationId, swipeableRef) : handleArchive(conversationId, swipeableRef)
             }>
             <Icon name={isArchived ? 'arrow-undo' : 'archive'} size={24} color="#FFFFFF" />
-            <Text style={{color: '#FFFFFF', fontSize: 12, marginTop: 4}}>
+            <Text style={{ color: '#FFFFFF', fontSize: 12, marginTop: 4 }}>
               {isArchived ? 'Restore' : 'Archive'}
             </Text>
           </TouchableOpacity>
         </Animated.View>
-        <Animated.View style={{transform: [{scale}]}}>
+        <Animated.View style={{ transform: [{ scale }] }}>
           <TouchableOpacity
             style={{
               backgroundColor: '#EF4444',
@@ -206,7 +206,7 @@ const ProviderMessagesScreen = ({navigation}) => {
             }}
             onPress={() => handleDelete(conversationId)}>
             <Icon name="trash" size={24} color="#FFFFFF" />
-            <Text style={{color: '#FFFFFF', fontSize: 12, marginTop: 4}}>Delete</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 12, marginTop: 4 }}>Delete</Text>
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
@@ -216,13 +216,13 @@ const ProviderMessagesScreen = ({navigation}) => {
   // Store refs for swipeables
   const swipeableRefs = useRef({});
 
-  const renderConversation = ({item: conversation, isArchived = false}) => {
+  const renderConversation = ({ item: conversation, isArchived = false }) => {
     // Create or get ref for this conversation
     if (!swipeableRefs.current[conversation.id]) {
       swipeableRefs.current[conversation.id] = React.createRef();
     }
     const swipeableRef = swipeableRefs.current[conversation.id];
-    
+
     return (
       <Swipeable
         ref={swipeableRef}
@@ -233,176 +233,176 @@ const ProviderMessagesScreen = ({navigation}) => {
         rightThreshold={40}
         overshootRight={false}
         overshootFriction={8}>
-      <TouchableOpacity
-        style={{
-          flexDirection: 'row',
-          padding: 16,
-          backgroundColor:
-            conversation.unreadCount > 0
-              ? isDark
-                ? '#064E3B'
-                : '#F0FDF4'
-              : isDark
-              ? theme.colors.card
-              : '#FFFFFF',
-          borderBottomWidth: 1,
-          borderBottomColor: isDark ? theme.colors.border : '#F3F4F6',
-        }}
-        onPress={() =>
-          navigation.navigate('Chat', {
-            conversationId: conversation.id,
-            recipient: conversation.otherUser,
-            jobId: conversation.jobId,
-          })
-        }>
-        {/* Avatar */}
-        {conversation.otherUser?.profilePhoto ? (
-          <Image
-            source={{uri: conversation.otherUser.profilePhoto}}
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              marginRight: 12,
-              backgroundColor: '#E5E7EB',
-            }}
-          />
-        ) : (
-          <View
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              backgroundColor: getRoleBadgeColor(conversation.otherUser?.role),
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginRight: 12,
-            }}>
-            <Text style={{color: '#FFFFFF', fontSize: 18, fontWeight: '600'}}>
-              {getInitials(conversation.otherUser?.name)}
-            </Text>
-          </View>
-        )}
-
-        <View style={{flex: 1}}>
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 4,
-            }}>
-            <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
-              <Text
-                style={{
-                  fontSize: 16,
-                  fontWeight: conversation.unreadCount > 0 ? '700' : '600',
-                  color: isDark ? theme.colors.text : '#1F2937',
-                }}>
-                {conversation.otherUser?.role?.toUpperCase() === 'ADMIN' ? 'GSS Support' : (conversation.otherUser?.name || 'Unknown')}
-              </Text>
-              {conversation.otherUser?.role && (
-                <View
-                  style={{
-                    marginLeft: 8,
-                    backgroundColor: getRoleBadgeColor(conversation.otherUser?.role) + '20',
-                    paddingHorizontal: 6,
-                    paddingVertical: 2,
-                    borderRadius: 4,
-                  }}>
-                  <Text
-                    style={{
-                      fontSize: 10,
-                      fontWeight: '600',
-                      color: getRoleBadgeColor(conversation.otherUser?.role),
-                    }}>
-                    {conversation.otherUser?.role?.toUpperCase() === 'ADMIN' ? 'SUPPORT' : conversation.otherUser?.role}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Text
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row',
+            padding: 16,
+            backgroundColor:
+              conversation.unreadCount > 0
+                ? isDark
+                  ? '#064E3B'
+                  : '#F0FDF4'
+                : isDark
+                  ? theme.colors.card
+                  : '#FFFFFF',
+            borderBottomWidth: 1,
+            borderBottomColor: isDark ? theme.colors.border : '#F3F4F6',
+          }}
+          onPress={() =>
+            navigation.navigate('Chat', {
+              conversationId: conversation.id,
+              recipient: conversation.otherUser,
+              jobId: conversation.jobId,
+            })
+          }>
+          {/* Avatar */}
+          {conversation.otherUser?.profilePhoto ? (
+            <Image
+              source={{ uri: conversation.otherUser.profilePhoto }}
               style={{
-                fontSize: 12,
-                color:
-                  conversation.unreadCount > 0
-                    ? '#00B14F'
-                    : isDark
-                    ? theme.colors.textSecondary
-                    : '#9CA3AF',
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                marginRight: 12,
+                backgroundColor: '#E5E7EB',
+              }}
+            />
+          ) : (
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                backgroundColor: getRoleBadgeColor(conversation.otherUser?.role),
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginRight: 12,
               }}>
-              {formatTimestamp(conversation.lastMessageTime)}
-            </Text>
-          </View>
-
-          {/* Job reference */}
-          {conversation.jobId && (
-            <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 4}}>
-              <Icon
-                name="briefcase-outline"
-                size={12}
-                color={isDark ? theme.colors.textSecondary : '#6B7280'}
-              />
-              <Text
-                style={{
-                  fontSize: 11,
-                  color: isDark ? theme.colors.textSecondary : '#6B7280',
-                  marginLeft: 4,
-                }}>
-                Job #{conversation.jobId.slice(-6)}
+              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '600' }}>
+                {getInitials(conversation.otherUser?.name)}
               </Text>
             </View>
           )}
 
-          <View
-            style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-            <Text
+          <View style={{ flex: 1 }}>
+            <View
               style={{
-                fontSize: 14,
-                color:
-                  conversation.unreadCount > 0
-                    ? isDark
-                      ? theme.colors.text
-                      : '#1F2937'
-                    : isDark
-                    ? theme.colors.textSecondary
-                    : '#6B7280',
-                fontWeight: conversation.unreadCount > 0 ? '500' : 'normal',
-                flex: 1,
-              }}
-              numberOfLines={1}>
-              {conversation.lastSenderId === user?.uid ? 'You: ' : ''}
-              {conversation.lastMessage || 'No messages yet'}
-            </Text>
-
-            {conversation.unreadCount > 0 && (
-              <View
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 4,
+              }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: conversation.unreadCount > 0 ? '700' : '600',
+                    color: isDark ? theme.colors.text : '#1F2937',
+                  }}>
+                  {conversation.otherUser?.role?.toUpperCase() === 'ADMIN' ? 'H.E.L.P Support' : (conversation.otherUser?.name || 'Unknown')}
+                </Text>
+                {conversation.otherUser?.role && (
+                  <View
+                    style={{
+                      marginLeft: 8,
+                      backgroundColor: getRoleBadgeColor(conversation.otherUser?.role) + '20',
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                      borderRadius: 4,
+                    }}>
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        fontWeight: '600',
+                        color: getRoleBadgeColor(conversation.otherUser?.role),
+                      }}>
+                      {conversation.otherUser?.role?.toUpperCase() === 'ADMIN' ? 'SUPPORT' : conversation.otherUser?.role}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <Text
                 style={{
-                  minWidth: 22,
-                  height: 22,
-                  borderRadius: 11,
-                  backgroundColor: '#00B14F',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  marginLeft: 8,
-                  paddingHorizontal: 6,
+                  fontSize: 12,
+                  color:
+                    conversation.unreadCount > 0
+                      ? '#00B14F'
+                      : isDark
+                        ? theme.colors.textSecondary
+                        : '#9CA3AF',
                 }}>
-                <Text style={{fontSize: 11, fontWeight: '700', color: '#FFFFFF'}}>
-                  {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
+                {formatTimestamp(conversation.lastMessageTime)}
+              </Text>
+            </View>
+
+            {/* Job reference */}
+            {conversation.jobId && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <Icon
+                  name="briefcase-outline"
+                  size={12}
+                  color={isDark ? theme.colors.textSecondary : '#6B7280'}
+                />
+                <Text
+                  style={{
+                    fontSize: 11,
+                    color: isDark ? theme.colors.textSecondary : '#6B7280',
+                    marginLeft: 4,
+                  }}>
+                  Job #{conversation.jobId.slice(-6)}
                 </Text>
               </View>
             )}
+
+            <View
+              style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text
+                style={{
+                  fontSize: 14,
+                  color:
+                    conversation.unreadCount > 0
+                      ? isDark
+                        ? theme.colors.text
+                        : '#1F2937'
+                      : isDark
+                        ? theme.colors.textSecondary
+                        : '#6B7280',
+                  fontWeight: conversation.unreadCount > 0 ? '500' : 'normal',
+                  flex: 1,
+                }}
+                numberOfLines={1}>
+                {conversation.lastSenderId === user?.uid ? 'You: ' : ''}
+                {conversation.lastMessage || 'No messages yet'}
+              </Text>
+
+              {conversation.unreadCount > 0 && (
+                <View
+                  style={{
+                    minWidth: 22,
+                    height: 22,
+                    borderRadius: 11,
+                    backgroundColor: '#00B14F',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginLeft: 8,
+                    paddingHorizontal: 6,
+                  }}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFFFFF' }}>
+                    {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
-        </View>
-      </TouchableOpacity>
-    </Swipeable>
+        </TouchableOpacity>
+      </Swipeable>
     );
   };
 
   if (loading) {
     return (
       <SafeAreaView
-        style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]}
+        style={[globalStyles.container, isDark && { backgroundColor: theme.colors.background }]}
         edges={['top']}>
         <View
           style={{
@@ -411,13 +411,13 @@ const ProviderMessagesScreen = ({navigation}) => {
             borderBottomWidth: 1,
             borderBottomColor: isDark ? theme.colors.border : '#E5E7EB',
           }}>
-          <Text style={[globalStyles.heading2, isDark && {color: theme.colors.text}]}>
+          <Text style={[globalStyles.heading2, isDark && { color: theme.colors.text }]}>
             Messages
           </Text>
         </View>
-        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color="#00B14F" />
-          <Text style={{marginTop: 12, color: isDark ? theme.colors.textSecondary : '#6B7280'}}>
+          <Text style={{ marginTop: 12, color: isDark ? theme.colors.textSecondary : '#6B7280' }}>
             Loading messages...
           </Text>
         </View>
@@ -429,7 +429,7 @@ const ProviderMessagesScreen = ({navigation}) => {
 
   return (
     <SafeAreaView
-      style={[globalStyles.container, isDark && {backgroundColor: theme.colors.background}]}
+      style={[globalStyles.container, isDark && { backgroundColor: theme.colors.background }]}
       edges={['top']}>
       <View
         style={{
@@ -438,7 +438,7 @@ const ProviderMessagesScreen = ({navigation}) => {
           borderBottomWidth: 1,
           borderBottomColor: isDark ? theme.colors.border : '#E5E7EB',
         }}>
-        <Text style={[globalStyles.heading2, isDark && {color: theme.colors.text}]}>Messages</Text>
+        <Text style={[globalStyles.heading2, isDark && { color: theme.colors.text }]}>Messages</Text>
         <Text
           style={{
             fontSize: 14,
@@ -483,12 +483,12 @@ const ProviderMessagesScreen = ({navigation}) => {
             borderBottomColor: showArchived ? '#F59E0B' : 'transparent',
           }}
           onPress={() => setShowArchived(true)}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Icon
               name="archive"
               size={16}
               color={showArchived ? '#F59E0B' : isDark ? theme.colors.textSecondary : '#6B7280'}
-              style={{marginRight: 4}}
+              style={{ marginRight: 4 }}
             />
             <Text
               style={{
@@ -505,14 +505,14 @@ const ProviderMessagesScreen = ({navigation}) => {
         <FlatList
           data={displayedConversations}
           keyExtractor={(item) => item.id}
-          renderItem={({item}) => renderConversation({item, isArchived: showArchived})}
+          renderItem={({ item }) => renderConversation({ item, isArchived: showArchived })}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#00B14F']} />
           }
         />
       ) : (
         <View
-          style={{flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80}}>
+          style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80 }}>
           <View
             style={{
               width: 100,

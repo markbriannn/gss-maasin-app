@@ -291,7 +291,7 @@ const ClientMessagesScreen = ({ navigation }) => {
                     letterSpacing: -0.3,
                   }}
                   numberOfLines={1}>
-                  {conversation.otherUser?.role === 'ADMIN' ? 'GSS Support' : (conversation.otherUser?.name || 'Unknown')}
+                  {conversation.otherUser?.role === 'ADMIN' ? 'H.E.L.P Support' : (conversation.otherUser?.name || 'Unknown')}
                 </Text>
                 {conversation.otherUser?.role &&
                   (conversation.otherUser.role === 'ADMIN' ||

@@ -1,16 +1,50 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { collection, getDocs, query, doc, updateDoc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, updateDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/layouts/AdminLayout';
 import { pushNotifications } from '@/lib/pushNotifications';
+import dynamic from 'next/dynamic';
 import {
   Briefcase, Search, Clock, MapPin, CheckCircle, XCircle, CreditCard, RefreshCw,
   ChevronRight, DollarSign, User, Wrench, Calendar, Eye, AlertCircle, Zap,
+  TrendingUp, Users, ArrowUpRight, Activity,
 } from 'lucide-react';
+
+const AdminMapView = dynamic(() => import('@/components/AdminMapView'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-full w-full bg-gray-100 flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-10 h-10 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mx-auto mb-2"></div>
+        <p className="text-gray-400 text-xs">Loading map...</p>
+      </div>
+    </div>
+  )
+});
+
+interface MapProvider {
+  id: string;
+  firstName: string;
+  lastName: string;
+  serviceCategory: string;
+  latitude?: number;
+  longitude?: number;
+  currentLocation?: { latitude: number; longitude: number };
+  isOnline: boolean;
+  profilePhoto?: string;
+  phone?: string;
+  email?: string;
+  status: 'available' | 'offline' | 'traveling' | 'arrived' | 'working' | 'pending';
+  currentJobId?: string;
+  jobStatus?: string;
+  isApproved: boolean;
+}
+
+const DEFAULT_CENTER = { lat: 10.1311, lng: 124.8334 };
 
 interface ClientInfo {
   id: string;
@@ -58,13 +92,13 @@ interface Job {
 
 const getCategoryStyle = (category: string) => {
   const cat = category?.toLowerCase() || '';
-  if (cat.includes('electric')) return { bg: 'from-amber-500 to-yellow-600', icon: '⚡', color: 'amber' };
-  if (cat.includes('plumb')) return { bg: 'from-blue-500 to-cyan-600', icon: '🔧', color: 'blue' };
-  if (cat.includes('carpent')) return { bg: 'from-orange-500 to-amber-600', icon: '🪚', color: 'orange' };
-  if (cat.includes('clean')) return { bg: 'from-emerald-500 to-teal-600', icon: '🧹', color: 'emerald' };
-  if (cat.includes('paint')) return { bg: 'from-pink-500 to-rose-600', icon: '🎨', color: 'pink' };
-  if (cat.includes('aircon') || cat.includes('hvac')) return { bg: 'from-sky-500 to-blue-600', icon: '❄️', color: 'sky' };
-  return { bg: 'from-violet-500 to-purple-600', icon: '🛠️', color: 'violet' };
+  if (cat.includes('electric')) return { bg: 'from-amber-500 to-yellow-600', icon: '⚡', color: '#F59E0B', label: 'Electrical' };
+  if (cat.includes('plumb')) return { bg: 'from-blue-500 to-cyan-600', icon: '🔧', color: '#3B82F6', label: 'Plumbing' };
+  if (cat.includes('carpent')) return { bg: 'from-orange-500 to-amber-600', icon: '🪚', color: '#F97316', label: 'Carpentry' };
+  if (cat.includes('clean')) return { bg: 'from-emerald-500 to-teal-600', icon: '🧹', color: '#10B981', label: 'Cleaning' };
+  if (cat.includes('paint')) return { bg: 'from-pink-500 to-rose-600', icon: '🎨', color: '#EC4899', label: 'Painting' };
+  if (cat.includes('aircon') || cat.includes('hvac')) return { bg: 'from-sky-500 to-blue-600', icon: '❄️', color: '#0EA5E9', label: 'Aircon/HVAC' };
+  return { bg: 'from-violet-500 to-purple-600', icon: '🛠️', color: '#8B5CF6', label: 'General' };
 };
 
 const formatDateTime = (date: Date) => {
@@ -84,6 +118,8 @@ export default function AdminJobsPage() {
   const [showModal, setShowModal] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showAllBookings, setShowAllBookings] = useState(false);
+  const [mapProviders, setMapProviders] = useState<MapProvider[]>([]);
   const [confirmModal, setConfirmModal] = useState<{
     show: boolean;
     type: 'approve' | 'reject';
@@ -117,6 +153,38 @@ export default function AdminJobsPage() {
       const unsubscribe = onSnapshot(collection(db, 'bookings'), () => fetchJobs());
       return () => unsubscribe();
     }
+  }, [user]);
+
+  // Fetch providers for the map
+  useEffect(() => {
+    if (user?.role?.toUpperCase() !== 'ADMIN') return;
+    const providersQuery = query(collection(db, 'users'), where('role', '==', 'PROVIDER'));
+    const unsub = onSnapshot(providersQuery, (snapshot) => {
+      const list: MapProvider[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const isApproved = data.status === 'approved' || data.providerStatus === 'approved';
+        const isSuspended = data.status === 'suspended' || data.providerStatus === 'suspended';
+        if (isSuspended) return;
+        let activityStatus: MapProvider['status'] = 'offline';
+        if (!isApproved) activityStatus = 'pending';
+        else if (data.currentJobId && data.jobStatus === 'in_progress') activityStatus = 'working';
+        else if (data.currentJobId && data.jobStatus === 'traveling') activityStatus = 'traveling';
+        else if (data.currentJobId && data.jobStatus === 'arrived') activityStatus = 'arrived';
+        else if (data.isOnline) activityStatus = 'available';
+        list.push({
+          id: docSnap.id, firstName: data.firstName || '', lastName: data.lastName || '',
+          serviceCategory: data.serviceCategory || 'Service Provider',
+          latitude: data.latitude, longitude: data.longitude,
+          currentLocation: data.currentLocation, isOnline: data.isOnline || false,
+          profilePhoto: data.profilePhoto, phone: data.phone, email: data.email,
+          status: activityStatus, currentJobId: data.currentJobId,
+          jobStatus: data.jobStatus, isApproved,
+        });
+      });
+      setMapProviders(list);
+    });
+    return () => unsub();
   }, [user]);
 
   useEffect(() => {
@@ -220,18 +288,18 @@ export default function AdminJobsPage() {
 
   const getStatusStyle = (status: string, adminApproved: boolean) => {
     switch (status) {
-      case 'pending': return adminApproved ? { bg: 'bg-gradient-to-r from-emerald-500 to-teal-500', text: 'text-white' } : { bg: 'bg-gradient-to-r from-amber-500 to-yellow-500', text: 'text-white' };
-      case 'awaiting_payment': return { bg: 'bg-gradient-to-r from-amber-500 to-yellow-500', text: 'text-white' };
-      case 'pending_negotiation': return { bg: 'bg-gradient-to-r from-yellow-500 to-amber-500', text: 'text-white' };
-      case 'counter_offer': return { bg: 'bg-gradient-to-r from-purple-500 to-violet-500', text: 'text-white' };
-      case 'accepted': return { bg: 'bg-gradient-to-r from-blue-500 to-indigo-500', text: 'text-white' };
-      case 'traveling': return { bg: 'bg-gradient-to-r from-blue-500 to-indigo-500', text: 'text-white' };
-      case 'arrived': return { bg: 'bg-gradient-to-r from-indigo-500 to-purple-500', text: 'text-white' };
-      case 'in_progress': return { bg: 'bg-gradient-to-r from-indigo-500 to-purple-500', text: 'text-white' };
-      case 'pending_completion': return { bg: 'bg-gradient-to-r from-amber-500 to-yellow-500', text: 'text-white' };
-      case 'completed': return { bg: 'bg-gradient-to-r from-emerald-500 to-green-500', text: 'text-white' };
-      case 'cancelled': case 'rejected': return { bg: 'bg-gradient-to-r from-gray-500 to-slate-500', text: 'text-white' };
-      default: return { bg: 'bg-gray-100', text: 'text-gray-700' };
+      case 'pending': return adminApproved ? { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Confirmed' } : { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Pending' };
+      case 'awaiting_payment': return { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Awaiting Payment' };
+      case 'pending_negotiation': return { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Negotiating' };
+      case 'counter_offer': return { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Counter Offer' };
+      case 'accepted': return { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Accepted' };
+      case 'traveling': return { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Traveling' };
+      case 'arrived': return { bg: 'bg-indigo-100', text: 'text-indigo-700', label: 'Arrived' };
+      case 'in_progress': return { bg: 'bg-blue-100', text: 'text-blue-700', label: 'In Progress' };
+      case 'pending_completion': return { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Pending Completion' };
+      case 'completed': return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Confirmed' };
+      case 'cancelled': case 'rejected': return { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Cancelled' };
+      default: return { bg: 'bg-gray-100', text: 'text-gray-600', label: status?.replace(/_/g, ' ') };
     }
   };
 
@@ -271,7 +339,6 @@ export default function AdminJobsPage() {
       setAllJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, adminApproved: true } : j)));
       setShowModal(false);
 
-      // Send Push notifications to client and provider
       if (job.client?.id) {
         pushNotifications.jobApprovedToClient(job.client.id, job.id, job.category || 'service')
           .catch(err => console.log('FCM push to client failed:', err));
@@ -281,7 +348,6 @@ export default function AdminJobsPage() {
           .catch(err => console.log('FCM push to provider failed:', err));
       }
 
-      // Send SMS and Email notifications to client
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
       const capitalize = (s: string) => s.replace(/\b\w/g, c => c.toUpperCase());
 
@@ -334,13 +400,11 @@ export default function AdminJobsPage() {
       setAllJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: 'rejected' } : j)));
       setShowModal(false);
 
-      // Send Push notification to client
       if (job.client?.id) {
         pushNotifications.jobRejectedToClient(job.client.id, job.id, job.category || 'service')
           .catch(err => console.log('FCM push to client failed:', err));
       }
 
-      // Send SMS and Email notifications to client
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
       const capitalize = (s: string) => s.replace(/\b\w/g, c => c.toUpperCase());
 
@@ -383,18 +447,67 @@ export default function AdminJobsPage() {
     inProgress: allJobs.filter((j) => j.status === 'in_progress').length,
     completed: allJobs.filter((j) => j.status === 'completed').length,
     total: allJobs.length,
+    activeProviders: new Set(allJobs.filter(j => ['in_progress', 'traveling', 'arrived', 'accepted'].includes(j.status)).map(j => j.provider?.id)).size,
+    monthlyRevenue: allJobs.filter(j => j.status === 'completed').reduce((sum, j) => sum + j.amount, 0),
   });
 
+  // Compute booking trends (last 7 days)
+  const weeklyTrends = useMemo(() => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const counts = new Array(7).fill(0);
+    const now = new Date();
+    allJobs.forEach(j => {
+      const diff = Math.floor((now.getTime() - j.createdAtRaw.getTime()) / (1000 * 60 * 60 * 24));
+      if (diff >= 0 && diff < 7) {
+        const dayIndex = j.createdAtRaw.getDay();
+        counts[dayIndex]++;
+      }
+    });
+    const maxCount = Math.max(...counts, 1);
+    return days.map((day, i) => ({ day, count: counts[i], pct: (counts[i] / maxCount) * 100 }));
+  }, [allJobs]);
+
+  // Service type breakdown
+  const serviceBreakdown = useMemo(() => {
+    const catCounts: Record<string, number> = {};
+    allJobs.forEach(j => {
+      const style = getCategoryStyle(j.category);
+      const label = style.label;
+      catCounts[label] = (catCounts[label] || 0) + 1;
+    });
+    const total = allJobs.length || 1;
+    const colors: Record<string, string> = {
+      'Electrical': '#F59E0B', 'Plumbing': '#3B82F6', 'Carpentry': '#F97316',
+      'Cleaning': '#10B981', 'Painting': '#EC4899', 'Aircon/HVAC': '#0EA5E9', 'General': '#8B5CF6'
+    };
+    return Object.entries(catCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, count]) => ({ label, count, pct: Math.round((count / total) * 100), color: colors[label] || '#6B7280' }));
+  }, [allJobs]);
+
+  // Build conic-gradient for donut chart
+  const conicGradient = useMemo(() => {
+    if (serviceBreakdown.length === 0) return 'conic-gradient(#e5e7eb 0% 100%)';
+    let acc = 0;
+    const stops = serviceBreakdown.map(s => {
+      const start = acc;
+      acc += s.pct;
+      return `${s.color} ${start}% ${acc}%`;
+    });
+    return `conic-gradient(${stops.join(', ')})`;
+  }, [serviceBreakdown]);
+
   const stats = getStats();
+  const displayedJobs = showAllBookings ? jobs : jobs.slice(0, 5);
 
 
   if (isLoading || loadingData) {
     return (
       <AdminLayout>
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
-            <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-purple-200 font-medium">Loading jobs...</p>
+            <div className="w-14 h-14 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-500 font-medium">Loading bookings...</p>
           </div>
         </div>
       </AdminLayout>
@@ -403,225 +516,236 @@ export default function AdminJobsPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900">
-        {/* Premium Header */}
-        <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-
-          <div className="relative max-w-7xl mx-auto px-6 py-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-xl">
-                  <Briefcase className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <p className="text-purple-200 text-sm font-medium">Manage</p>
-                  <h1 className="text-3xl font-bold text-white">Jobs & Bookings</h1>
-                </div>
+      <div className="min-h-screen bg-gray-50">
+        {/* ─── Top Bar ─── */}
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <h1 className="text-xl font-bold text-gray-900">Bookings Management</h1>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search bookings..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent w-64"
+                />
               </div>
-              <div className="flex items-center gap-3">
-                <button onClick={handleRefresh} disabled={refreshing}
-                  className="w-12 h-12 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center hover:bg-white/25 transition-all disabled:opacity-50 shadow-lg">
-                  <RefreshCw className={`w-5 h-5 text-white ${refreshing ? 'animate-spin' : ''}`} />
-                </button>
-                <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/20 backdrop-blur-sm rounded-xl">
-                  <div className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse" />
-                  <span className="text-emerald-200 text-sm font-semibold">Live</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Stats Cards in Header */}
-            <div className="grid grid-cols-4 gap-4">
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-amber-500/30 rounded-xl flex items-center justify-center">
-                    <AlertCircle className="w-5 h-5 text-amber-300" />
-                  </div>
-                  <span className="text-amber-200 text-sm font-medium">Pending</span>
-                </div>
-                <p className="text-3xl font-bold text-white">{stats.pending}</p>
-                {stats.pending > 0 && <p className="text-amber-300 text-xs mt-1 font-semibold">⚠️ Needs review</p>}
-              </div>
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-blue-500/30 rounded-xl flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-blue-300" />
-                  </div>
-                  <span className="text-blue-200 text-sm font-medium">In Progress</span>
-                </div>
-                <p className="text-3xl font-bold text-white">{stats.inProgress}</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-emerald-500/30 rounded-xl flex items-center justify-center">
-                    <CheckCircle className="w-5 h-5 text-emerald-300" />
-                  </div>
-                  <span className="text-emerald-200 text-sm font-medium">Completed</span>
-                </div>
-                <p className="text-3xl font-bold text-white">{stats.completed}</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-violet-500/30 rounded-xl flex items-center justify-center">
-                    <Briefcase className="w-5 h-5 text-violet-300" />
-                  </div>
-                  <span className="text-violet-200 text-sm font-medium">Total</span>
-                </div>
-                <p className="text-3xl font-bold text-white">{stats.total}</p>
-              </div>
+              <button onClick={handleRefresh} disabled={refreshing}
+                className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50">
+                <RefreshCw className={`w-4 h-4 text-gray-500 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
             </div>
           </div>
         </div>
 
         <div className="max-w-7xl mx-auto px-6 py-6">
-          {/* Search & Filters */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 mb-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Search by job ID, title, client, or provider..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 dark:bg-gray-700 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 text-gray-900 dark:text-white placeholder-gray-400"
-                />
+          {/* ─── Stat Cards ─── */}
+          <div className="grid grid-cols-4 gap-5 mb-6">
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+              <p className="text-gray-500 text-xs font-medium mb-1 uppercase tracking-wide">Total Bookings</p>
+              <p className="text-3xl font-bold text-gray-900">{stats.total.toLocaleString()}</p>
+              <div className="flex items-center gap-1 mt-2">
+                <TrendingUp className="w-3.5 h-3.5 text-green-500" />
+                <span className="text-green-600 text-xs font-semibold">+{stats.completed > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%</span>
+                <span className="text-gray-400 text-xs ml-1">completed</span>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                {filters.map((filter) => {
-                  const isActive = activeFilter === filter.id;
-                  const count = filter.id === 'all' ? allJobs.length : allJobs.filter(j => j.status === filter.id).length;
-                  return (
-                    <button
-                      key={filter.id}
-                      onClick={() => setActiveFilter(filter.id)}
-                      className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 ${isActive
-                        ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-500/30'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                    >
-                      {filter.label}
-                      <span className={`min-w-[20px] h-5 rounded-full text-xs flex items-center justify-center ${isActive ? 'bg-white/20' : 'bg-gray-200'}`}>
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
+            </div>
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+              <p className="text-gray-500 text-xs font-medium mb-1 uppercase tracking-wide">Active Service Providers</p>
+              <p className="text-3xl font-bold text-gray-900">{stats.activeProviders}</p>
+              <div className="flex items-center gap-1 mt-2">
+                <ArrowUpRight className="w-3.5 h-3.5 text-green-500" />
+                <span className="text-green-600 text-xs font-semibold">+{stats.inProgress}</span>
+                <span className="text-gray-400 text-xs ml-1">in progress</span>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+              <p className="text-gray-500 text-xs font-medium mb-1 uppercase tracking-wide">Monthly Revenue</p>
+              <p className="text-3xl font-bold text-gray-900">₱{stats.monthlyRevenue.toLocaleString()}</p>
+              <div className="flex items-center gap-1 mt-2">
+                <TrendingUp className="w-3.5 h-3.5 text-green-500" />
+                <span className="text-green-600 text-xs font-semibold">+12%</span>
+                <span className="text-gray-400 text-xs ml-1">vs last month</span>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+              <p className="text-gray-500 text-xs font-medium mb-1 uppercase tracking-wide">Pending Requests</p>
+              <p className="text-3xl font-bold text-gray-900">{stats.pending}</p>
+              {stats.pending > 0 && (
+                <div className="flex items-center gap-1 mt-2">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-amber-600 text-xs font-semibold">Needs review</span>
+                </div>
+              )}
+              {stats.pending === 0 && (
+                <div className="flex items-center gap-1 mt-2">
+                  <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                  <span className="text-green-600 text-xs font-semibold">All clear</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ─── Filters ─── */}
+          <div className="flex gap-2 flex-wrap mb-6">
+            {filters.map((filter) => {
+              const isActive = activeFilter === filter.id;
+              const count = filter.id === 'all' ? allJobs.length : allJobs.filter(j => j.status === filter.id).length;
+              return (
+                <button
+                  key={filter.id}
+                  onClick={() => setActiveFilter(filter.id)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 ${isActive
+                    ? 'bg-green-600 text-white shadow-md shadow-green-500/25'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                    }`}
+                >
+                  {filter.label}
+                  <span className={`min-w-[18px] h-[18px] rounded-full text-[10px] flex items-center justify-center ${isActive ? 'bg-white/25' : 'bg-gray-100'}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ─── Two-Column: Recent Bookings + Map ─── */}
+          <div className="grid grid-cols-5 gap-6 mb-6">
+            {/* Left: Recent Bookings */}
+            <div className="col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <h2 className="font-bold text-gray-900 text-sm">Recent Bookings</h2>
+                <button
+                  onClick={() => setShowAllBookings(!showAllBookings)}
+                  className="text-green-600 text-xs font-semibold hover:text-green-700 transition-colors"
+                >
+                  {showAllBookings ? 'Show less' : 'View all'}
+                </button>
+              </div>
+              <div className="divide-y divide-gray-50 max-h-[480px] overflow-y-auto">
+                {displayedJobs.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <Briefcase className="w-10 h-10 text-gray-200 mx-auto mb-2" />
+                    <p className="text-gray-400 text-sm">No bookings found</p>
+                  </div>
+                ) : (
+                  displayedJobs.map((job) => {
+                    const catStyle = getCategoryStyle(job.category);
+                    const statusStyle = getStatusStyle(job.status, job.adminApproved);
+                    return (
+                      <div
+                        key={job.id}
+                        onClick={() => { setSelectedJob(job); setShowModal(true); }}
+                        className="flex items-start gap-3.5 px-5 py-4 hover:bg-gray-50 cursor-pointer transition-colors group"
+                      >
+                        {/* Category Icon */}
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-lg" style={{ backgroundColor: `${catStyle.color}15` }}>
+                          {catStyle.icon}
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-gray-900 text-sm truncate">{job.category}</h3>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <User className="w-3 h-3 text-gray-400" />
+                            <span className="text-gray-500 text-xs">{job.client.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <Calendar className="w-3 h-3 text-gray-400" />
+                            <span className="text-gray-400 text-xs">{job.createdAt}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-gray-400 text-xs">Status</span>
+                            <span className={`${statusStyle.bg} ${statusStyle.text} text-[10px] font-bold px-2 py-0.5 rounded-full`}>
+                              {statusStyle.label}
+                            </span>
+                          </div>
+                        </div>
+
+                        <ChevronRight className="w-4 h-4 text-gray-300 mt-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Right: Provider Locations Map */}
+            <div className="col-span-3 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <h2 className="font-bold text-gray-900 text-sm">Provider Locations Map</h2>
+                <button
+                  onClick={() => router.push('/admin/map')}
+                  className="text-green-600 text-xs font-semibold hover:text-green-700 transition-colors flex items-center gap-1"
+                >
+                  Open Map <ArrowUpRight className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="h-[440px]">
+                <AdminMapView
+                  providers={mapProviders}
+                  activeJobs={[]}
+                  center={DEFAULT_CENTER}
+                  onProviderClick={() => { }}
+                />
               </div>
             </div>
           </div>
 
-          {/* Jobs List */}
-          {jobs.length === 0 ? (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-12 text-center">
-              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Briefcase className="w-10 h-10 text-gray-300" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No jobs found</h3>
-              <p className="text-gray-500 dark:text-gray-400">Try adjusting your search or filter criteria</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {jobs.map((job) => {
-                const catStyle = getCategoryStyle(job.category);
-                const statusStyle = getStatusStyle(job.status, job.adminApproved);
-                return (
-                  <div
-                    key={job.id}
-                    onClick={() => { setSelectedJob(job); setShowModal(true); }}
-                    className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer group"
-                  >
-                    <div className="flex">
-                      {/* Category Color Bar */}
-                      <div className={`w-2 bg-gradient-to-b ${catStyle.bg}`}></div>
-
-                      <div className="flex-1 p-5">
-                        {/* Header */}
-                        <div className="flex justify-between items-start mb-4">
-                          <div className="flex items-start gap-3">
-                            <div className={`w-12 h-12 bg-gradient-to-br ${catStyle.bg} rounded-xl flex items-center justify-center shadow-lg text-xl`}>
-                              {catStyle.icon}
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-400 font-mono">{job.id.slice(0, 12)}...</p>
-                              <h3 className="font-bold text-gray-900 dark:text-white text-lg">{job.title}</h3>
-                              <p className="text-sm text-violet-600 dark:text-violet-400 font-medium">{job.category}</p>
-                            </div>
-                          </div>
-                          <span className={`${statusStyle.bg} ${statusStyle.text} px-3 py-1.5 rounded-full text-xs font-bold`}>
-                            {getStatusLabel(job.status, job.adminApproved)}
-                          </span>
-                        </div>
-
-                        {/* Parties */}
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 flex items-center gap-3">
-                            {job.client.photo ? (
-                              <img src={job.client.photo} alt="" className="w-10 h-10 rounded-full object-cover" />
-                            ) : (
-                              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                                <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                              </div>
-                            )}
-                            <div>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">Client</p>
-                              <p className="font-semibold text-gray-900 dark:text-white">{job.client.name}</p>
-                            </div>
-                          </div>
-                          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 flex items-center gap-3">
-                            {job.provider.photo ? (
-                              <img src={job.provider.photo} alt="" className="w-10 h-10 rounded-full object-cover" />
-                            ) : (
-                              <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
-                                <Wrench className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                              </div>
-                            )}
-                            <div>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">Provider</p>
-                              <p className="font-semibold text-gray-900 dark:text-white">{job.provider.name}</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Footer */}
-                        <div className="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-gray-700">
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1">
-                              <DollarSign className="w-5 h-5 text-emerald-500" />
-                              <span className="text-xl font-bold text-emerald-600">₱{job.amount.toLocaleString()}</span>
-                            </div>
-                            <span className={`px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-700`}>
-                              {(job as any).paymentMethod === 'cash' ? 'CASH' : 'QR PH'}
-                            </span>
-                            {job.isPaidUpfront && (
-                              <span className="bg-emerald-500 text-white px-2 py-1 rounded-lg text-xs font-bold">✓ PAID</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2 text-gray-500 text-sm">
-                              <Calendar className="w-4 h-4" />
-                              <span>{job.scheduledDate} • {job.scheduledTime}</span>
-                            </div>
-                            <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-violet-500 transition-colors" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+          {/* ─── Bottom: Charts ─── */}
+          <div className="grid grid-cols-2 gap-6 mb-8">
+            {/* Booking Trends (Weekly) */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <h2 className="font-bold text-gray-900 text-sm mb-4">Booking Trends (Weekly)</h2>
+              <div className="flex items-end gap-3 h-40">
+                {weeklyTrends.map((d, i) => (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                    <span className="text-[10px] text-gray-400 font-medium">{d.count}</span>
+                    <div className="w-full rounded-t-md bg-green-500 transition-all duration-500"
+                      style={{ height: `${Math.max(d.pct, 4)}%`, opacity: d.count > 0 ? 1 : 0.3 }}
+                    />
+                    <span className="text-[10px] text-gray-500 font-medium mt-1">{d.day}</span>
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          )}
+
+            {/* Service Type Breakdown */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <h2 className="font-bold text-gray-900 text-sm mb-4">Service Type Breakdown</h2>
+              <div className="flex items-center gap-6">
+                {/* Donut chart */}
+                <div className="relative w-32 h-32 flex-shrink-0">
+                  <div className="w-full h-full rounded-full" style={{ background: conicGradient }} />
+                  <div className="absolute inset-4 bg-white rounded-full flex items-center justify-center">
+                    <span className="text-lg font-bold text-gray-900">{allJobs.length}</span>
+                  </div>
+                </div>
+                {/* Legend */}
+                <div className="flex-1 space-y-2">
+                  {serviceBreakdown.slice(0, 5).map((s, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+                        <span className="text-xs text-gray-600">{s.label}</span>
+                      </div>
+                      <span className="text-xs font-semibold text-gray-900">{s.pct}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Detail Modal */}
+        {/* ─── Detail Modal ─── */}
         {showModal && selectedJob && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4" onClick={() => setShowModal(false)}>
-            <div className="bg-white dark:bg-gray-900 rounded-t-3xl md:rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4" onClick={() => setShowModal(false)}>
+            <div className="bg-white rounded-t-2xl md:rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
               {/* Modal Header */}
-              <div className={`bg-gradient-to-r ${getCategoryStyle(selectedJob.category).bg} p-6 relative overflow-hidden`}>
+              <div className="bg-green-600 p-6 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
                 <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors z-10">
                   ✕
@@ -642,7 +766,7 @@ export default function AdminJobsPage() {
               <div className="p-6">
                 {/* View Full Details */}
                 <button onClick={() => router.push(`/admin/jobs/${selectedJob.id}`)}
-                  className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-violet-600 dark:text-violet-400 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors mb-6 flex items-center justify-center gap-2">
+                  className="w-full py-3 bg-gray-100 text-green-600 rounded-xl font-semibold hover:bg-gray-200 transition-colors mb-6 flex items-center justify-center gap-2">
                   <Eye className="w-5 h-5" /> View Full Details <ChevronRight className="w-5 h-5" />
                 </button>
 
@@ -710,7 +834,7 @@ export default function AdminJobsPage() {
 
                 {/* Client & Provider */}
                 <div className="grid md:grid-cols-2 gap-4 mb-6">
-                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-2xl">
+                  <div className="bg-gray-50 p-4 rounded-2xl">
                     <div className="flex items-center gap-3 mb-3">
                       {selectedJob.client.photo ? (
                         <img
@@ -727,13 +851,13 @@ export default function AdminJobsPage() {
                       <div className={`w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center ${selectedJob.client.photo ? 'hidden' : ''}`}>
                         <User className="w-5 h-5 text-blue-600" />
                       </div>
-                      <h4 className="font-bold text-gray-900 dark:text-white">Client</h4>
+                      <h4 className="font-bold text-gray-900">Client</h4>
                     </div>
-                    <p className="font-semibold text-gray-900 dark:text-white">{selectedJob.client.name}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{selectedJob.client.phone}</p>
-                    {selectedJob.client.email && <p className="text-sm text-gray-500 dark:text-gray-400">{selectedJob.client.email}</p>}
+                    <p className="font-semibold text-gray-900">{selectedJob.client.name}</p>
+                    <p className="text-sm text-gray-500">{selectedJob.client.phone}</p>
+                    {selectedJob.client.email && <p className="text-sm text-gray-500">{selectedJob.client.email}</p>}
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-2xl">
+                  <div className="bg-gray-50 p-4 rounded-2xl">
                     <div className="flex items-center gap-3 mb-3">
                       {selectedJob.provider.photo ? (
                         <img
@@ -750,45 +874,32 @@ export default function AdminJobsPage() {
                       <div className={`w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center ${selectedJob.provider.photo ? 'hidden' : ''}`}>
                         <Wrench className="w-5 h-5 text-emerald-600" />
                       </div>
-                      <h4 className="font-bold text-gray-900 dark:text-white">Provider</h4>
+                      <h4 className="font-bold text-gray-900">Provider</h4>
                     </div>
-                    <p className="font-semibold text-gray-900 dark:text-white">{selectedJob.provider.name}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{selectedJob.provider.phone}</p>
-                    {selectedJob.provider.email && <p className="text-sm text-gray-500 dark:text-gray-400">{selectedJob.provider.email}</p>}
+                    <p className="font-semibold text-gray-900">{selectedJob.provider.name}</p>
+                    <p className="text-sm text-gray-500">{selectedJob.provider.phone}</p>
+                    {selectedJob.provider.email && <p className="text-sm text-gray-500">{selectedJob.provider.email}</p>}
                   </div>
                 </div>
 
-                {/* Schedule & Location */}
+                {/* Booking Info & Location */}
                 <div className="space-y-3 mb-6">
-                  {(selectedJob.scheduledDate || selectedJob.scheduledTime) && (
-                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
-                      <div className="w-10 h-10 bg-violet-100 dark:bg-violet-900/30 rounded-xl flex items-center justify-center">
-                        <Calendar className="w-5 h-5 text-violet-600 dark:text-violet-400" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Schedule</p>
-                        <p className="font-semibold text-gray-900 dark:text-white">
-                          {selectedJob.scheduledDate}{selectedJob.scheduledDate && selectedJob.scheduledTime ? ' at ' : ''}{selectedJob.scheduledTime}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
-                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                      <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                      <Clock className="w-5 h-5 text-green-600" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Location</p>
-                      <p className="font-semibold text-gray-900 dark:text-white">{selectedJob.location}</p>
+                      <p className="text-xs text-gray-500">Booking Submitted</p>
+                      <p className="font-semibold text-gray-900">{selectedJob.createdAt}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
-                    <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center">
-                      <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                      <MapPin className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Submitted</p>
-                      <p className="font-semibold text-gray-900 dark:text-white">{selectedJob.createdAt}</p>
+                      <p className="text-xs text-gray-500">Location</p>
+                      <p className="font-semibold text-gray-900">{selectedJob.location}</p>
                     </div>
                   </div>
                 </div>
@@ -796,12 +907,12 @@ export default function AdminJobsPage() {
                 {/* Media */}
                 {selectedJob.media && selectedJob.media.length > 0 && (
                   <div className="mb-6">
-                    <h4 className="font-bold text-gray-900 dark:text-white mb-3">Attached Photos/Videos</h4>
+                    <h4 className="font-bold text-gray-900 mb-3">Attached Photos/Videos</h4>
                     <div className="flex gap-3 overflow-x-auto pb-2">
                       {selectedJob.media.map((url, idx) => (
                         <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
                           <img src={url} alt={`Attachment ${idx + 1}`}
-                            className="w-28 h-28 rounded-xl object-cover border-2 border-gray-200 hover:border-violet-500 transition-colors cursor-pointer shadow-lg"
+                            className="w-28 h-28 rounded-xl object-cover border-2 border-gray-200 hover:border-green-500 transition-colors cursor-pointer shadow-lg"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="112" height="112"><rect fill="%23f3f4f6" width="112" height="112" rx="12"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-size="24">📷</text><text x="50%" y="65%" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-size="10">No Image</text></svg>';
@@ -817,11 +928,11 @@ export default function AdminJobsPage() {
                 {selectedJob.status === 'pending' && !selectedJob.adminApproved && (
                   <div className="grid grid-cols-2 gap-3">
                     <button onClick={() => handleApproveJob(selectedJob)} disabled={updating}
-                      className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3.5 rounded-xl font-bold hover:shadow-lg hover:shadow-emerald-500/30 transition-all disabled:opacity-50">
+                      className="flex items-center justify-center gap-2 bg-green-600 text-white py-3.5 rounded-xl font-bold hover:bg-green-700 hover:shadow-lg transition-all disabled:opacity-50">
                       <CheckCircle className="w-5 h-5" /> Approve
                     </button>
                     <button onClick={() => handleRejectJob(selectedJob)} disabled={updating}
-                      className="flex items-center justify-center gap-2 bg-gradient-to-r from-red-500 to-rose-500 text-white py-3.5 rounded-xl font-bold hover:shadow-lg hover:shadow-red-500/30 transition-all disabled:opacity-50">
+                      className="flex items-center justify-center gap-2 bg-red-500 text-white py-3.5 rounded-xl font-bold hover:bg-red-600 hover:shadow-lg transition-all disabled:opacity-50">
                       <XCircle className="w-5 h-5" /> Reject
                     </button>
                   </div>
@@ -831,12 +942,12 @@ export default function AdminJobsPage() {
           </div>
         )}
 
-        {/* Custom Confirmation Modal */}
+        {/* ─── Confirmation Modal ─── */}
         {confirmModal.show && confirmModal.job && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in">
               {/* Header */}
-              <div className={`p-6 ${confirmModal.type === 'approve' ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : 'bg-gradient-to-r from-red-500 to-rose-500'}`}>
+              <div className={`p-6 ${confirmModal.type === 'approve' ? 'bg-green-600' : 'bg-red-500'}`}>
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
                     {confirmModal.type === 'approve' ? (
@@ -858,14 +969,14 @@ export default function AdminJobsPage() {
 
               {/* Content */}
               <div className="p-6">
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 mb-6">
+                <div className="bg-gray-50 rounded-2xl p-4 mb-6">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center">
-                      <User className="w-5 h-5 text-violet-600" />
+                    <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                      <User className="w-5 h-5 text-green-600" />
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Client</p>
-                      <p className="font-semibold text-gray-900 dark:text-white">{confirmModal.job.client?.name || 'Unknown'}</p>
+                      <p className="font-semibold text-gray-900">{confirmModal.job.client?.name || 'Unknown'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -874,12 +985,12 @@ export default function AdminJobsPage() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Provider</p>
-                      <p className="font-semibold text-gray-900 dark:text-white">{confirmModal.job.provider?.name || 'Not assigned'}</p>
+                      <p className="font-semibold text-gray-900">{confirmModal.job.provider?.name || 'Not assigned'}</p>
                     </div>
                   </div>
                 </div>
 
-                <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
+                <p className="text-gray-600 text-center mb-6">
                   {confirmModal.type === 'approve'
                     ? `This will send the job to ${confirmModal.job.provider?.name || 'the provider'} for review.`
                     : 'This action cannot be undone. The client will be notified.'}
@@ -889,7 +1000,7 @@ export default function AdminJobsPage() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setConfirmModal({ show: false, type: 'approve', job: null })}
-                    className="flex-1 py-3.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    className="flex-1 py-3.5 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
                   >
                     Cancel
                   </button>
@@ -897,8 +1008,8 @@ export default function AdminJobsPage() {
                     onClick={confirmModal.type === 'approve' ? executeApprove : executeReject}
                     disabled={updating}
                     className={`flex-1 py-3.5 text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${confirmModal.type === 'approve'
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-lg hover:shadow-emerald-500/30'
-                      : 'bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/30'
+                      ? 'bg-green-600 hover:bg-green-700 hover:shadow-lg'
+                      : 'bg-red-500 hover:bg-red-600 hover:shadow-lg'
                       }`}
                   >
                     {updating ? (

@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect, useCallback} from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,15 +13,16 @@ import {
   Alert,
   Modal,
   ScrollView,
+  Vibration,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
-import {chatStyles as styles} from '../../css/chatStyles';
-import {useAuth} from '../../context/AuthContext';
-import {useTheme} from '../../context/ThemeContext';
-import {uploadChatImage} from '../../services/imageUploadService';
-import {AnimatedMessage} from '../../components/animations';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import { chatStyles as styles } from '../../css/chatStyles';
+import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { uploadChatImage } from '../../services/imageUploadService';
+import { AnimatedMessage } from '../../components/animations';
 import {
   getOrCreateConversation,
   sendMessage as sendFirebaseMessage,
@@ -31,14 +32,16 @@ import {
   subscribeToTypingStatus,
   toggleReaction,
 } from '../../services/messageService';
-import {attemptMessage} from '../../utils/rateLimiter';
-import {db} from '../../config/firebase';
-import {doc, getDoc, updateDoc} from 'firebase/firestore';
+import { attemptMessage } from '../../utils/rateLimiter';
+import { db } from '../../config/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import VoiceCall from '../../components/common/VoiceCall';
+import { initiateCall, listenToIncomingCalls, answerCall, declineCall, endCall } from '../../services/callService';
 
-const ChatScreen = ({route, navigation}) => {
-  const {user} = useAuth();
-  const {isDark, theme} = useTheme();
-  const {recipient, jobId, jobTitle, conversationId: existingConversationId} = route.params || {};
+const ChatScreen = ({ route, navigation }) => {
+  const { user } = useAuth();
+  const { isDark, theme } = useTheme();
+  const { recipient, jobId, jobTitle, conversationId: existingConversationId } = route.params || {};
 
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
@@ -54,7 +57,82 @@ const ChatScreen = ({route, navigation}) => {
   const [senderNamesCache, setSenderNamesCache] = useState({}); // Cache for fetched sender names
   const flatListRef = useRef(null);
   const typingTimeoutRef = useRef(null);
-  
+
+  // Voice call state
+  const [activeCall, setActiveCall] = useState(null);
+  const [incomingCall, setIncomingCall] = useState(null);
+  const [callStatus, setCallStatus] = useState(null); // 'ringing', 'ongoing', 'incoming', null
+  const callStartTimeRef = useRef(null);
+
+  // Send a call event message to the chat (like Messenger)
+  const sendCallEventMessage = async (callType, durationSeconds = 0) => {
+    if (!conversationId || !user?.uid) return;
+    try {
+      const senderName = user?.firstName
+        ? `${user.firstName} ${user.lastName || ''}`.trim()
+        : 'User';
+      let text = '';
+      if (callType === 'completed') {
+        const mins = Math.floor(durationSeconds / 60);
+        const secs = durationSeconds % 60;
+        text = mins > 0 ? `📞 Voice call · ${mins} min ${secs > 0 ? secs + ' sec' : ''}` : `📞 Voice call · ${secs} sec`;
+      } else if (callType === 'missed') {
+        text = '📞 Missed voice call';
+      } else if (callType === 'declined') {
+        text = '📞 Declined voice call';
+      } else {
+        text = '📞 Voice call';
+      }
+      await sendFirebaseMessage(conversationId, user.uid, text, senderName);
+    } catch (err) {
+      console.log('Error sending call event message:', err);
+    }
+  };
+
+  // Start a call
+  const handleStartCall = async () => {
+    if (!recipient?.id || !user?.uid) {
+      Alert.alert('Error', 'Cannot make call right now');
+      return;
+    }
+    try {
+      const callerName = user?.firstName
+        ? `${user.firstName} ${user.lastName || ''}`.trim()
+        : 'User';
+      const call = await initiateCall(
+        user.uid,
+        callerName,
+        recipient.id,
+        recipient.name || 'User',
+        jobId || null
+      );
+      setActiveCall(call);
+      setCallStatus('ringing');
+      callStartTimeRef.current = Date.now();
+    } catch (err) {
+      Alert.alert('Call Failed', err.message || 'Could not start call');
+    }
+  };
+
+  // Listen for incoming calls
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const unsubscribe = listenToIncomingCalls(user.uid, (call) => {
+      // Only show if from the current chat recipient
+      if (call.callerId === recipient?.id) {
+        setIncomingCall(call);
+        setCallStatus('incoming');
+        Vibration.vibrate([0, 500, 200, 500], true);
+      }
+    });
+
+    return () => {
+      unsubscribe?.();
+      Vibration.cancel();
+    };
+  }, [user?.uid, recipient?.id]);
+
   const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
   // Fetch sender name from Firestore users collection
@@ -63,22 +141,22 @@ const ChatScreen = ({route, navigation}) => {
     if (senderNamesCache[senderId]) {
       return senderNamesCache[senderId];
     }
-    
+
     try {
       const userDoc = await getDoc(doc(db, 'users', senderId));
       if (userDoc.exists()) {
         const userData = userDoc.data();
         // Check if admin
         if (userData.role?.toUpperCase() === 'ADMIN') {
-          setSenderNamesCache(prev => ({...prev, [senderId]: 'GSS Support'}));
-          return 'GSS Support';
+          setSenderNamesCache(prev => ({ ...prev, [senderId]: 'H.E.L.P Support' }));
+          return 'H.E.L.P Support';
         }
         // Build name with fallbacks
         let name = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
         if (!name) {
           name = userData.displayName || userData.name || userData.email?.split('@')[0] || 'User';
         }
-        setSenderNamesCache(prev => ({...prev, [senderId]: name}));
+        setSenderNamesCache(prev => ({ ...prev, [senderId]: name }));
         return name;
       }
     } catch (error) {
@@ -100,9 +178,9 @@ const ChatScreen = ({route, navigation}) => {
   // Handle image attachment
   const handleAttachment = () => {
     Alert.alert('Send Image', 'Choose an option', [
-      {text: 'Take Photo', onPress: handleTakePhoto},
-      {text: 'Choose from Gallery', onPress: handleChooseFromGallery},
-      {text: 'Cancel', style: 'cancel'},
+      { text: 'Take Photo', onPress: handleTakePhoto },
+      { text: 'Choose from Gallery', onPress: handleChooseFromGallery },
+      { text: 'Cancel', style: 'cancel' },
     ]);
   };
 
@@ -155,17 +233,17 @@ const ChatScreen = ({route, navigation}) => {
       const animateDots = () => {
         Animated.sequence([
           Animated.parallel([
-            Animated.timing(dot1Anim, {toValue: 1, duration: 200, useNativeDriver: true}),
+            Animated.timing(dot1Anim, { toValue: 1, duration: 200, useNativeDriver: true }),
           ]),
           Animated.parallel([
-            Animated.timing(dot1Anim, {toValue: 0, duration: 200, useNativeDriver: true}),
-            Animated.timing(dot2Anim, {toValue: 1, duration: 200, useNativeDriver: true}),
+            Animated.timing(dot1Anim, { toValue: 0, duration: 200, useNativeDriver: true }),
+            Animated.timing(dot2Anim, { toValue: 1, duration: 200, useNativeDriver: true }),
           ]),
           Animated.parallel([
-            Animated.timing(dot2Anim, {toValue: 0, duration: 200, useNativeDriver: true}),
-            Animated.timing(dot3Anim, {toValue: 1, duration: 200, useNativeDriver: true}),
+            Animated.timing(dot2Anim, { toValue: 0, duration: 200, useNativeDriver: true }),
+            Animated.timing(dot3Anim, { toValue: 1, duration: 200, useNativeDriver: true }),
           ]),
-          Animated.timing(dot3Anim, {toValue: 0, duration: 200, useNativeDriver: true}),
+          Animated.timing(dot3Anim, { toValue: 0, duration: 200, useNativeDriver: true }),
         ]).start(() => {
           if (otherUserTyping) animateDots();
         });
@@ -185,7 +263,7 @@ const ChatScreen = ({route, navigation}) => {
             if (convDoc.exists()) {
               const convData = convDoc.data();
               const participants = convData.participants || [];
-              
+
               if (!participants.includes(user?.uid) && user?.uid) {
                 console.log('[Chat Mobile] FIXING broken conversation - adding current user to participants');
                 console.log('[Chat Mobile] Old participants:', participants);
@@ -200,7 +278,7 @@ const ChatScreen = ({route, navigation}) => {
           } catch (fixError) {
             console.log('[Chat Mobile] Error fixing conversation:', fixError);
           }
-          
+
           setConversationId(existingConversationId);
           setLoading(false);
           return;
@@ -241,7 +319,7 @@ const ChatScreen = ({route, navigation}) => {
     // Pass user.uid to filter messages based on deletedAt timestamp
     const unsubscribe = subscribeToMessages(conversationId, async (updatedMessages) => {
       setMessages(updatedMessages);
-      
+
       // Fetch real names for messages with "User" as senderName
       const senderIdsToFetch = new Set();
       updatedMessages.forEach(msg => {
@@ -250,14 +328,14 @@ const ChatScreen = ({route, navigation}) => {
           senderIdsToFetch.add(msg.senderId);
         }
       });
-      
+
       // Fetch names for unknown senders
       if (senderIdsToFetch.size > 0) {
         for (const senderId of senderIdsToFetch) {
           fetchSenderName(senderId);
         }
       }
-      
+
       // Mark as read when viewing
       if (user?.uid) {
         markConversationAsRead(conversationId, user.uid);
@@ -380,7 +458,7 @@ const ChatScreen = ({route, navigation}) => {
 
   const formatTime = (date) => {
     if (!date) return '';
-    return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   const handleReaction = async (messageId, emoji) => {
@@ -396,11 +474,72 @@ const ChatScreen = ({route, navigation}) => {
     setShowReactionPicker(null);
   };
 
-  const renderMessage = ({item, index}) => {
+  const renderMessage = ({ item, index }) => {
     const isMe = item.senderId === user?.uid;
     const showReadReceipt = isMe && index === messages.length - 1;
     const hasImage = item.imageUrl;
     const reactions = item.reactions || [];
+    const isCallEvent = item.text?.startsWith('📞');
+
+    // Render call event message (Messenger-style)
+    if (isCallEvent) {
+      const isMissed = item.text.includes('Missed') || item.text.includes('Declined');
+      return (
+        <View style={{ alignItems: 'center', marginVertical: 8, marginHorizontal: 16 }}>
+          <View style={{
+            backgroundColor: isDark ? theme.colors.card : '#F3F4F6',
+            borderRadius: 16,
+            paddingHorizontal: 20,
+            paddingVertical: 12,
+            alignItems: 'center',
+            minWidth: 200,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: isMissed ? '#FEE2E2' : '#D1FAE5',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+                <Icon
+                  name={isMissed ? 'call-outline' : 'call-outline'}
+                  size={18}
+                  color={isMissed ? '#EF4444' : '#10B981'}
+                />
+              </View>
+              <View>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937' }}>
+                  {isMissed ? (item.text.includes('Missed') ? 'Missed voice call' : 'Declined voice call') : 'Voice call'}
+                </Text>
+                {!isMissed && item.text.includes('·') && (
+                  <Text style={{ fontSize: 12, color: isDark ? theme.colors.textSecondary : '#6B7280', marginTop: 1 }}>
+                    {item.text.split('·')[1]?.trim()}
+                  </Text>
+                )}
+                <Text style={{ fontSize: 11, color: isDark ? theme.colors.textSecondary : '#9CA3AF', marginTop: 2 }}>
+                  {formatTime(item.timestamp)}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={handleStartCall}
+              style={{
+                marginTop: 10,
+                backgroundColor: isDark ? theme.colors.border : '#E5E7EB',
+                borderRadius: 20,
+                paddingHorizontal: 24,
+                paddingVertical: 8,
+                width: '100%',
+                alignItems: 'center',
+              }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: isDark ? theme.colors.text : '#374151' }}>Call again</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
 
     // Group reactions by emoji
     const groupedReactions = reactions.reduce((acc, r) => {
@@ -443,7 +582,7 @@ const ChatScreen = ({route, navigation}) => {
               paddingVertical: 6,
               flexDirection: 'row',
               shadowColor: '#000',
-              shadowOffset: {width: 0, height: 2},
+              shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.15,
               shadowRadius: 8,
               elevation: 5,
@@ -457,7 +596,7 @@ const ChatScreen = ({route, navigation}) => {
                   paddingHorizontal: 8,
                   paddingVertical: 4,
                 }}>
-                <Text style={{fontSize: 22}}>{emoji}</Text>
+                <Text style={{ fontSize: 22 }}>{emoji}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -477,7 +616,7 @@ const ChatScreen = ({route, navigation}) => {
             paddingVertical: hasImage ? 4 : 10,
             paddingBottom: 10,
             shadowColor: '#000',
-            shadowOffset: {width: 0, height: 1},
+            shadowOffset: { width: 0, height: 1 },
             shadowOpacity: 0.05,
             shadowRadius: 2,
             elevation: 1,
@@ -487,7 +626,7 @@ const ChatScreen = ({route, navigation}) => {
           {hasImage && (
             <TouchableOpacity onPress={() => setImagePreview(item.imageUrl)}>
               <Image
-                source={{uri: item.imageUrl}}
+                source={{ uri: item.imageUrl }}
                 style={{
                   width: 200,
                   height: 200,
@@ -532,7 +671,7 @@ const ChatScreen = ({route, navigation}) => {
                 name={item.read ? 'checkmark-done' : 'checkmark'}
                 size={14}
                 color={item.read ? '#34D399' : 'rgba(255,255,255,0.5)'}
-                style={{marginLeft: 4}}
+                style={{ marginLeft: 4 }}
               />
             )}
           </View>
@@ -564,12 +703,12 @@ const ChatScreen = ({route, navigation}) => {
                   borderWidth: 1,
                   borderColor: isDark ? theme.colors.border : '#E5E7EB',
                   shadowColor: '#000',
-                  shadowOffset: {width: 0, height: 1},
+                  shadowOffset: { width: 0, height: 1 },
                   shadowOpacity: 0.05,
                   shadowRadius: 2,
                   elevation: 1,
                 }}>
-                <Text style={{fontSize: 14}}>{emoji}</Text>
+                <Text style={{ fontSize: 14 }}>{emoji}</Text>
                 {users.length > 1 && (
                   <Text
                     style={{
@@ -587,7 +726,7 @@ const ChatScreen = ({route, navigation}) => {
 
         {/* Read receipt text for last message */}
         {showReadReceipt && item.read && (
-          <Text style={{fontSize: 10, color: '#10B981', marginTop: 2, marginRight: 4}}>Read</Text>
+          <Text style={{ fontSize: 10, color: '#10B981', marginTop: 2, marginRight: 4 }}>Read</Text>
         )}
       </AnimatedMessage>
     );
@@ -612,7 +751,7 @@ const ChatScreen = ({route, navigation}) => {
           flexDirection: 'row',
           alignItems: 'center',
           shadowColor: '#000',
-          shadowOffset: {width: 0, height: 1},
+          shadowOffset: { width: 0, height: 1 },
           shadowOpacity: 0.05,
           shadowRadius: 2,
           elevation: 1,
@@ -625,7 +764,7 @@ const ChatScreen = ({route, navigation}) => {
           }}>
           {recipient?.name?.split(' ')[0] || 'User'} is typing
         </Text>
-        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Animated.View
             style={{
               width: 6,
@@ -664,11 +803,11 @@ const ChatScreen = ({route, navigation}) => {
   if (loading) {
     return (
       <SafeAreaView
-        style={[styles.container, isDark && {backgroundColor: theme.colors.background}]}
+        style={[styles.container, isDark && { backgroundColor: theme.colors.background }]}
         edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#00B14F" />
-          <Text style={[styles.loadingText, isDark && {color: theme.colors.textSecondary}]}>
+          <Text style={[styles.loadingText, isDark && { color: theme.colors.textSecondary }]}>
             Loading conversation...
           </Text>
         </View>
@@ -678,13 +817,13 @@ const ChatScreen = ({route, navigation}) => {
 
   return (
     <SafeAreaView
-      style={[styles.container, isDark && {backgroundColor: theme.colors.background}]}
+      style={[styles.container, isDark && { backgroundColor: theme.colors.background }]}
       edges={['top']}>
       {/* Header */}
       <View
         style={[
           styles.header,
-          isDark && {backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border},
+          isDark && { backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border },
         ]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Icon name="arrow-back" size={24} color={isDark ? theme.colors.text : '#1F2937'} />
@@ -692,7 +831,7 @@ const ChatScreen = ({route, navigation}) => {
 
         {recipient?.profilePhoto ? (
           <Image
-            source={{uri: recipient.profilePhoto}}
+            source={{ uri: recipient.profilePhoto }}
             style={{
               width: 44,
               height: 44,
@@ -713,17 +852,17 @@ const ChatScreen = ({route, navigation}) => {
         )}
 
         <View style={styles.headerInfo}>
-          <Text style={[styles.headerName, isDark && {color: theme.colors.text}]}>
-            {recipient?.role?.toUpperCase() === 'ADMIN' ? 'GSS Support' : (recipient?.name || 'User')}
+          <Text style={[styles.headerName, isDark && { color: theme.colors.text }]}>
+            {recipient?.role?.toUpperCase() === 'ADMIN' ? 'H.E.L.P Support' : (recipient?.name || 'User')}
           </Text>
           {recipient?.role ? (
-            <Text style={[styles.headerRole, isDark && {color: theme.colors.textSecondary}]}>
+            <Text style={[styles.headerRole, isDark && { color: theme.colors.textSecondary }]}>
               {recipient.role.toUpperCase() === 'ADMIN' ? 'Support Team' : recipient.role.charAt(0) + recipient.role.slice(1).toLowerCase()}
             </Text>
           ) : (
             <View style={styles.onlineIndicator}>
               <View style={styles.onlineDot} />
-              <Text style={[styles.onlineText, isDark && {color: theme.colors.textSecondary}]}>
+              <Text style={[styles.onlineText, isDark && { color: theme.colors.textSecondary }]}>
                 Online
               </Text>
             </View>
@@ -732,18 +871,83 @@ const ChatScreen = ({route, navigation}) => {
 
         <TouchableOpacity
           style={styles.callButton}
-          onPress={() => {
-            // Could add call functionality here
-          }}>
+          onPress={handleStartCall}>
           <Icon name="call-outline" size={22} color="#00B14F" />
         </TouchableOpacity>
       </View>
 
+      {/* Call Status Banner - Messenger style */}
+      {callStatus && (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => {
+            // Tapping the banner could show the call UI
+          }}
+          style={{
+            backgroundColor: callStatus === 'incoming' ? '#16A34A' : callStatus === 'ongoing' ? '#00B14F' : '#22C55E',
+            paddingVertical: 10,
+            paddingHorizontal: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+          }}>
+          <Icon
+            name={callStatus === 'incoming' ? 'videocam' : 'call'}
+            size={18}
+            color="rgba(255,255,255,0.85)"
+          />
+          <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: '600' }}>
+            {recipient?.name || 'User'} · {callStatus === 'ringing' ? 'Ringing...' : callStatus === 'ongoing' ? 'Ongoing call' : 'Incoming call'}
+          </Text>
+          {callStatus === 'incoming' && (
+            <View style={{ flexDirection: 'row', gap: 12, marginLeft: 'auto' }}>
+              <TouchableOpacity
+                onPress={async () => {
+                  if (incomingCall?.id) {
+                    await declineCall(incomingCall.id);
+                    setIncomingCall(null);
+                    setCallStatus(null);
+                    Vibration.cancel();
+                  }
+                }}
+                style={{
+                  backgroundColor: '#EF4444',
+                  paddingHorizontal: 14,
+                  paddingVertical: 6,
+                  borderRadius: 16,
+                }}>
+                <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 12 }}>Decline</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={async () => {
+                  if (incomingCall?.id) {
+                    await answerCall(incomingCall.id);
+                    setActiveCall(incomingCall);
+                    setCallStatus('ongoing');
+                    setIncomingCall(null);
+                    callStartTimeRef.current = Date.now();
+                    Vibration.cancel();
+                  }
+                }}
+                style={{
+                  backgroundColor: '#FFF',
+                  paddingHorizontal: 14,
+                  paddingVertical: 6,
+                  borderRadius: 16,
+                }}>
+                <Text style={{ color: '#16A34A', fontWeight: '700', fontSize: 12 }}>Answer</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </TouchableOpacity>
+      )}
+
       {/* Job Context Banner */}
       {jobId && (
-        <View style={[styles.jobBanner, isDark && {backgroundColor: '#1E3A8A'}]}>
+        <View style={[styles.jobBanner, isDark && { backgroundColor: '#1E3A8A' }]}>
           <Icon name="briefcase" size={18} color={isDark ? '#93C5FD' : '#3B82F6'} />
-          <Text style={[styles.jobBannerText, isDark && {color: '#93C5FD'}]}>
+          <Text style={[styles.jobBannerText, isDark && { color: '#93C5FD' }]}>
             Discussing: {jobTitle || `Job #${jobId}`}
           </Text>
         </View>
@@ -755,8 +959,8 @@ const ChatScreen = ({route, navigation}) => {
         data={messages}
         keyExtractor={(item) => item.id}
         renderItem={renderMessage}
-        contentContainerStyle={{paddingVertical: 16, flexGrow: 1}}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({animated: true})}
+        contentContainerStyle={{ paddingVertical: 16, flexGrow: 1 }}
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -765,7 +969,7 @@ const ChatScreen = ({route, navigation}) => {
               size={50}
               color={isDark ? theme.colors.border : '#D1D5DB'}
             />
-            <Text style={[styles.emptyText, isDark && {color: theme.colors.textSecondary}]}>
+            <Text style={[styles.emptyText, isDark && { color: theme.colors.textSecondary }]}>
               Start the conversation
             </Text>
           </View>
@@ -777,32 +981,32 @@ const ChatScreen = ({route, navigation}) => {
       <View
         style={[
           styles.quickRepliesContainer,
-          isDark && {backgroundColor: theme.colors.card, borderTopColor: theme.colors.border},
+          isDark && { backgroundColor: theme.colors.card, borderTopColor: theme.colors.border },
         ]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{paddingHorizontal: 12, paddingVertical: 4}}
+          contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 4 }}
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled={true}
           directionalLockEnabled={true}>
           {(user?.role?.toUpperCase() === 'ADMIN'
             ? [
-                'Hello! How can I assist you?',
-                'Your request is being processed.',
-                'Please provide more details.',
-                "We'll get back to you shortly.",
-                'Thank you for contacting us!',
-              ]
+              'Hello! How can I assist you?',
+              'Your request is being processed.',
+              'Please provide more details.',
+              "We'll get back to you shortly.",
+              'Thank you for contacting us!',
+            ]
             : user?.role?.toUpperCase() === 'PROVIDER'
-            ? [
+              ? [
                 "Hello! I'm available.",
                 'Yes, I have complete tools.',
                 'I can start right away.',
                 'On my way now!',
                 'Job completed. Thank you!',
               ]
-            : [
+              : [
                 'Hello! Are you available?',
                 'Do you have complete tools?',
                 'When can you start?',
@@ -812,10 +1016,10 @@ const ChatScreen = ({route, navigation}) => {
           ).map((item, index) => (
             <TouchableOpacity
               key={index}
-              style={[styles.quickReplyButton, isDark && {backgroundColor: theme.colors.border}]}
+              style={[styles.quickReplyButton, isDark && { backgroundColor: theme.colors.border }]}
               onPress={() => setMessage(item)}
               activeOpacity={0.7}>
-              <Text style={[styles.quickReplyText, isDark && {color: theme.colors.text}]}>
+              <Text style={[styles.quickReplyText, isDark && { color: theme.colors.text }]}>
                 {item}
               </Text>
             </TouchableOpacity>
@@ -833,14 +1037,14 @@ const ChatScreen = ({route, navigation}) => {
             alignItems: 'center',
           }}>
           <TouchableOpacity
-            style={{position: 'absolute', top: 50, right: 20, zIndex: 10}}
+            style={{ position: 'absolute', top: 50, right: 20, zIndex: 10 }}
             onPress={() => setImagePreview(null)}>
             <Icon name="close" size={32} color="#FFFFFF" />
           </TouchableOpacity>
           {imagePreview && (
             <Image
-              source={{uri: imagePreview}}
-              style={{width: '90%', height: '70%'}}
+              source={{ uri: imagePreview }}
+              style={{ width: '90%', height: '70%' }}
               resizeMode="contain"
             />
           )}
@@ -859,9 +1063,9 @@ const ChatScreen = ({route, navigation}) => {
               borderTopWidth: 1,
               borderTopColor: isDark ? theme.colors.border : '#E5E7EB',
             }}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Image
-                source={{uri: selectedImage.uri}}
+                source={{ uri: selectedImage.uri }}
                 style={{
                   width: 60,
                   height: 60,
@@ -870,7 +1074,7 @@ const ChatScreen = ({route, navigation}) => {
                 }}
                 resizeMode="cover"
               />
-              <View style={{flex: 1}}>
+              <View style={{ flex: 1 }}>
                 <Text
                   style={{
                     fontSize: 13,
@@ -904,7 +1108,7 @@ const ChatScreen = ({route, navigation}) => {
         <View
           style={[
             styles.inputContainer,
-            isDark && {backgroundColor: theme.colors.card, borderTopColor: theme.colors.border},
+            isDark && { backgroundColor: theme.colors.card, borderTopColor: theme.colors.border },
           ]}>
           <TouchableOpacity
             style={styles.attachButton}
@@ -917,9 +1121,9 @@ const ChatScreen = ({route, navigation}) => {
             )}
           </TouchableOpacity>
 
-          <View style={[styles.inputWrapper, isDark && {backgroundColor: theme.colors.border}]}>
+          <View style={[styles.inputWrapper, isDark && { backgroundColor: theme.colors.border }]}>
             <TextInput
-              style={[styles.textInput, isDark && {color: theme.colors.text}]}
+              style={[styles.textInput, isDark && { color: theme.colors.text }]}
               placeholder={selectedImage ? 'Add a caption...' : 'Type a message...'}
               placeholderTextColor={isDark ? theme.colors.textSecondary : '#9CA3AF'}
               value={message}
@@ -957,6 +1161,30 @@ const ChatScreen = ({route, navigation}) => {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Voice Call Overlay */}
+      {activeCall && (callStatus === 'ringing' || callStatus === 'ongoing') && (
+        <VoiceCall
+          callId={activeCall.id}
+          channelName={activeCall.channelName}
+          isIncoming={false}
+          callerName={activeCall.callerName || recipient?.name || 'User'}
+          onEnd={() => {
+            const durationSec = callStartTimeRef.current
+              ? Math.round((Date.now() - callStartTimeRef.current) / 1000)
+              : 0;
+            endCall(activeCall.id, durationSec).catch(() => { });
+            if (durationSec > 5) {
+              sendCallEventMessage('completed', durationSec);
+            } else {
+              sendCallEventMessage('missed');
+            }
+            setActiveCall(null);
+            setCallStatus(null);
+            callStartTimeRef.current = null;
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 };

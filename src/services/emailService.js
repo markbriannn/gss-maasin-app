@@ -1,9 +1,9 @@
 /**
- * Email Service for GSS Maasin Mobile
+ * Email Service for Maasin City H.E.L.P Mobile
  * Uses backend Brevo API for reliable email delivery
  */
 
-import {API_CONFIG} from '../config/config';
+import { API_CONFIG } from '../config/config';
 
 /**
  * Send email via backend API (Brevo)
@@ -11,9 +11,9 @@ import {API_CONFIG} from '../config/config';
 const sendViaBackend = async (endpoint, data) => {
   try {
     console.log('[Email] Sending via backend:', endpoint);
-    
+
     const baseUrl = API_CONFIG.BASE_URL.replace(/\/api\/?$/, '');
-    
+
     const response = await fetch(`${baseUrl}/api/email${endpoint}`, {
       method: 'POST',
       headers: {
@@ -23,17 +23,17 @@ const sendViaBackend = async (endpoint, data) => {
     });
 
     const result = await response.json();
-    
+
     if (response.ok && result.success) {
       console.log('[Email] Sent successfully');
-      return {success: true};
+      return { success: true };
     } else {
       console.log('[Email] Failed:', result.error);
-      return {success: false, error: result.error || 'Failed to send email'};
+      return { success: false, error: result.error || 'Failed to send email' };
     }
   } catch (error) {
     console.log('[Email] Error:', error.message);
-    return {success: false, error: error.message};
+    return { success: false, error: error.message };
   }
 };
 
@@ -41,14 +41,14 @@ const sendViaBackend = async (endpoint, data) => {
  * Send verification code email
  */
 export const sendVerificationCode = async (email, code) => {
-  return sendViaBackend('/verification-code', {email, code});
+  return sendViaBackend('/verification-code', { email, code });
 };
 
 /**
  * Send password reset code
  */
 export const sendPasswordResetCode = async (email, code) => {
-  return sendViaBackend('/password-reset', {email, code});
+  return sendViaBackend('/password-reset', { email, code });
 };
 
 /**
@@ -124,8 +124,8 @@ export const sendNotificationEmail = async (email, name, subject, message, detai
       </div>
     </div>
   `;
-  
-  return sendViaBackend('/send', {to: email, subject, html});
+
+  return sendViaBackend('/send', { to: email, subject, html });
 };
 
 export default {

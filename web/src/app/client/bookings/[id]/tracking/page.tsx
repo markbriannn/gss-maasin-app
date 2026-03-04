@@ -12,8 +12,8 @@ import { Loader2 } from 'lucide-react';
 // Dynamically import the Leaflet map component (client-side only)
 const TrackingMapView = dynamic(
   () => import('@/components/TrackingMapView'),
-  { 
-    ssr: false, 
+  {
+    ssr: false,
     loading: () => (
       <div className="h-full w-full bg-gray-100 flex items-center justify-center">
         <div className="text-center">
@@ -105,7 +105,7 @@ export default function JobTrackingPage() {
 
     return () => unsubscribe();
   }, [job?.providerId, job?.latitude, job?.longitude, job?.location]);
-  
+
   // Also listen to booking's providerLocation for fallback
   useEffect(() => {
     if (!jobId) return;
@@ -134,10 +134,10 @@ export default function JobTrackingPage() {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
 
@@ -203,13 +203,18 @@ export default function JobTrackingPage() {
         {/* Interactive Map */}
         <div className="h-[400px] border-x border-gray-200">
           <TrackingMapView
-            providerLocation={provider?.latitude && provider?.longitude 
-              ? { lat: provider.latitude, lng: provider.longitude } 
+            providerLocation={provider?.latitude && provider?.longitude
+              ? { lat: provider.latitude, lng: provider.longitude }
               : null}
-            clientLocation={job.latitude && job.longitude 
-              ? { lat: job.latitude, lng: job.longitude } 
+            clientLocation={job.latitude && job.longitude
+              ? { lat: job.latitude, lng: job.longitude }
               : null}
             providerName={providerName}
+            providerPhoto={provider?.profilePhoto}
+            providerCategory={job?.serviceCategory || job?.category || ''}
+            providerRating={provider?.averageRating || 5}
+            distance={distance}
+            duration={duration}
           />
         </div>
 

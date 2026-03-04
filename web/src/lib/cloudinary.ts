@@ -1,5 +1,5 @@
 /**
- * Cloudinary Image Upload Service for GSS Maasin Web
+ * Cloudinary Image Upload Service for Maasin City H.E.L.P Web
  * Free tier: 25GB storage + 25GB bandwidth/month
  */
 
@@ -111,21 +111,21 @@ export const getOptimizedUrl = (url: string, options: {
   format?: 'auto' | 'webp' | 'jpg' | 'png';
 } = {}): string => {
   if (!url || !url.includes('cloudinary.com')) return url;
-  
+
   const { width, height, quality = 80, format = 'auto' } = options;
-  
+
   const transformations: string[] = [];
   if (width) transformations.push(`w_${width}`);
   if (height) transformations.push(`h_${height}`);
   transformations.push(`q_${quality}`);
   transformations.push(`f_${format}`);
-  
+
   // Insert transformations into URL
   const parts = url.split('/upload/');
   if (parts.length === 2) {
     return `${parts[0]}/upload/${transformations.join(',')}/${parts[1]}`;
   }
-  
+
   return url;
 };
 

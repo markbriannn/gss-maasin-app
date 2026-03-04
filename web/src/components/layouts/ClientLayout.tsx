@@ -211,7 +211,7 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
                 <div className="w-10 h-10 bg-[#00B14F] rounded-lg flex items-center justify-center">
                   <Wrench className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-xl font-bold text-gray-900 dark:text-white hidden sm:block">GSS Maasin</span>
+                <span className="text-xl font-bold text-gray-900 dark:text-white hidden sm:block">H.E.L.P Maasin</span>
               </Link>
             </div>
 

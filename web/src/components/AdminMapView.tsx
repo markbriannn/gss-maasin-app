@@ -49,48 +49,57 @@ const statusColors: Record<string, string> = {
   pending: '#EF4444',
 };
 
-// Create status-colored marker with profile photo support
-const createStatusIcon = (status: string, initial: string, profilePhoto?: string) => {
+// Status label text
+const statusLabels: Record<string, string> = {
+  available: 'Available',
+  traveling: 'Traveling',
+  arrived: 'Arrived',
+  working: 'Working',
+  offline: 'Offline',
+  pending: 'Pending',
+};
+
+// Create marker with profile photo, name label, and availability status (like reference image)
+const createStatusIcon = (status: string, initial: string, name: string, profilePhoto?: string) => {
   const color = statusColors[status] || '#6B7280';
-  
-  if (profilePhoto) {
-    // Create marker with profile photo and status border
-    return L.divIcon({
-      className: 'custom-marker',
-      html: `
+  const statusLabel = statusLabels[status] || 'Offline';
+  const shortName = name.length > 10 ? name.slice(0, 10) + '.' : name;
+
+  const photoHtml = profilePhoto
+    ? `<img src="${profilePhoto}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:white;font-weight:bold;font-size:13px;\\'>${initial}</div>'" />`
+    : `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:white;font-weight:bold;font-size:13px;">${initial}</div>`;
+
+  return L.divIcon({
+    className: 'custom-marker',
+    html: `
+      <div style="display:flex;flex-direction:column;align-items:center;position:relative;">
         <div style="
-          width: 44px;
-          height: 44px;
-          border-radius: 50%;
-          border: 3px solid ${color};
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-          overflow: hidden;
-          background-color: ${color};
+          width:38px;height:38px;border-radius:50%;
+          border:3px solid ${color};
+          box-shadow:0 2px 10px rgba(0,0,0,0.25);
+          overflow:hidden;background-color:${color};
         ">
-          <img 
-            src="${profilePhoto}" 
-            style="width: 100%; height: 100%; object-fit: cover;"
-            onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:white;font-weight:bold;font-size:16px;\\'>${initial}</div>'"
-          />
+          ${photoHtml}
         </div>
-      `,
-      iconSize: [44, 44],
-      iconAnchor: [22, 22],
-      popupAnchor: [0, -22],
-    });
-  }
-  
-  // Fallback to initial letter with status color
-  return new L.Icon({
-    iconUrl: 'data:image/svg+xml;base64,' + btoa(`
-      <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
-        <circle cx="22" cy="22" r="20" fill="${color}" stroke="#FFFFFF" stroke-width="3"/>
-        <text x="22" y="28" text-anchor="middle" fill="white" font-size="16" font-weight="bold">${initial}</text>
-      </svg>
-    `),
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
-    popupAnchor: [0, -22],
+        <div style="
+          margin-top:2px;
+          background:white;
+          border-radius:6px;
+          padding:2px 6px;
+          box-shadow:0 1px 6px rgba(0,0,0,0.18);
+          white-space:nowrap;
+          text-align:center;
+          line-height:1.2;
+          min-width:60px;
+        ">
+          <div style="font-size:10px;font-weight:700;color:#1f2937;">${shortName}</div>
+          <div style="font-size:8px;color:${color};font-weight:600;">${statusLabel}</div>
+        </div>
+      </div>
+    `,
+    iconSize: [80, 70],
+    iconAnchor: [40, 35],
+    popupAnchor: [0, -35],
   });
 };
 
@@ -128,7 +137,8 @@ export default function AdminMapView({ providers, activeJobs, center, onProvider
     const icons: Record<string, L.Icon | L.DivIcon> = {};
     providers.forEach(p => {
       const initial = p.firstName?.[0] || 'P';
-      icons[p.id] = createStatusIcon(p.status, initial, p.profilePhoto);
+      const shortName = `${p.firstName || ''} ${(p.lastName || '')[0] || ''}.`.trim();
+      icons[p.id] = createStatusIcon(p.status, initial, shortName, p.profilePhoto);
     });
     return icons;
   }, [providers]);
@@ -146,14 +156,14 @@ export default function AdminMapView({ providers, activeJobs, center, onProvider
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <MapController center={center} />
-      
+
       {/* Provider markers */}
       {providers.map((provider) => {
         const lat = provider.currentLocation?.latitude || provider.latitude;
         const lng = provider.currentLocation?.longitude || provider.longitude;
-        
+
         if (!lat || !lng) return null;
-        
+
         return (
           <Marker
             key={provider.id}
@@ -173,14 +183,14 @@ export default function AdminMapView({ providers, activeJobs, center, onProvider
           </Marker>
         );
       })}
-      
+
       {/* Active job markers */}
       {activeJobs.map((job) => {
         const lat = job.location?.latitude || job.latitude;
         const lng = job.location?.longitude || job.longitude;
-        
+
         if (!lat || !lng) return null;
-        
+
         return (
           <Marker
             key={`job-${job.id}`}

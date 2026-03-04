@@ -139,7 +139,7 @@ export default function MessagesPage() {
             if (userDoc.exists()) {
               const userData = userDoc.data();
               let userName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
-              if (!userName && userData.role === 'ADMIN') userName = 'GSS Support';
+              if (!userName && userData.role === 'ADMIN') userName = 'H.E.L.P Support';
               if (!userName) userName = userData.email?.split('@')[0] || 'User';
               otherUser = {
                 name: userName,

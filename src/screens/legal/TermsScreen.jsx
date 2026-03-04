@@ -36,7 +36,7 @@ const TermsScreen = ({ navigation }) => {
         </Text>
 
         <Text style={{ fontSize: 14, color: bodyColor, lineHeight: 22, marginBottom: 16 }}>
-          Welcome to GSS Maasin Service App. By using this platform as a {role === 'PROVIDER' ? 'Service Provider' : 'Client'}, you agree to the following terms:
+          Welcome to H.E.L.P Maasin Service App. By using this platform as a {role === 'PROVIDER' ? 'Service Provider' : 'Client'}, you agree to the following terms:
         </Text>
 
         <Text style={{ fontSize: 16, fontWeight: '700', color: titleColor, marginBottom: 8 }}>

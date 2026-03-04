@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect} from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,15 @@ import {
   Animated,
   Easing,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {onboardingStyles as styles} from '../../css/authStyles';
+import { onboardingStyles as styles } from '../../css/authStyles';
 
 const onboardingData = [
   {
     id: 1,
-    title: 'Welcome to GSS',
+    title: 'Welcome to H.E.L.P',
     subtitle: 'Connect with trusted local service providers in Maasin City',
     backgroundColor: '#E6F7EF',
     iconName: 'hand-left-outline',
@@ -53,7 +53,7 @@ const onboardingData = [
 ];
 
 // Animated Icon Component with multiple effects
-const AnimatedIcon = ({iconName, iconColor, secondaryIcon, isActive}) => {
+const AnimatedIcon = ({ iconName, iconColor, secondaryIcon, isActive }) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -152,7 +152,7 @@ const AnimatedIcon = ({iconName, iconColor, secondaryIcon, isActive}) => {
   });
 
   return (
-    <View style={{alignItems: 'center', justifyContent: 'center', height: 180}}>
+    <View style={{ alignItems: 'center', justifyContent: 'center', height: 180 }}>
       {/* Sparkle effects */}
       <Animated.View
         style={{
@@ -160,7 +160,7 @@ const AnimatedIcon = ({iconName, iconColor, secondaryIcon, isActive}) => {
           top: 10,
           right: 30,
           opacity: sparkle1,
-          transform: [{scale: sparkle1}],
+          transform: [{ scale: sparkle1 }],
         }}>
         <Icon name="sparkles" size={24} color={iconColor} />
       </Animated.View>
@@ -170,7 +170,7 @@ const AnimatedIcon = ({iconName, iconColor, secondaryIcon, isActive}) => {
           top: 40,
           left: 20,
           opacity: sparkle2,
-          transform: [{scale: sparkle2}],
+          transform: [{ scale: sparkle2 }],
         }}>
         <Icon name="star" size={20} color={iconColor} />
       </Animated.View>
@@ -180,7 +180,7 @@ const AnimatedIcon = ({iconName, iconColor, secondaryIcon, isActive}) => {
           bottom: 30,
           right: 20,
           opacity: sparkle3,
-          transform: [{scale: sparkle3}],
+          transform: [{ scale: sparkle3 }],
         }}>
         <Icon name="flash" size={22} color={iconColor} />
       </Animated.View>
@@ -189,9 +189,9 @@ const AnimatedIcon = ({iconName, iconColor, secondaryIcon, isActive}) => {
       <Animated.View
         style={{
           transform: [
-            {scale: Animated.multiply(scaleAnim, pulseAnim)},
-            {rotate},
-            {translateY: floatAnim},
+            { scale: Animated.multiply(scaleAnim, pulseAnim) },
+            { rotate },
+            { translateY: floatAnim },
           ],
         }}>
         <Icon name={iconName} size={120} color={iconColor} />
@@ -208,7 +208,7 @@ const AnimatedIcon = ({iconName, iconColor, secondaryIcon, isActive}) => {
             {
               translateY: Animated.multiply(floatAnim, -0.5),
             },
-            {scale: 0.8},
+            { scale: 0.8 },
           ],
         }}>
         <View
@@ -225,7 +225,7 @@ const AnimatedIcon = ({iconName, iconColor, secondaryIcon, isActive}) => {
 };
 
 // Animated Text Component
-const AnimatedText = ({title, subtitle, isActive}) => {
+const AnimatedText = ({ title, subtitle, isActive }) => {
   const titleAnim = useRef(new Animated.Value(0)).current;
   const subtitleAnim = useRef(new Animated.Value(0)).current;
   const titleSlide = useRef(new Animated.Value(50)).current;
@@ -279,7 +279,7 @@ const AnimatedText = ({title, subtitle, isActive}) => {
           styles.title,
           {
             opacity: titleAnim,
-            transform: [{translateY: titleSlide}],
+            transform: [{ translateY: titleSlide }],
           },
         ]}>
         {title}
@@ -289,7 +289,7 @@ const AnimatedText = ({title, subtitle, isActive}) => {
           styles.subtitle,
           {
             opacity: subtitleAnim,
-            transform: [{translateY: subtitleSlide}],
+            transform: [{ translateY: subtitleSlide }],
           },
         ]}>
         {subtitle}
@@ -299,7 +299,7 @@ const AnimatedText = ({title, subtitle, isActive}) => {
 };
 
 // Animated Dot Indicator
-const AnimatedDot = ({isActive, index, onPress}) => {
+const AnimatedDot = ({ isActive, index, onPress }) => {
   const widthAnim = useRef(new Animated.Value(isActive ? 24 : 8)).current;
   const opacityAnim = useRef(new Animated.Value(isActive ? 1 : 0.5)).current;
 
@@ -339,7 +339,7 @@ const AnimatedDot = ({isActive, index, onPress}) => {
 };
 
 // Animated Button
-const AnimatedButton = ({onPress, isLastSlide}) => {
+const AnimatedButton = ({ onPress, isLastSlide }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
 
@@ -389,7 +389,7 @@ const AnimatedButton = ({onPress, isLastSlide}) => {
         style={[
           styles.nextButton,
           {
-            transform: [{scale: scaleAnim}],
+            transform: [{ scale: scaleAnim }],
             shadowOpacity: isLastSlide ? glowAnim : 0.2,
             shadowRadius: isLastSlide ? 15 : 5,
             shadowColor: '#00B14F',
@@ -409,10 +409,10 @@ const AnimatedButton = ({onPress, isLastSlide}) => {
   );
 };
 
-const OnboardingScreen = ({navigation}) => {
+const OnboardingScreen = ({ navigation }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollViewRef = useRef(null);
-  const {width} = useWindowDimensions();
+  const { width } = useWindowDimensions();
 
   const handleScroll = event => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
@@ -460,8 +460,8 @@ const OnboardingScreen = ({navigation}) => {
 
       <ScrollView
         ref={scrollViewRef}
-        style={{flex: 1}}
-        contentContainerStyle={{flexGrow: 1}}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1 }}
         horizontal
         pagingEnabled
         snapToInterval={width}
@@ -470,11 +470,11 @@ const OnboardingScreen = ({navigation}) => {
         onScroll={handleScroll}
         scrollEventThrottle={16}>
         {onboardingData.map((item, index) => (
-          <View key={item.id} style={[styles.slide, {width}]}>
+          <View key={item.id} style={[styles.slide, { width }]}>
             <View
               style={[
                 styles.imageContainer,
-                {backgroundColor: item.backgroundColor},
+                { backgroundColor: item.backgroundColor },
               ]}>
               <AnimatedIcon
                 iconName={item.iconName}

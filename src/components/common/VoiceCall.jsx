@@ -7,10 +7,25 @@ import {
   Dimensions,
   Modal,
   Alert,
+  Platform,
+  PermissionsAndroid,
+  Vibration,
+  Animated,
 } from 'react-native';
-import { createAgoraRtcEngine, ChannelProfileType, ClientRoleType } from 'react-native-agora';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AGORA_APP_ID, API_BASE_URL } from '@env';
+import { listenToCall } from '../../services/callService';
+
+// Lazy import to prevent crash if module fails to load
+let createAgoraRtcEngine, ChannelProfileType, ClientRoleType;
+try {
+  const agoraModule = require('react-native-agora');
+  createAgoraRtcEngine = agoraModule.createAgoraRtcEngine;
+  ChannelProfileType = agoraModule.ChannelProfileType;
+  ClientRoleType = agoraModule.ClientRoleType;
+} catch (err) {
+  console.warn('[VoiceCall] react-native-agora not available:', err.message);
+}
 
 const { width, height } = Dimensions.get('window');
 
@@ -27,16 +42,104 @@ const VoiceCall = ({
   const [isMuted, setIsMuted] = useState(false);
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState(null);
-  
+
   const engineRef = useRef(null);
   const durationIntervalRef = useRef(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Ringtone vibration pattern: [wait, vibrate, wait, vibrate...]
+  // Pattern: vibrate 1000ms, pause 1000ms, vibrate 1000ms, pause 1000ms
+  const RING_PATTERN = [0, 1000, 1000, 1000, 1000, 1000];
+
+  // Start ringing vibration for incoming calls
+  useEffect(() => {
+    if (isIncoming && callState === 'ringing') {
+      // Start vibration pattern (repeating)
+      Vibration.vibrate(RING_PATTERN, true);
+
+      // Pulse animation for the avatar
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.2,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulse.start();
+
+      // Auto-miss after 30 seconds
+      const missTimeout = setTimeout(() => {
+        Vibration.cancel();
+        handleEndCall();
+      }, 30000);
+
+      return () => {
+        Vibration.cancel();
+        pulse.stop();
+        clearTimeout(missTimeout);
+      };
+    }
+    
+    // Pulse animation for outgoing calls too (ringing state)
+    if (!isIncoming && (callState === 'ringing' || callState === 'connecting')) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.2,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulse.start();
+
+      return () => {
+        pulse.stop();
+      };
+    }
+  }, [isIncoming, callState]);
 
   useEffect(() => {
-    initEngine();
+    // Don't auto-init engine on mount — only init when joining channel
+    // For outgoing calls, auto-join
+    if (!isIncoming) {
+      joinChannel();
+    }
     return () => {
       cleanup();
     };
   }, []);
+
+  // Listen to call status changes in Firestore
+  useEffect(() => {
+    if (!callId) return;
+
+    const unsubscribe = listenToCall(callId, (callData) => {
+      console.log('[VoiceCall] Call status changed:', callData.status);
+      
+      // If call ended remotely, end it locally
+      if (callData.status === 'ended' || callData.status === 'declined' || callData.status === 'missed') {
+        if (callState !== 'ended') {
+          console.log('[VoiceCall] Call ended remotely, cleaning up');
+          handleEndCall();
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [callId, callState]);
 
   useEffect(() => {
     if (callState === 'active') {
@@ -45,24 +148,57 @@ const VoiceCall = ({
     return () => stopDurationTimer();
   }, [callState]);
 
+  // Request microphone permission on Android
+  const requestAudioPermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          {
+            title: 'Microphone Permission',
+            message: 'H.E.L.P needs microphone access for voice calls',
+            buttonPositive: 'Allow',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.error('[VoiceCall] Permission error:', err);
+        return false;
+      }
+    }
+    return true;
+  };
+
   const initEngine = async () => {
+    if (!createAgoraRtcEngine) {
+      setError('Voice calling not available on this device');
+      return false;
+    }
+
     try {
       const appId = AGORA_APP_ID || 'dfed04451174410bb13b5dcee9bfcb8a';
-      
+
       if (!appId) {
         console.error('[VoiceCall] No Agora App ID configured');
         setError('Voice call not configured');
-        return;
+        return false;
       }
-      
-      // Create engine using v4.x API
+
+      // Request permission first
+      const hasPermission = await requestAudioPermission();
+      if (!hasPermission) {
+        setError('Microphone permission denied');
+        return false;
+      }
+
+      // Create engine
       const engine = createAgoraRtcEngine();
       await engine.initialize({ appId });
       engineRef.current = engine;
 
       // Enable audio
       await engine.enableAudio();
-      
+
       // Register event handlers
       engine.registerEventHandler({
         onUserJoined: (connection, remoteUid, elapsed) => {
@@ -79,10 +215,11 @@ const VoiceCall = ({
         },
       });
 
+      return true;
     } catch (err) {
       console.error('[VoiceCall] Failed to initialize Agora:', err);
       setError('Failed to initialize call');
-      // Don't crash the app, just show error
+      return false;
     }
   };
 
@@ -102,7 +239,16 @@ const VoiceCall = ({
   const joinChannel = async () => {
     try {
       setCallState('connecting');
-      
+
+      // Initialize engine only when needed (lazy init)
+      if (!engineRef.current) {
+        const success = await initEngine();
+        if (!success) {
+          handleEndCall();
+          return;
+        }
+      }
+
       // Get token from backend
       const apiUrl = API_BASE_URL || 'https://gss-maasin-app.onrender.com/api';
       const response = await fetch(`${apiUrl}/agora/token`, {
@@ -112,7 +258,7 @@ const VoiceCall = ({
       });
 
       if (!response.ok) throw new Error('Failed to get token');
-      
+
       const { token } = await response.json();
 
       // Set channel profile and client role
@@ -121,8 +267,9 @@ const VoiceCall = ({
 
       // Join channel using v4.x API
       await engineRef.current?.joinChannel(token, channelName, 0, {});
-      
-      setCallState('active');
+
+      // Stay in 'ringing' state — only switch to 'active' when remote user joins
+      setCallState('ringing');
     } catch (err) {
       console.error('Failed to join channel:', err);
       setError('Failed to connect');
@@ -132,16 +279,19 @@ const VoiceCall = ({
   };
 
   const handleAnswer = async () => {
+    Vibration.cancel();
     if (onAnswer) onAnswer();
     await joinChannel();
   };
 
   const handleDecline = () => {
+    Vibration.cancel();
     if (onDecline) onDecline();
     cleanup();
   };
 
   const handleEndCall = () => {
+    Vibration.cancel();
     stopDurationTimer();
     setCallState('ended');
     cleanup();
@@ -159,6 +309,7 @@ const VoiceCall = ({
 
   const cleanup = async () => {
     try {
+      Vibration.cancel();
       stopDurationTimer();
       if (engineRef.current) {
         await engineRef.current.leaveChannel();
@@ -182,11 +333,14 @@ const VoiceCall = ({
       <Modal visible={true} animationType="slide" statusBarTranslucent>
         <View style={styles.container}>
           <View style={styles.incomingCallContent}>
-            <View style={styles.avatarContainer}>
-              <Icon name="phone" size={80} color="#fff" />
-            </View>
+            {/* Pulsing ring effect */}
+            <Animated.View style={[styles.ringEffect, { transform: [{ scale: pulseAnim }], opacity: pulseAnim.interpolate({ inputRange: [1, 1.2], outputRange: [0.6, 0] }) }]} />
+            <Animated.View style={[styles.avatarContainer, { transform: [{ scale: pulseAnim.interpolate({ inputRange: [1, 1.2], outputRange: [1, 1.05] }) }] }]}>
+              <Icon name="phone-incoming" size={80} color="#fff" />
+            </Animated.View>
             <Text style={styles.callerName}>{callerName}</Text>
-            <Text style={styles.callingText}>is calling...</Text>
+            <Text style={styles.callingText}>Incoming call...</Text>
+            <Text style={styles.callingSubtext}>📱 Voice Call</Text>
           </View>
 
           <View style={styles.buttonContainer}>
@@ -211,23 +365,38 @@ const VoiceCall = ({
     );
   }
 
-  // Active call screen
-  if (callState === 'connecting' || callState === 'active') {
+  // Active / Ringing call screen
+  if (callState === 'connecting' || callState === 'ringing' || callState === 'active') {
+    const isWaitingForAnswer = callState === 'ringing' || callState === 'connecting';
     return (
       <Modal visible={true} animationType="slide" statusBarTranslucent>
         <View style={styles.container}>
           <View style={styles.activeCallContent}>
-            <View style={styles.avatarContainer}>
-              <Icon 
-                name={isMuted ? "microphone-off" : "microphone"} 
-                size={80} 
-                color={isMuted ? "#999" : "#fff"} 
-              />
-            </View>
-            <Text style={styles.callerName}>{callerName}</Text>
-            <Text style={styles.durationText}>
-              {callState === 'connecting' ? 'Connecting...' : formatDuration(duration)}
-            </Text>
+            {isWaitingForAnswer ? (
+              // Ringing state — waiting for other person to answer
+              <>
+                <Animated.View style={[styles.ringEffect, { transform: [{ scale: pulseAnim }], opacity: pulseAnim.interpolate({ inputRange: [1, 1.2], outputRange: [0.6, 0] }) }]} />
+                <View style={styles.avatarContainer}>
+                  <Icon name="phone-outgoing" size={80} color="#fff" />
+                </View>
+                <Text style={styles.callerName}>{callerName}</Text>
+                <Text style={styles.callingText}>Ringing...</Text>
+                <Text style={styles.callingSubtext}>Waiting for answer...</Text>
+              </>
+            ) : (
+              // Active call — connected, showing timer
+              <>
+                <View style={styles.avatarContainer}>
+                  <Icon
+                    name={isMuted ? "microphone-off" : "microphone"}
+                    size={80}
+                    color={isMuted ? "#999" : "#fff"}
+                  />
+                </View>
+                <Text style={styles.callerName}>{callerName}</Text>
+                <Text style={styles.durationText}>{formatDuration(duration)}</Text>
+              </>
+            )}
           </View>
 
           {error && (
@@ -237,27 +406,28 @@ const VoiceCall = ({
           )}
 
           <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[styles.controlButton, isMuted && styles.mutedButton]}
-              onPress={toggleMute}
-              disabled={callState === 'connecting'}
-            >
-              <Icon 
-                name={isMuted ? "microphone-off" : "microphone"} 
-                size={32} 
-                color="#fff" 
-              />
-              <Text style={styles.controlButtonText}>
-                {isMuted ? 'Unmute' : 'Mute'}
-              </Text>
-            </TouchableOpacity>
+            {!isWaitingForAnswer && (
+              <TouchableOpacity
+                style={[styles.controlButton, isMuted && styles.mutedButton]}
+                onPress={toggleMute}
+              >
+                <Icon
+                  name={isMuted ? "microphone-off" : "microphone"}
+                  size={32}
+                  color="#fff"
+                />
+                <Text style={styles.controlButtonText}>
+                  {isMuted ? 'Unmute' : 'Mute'}
+                </Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={[styles.callButton, styles.endCallButton]}
               onPress={handleEndCall}
             >
               <Icon name="phone-hangup" size={40} color="#fff" />
-              <Text style={styles.buttonText}>End Call</Text>
+              <Text style={styles.buttonText}>{isWaitingForAnswer ? 'Cancel' : 'End Call'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -304,6 +474,20 @@ const styles = StyleSheet.create({
   callingText: {
     fontSize: 24,
     color: 'rgba(255, 255, 255, 0.9)',
+  },
+  callingSubtext: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.6)',
+    marginTop: 8,
+  },
+  ringEffect: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    borderWidth: 3,
+    borderColor: 'rgba(16, 185, 129, 0.6)',
+    top: '25%',
   },
   durationText: {
     fontSize: 32,

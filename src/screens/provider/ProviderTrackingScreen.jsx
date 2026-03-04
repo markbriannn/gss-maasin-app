@@ -1,4 +1,4 @@
-import {useState, useEffect, useRef} from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,27 +8,27 @@ import {
   Image,
   Linking,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import MapView, {Marker, Polyline, PROVIDER_GOOGLE, AnimatedRegion} from 'react-native-maps';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE, AnimatedRegion } from 'react-native-maps';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {db} from '../../config/firebase';
-import {doc, onSnapshot, getDoc, updateDoc} from 'firebase/firestore';
+import { db } from '../../config/firebase';
+import { doc, onSnapshot, getDoc, updateDoc } from 'firebase/firestore';
 import locationService from '../../services/locationService';
-import {useAuth} from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 
 const ANIMATION_DURATION = 1000; // 1 second smooth animation
 const FIRESTORE_UPDATE_INTERVAL = 15000; // Only write to Firestore every 15 seconds (saves quota)
 const MIN_DISTANCE_FOR_UPDATE = 20; // Only update if moved at least 20 meters
 
-const ProviderTrackingScreen = ({navigation, route}) => {
-  const {jobId, job} = route.params || {};
-  const {user} = useAuth();
+const ProviderTrackingScreen = ({ navigation, route }) => {
+  const { jobId, job } = route.params || {};
+  const { user } = useAuth();
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const locationWatchId = useRef(null);
   const lastFirestoreUpdate = useRef(0); // Track last Firestore write time
   const lastWrittenLocation = useRef(null); // Track last written location
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [jobData, setJobData] = useState(job || null);
   const [providerLocation, setProviderLocation] = useState(null);
@@ -91,7 +91,7 @@ const ProviderTrackingScreen = ({navigation, route}) => {
       async (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          setJobData({...data, id: docSnap.id});
+          setJobData({ ...data, id: docSnap.id });
 
           // Get client location from booking
           if (data.latitude && data.longitude) {
@@ -133,12 +133,12 @@ const ProviderTrackingScreen = ({navigation, route}) => {
     const shouldWriteToFirestore = (newLoc) => {
       const now = Date.now();
       const timeSinceLastWrite = now - lastFirestoreUpdate.current;
-      
+
       // Always write if enough time has passed
       if (timeSinceLastWrite >= FIRESTORE_UPDATE_INTERVAL) {
         return true;
       }
-      
+
       // Also write if moved significantly (even if time hasn't passed)
       if (lastWrittenLocation.current) {
         const distanceMoved = locationService.calculateDistance(
@@ -147,12 +147,12 @@ const ProviderTrackingScreen = ({navigation, route}) => {
           newLoc.latitude,
           newLoc.longitude
         ) * 1000; // Convert km to meters
-        
+
         if (distanceMoved >= MIN_DISTANCE_FOR_UPDATE && timeSinceLastWrite >= 5000) {
           return true;
         }
       }
-      
+
       return false;
     };
 
@@ -177,7 +177,7 @@ const ProviderTrackingScreen = ({navigation, route}) => {
             },
           });
         }
-        
+
         lastFirestoreUpdate.current = Date.now();
         lastWrittenLocation.current = location;
       } catch (e) {
@@ -193,7 +193,7 @@ const ProviderTrackingScreen = ({navigation, route}) => {
           latitude: location.latitude,
           longitude: location.longitude,
         };
-        
+
         // Set initial position immediately (no animation for first position)
         providerCoordinate.setValue({
           latitude: initialLoc.latitude,
@@ -227,7 +227,7 @@ const ProviderTrackingScreen = ({navigation, route}) => {
           latitude: location.latitude,
           longitude: location.longitude,
         };
-        
+
         // Always animate marker smoothly (local update - no Firestore cost)
         animateMarker(newLoc);
 
@@ -258,15 +258,15 @@ const ProviderTrackingScreen = ({navigation, route}) => {
   const fetchRoute = async (origin, dest) => {
     try {
       const url = `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson`;
-      
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
-      
+
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
-      
+
       const data = await response.json();
-      
+
       if (data.code === 'Ok' && data.routes?.[0]) {
         const route = data.routes[0];
         const points = route.geometry.coordinates.map(coord => ({
@@ -294,7 +294,7 @@ const ProviderTrackingScreen = ({navigation, route}) => {
   const fitMapToMarkers = () => {
     if (mapRef.current && providerLocation && clientLocation) {
       mapRef.current.fitToCoordinates([providerLocation, clientLocation], {
-        edgePadding: {top: 100, right: 50, bottom: 280, left: 50},
+        edgePadding: { top: 100, right: 50, bottom: 280, left: 50 },
         animated: true,
       });
     }
@@ -342,7 +342,7 @@ const ProviderTrackingScreen = ({navigation, route}) => {
 
   const getStatusColor = () => {
     switch (jobData?.status) {
-      case 'traveling': return '#3B82F6';
+      case 'traveling': return '#00B14F';
       case 'arrived': return '#10B981';
       case 'in_progress': return '#8B5CF6';
       default: return '#00B14F';
@@ -351,17 +351,17 @@ const ProviderTrackingScreen = ({navigation, route}) => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={{flex: 1, backgroundColor: '#FFFFFF'}}>
-        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color="#00B14F" />
-          <Text style={{marginTop: 16, color: '#6B7280'}}>Loading navigation...</Text>
+          <Text style={{ marginTop: 16, color: '#6B7280' }}>Loading navigation...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#FFFFFF'}} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top']}>
       {/* Header */}
       <View style={{
         flexDirection: 'row',
@@ -373,11 +373,11 @@ const ProviderTrackingScreen = ({navigation, route}) => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <View style={{flex: 1, marginLeft: 16}}>
-          <Text style={{fontSize: 18, fontWeight: '600', color: '#FFFFFF'}}>
+        <View style={{ flex: 1, marginLeft: 16 }}>
+          <Text style={{ fontSize: 18, fontWeight: '600', color: '#FFFFFF' }}>
             Navigate to Client
           </Text>
-          <Text style={{fontSize: 13, color: '#FFFFFF', opacity: 0.9}}>
+          <Text style={{ fontSize: 13, color: '#FFFFFF', opacity: 0.9 }}>
             {getStatusText()}
           </Text>
         </View>
@@ -389,7 +389,7 @@ const ProviderTrackingScreen = ({navigation, route}) => {
       {/* Map */}
       <MapView
         ref={mapRef}
-        style={{flex: 1}}
+        style={{ flex: 1 }}
         provider={PROVIDER_GOOGLE}
         initialRegion={{
           latitude: providerLocation?.latitude || clientLocation?.latitude || 10.1301,
@@ -399,60 +399,62 @@ const ProviderTrackingScreen = ({navigation, route}) => {
         }}
         showsUserLocation={false}
         showsMyLocationButton={false}>
-        {/* Animated Provider (You) Marker */}
+        {/* Animated Provider (You) Marker - Green themed */}
         {providerLocation && (
           <Marker.Animated
             ref={markerRef}
             coordinate={providerCoordinate}
             title="Your Location"
-            anchor={{x: 0.5, y: 0.5}}
+            anchor={{ x: 0.5, y: 0.5 }}
             flat={true}
             rotation={heading}>
-            <View style={{alignItems: 'center'}}>
+            <View style={{ alignItems: 'center' }}>
               <View style={{
-                backgroundColor: '#3B82F6',
+                backgroundColor: '#00B14F',
                 padding: 10,
                 borderRadius: 25,
                 borderWidth: 3,
                 borderColor: '#FFFFFF',
-                shadowColor: '#000',
-                shadowOffset: {width: 0, height: 2},
-                shadowOpacity: 0.3,
+                shadowColor: '#00B14F',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.4,
                 shadowRadius: 4,
                 elevation: 5,
-                transform: [{rotate: `${heading}deg`}],
+                transform: [{ rotate: `${heading}deg` }],
               }}>
                 <Icon name="car" size={22} color="#FFFFFF" />
               </View>
               <View style={{
-                backgroundColor: '#3B82F6',
+                backgroundColor: '#00B14F',
                 paddingHorizontal: 10,
                 paddingVertical: 4,
                 borderRadius: 10,
                 marginTop: 6,
               }}>
-                <Text style={{fontSize: 11, color: '#FFFFFF', fontWeight: '700'}}>You</Text>
+                <Text style={{ fontSize: 11, color: '#FFFFFF', fontWeight: '700' }}>You</Text>
               </View>
             </View>
           </Marker.Animated>
         )}
 
-        {/* Client Marker */}
+        {/* Client Marker - with info card */}
         {clientLocation && (
-          <Marker 
-            coordinate={clientLocation} 
+          <Marker
+            coordinate={clientLocation}
             title={clientInfo?.name || 'Client'}
-            tracksViewChanges={false}>
-            <View style={{alignItems: 'center'}}>
+            anchor={{ x: 0.15, y: 0.5 }}
+            tracksViewChanges={true}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {/* Client Photo Circle */}
               <View style={{
-                width: 50,
-                height: 50,
-                borderRadius: 25,
+                width: 42,
+                height: 42,
+                borderRadius: 21,
                 borderWidth: 3,
-                borderColor: '#EF4444',
+                borderColor: '#00B14F',
                 backgroundColor: '#FFFFFF',
                 shadowColor: '#000',
-                shadowOffset: {width: 0, height: 2},
+                shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.3,
                 shadowRadius: 4,
                 elevation: 5,
@@ -461,33 +463,41 @@ const ProviderTrackingScreen = ({navigation, route}) => {
                 overflow: 'hidden',
               }}>
                 {clientInfo?.photo ? (
-                  <Image 
-                    source={{uri: clientInfo.photo}} 
-                    style={{width: 44, height: 44, borderRadius: 22}} 
+                  <Image
+                    source={{ uri: clientInfo.photo }}
+                    style={{ width: 36, height: 36, borderRadius: 18 }}
                   />
                 ) : (
-                  <View style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 22,
-                    backgroundColor: '#EF4444',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}>
-                    <Icon name="location" size={22} color="#FFFFFF" />
-                  </View>
+                  <Icon name="person" size={18} color="#00B14F" />
                 )}
               </View>
+              {/* Info Label Card */}
               <View style={{
-                backgroundColor: '#EF4444',
-                paddingHorizontal: 10,
-                paddingVertical: 4,
+                backgroundColor: '#FFF',
                 borderRadius: 10,
-                marginTop: 6,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                elevation: 4,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.15,
+                shadowRadius: 6,
+                minWidth: 90,
               }}>
-                <Text style={{fontSize: 11, color: '#FFFFFF', fontWeight: '700'}}>
-                  {clientInfo?.name?.split(' ')[0] || 'Client'}
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#1f2937' }} numberOfLines={1}>
+                  {clientInfo?.name || 'Client'}
                 </Text>
+                <Text style={{ fontSize: 9, color: '#6B7280', marginTop: 1 }} numberOfLines={1}>
+                  {clientInfo?.address || jobData?.address || 'Client location'}
+                </Text>
+                {distance && duration ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 3 }}>
+                    <Icon name="location" size={10} color="#00B14F" />
+                    <Text style={{ fontSize: 9, color: '#6B7280' }}>
+                      {distance} km away - {duration} min
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             </View>
           </Marker>
@@ -531,7 +541,7 @@ const ProviderTrackingScreen = ({navigation, route}) => {
         elevation: 10,
       }}>
         {/* Client Info */}
-        <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 16}}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
           <View style={{
             width: 56,
             height: 56,
@@ -542,16 +552,16 @@ const ProviderTrackingScreen = ({navigation, route}) => {
             overflow: 'hidden',
           }}>
             {clientInfo?.photo ? (
-              <Image source={{uri: clientInfo.photo}} style={{width: 56, height: 56}} />
+              <Image source={{ uri: clientInfo.photo }} style={{ width: 56, height: 56 }} />
             ) : (
               <Icon name="person" size={28} color="#6B7280" />
             )}
           </View>
-          <View style={{flex: 1, marginLeft: 12}}>
-            <Text style={{fontSize: 16, fontWeight: '600', color: '#1F2937'}}>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: '#1F2937' }}>
               {clientInfo?.name || 'Client'}
             </Text>
-            <Text style={{fontSize: 13, color: '#6B7280', marginTop: 2}} numberOfLines={1}>
+            <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }} numberOfLines={1}>
               {clientInfo?.address || jobData?.address || 'Client location'}
             </Text>
           </View>
@@ -565,25 +575,25 @@ const ProviderTrackingScreen = ({navigation, route}) => {
           padding: 16,
           marginBottom: 16,
         }}>
-          <View style={{flex: 1, alignItems: 'center'}}>
+          <View style={{ flex: 1, alignItems: 'center' }}>
             <Icon name="speedometer-outline" size={24} color="#3B82F6" />
-            <Text style={{fontSize: 18, fontWeight: '700', color: '#1F2937', marginTop: 4}}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#1F2937', marginTop: 4 }}>
               {distance ? `${distance} km` : '--'}
             </Text>
-            <Text style={{fontSize: 12, color: '#6B7280'}}>Distance</Text>
+            <Text style={{ fontSize: 12, color: '#6B7280' }}>Distance</Text>
           </View>
-          <View style={{width: 1, backgroundColor: '#E5E7EB'}} />
-          <View style={{flex: 1, alignItems: 'center'}}>
+          <View style={{ width: 1, backgroundColor: '#E5E7EB' }} />
+          <View style={{ flex: 1, alignItems: 'center' }}>
             <Icon name="time-outline" size={24} color="#00B14F" />
-            <Text style={{fontSize: 18, fontWeight: '700', color: '#1F2937', marginTop: 4}}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#1F2937', marginTop: 4 }}>
               {duration ? `${duration} min` : '--'}
             </Text>
-            <Text style={{fontSize: 12, color: '#6B7280'}}>ETA</Text>
+            <Text style={{ fontSize: 12, color: '#6B7280' }}>ETA</Text>
           </View>
         </View>
 
         {/* Contact Buttons */}
-        <View style={{flexDirection: 'row'}}>
+        <View style={{ flexDirection: 'row' }}>
           <TouchableOpacity
             style={{
               flex: 1,
@@ -597,7 +607,7 @@ const ProviderTrackingScreen = ({navigation, route}) => {
             }}
             onPress={handleCallClient}>
             <Icon name="call" size={20} color="#00B14F" />
-            <Text style={{fontSize: 14, fontWeight: '600', color: '#1F2937', marginLeft: 8}}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#1F2937', marginLeft: 8 }}>
               Call
             </Text>
           </TouchableOpacity>
@@ -614,7 +624,7 @@ const ProviderTrackingScreen = ({navigation, route}) => {
             }}
             onPress={handleMessageClient}>
             <Icon name="chatbubble" size={20} color="#FFFFFF" />
-            <Text style={{fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginLeft: 8}}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginLeft: 8 }}>
               Message
             </Text>
           </TouchableOpacity>

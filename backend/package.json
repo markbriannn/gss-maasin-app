@@ -1,7 +1,7 @@
 {
   "name": "gss-maasin-backend",
   "version": "1.0.1",
-  "description": "Backend server for GSS Maasin Service App",
+  "description": "Backend server for Maasin City H.E.L.P App",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -473,7 +473,7 @@ export default function ToastNotification() {
                   <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg flex items-center justify-center">
                     <Image
                       src="/gss-icon.svg"
-                      alt="GSS"
+                      alt="H.E.L.P"
                       width={44}
                       height={44}
                       className="rounded-xl"
@@ -489,7 +489,7 @@ export default function ToastNotification() {
                 <div className="flex-1 min-w-0 pt-0.5">
                   <div className="flex items-center justify-between gap-2 mb-0.5">
                     <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">
-                      GSS Maasin
+                      H.E.L.P Maasin
                     </span>
                     <span className="text-[11px] text-gray-400 dark:text-gray-500">
                       now

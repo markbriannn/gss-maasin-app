@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, X } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff } from 'lucide-react';
+import { listenToCall } from '@/services/callService';
 
 // Dynamically import Agora SDK only on client side
 let AgoraRTC: any = null;
@@ -99,6 +100,25 @@ export default function VoiceCall({
     };
   }, [isAgoraReady]);
 
+  // Listen to call status changes in Firestore
+  useEffect(() => {
+    if (!callId) return;
+
+    const unsubscribe = listenToCall(callId, (callData) => {
+      console.log('[VoiceCall Web] Call status changed:', callData.status);
+      
+      // If call ended remotely, end it locally
+      if (callData.status === 'ended' || callData.status === 'declined' || callData.status === 'missed') {
+        if (callState !== 'ended') {
+          console.log('[VoiceCall Web] Call ended remotely, cleaning up');
+          handleEndCall();
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [callId, callState]);
+
   const startDurationTimer = () => {
     durationIntervalRef.current = setInterval(() => {
       setDuration(prev => prev + 1);
@@ -135,8 +155,8 @@ export default function VoiceCall({
       localAudioTrackRef.current = await AgoraRTC.createMicrophoneAudioTrack();
       await clientRef.current?.publish([localAudioTrackRef.current]);
 
-      setCallState('active');
-      startDurationTimer();
+      // Stay in 'ringing' state — only switch to 'active' when remote user joins
+      setCallState('ringing');
     } catch (err) {
       console.error('Failed to join channel:', err);
       setError('Failed to connect');
@@ -226,17 +246,26 @@ export default function VoiceCall({
   }
 
   // Active call screen
-  if (callState === 'connecting' || callState === 'active') {
+  if (callState === 'connecting' || callState === 'ringing' || callState === 'active') {
+    const isWaitingForAnswer = callState === 'ringing' || callState === 'connecting';
+    
     return (
       <div className="fixed inset-0 bg-gradient-to-br from-blue-600 to-purple-700 z-50 flex flex-col items-center justify-center p-6">
         <div className="text-center text-white mb-12">
-          <div className="w-32 h-32 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Mic className={`w-16 h-16 ${isMuted ? 'opacity-50' : ''}`} />
+          <div className={`w-32 h-32 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6 ${isWaitingForAnswer ? 'animate-pulse' : ''}`}>
+            {isWaitingForAnswer ? (
+              <Phone className="w-16 h-16" />
+            ) : (
+              <Mic className={`w-16 h-16 ${isMuted ? 'opacity-50' : ''}`} />
+            )}
           </div>
           <h1 className="text-4xl font-bold mb-2">{callerName}</h1>
           <p className="text-3xl font-mono">
-            {callState === 'connecting' ? 'Connecting...' : formatDuration(duration)}
+            {isWaitingForAnswer ? 'Ringing...' : formatDuration(duration)}
           </p>
+          {isWaitingForAnswer && (
+            <p className="text-lg opacity-75 mt-2">Waiting for answer...</p>
+          )}
         </div>
 
         {error && (
@@ -246,23 +275,24 @@ export default function VoiceCall({
         )}
 
         <div className="flex gap-8">
-          <button
-            onClick={toggleMute}
-            className={`w-20 h-20 rounded-full flex flex-col items-center justify-center text-white transition-all transform hover:scale-110 shadow-xl ${
-              isMuted ? 'bg-gray-600' : 'bg-white/20'
-            }`}
-            disabled={callState === 'connecting'}
-          >
-            {isMuted ? <MicOff className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
-            <span className="text-xs mt-1">{isMuted ? 'Unmute' : 'Mute'}</span>
-          </button>
+          {!isWaitingForAnswer && (
+            <button
+              onClick={toggleMute}
+              className={`w-20 h-20 rounded-full flex flex-col items-center justify-center text-white transition-all transform hover:scale-110 shadow-xl ${
+                isMuted ? 'bg-gray-600' : 'bg-white/20'
+              }`}
+            >
+              {isMuted ? <MicOff className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
+              <span className="text-xs mt-1">{isMuted ? 'Unmute' : 'Mute'}</span>
+            </button>
+          )}
 
           <button
             onClick={handleEndCall}
             className="w-24 h-24 bg-red-500 hover:bg-red-600 rounded-full flex flex-col items-center justify-center text-white transition-all transform hover:scale-110 shadow-2xl"
           >
             <PhoneOff className="w-10 h-10 mb-1" />
-            <span className="text-sm font-semibold">End Call</span>
+            <span className="text-sm font-semibold">{isWaitingForAnswer ? 'Cancel' : 'End Call'}</span>
           </button>
         </div>
       </div>

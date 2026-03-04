@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,10 @@ import {
   Image,
   Dimensions,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {adminStyles} from '../../css/adminStyles';
-import {useTheme} from '../../context/ThemeContext';
+import { adminStyles } from '../../css/adminStyles';
+import { useTheme } from '../../context/ThemeContext';
 import {
   collection,
   query,
@@ -25,27 +25,27 @@ import {
   updateDoc,
   onSnapshot,
 } from 'firebase/firestore';
-import {db} from '../../config/firebase';
+import { db } from '../../config/firebase';
 import smsEmailService from '../../services/smsEmailService';
-import {sendProviderApprovalEmail, sendNotificationEmail} from '../../services/emailService';
+import { sendProviderApprovalEmail, sendNotificationEmail } from '../../services/emailService';
 import notificationService from '../../services/notificationService';
 
-const {width: screenWidth} = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 
 // Professional suspension reasons
 const SUSPENSION_REASONS = [
-  {id: 'policy_violation', label: 'Policy Violation', description: 'Violation of GSS Maasin terms of service or community guidelines.'},
-  {id: 'fraudulent_activity', label: 'Fraudulent Activity', description: 'Suspected fraudulent behavior or misrepresentation of services.'},
-  {id: 'customer_complaints', label: 'Multiple Customer Complaints', description: 'Repeated complaints from customers regarding service quality or conduct.'},
-  {id: 'incomplete_documentation', label: 'Incomplete Documentation', description: 'Required documents are missing, expired, or invalid.'},
-  {id: 'unprofessional_conduct', label: 'Unprofessional Conduct', description: 'Behavior that does not meet professional standards expected of service providers.'},
-  {id: 'safety_concerns', label: 'Safety Concerns', description: 'Actions or behavior that pose safety risks to customers or the community.'},
-  {id: 'other', label: 'Other', description: 'Please specify the reason below.'},
+  { id: 'policy_violation', label: 'Policy Violation', description: 'Violation of H.E.L.P Maasin terms of service or community guidelines.' },
+  { id: 'fraudulent_activity', label: 'Fraudulent Activity', description: 'Suspected fraudulent behavior or misrepresentation of services.' },
+  { id: 'customer_complaints', label: 'Multiple Customer Complaints', description: 'Repeated complaints from customers regarding service quality or conduct.' },
+  { id: 'incomplete_documentation', label: 'Incomplete Documentation', description: 'Required documents are missing, expired, or invalid.' },
+  { id: 'unprofessional_conduct', label: 'Unprofessional Conduct', description: 'Behavior that does not meet professional standards expected of service providers.' },
+  { id: 'safety_concerns', label: 'Safety Concerns', description: 'Actions or behavior that pose safety risks to customers or the community.' },
+  { id: 'other', label: 'Other', description: 'Please specify the reason below.' },
 ];
 
-const AdminProvidersScreen = ({navigation, route}) => {
-  const {isDark, theme} = useTheme();
-  const {openProviderId} = route.params || {};
+const AdminProvidersScreen = ({ navigation, route }) => {
+  const { isDark, theme } = useTheme();
+  const { openProviderId } = route.params || {};
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [providers, setProviders] = useState([]);
@@ -56,7 +56,7 @@ const AdminProvidersScreen = ({navigation, route}) => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedImageTitle, setSelectedImageTitle] = useState('');
-  
+
   // Suspension modal state
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [suspendingProvider, setSuspendingProvider] = useState(null);
@@ -65,44 +65,44 @@ const AdminProvidersScreen = ({navigation, route}) => {
   const [isSuspending, setIsSuspending] = useState(false);
 
   const filters = [
-    {id: 'all', label: 'All'},
-    {id: 'pending', label: 'Pending'},
-    {id: 'approved', label: 'Approved'},
-    {id: 'suspended', label: 'Suspended'},
+    { id: 'all', label: 'All' },
+    { id: 'pending', label: 'Pending' },
+    { id: 'approved', label: 'Approved' },
+    { id: 'suspended', label: 'Suspended' },
   ];
 
   // Real-time listener for providers
   useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
-    
+
     // Query users with role = 'PROVIDER'
     const providersQuery = query(
       collection(db, 'users'),
       where('role', '==', 'PROVIDER')
     );
-    
+
     // Set up real-time listener
     const unsubscribe = onSnapshot(providersQuery, async (snapshot) => {
       // Check if component is still mounted before processing
       if (!isMounted) return;
-      
+
       try {
         const providersList = await Promise.all(snapshot.docs.map(async (docSnap) => {
           const data = docSnap.data();
-          
+
           // Build full address from new fields
           let fullAddress = '';
           if (data.houseNumber) fullAddress += data.houseNumber + ', ';
           if (data.streetAddress) fullAddress += data.streetAddress + ', ';
           if (data.barangay) fullAddress += 'Brgy. ' + data.barangay + ', ';
           fullAddress += 'Maasin City';
-          
+
           // Fallback to old address format
           if (!data.streetAddress && !data.barangay) {
             fullAddress = data.address || data.location || 'Maasin City';
           }
-          
+
           // Fetch actual completed jobs count from bookings
           let completedJobsCount = data.completedJobs || 0;
           try {
@@ -116,7 +116,7 @@ const AdminProvidersScreen = ({navigation, route}) => {
           } catch (e) {
             console.log('Error fetching completed jobs:', e);
           }
-          
+
           return {
             id: docSnap.id,
             name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email?.split('@')[0] || 'Unknown',
@@ -126,8 +126,8 @@ const AdminProvidersScreen = ({navigation, route}) => {
             status: data.status || 'pending',
             rating: data.rating || data.averageRating || 0,
             completedJobs: completedJobsCount,
-            registeredDate: data.createdAt?.toDate?.() 
-              ? `${data.createdAt.toDate().toLocaleDateString()} at ${data.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`
+            registeredDate: data.createdAt?.toDate?.()
+              ? `${data.createdAt.toDate().toLocaleDateString()} at ${data.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
               : 'Unknown',
             registeredDateRaw: data.createdAt?.toDate?.() || new Date(0),
             location: fullAddress,
@@ -165,8 +165,8 @@ const AdminProvidersScreen = ({navigation, route}) => {
             },
             suspensionReason: data.suspensionReason || null,
             suspensionReasonLabel: data.suspensionReasonLabel || null,
-            suspendedAt: data.suspendedAt?.toDate?.() 
-              ? `${data.suspendedAt.toDate().toLocaleDateString()} at ${data.suspendedAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`
+            suspendedAt: data.suspendedAt?.toDate?.()
+              ? `${data.suspendedAt.toDate().toLocaleDateString()} at ${data.suspendedAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
               : null,
             rawData: data,
           };
@@ -221,35 +221,35 @@ const AdminProvidersScreen = ({navigation, route}) => {
 
   const filterProviders = () => {
     let filtered = [...allProviders];
-    
+
     // Apply status filter
     if (activeFilter !== 'all') {
       filtered = filtered.filter(p => p.status === activeFilter);
     }
-    
+
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(p => 
+      filtered = filtered.filter(p =>
         p.name.toLowerCase().includes(query) ||
         p.service.toLowerCase().includes(query) ||
         p.email.toLowerCase().includes(query)
       );
     }
-    
+
     setProviders(filtered);
   };
 
   const getStatusStyle = (status) => {
     switch (status) {
       case 'pending':
-        return {backgroundColor: '#FEF3C7', color: '#D97706'};
+        return { backgroundColor: '#FEF3C7', color: '#D97706' };
       case 'approved':
-        return {backgroundColor: '#D1FAE5', color: '#059669'};
+        return { backgroundColor: '#D1FAE5', color: '#059669' };
       case 'suspended':
-        return {backgroundColor: '#FEE2E2', color: '#DC2626'};
+        return { backgroundColor: '#FEE2E2', color: '#DC2626' };
       default:
-        return {backgroundColor: '#F3F4F6', color: '#6B7280'};
+        return { backgroundColor: '#F3F4F6', color: '#6B7280' };
     }
   };
 
@@ -258,7 +258,7 @@ const AdminProvidersScreen = ({navigation, route}) => {
     const pending = allProviders.filter(p => p.status === 'pending').length;
     const approved = allProviders.filter(p => p.status === 'approved').length;
     const suspended = allProviders.filter(p => p.status === 'suspended').length;
-    return {all, pending, approved, suspended};
+    return { all, pending, approved, suspended };
   };
 
   const updateProviderStatus = async (providerId, newStatus) => {
@@ -269,7 +269,7 @@ const AdminProvidersScreen = ({navigation, route}) => {
         providerStatus: newStatus,
         updatedAt: new Date(),
       };
-      
+
       // If approving/reactivating, set online and clear suspension fields
       if (newStatus === 'approved') {
         updateData.suspensionReason = null;
@@ -277,13 +277,13 @@ const AdminProvidersScreen = ({navigation, route}) => {
         updateData.suspendedAt = null;
         updateData.isOnline = true;
       }
-      
+
       await updateDoc(providerRef, updateData);
-      
+
       // Update local state
-      setAllProviders(prev => 
+      setAllProviders(prev =>
         prev.map(p => p.id === providerId ? {
-          ...p, 
+          ...p,
           status: newStatus,
           suspensionReason: newStatus === 'approved' ? null : p.suspensionReason,
           suspensionReasonLabel: newStatus === 'approved' ? null : p.suspensionReasonLabel,
@@ -303,7 +303,7 @@ const AdminProvidersScreen = ({navigation, route}) => {
       'Approve Provider',
       `Are you sure you want to approve ${provider.name}?`,
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Approve',
           style: 'default',
@@ -312,7 +312,7 @@ const AdminProvidersScreen = ({navigation, route}) => {
             if (success) {
               setShowDetailModal(false);
               Alert.alert('Success', 'Provider approved successfully');
-              
+
               // Send SMS/Email notification to provider
               try {
                 const providerData = {
@@ -322,13 +322,13 @@ const AdminProvidersScreen = ({navigation, route}) => {
                 };
                 await smsEmailService.notifyProviderApproved(providerData);
                 console.log('Approval notification sent to provider');
-                
+
                 // Send email notification via Resend
                 if (provider.email) {
                   sendProviderApprovalEmail(provider.email, provider.name || 'Provider', true)
                     .catch(err => console.log('Email notification failed:', err));
                 }
-                
+
                 // Send push notification (works even when app is closed!)
                 notificationService.pushProviderApproved(provider.id)
                   .catch(err => console.log('Push notification failed:', err));
@@ -347,7 +347,7 @@ const AdminProvidersScreen = ({navigation, route}) => {
       'Reject Provider',
       `Are you sure you want to reject ${provider.name}? This will mark them as rejected.`,
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Reject',
           style: 'destructive',
@@ -358,7 +358,7 @@ const AdminProvidersScreen = ({navigation, route}) => {
               setAllProviders(prev => prev.filter(p => p.id !== provider.id));
               setShowDetailModal(false);
               Alert.alert('Done', 'Provider has been rejected');
-              
+
               // Send SMS/Email notification to provider
               try {
                 const providerData = {
@@ -368,7 +368,7 @@ const AdminProvidersScreen = ({navigation, route}) => {
                 };
                 await smsEmailService.notifyProviderRejected(providerData);
                 console.log('Rejection notification sent to provider');
-                
+
                 // Send email notification via Resend
                 if (provider.email) {
                   sendProviderApprovalEmail(provider.email, provider.name || 'Provider', false)
@@ -404,8 +404,8 @@ const AdminProvidersScreen = ({navigation, route}) => {
 
     setIsSuspending(true);
     try {
-      const reasonText = selectedReason.id === 'other' 
-        ? customReason.trim() 
+      const reasonText = selectedReason.id === 'other'
+        ? customReason.trim()
         : selectedReason.description;
       const reasonLabel = selectedReason.id === 'other'
         ? 'Other: ' + customReason.trim()
@@ -427,7 +427,7 @@ const AdminProvidersScreen = ({navigation, route}) => {
       setAllProviders(prev =>
         prev.map(p =>
           p.id === suspendingProvider.id
-            ? {...p, status: 'suspended', suspensionReason: reasonText}
+            ? { ...p, status: 'suspended', suspensionReason: reasonText }
             : p
         )
       );
@@ -441,14 +441,14 @@ ${reasonText}
 
 If you believe this is a mistake or would like to appeal this decision, please contact our support team.
 
-GSS Maasin Support
+H.E.L.P Maasin Support
         `.trim();
 
         sendNotificationEmail(
           suspendingProvider.email,
           suspendingProvider.name || 'Provider',
           'Account Suspended',
-          'Your GSS Maasin provider account has been suspended. Please review the details below.',
+          'Your H.E.L.P Maasin provider account has been suspended. Please review the details below.',
           emailDetails
         ).catch(err => console.log('Failed to send suspension email:', err));
       }
@@ -458,7 +458,7 @@ GSS Maasin Support
         suspendingProvider.id,
         'Account Suspended',
         `Your account has been suspended. Reason: ${reasonLabel}`,
-        {type: 'account_suspended', providerId: suspendingProvider.id, reason: reasonLabel}
+        { type: 'account_suspended', providerId: suspendingProvider.id, reason: reasonLabel }
       ).catch(err => console.log('Push notification failed:', err));
 
       setShowSuspendModal(false);
@@ -480,7 +480,7 @@ GSS Maasin Support
       'Reactivate Provider',
       `Reactivate ${provider.name}'s account?`,
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Reactivate',
           onPress: async () => {
@@ -500,12 +500,12 @@ GSS Maasin Support
     setShowDetailModal(true);
   };
 
-  const renderProviderCard = ({item}) => {
+  const renderProviderCard = ({ item }) => {
     const statusStyle = getStatusStyle(item.status);
-    
+
     return (
-      <TouchableOpacity 
-        style={[adminStyles.providerCard, isDark && {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}
+      <TouchableOpacity
+        style={[adminStyles.providerCard, isDark && { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
         onPress={() => openProviderDetail(item)}
         activeOpacity={0.7}
       >
@@ -516,49 +516,49 @@ GSS Maasin Support
             </Text>
           </View>
           <View style={adminStyles.providerInfo}>
-            <Text style={[adminStyles.providerName, isDark && {color: theme.colors.text}]}>{item.name}</Text>
+            <Text style={[adminStyles.providerName, isDark && { color: theme.colors.text }]}>{item.name}</Text>
             <Text style={adminStyles.providerService}>{item.service}</Text>
             {item.status === 'approved' && item.rating > 0 && (
               <View style={adminStyles.providerRating}>
                 <Icon name="star" size={14} color="#F59E0B" />
-                <Text style={[adminStyles.providerRatingText, isDark && {color: theme.colors.textSecondary}]}>
+                <Text style={[adminStyles.providerRatingText, isDark && { color: theme.colors.textSecondary }]}>
                   {item.rating.toFixed(1)} ({item.completedJobs} jobs)
                 </Text>
               </View>
             )}
           </View>
-          <View style={[adminStyles.statusBadge, {backgroundColor: statusStyle.backgroundColor}]}>
-            <Text style={[adminStyles.statusBadgeText, {color: statusStyle.color}]}>
+          <View style={[adminStyles.statusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
+            <Text style={[adminStyles.statusBadgeText, { color: statusStyle.color }]}>
               {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
             </Text>
           </View>
         </View>
 
-        <View style={[adminStyles.providerDetails, isDark && {backgroundColor: theme.colors.background}]}>
+        <View style={[adminStyles.providerDetails, isDark && { backgroundColor: theme.colors.background }]}>
           <View style={adminStyles.providerDetailRow}>
             <Icon name="mail-outline" size={16} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
-            <Text style={[adminStyles.providerDetailText, isDark && {color: theme.colors.textSecondary}]}>{item.email}</Text>
+            <Text style={[adminStyles.providerDetailText, isDark && { color: theme.colors.textSecondary }]}>{item.email}</Text>
           </View>
           <View style={adminStyles.providerDetailRow}>
             <Icon name="call-outline" size={16} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
-            <Text style={[adminStyles.providerDetailText, isDark && {color: theme.colors.textSecondary}]}>{item.phone}</Text>
+            <Text style={[adminStyles.providerDetailText, isDark && { color: theme.colors.textSecondary }]}>{item.phone}</Text>
           </View>
           <View style={adminStyles.providerDetailRow}>
             <Icon name="calendar-outline" size={16} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
-            <Text style={[adminStyles.providerDetailText, isDark && {color: theme.colors.textSecondary}]}>Registered at: {item.registeredDate}</Text>
+            <Text style={[adminStyles.providerDetailText, isDark && { color: theme.colors.textSecondary }]}>Registered at: {item.registeredDate}</Text>
           </View>
         </View>
 
         {item.status === 'pending' && (
           <View style={adminStyles.providerActions}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[adminStyles.actionButton, adminStyles.approveButton]}
               onPress={() => handleApprove(item)}
             >
               <Icon name="checkmark-circle" size={18} color="#FFFFFF" />
               <Text style={adminStyles.actionButtonText}>Approve</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[adminStyles.actionButton, adminStyles.rejectButton]}
               onPress={() => handleReject(item)}
             >
@@ -570,14 +570,14 @@ GSS Maasin Support
 
         {item.status === 'approved' && (
           <View style={adminStyles.providerActions}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[adminStyles.actionButton, adminStyles.viewButton]}
               onPress={() => openProviderDetail(item)}
             >
               <Icon name="eye" size={18} color="#FFFFFF" />
               <Text style={adminStyles.actionButtonText}>View Details</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[adminStyles.actionButton, adminStyles.suspendButton]}
               onPress={() => handleSuspend(item)}
             >
@@ -589,7 +589,7 @@ GSS Maasin Support
 
         {item.status === 'suspended' && (
           <View style={adminStyles.providerActions}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[adminStyles.actionButton, adminStyles.approveButton]}
               onPress={() => handleReactivate(item)}
             >
@@ -614,12 +614,12 @@ GSS Maasin Support
         onRequestClose={() => setShowDetailModal(false)}
       >
         <View style={adminStyles.modalOverlay}>
-          <View style={[adminStyles.modalContent, isDark && {backgroundColor: theme.colors.surface}]}>
+          <View style={[adminStyles.modalContent, isDark && { backgroundColor: theme.colors.surface }]}>
             <View style={adminStyles.modalHandle} />
-            
-            <View style={[adminStyles.modalHeader, isDark && {borderBottomColor: theme.colors.border}]}>
-              <Text style={[adminStyles.modalTitle, isDark && {color: theme.colors.text}]}>Provider Details</Text>
-              <TouchableOpacity 
+
+            <View style={[adminStyles.modalHeader, isDark && { borderBottomColor: theme.colors.border }]}>
+              <Text style={[adminStyles.modalTitle, isDark && { color: theme.colors.text }]}>Provider Details</Text>
+              <TouchableOpacity
                 style={adminStyles.modalCloseButton}
                 onPress={() => setShowDetailModal(false)}
               >
@@ -628,18 +628,18 @@ GSS Maasin Support
             </View>
 
             <ScrollView style={adminStyles.modalBody}>
-              <View style={{alignItems: 'center', marginBottom: 20}}>
-                <View style={[adminStyles.providerAvatar, {width: 80, height: 80, borderRadius: 40}]}>
-                  <Text style={[adminStyles.providerAvatarText, {fontSize: 28}]}>
+              <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                <View style={[adminStyles.providerAvatar, { width: 80, height: 80, borderRadius: 40 }]}>
+                  <Text style={[adminStyles.providerAvatarText, { fontSize: 28 }]}>
                     {selectedProvider.name.split(' ').map(n => n[0]).join('')}
                   </Text>
                 </View>
-                <Text style={[adminStyles.providerName, {fontSize: 20, marginTop: 12}, isDark && {color: theme.colors.text}]}>
+                <Text style={[adminStyles.providerName, { fontSize: 20, marginTop: 12 }, isDark && { color: theme.colors.text }]}>
                   {selectedProvider.name}
                 </Text>
                 <Text style={adminStyles.providerService}>{selectedProvider.service}</Text>
-                <View style={[adminStyles.statusBadge, {backgroundColor: statusStyle.backgroundColor, marginTop: 8}]}>
-                  <Text style={[adminStyles.statusBadgeText, {color: statusStyle.color}]}>
+                <View style={[adminStyles.statusBadge, { backgroundColor: statusStyle.backgroundColor, marginTop: 8 }]}>
+                  <Text style={[adminStyles.statusBadgeText, { color: statusStyle.color }]}>
                     {selectedProvider.status.charAt(0).toUpperCase() + selectedProvider.status.slice(1)}
                   </Text>
                 </View>
@@ -663,53 +663,53 @@ GSS Maasin Support
                   }}
                 >
                   <Icon name="person" size={16} color="#FFFFFF" />
-                  <Text style={{color: '#FFFFFF', marginLeft: 6, fontWeight: '600', fontSize: 13}}>
+                  <Text style={{ color: '#FFFFFF', marginLeft: 6, fontWeight: '600', fontSize: 13 }}>
                     View Full Profile
                   </Text>
                 </TouchableOpacity>
               </View>
 
-              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
-                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Contact Information</Text>
+              <View style={[adminStyles.modalSection, isDark && { borderBottomColor: theme.colors.border }]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && { color: theme.colors.textSecondary }]}>Contact Information</Text>
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="mail" size={20} color="#00B14F" />
-                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedProvider.email}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && { color: theme.colors.text }]}>{selectedProvider.email}</Text>
                 </View>
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="call" size={20} color="#00B14F" />
-                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedProvider.phone}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && { color: theme.colors.text }]}>{selectedProvider.phone}</Text>
                 </View>
               </View>
-              
+
               <View style={adminStyles.modalSection}>
-                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.text}]}>Address</Text>
+                <Text style={[adminStyles.modalSectionTitle, isDark && { color: theme.colors.text }]}>Address</Text>
                 {selectedProvider.houseNumber ? (
                   <View style={adminStyles.modalInfoRow}>
                     <Icon name="home" size={20} color="#00B14F" />
-                    <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>House/Bldg: {selectedProvider.houseNumber}</Text>
+                    <Text style={[adminStyles.modalInfoText, isDark && { color: theme.colors.text }]}>House/Bldg: {selectedProvider.houseNumber}</Text>
                   </View>
                 ) : null}
                 {selectedProvider.streetAddress ? (
                   <View style={adminStyles.modalInfoRow}>
                     <Icon name="navigate" size={20} color="#00B14F" />
-                    <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>Street: {selectedProvider.streetAddress}</Text>
+                    <Text style={[adminStyles.modalInfoText, isDark && { color: theme.colors.text }]}>Street: {selectedProvider.streetAddress}</Text>
                   </View>
                 ) : null}
                 {selectedProvider.barangay ? (
                   <View style={adminStyles.modalInfoRow}>
                     <Icon name="business" size={20} color="#00B14F" />
-                    <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>Barangay: {selectedProvider.barangay}</Text>
+                    <Text style={[adminStyles.modalInfoText, isDark && { color: theme.colors.text }]}>Barangay: {selectedProvider.barangay}</Text>
                   </View>
                 ) : null}
                 {selectedProvider.landmark ? (
                   <View style={adminStyles.modalInfoRow}>
                     <Icon name="flag" size={20} color="#00B14F" />
-                    <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>Landmark: {selectedProvider.landmark}</Text>
+                    <Text style={[adminStyles.modalInfoText, isDark && { color: theme.colors.text }]}>Landmark: {selectedProvider.landmark}</Text>
                   </View>
                 ) : null}
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="location" size={20} color="#00B14F" />
-                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>{selectedProvider.location}</Text>
+                  <Text style={[adminStyles.modalInfoText, isDark && { color: theme.colors.text }]}>{selectedProvider.location}</Text>
                 </View>
                 {/* Contact Provider Button - Only show for approved providers */}
                 {selectedProvider.status === 'approved' && (
@@ -737,7 +737,7 @@ GSS Maasin Support
                     }}
                   >
                     <Icon name="chatbubble" size={18} color="#FFFFFF" />
-                    <Text style={{color: '#FFFFFF', marginLeft: 8, fontWeight: '600', fontSize: 15}}>
+                    <Text style={{ color: '#FFFFFF', marginLeft: 8, fontWeight: '600', fontSize: 15 }}>
                       Message Provider
                     </Text>
                   </TouchableOpacity>
@@ -745,29 +745,29 @@ GSS Maasin Support
               </View>
 
               {selectedProvider.status === 'approved' && (
-                <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
-                  <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Performance</Text>
+                <View style={[adminStyles.modalSection, isDark && { borderBottomColor: theme.colors.border }]}>
+                  <Text style={[adminStyles.modalSectionTitle, isDark && { color: theme.colors.textSecondary }]}>Performance</Text>
                   <View style={adminStyles.modalInfoRow}>
                     <Icon name="star" size={20} color="#F59E0B" />
-                    <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>
+                    <Text style={[adminStyles.modalInfoText, isDark && { color: theme.colors.text }]}>
                       Rating: {selectedProvider.rating.toFixed(1)} / 5.0
                     </Text>
                   </View>
                   <View style={adminStyles.modalInfoRow}>
                     <Icon name="checkmark-done" size={20} color="#00B14F" />
-                    <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>
+                    <Text style={[adminStyles.modalInfoText, isDark && { color: theme.colors.text }]}>
                       Completed Jobs: {selectedProvider.completedJobs}
                     </Text>
                   </View>
                 </View>
               )}
 
-              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
-                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Submitted Documents</Text>
-                <Text style={{fontSize: 13, color: isDark ? theme.colors.textSecondary : '#6B7280', marginBottom: 12}}>
+              <View style={[adminStyles.modalSection, isDark && { borderBottomColor: theme.colors.border }]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && { color: theme.colors.textSecondary }]}>Submitted Documents</Text>
+                <Text style={{ fontSize: 13, color: isDark ? theme.colors.textSecondary : '#6B7280', marginBottom: 12 }}>
                   Tap to view full document
                 </Text>
-                <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 12}}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
                   {/* Government ID */}
                   <TouchableOpacity
                     style={{
@@ -790,12 +790,12 @@ GSS Maasin Support
                   >
                     {selectedProvider.documents.governmentId?.submitted && selectedProvider.documents.governmentId?.url ? (
                       <Image
-                        source={{uri: selectedProvider.documents.governmentId.url}}
-                        style={{width: '100%', height: '100%'}}
+                        source={{ uri: selectedProvider.documents.governmentId.url }}
+                        style={{ width: '100%', height: '100%' }}
                         resizeMode="cover"
                       />
                     ) : (
-                      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                         <Icon name="close-circle" size={32} color="#EF4444" />
                       </View>
                     )}
@@ -807,7 +807,7 @@ GSS Maasin Support
                       backgroundColor: 'rgba(0,0,0,0.6)',
                       padding: 4,
                     }}>
-                      <Text style={{color: '#FFF', fontSize: 10, textAlign: 'center'}}>Gov't ID</Text>
+                      <Text style={{ color: '#FFF', fontSize: 10, textAlign: 'center' }}>Gov't ID</Text>
                     </View>
                   </TouchableOpacity>
 
@@ -833,12 +833,12 @@ GSS Maasin Support
                   >
                     {selectedProvider.documents.selfie?.submitted && selectedProvider.documents.selfie?.url ? (
                       <Image
-                        source={{uri: selectedProvider.documents.selfie.url}}
-                        style={{width: '100%', height: '100%'}}
+                        source={{ uri: selectedProvider.documents.selfie.url }}
+                        style={{ width: '100%', height: '100%' }}
                         resizeMode="cover"
                       />
                     ) : (
-                      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                         <Icon name="close-circle" size={32} color="#EF4444" />
                       </View>
                     )}
@@ -850,7 +850,7 @@ GSS Maasin Support
                       backgroundColor: 'rgba(0,0,0,0.6)',
                       padding: 4,
                     }}>
-                      <Text style={{color: '#FFF', fontSize: 10, textAlign: 'center'}}>Selfie</Text>
+                      <Text style={{ color: '#FFF', fontSize: 10, textAlign: 'center' }}>Selfie</Text>
                     </View>
                   </TouchableOpacity>
 
@@ -876,12 +876,12 @@ GSS Maasin Support
                   >
                     {selectedProvider.documents.barangayClearance?.submitted && selectedProvider.documents.barangayClearance?.url ? (
                       <Image
-                        source={{uri: selectedProvider.documents.barangayClearance.url}}
-                        style={{width: '100%', height: '100%'}}
+                        source={{ uri: selectedProvider.documents.barangayClearance.url }}
+                        style={{ width: '100%', height: '100%' }}
                         resizeMode="cover"
                       />
                     ) : (
-                      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                         <Icon name="close-circle" size={32} color="#EF4444" />
                       </View>
                     )}
@@ -893,13 +893,13 @@ GSS Maasin Support
                       backgroundColor: 'rgba(0,0,0,0.6)',
                       padding: 4,
                     }}>
-                      <Text style={{color: '#FFF', fontSize: 10, textAlign: 'center'}}>Brgy Clearance</Text>
+                      <Text style={{ color: '#FFF', fontSize: 10, textAlign: 'center' }}>Brgy Clearance</Text>
                     </View>
                   </TouchableOpacity>
                 </View>
 
                 {/* Second row of documents */}
-                <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 12}}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
                   {/* Police Clearance */}
                   <TouchableOpacity
                     style={{
@@ -922,12 +922,12 @@ GSS Maasin Support
                   >
                     {selectedProvider.documents.policeClearance?.submitted && selectedProvider.documents.policeClearance?.url ? (
                       <Image
-                        source={{uri: selectedProvider.documents.policeClearance.url}}
-                        style={{width: '100%', height: '100%'}}
+                        source={{ uri: selectedProvider.documents.policeClearance.url }}
+                        style={{ width: '100%', height: '100%' }}
                         resizeMode="cover"
                       />
                     ) : (
-                      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                         <Icon name="close-circle" size={32} color="#EF4444" />
                       </View>
                     )}
@@ -939,7 +939,7 @@ GSS Maasin Support
                       backgroundColor: 'rgba(0,0,0,0.6)',
                       padding: 4,
                     }}>
-                      <Text style={{color: '#FFF', fontSize: 10, textAlign: 'center'}}>Police Clearance</Text>
+                      <Text style={{ color: '#FFF', fontSize: 10, textAlign: 'center' }}>Police Clearance</Text>
                     </View>
                   </TouchableOpacity>
 
@@ -965,12 +965,12 @@ GSS Maasin Support
                   >
                     {selectedProvider.documents.certificate?.submitted && selectedProvider.documents.certificate?.url ? (
                       <Image
-                        source={{uri: selectedProvider.documents.certificate.url}}
-                        style={{width: '100%', height: '100%'}}
+                        source={{ uri: selectedProvider.documents.certificate.url }}
+                        style={{ width: '100%', height: '100%' }}
                         resizeMode="cover"
                       />
                     ) : (
-                      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                         <Icon name="close-circle" size={32} color="#EF4444" />
                       </View>
                     )}
@@ -982,17 +982,17 @@ GSS Maasin Support
                       backgroundColor: 'rgba(0,0,0,0.6)',
                       padding: 4,
                     }}>
-                      <Text style={{color: '#FFF', fontSize: 10, textAlign: 'center'}}>Certificate</Text>
+                      <Text style={{ color: '#FFF', fontSize: 10, textAlign: 'center' }}>Certificate</Text>
                     </View>
                   </TouchableOpacity>
                 </View>
               </View>
 
-              <View style={[adminStyles.modalSection, isDark && {borderBottomColor: theme.colors.border}]}>
-                <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}]}>Account Info</Text>
+              <View style={[adminStyles.modalSection, isDark && { borderBottomColor: theme.colors.border }]}>
+                <Text style={[adminStyles.modalSectionTitle, isDark && { color: theme.colors.textSecondary }]}>Account Info</Text>
                 <View style={adminStyles.modalInfoRow}>
                   <Icon name="calendar" size={20} color={isDark ? theme.colors.textSecondary : '#6B7280'} />
-                  <Text style={[adminStyles.modalInfoText, isDark && {color: theme.colors.text}]}>
+                  <Text style={[adminStyles.modalInfoText, isDark && { color: theme.colors.text }]}>
                     Registered at: {selectedProvider.registeredDate}
                   </Text>
                 </View>
@@ -1008,9 +1008,9 @@ GSS Maasin Support
                   borderWidth: 1,
                   borderColor: '#DC2626',
                 }}>
-                  <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
                     <Icon name="ban" size={20} color="#DC2626" />
-                    <Text style={{fontSize: 16, fontWeight: '600', color: '#DC2626', marginLeft: 8}}>
+                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#DC2626', marginLeft: 8 }}>
                       Suspension Details
                     </Text>
                   </View>
@@ -1023,16 +1023,16 @@ GSS Maasin Support
                       alignSelf: 'flex-start',
                       marginBottom: 10,
                     }}>
-                      <Text style={{fontSize: 13, fontWeight: '600', color: '#991B1B'}}>
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: '#991B1B' }}>
                         {selectedProvider.suspensionReasonLabel}
                       </Text>
                     </View>
                   )}
-                  <Text style={{fontSize: 14, color: isDark ? '#FCA5A5' : '#991B1B', lineHeight: 20}}>
+                  <Text style={{ fontSize: 14, color: isDark ? '#FCA5A5' : '#991B1B', lineHeight: 20 }}>
                     {selectedProvider.suspensionReason}
                   </Text>
                   {selectedProvider.suspendedAt && (
-                    <Text style={{fontSize: 12, color: isDark ? '#F87171' : '#B91C1C', marginTop: 10}}>
+                    <Text style={{ fontSize: 12, color: isDark ? '#F87171' : '#B91C1C', marginTop: 10 }}>
                       Suspended at: {selectedProvider.suspendedAt}
                     </Text>
                   )}
@@ -1043,15 +1043,15 @@ GSS Maasin Support
             <View style={adminStyles.modalFooter}>
               {selectedProvider.status === 'pending' && (
                 <>
-                  <TouchableOpacity 
-                    style={[adminStyles.actionButton, adminStyles.rejectButton, {flex: 1}]}
+                  <TouchableOpacity
+                    style={[adminStyles.actionButton, adminStyles.rejectButton, { flex: 1 }]}
                     onPress={() => handleReject(selectedProvider)}
                   >
                     <Icon name="close-circle" size={18} color="#FFFFFF" />
                     <Text style={adminStyles.actionButtonText}>Reject</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[adminStyles.actionButton, adminStyles.approveButton, {flex: 1}]}
+                  <TouchableOpacity
+                    style={[adminStyles.actionButton, adminStyles.approveButton, { flex: 1 }]}
                     onPress={() => handleApprove(selectedProvider)}
                   >
                     <Icon name="checkmark-circle" size={18} color="#FFFFFF" />
@@ -1060,8 +1060,8 @@ GSS Maasin Support
                 </>
               )}
               {selectedProvider.status === 'approved' && (
-                <TouchableOpacity 
-                  style={[adminStyles.actionButton, adminStyles.suspendButton, {flex: 1}]}
+                <TouchableOpacity
+                  style={[adminStyles.actionButton, adminStyles.suspendButton, { flex: 1 }]}
                   onPress={() => handleSuspend(selectedProvider)}
                 >
                   <Icon name="pause-circle" size={18} color="#FFFFFF" />
@@ -1069,8 +1069,8 @@ GSS Maasin Support
                 </TouchableOpacity>
               )}
               {selectedProvider.status === 'suspended' && (
-                <TouchableOpacity 
-                  style={[adminStyles.actionButton, adminStyles.approveButton, {flex: 1}]}
+                <TouchableOpacity
+                  style={[adminStyles.actionButton, adminStyles.approveButton, { flex: 1 }]}
                   onPress={() => handleReactivate(selectedProvider)}
                 >
                   <Icon name="play-circle" size={18} color="#FFFFFF" />
@@ -1087,17 +1087,17 @@ GSS Maasin Support
   const stats = getStats();
 
   return (
-    <SafeAreaView style={[adminStyles.container, isDark && {backgroundColor: theme.colors.background}]} edges={['top']}>
-      <View style={[adminStyles.header, isDark && {backgroundColor: theme.colors.surface}]}>
-        <Text style={[adminStyles.headerTitle, isDark && {color: theme.colors.text}]}>Providers</Text>
-        <Text style={[adminStyles.headerSubtitle, isDark && {color: theme.colors.textSecondary}]}>Manage service providers</Text>
+    <SafeAreaView style={[adminStyles.container, isDark && { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <View style={[adminStyles.header, isDark && { backgroundColor: theme.colors.surface }]}>
+        <Text style={[adminStyles.headerTitle, isDark && { color: theme.colors.text }]}>Providers</Text>
+        <Text style={[adminStyles.headerSubtitle, isDark && { color: theme.colors.textSecondary }]}>Manage service providers</Text>
       </View>
 
       {/* Search Bar */}
-      <View style={[adminStyles.searchContainer, isDark && {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
+      <View style={[adminStyles.searchContainer, isDark && { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
         <Icon name="search-outline" size={20} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} style={adminStyles.searchIcon} />
         <TextInput
-          style={[adminStyles.searchInput, isDark && {color: theme.colors.text}]}
+          style={[adminStyles.searchInput, isDark && { color: theme.colors.text }]}
           placeholder="Search providers..."
           placeholderTextColor={isDark ? theme.colors.textTertiary : '#9CA3AF'}
           value={searchQuery}
@@ -1112,10 +1112,10 @@ GSS Maasin Support
 
       {/* Filter Tabs */}
       <View style={adminStyles.filterContainer}>
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{alignItems: 'center', paddingRight: 16}}
+          contentContainerStyle={{ alignItems: 'center', paddingRight: 16 }}
         >
           {filters.map((filter) => (
             <TouchableOpacity
@@ -1140,20 +1140,20 @@ GSS Maasin Support
       </View>
 
       {/* Stats Bar */}
-      <View style={[adminStyles.statsBar, isDark && {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
+      <View style={[adminStyles.statsBar, isDark && { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
         <View style={adminStyles.statItem}>
-          <Text style={[adminStyles.statNumber, isDark && {color: theme.colors.text}]}>{stats.pending}</Text>
-          <Text style={[adminStyles.statLabel, isDark && {color: theme.colors.textSecondary}]}>Pending</Text>
+          <Text style={[adminStyles.statNumber, isDark && { color: theme.colors.text }]}>{stats.pending}</Text>
+          <Text style={[adminStyles.statLabel, isDark && { color: theme.colors.textSecondary }]}>Pending</Text>
         </View>
-        <View style={[adminStyles.statDivider, isDark && {backgroundColor: theme.colors.border}]} />
+        <View style={[adminStyles.statDivider, isDark && { backgroundColor: theme.colors.border }]} />
         <View style={adminStyles.statItem}>
-          <Text style={[adminStyles.statNumber, isDark && {color: theme.colors.text}]}>{stats.approved}</Text>
-          <Text style={[adminStyles.statLabel, isDark && {color: theme.colors.textSecondary}]}>Approved</Text>
+          <Text style={[adminStyles.statNumber, isDark && { color: theme.colors.text }]}>{stats.approved}</Text>
+          <Text style={[adminStyles.statLabel, isDark && { color: theme.colors.textSecondary }]}>Approved</Text>
         </View>
-        <View style={[adminStyles.statDivider, isDark && {backgroundColor: theme.colors.border}]} />
+        <View style={[adminStyles.statDivider, isDark && { backgroundColor: theme.colors.border }]} />
         <View style={adminStyles.statItem}>
-          <Text style={[adminStyles.statNumber, isDark && {color: theme.colors.text}]}>{stats.suspended}</Text>
-          <Text style={[adminStyles.statLabel, isDark && {color: theme.colors.textSecondary}]}>Suspended</Text>
+          <Text style={[adminStyles.statNumber, isDark && { color: theme.colors.text }]}>{stats.suspended}</Text>
+          <Text style={[adminStyles.statLabel, isDark && { color: theme.colors.textSecondary }]}>Suspended</Text>
         </View>
       </View>
 
@@ -1164,11 +1164,11 @@ GSS Maasin Support
         </View>
       ) : providers.length === 0 ? (
         <View style={adminStyles.emptyContainer}>
-          <View style={[adminStyles.emptyIcon, isDark && {backgroundColor: theme.colors.surface}]}>
+          <View style={[adminStyles.emptyIcon, isDark && { backgroundColor: theme.colors.surface }]}>
             <Icon name="people-outline" size={40} color={isDark ? theme.colors.textSecondary : '#9CA3AF'} />
           </View>
-          <Text style={[adminStyles.emptyText, isDark && {color: theme.colors.text}]}>No providers found</Text>
-          <Text style={[adminStyles.emptySubtext, isDark && {color: theme.colors.textSecondary}]}>
+          <Text style={[adminStyles.emptyText, isDark && { color: theme.colors.text }]}>No providers found</Text>
+          <Text style={[adminStyles.emptySubtext, isDark && { color: theme.colors.textSecondary }]}>
             {searchQuery ? 'Try a different search term' : 'No providers match the selected filter'}
           </Text>
         </View>
@@ -1202,12 +1202,12 @@ GSS Maasin Support
         onRequestClose={() => !isSuspending && setShowSuspendModal(false)}
       >
         <View style={adminStyles.modalOverlay}>
-          <View style={[adminStyles.modalContent, isDark && {backgroundColor: theme.colors.surface}, {maxHeight: '85%'}]}>
+          <View style={[adminStyles.modalContent, isDark && { backgroundColor: theme.colors.surface }, { maxHeight: '85%' }]}>
             <View style={adminStyles.modalHandle} />
-            
-            <View style={[adminStyles.modalHeader, isDark && {borderBottomColor: theme.colors.border}]}>
-              <Text style={[adminStyles.modalTitle, isDark && {color: theme.colors.text}]}>Suspend Provider</Text>
-              <TouchableOpacity 
+
+            <View style={[adminStyles.modalHeader, isDark && { borderBottomColor: theme.colors.border }]}>
+              <Text style={[adminStyles.modalTitle, isDark && { color: theme.colors.text }]}>Suspend Provider</Text>
+              <TouchableOpacity
                 style={adminStyles.modalCloseButton}
                 onPress={() => !isSuspending && setShowSuspendModal(false)}
                 disabled={isSuspending}
@@ -1218,20 +1218,20 @@ GSS Maasin Support
 
             <ScrollView style={adminStyles.modalBody}>
               {suspendingProvider && (
-                <View style={{alignItems: 'center', marginBottom: 20}}>
-                  <View style={[adminStyles.providerAvatar, {width: 60, height: 60, borderRadius: 30, backgroundColor: '#FEE2E2'}]}>
+                <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                  <View style={[adminStyles.providerAvatar, { width: 60, height: 60, borderRadius: 30, backgroundColor: '#FEE2E2' }]}>
                     <Icon name="warning" size={28} color="#DC2626" />
                   </View>
-                  <Text style={[adminStyles.providerName, {fontSize: 18, marginTop: 12}, isDark && {color: theme.colors.text}]}>
+                  <Text style={[adminStyles.providerName, { fontSize: 18, marginTop: 12 }, isDark && { color: theme.colors.text }]}>
                     {suspendingProvider.name}
                   </Text>
-                  <Text style={{color: isDark ? theme.colors.textSecondary : '#6B7280', fontSize: 14, marginTop: 4}}>
+                  <Text style={{ color: isDark ? theme.colors.textSecondary : '#6B7280', fontSize: 14, marginTop: 4 }}>
                     {suspendingProvider.email}
                   </Text>
                 </View>
               )}
 
-              <Text style={[adminStyles.modalSectionTitle, isDark && {color: theme.colors.textSecondary}, {marginBottom: 12}]}>
+              <Text style={[adminStyles.modalSectionTitle, isDark && { color: theme.colors.textSecondary }, { marginBottom: 12 }]}>
                 Select Suspension Reason
               </Text>
 
@@ -1244,7 +1244,7 @@ GSS Maasin Support
                     padding: 14,
                     borderRadius: 12,
                     marginBottom: 10,
-                    backgroundColor: selectedReason?.id === reason.id 
+                    backgroundColor: selectedReason?.id === reason.id
                       ? (isDark ? 'rgba(220, 38, 38, 0.15)' : '#FEE2E2')
                       : (isDark ? theme.colors.background : '#F9FAFB'),
                     borderWidth: 2,
@@ -1264,15 +1264,15 @@ GSS Maasin Support
                     marginRight: 12,
                   }}>
                     {selectedReason?.id === reason.id && (
-                      <View style={{width: 12, height: 12, borderRadius: 6, backgroundColor: '#DC2626'}} />
+                      <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#DC2626' }} />
                     )}
                   </View>
-                  <View style={{flex: 1}}>
-                    <Text style={{fontSize: 15, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937'}}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: isDark ? theme.colors.text : '#1F2937' }}>
                       {reason.label}
                     </Text>
                     {reason.id !== 'other' && (
-                      <Text style={{fontSize: 13, color: isDark ? theme.colors.textSecondary : '#6B7280', marginTop: 2}}>
+                      <Text style={{ fontSize: 13, color: isDark ? theme.colors.textSecondary : '#6B7280', marginTop: 2 }}>
                         {reason.description}
                       </Text>
                     )}
@@ -1281,8 +1281,8 @@ GSS Maasin Support
               ))}
 
               {selectedReason?.id === 'other' && (
-                <View style={{marginTop: 8}}>
-                  <Text style={{fontSize: 14, fontWeight: '500', color: isDark ? theme.colors.text : '#374151', marginBottom: 8}}>
+                <View style={{ marginTop: 8 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '500', color: isDark ? theme.colors.text : '#374151', marginBottom: 8 }}>
                     Custom Reason *
                   </Text>
                   <TextInput
@@ -1316,15 +1316,15 @@ GSS Maasin Support
                 alignItems: 'flex-start',
                 marginBottom: 20,
               }}>
-                <Icon name="information-circle" size={20} color="#F59E0B" style={{marginRight: 10, marginTop: 2}} />
-                <Text style={{flex: 1, fontSize: 13, color: isDark ? '#FCD34D' : '#92400E', lineHeight: 18}}>
+                <Icon name="information-circle" size={20} color="#F59E0B" style={{ marginRight: 10, marginTop: 2 }} />
+                <Text style={{ flex: 1, fontSize: 13, color: isDark ? '#FCD34D' : '#92400E', lineHeight: 18 }}>
                   The provider will be notified via email about this suspension and the reason. They will see this message when they try to log in.
                 </Text>
               </View>
             </ScrollView>
 
-            <View style={[adminStyles.modalFooter, {gap: 12, paddingTop: 16, paddingBottom: 20, borderTopWidth: 1, borderTopColor: isDark ? theme.colors.border : '#E5E7EB'}]}>
-              <TouchableOpacity 
+            <View style={[adminStyles.modalFooter, { gap: 12, paddingTop: 16, paddingBottom: 20, borderTopWidth: 1, borderTopColor: isDark ? theme.colors.border : '#E5E7EB' }]}>
+              <TouchableOpacity
                 style={{
                   flex: 1,
                   paddingVertical: 14,
@@ -1335,11 +1335,11 @@ GSS Maasin Support
                 onPress={() => setShowSuspendModal(false)}
                 disabled={isSuspending}
               >
-                <Text style={{fontSize: 15, fontWeight: '600', color: isDark ? theme.colors.text : '#374151'}}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: isDark ? theme.colors.text : '#374151' }}>
                   Cancel
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={{
                   flex: 1,
                   paddingVertical: 14,
@@ -1358,7 +1358,7 @@ GSS Maasin Support
                 ) : (
                   <>
                     <Icon name="pause-circle" size={18} color="#FFFFFF" />
-                    <Text style={{fontSize: 15, fontWeight: '600', color: '#FFFFFF', marginLeft: 6}}>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFFFFF', marginLeft: 6 }}>
                       Suspend
                     </Text>
                   </>
@@ -1394,7 +1394,7 @@ GSS Maasin Support
             paddingHorizontal: 20,
             zIndex: 10,
           }}>
-            <Text style={{color: '#FFFFFF', fontSize: 18, fontWeight: '600'}}>
+            <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '600' }}>
               {selectedImageTitle}
             </Text>
             <TouchableOpacity
@@ -1415,7 +1415,7 @@ GSS Maasin Support
           {/* Image */}
           {selectedImage ? (
             <Image
-              source={{uri: selectedImage}}
+              source={{ uri: selectedImage }}
               style={{
                 width: screenWidth - 40,
                 height: screenWidth * 1.2,
@@ -1433,7 +1433,7 @@ GSS Maasin Support
               alignItems: 'center',
             }}>
               <Icon name="image-outline" size={60} color="#9CA3AF" />
-              <Text style={{color: '#9CA3AF', marginTop: 12}}>Image not available</Text>
+              <Text style={{ color: '#9CA3AF', marginTop: 12 }}>Image not available</Text>
             </View>
           )}
 
@@ -1445,7 +1445,7 @@ GSS Maasin Support
             right: 0,
             alignItems: 'center',
           }}>
-            <Text style={{color: 'rgba(255,255,255,0.6)', fontSize: 14}}>
+            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14 }}>
               Tap X or back to close
             </Text>
           </View>

@@ -1,4 +1,4 @@
-// Gamification System for GSS Maasin
+// Gamification System for Maasin City H.E.L.P App
 // Handles points, badges, tiers for both clients and providers
 
 // ============ TIER CONFIGURATIONS ============
@@ -207,7 +207,7 @@ export const getProviderTier = (points) => {
 export const getNextTier = (currentPoints, isProvider = false) => {
   const tiers = isProvider ? PROVIDER_TIERS : CLIENT_TIERS;
   const tierArray = Object.values(tiers).sort((a, b) => a.minPoints - b.minPoints);
-  
+
   for (const tier of tierArray) {
     if (currentPoints < tier.minPoints) {
       return {
@@ -217,7 +217,7 @@ export const getNextTier = (currentPoints, isProvider = false) => {
       };
     }
   }
-  
+
   // Already at max tier
   const maxTier = tierArray[tierArray.length - 1];
   return {
@@ -301,13 +301,13 @@ export const formatPoints = (points) => {
 export const getTierProgress = (currentPoints, isProvider = false) => {
   const currentTier = isProvider ? getProviderTier(currentPoints) : getClientTier(currentPoints);
   const nextTierInfo = getNextTier(currentPoints, isProvider);
-  
+
   if (nextTierInfo.isMaxTier) return 100;
-  
+
   const prevTierPoints = currentTier.minPoints;
   const nextTierPoints = nextTierInfo.tier.minPoints;
   const range = nextTierPoints - prevTierPoints;
   const progress = currentPoints - prevTierPoints;
-  
+
   return Math.min(100, Math.round((progress / range) * 100));
 };
