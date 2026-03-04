@@ -7,7 +7,7 @@
     "slug": "help-maasin",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/logo/gss_icon_simple.svg",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
@@ -35,7 +35,7 @@
       "package": "com.help.maasin",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/logo/gss_icon_simple.svg",
         "backgroundColor": "#ffffff"
       },
       "permissions": [
