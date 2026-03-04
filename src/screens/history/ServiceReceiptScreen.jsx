@@ -14,6 +14,7 @@ import { globalStyles } from '../../css/globalStyles';
 import { receiptStyles as styles } from '../../css/historyStyles';
 import { db } from '../../config/firebase';
 import { doc, onSnapshot, getDoc } from 'firebase/firestore';
+import { calculateClientTotal, calculateProviderEarnings } from '../../utils/bookingCalculations';
 
 const ServiceReceiptScreen = ({ navigation, route }) => {
   const { booking: initialBooking, bookingId, isProvider = false } = route.params || {};
@@ -126,14 +127,9 @@ const ServiceReceiptScreen = ({ navigation, route }) => {
   // Use the state otherParty (which is updated in real-time)
   const displayOtherParty = otherParty || booking.otherParty;
 
-  // Calculate amounts - Provider keeps their full price, system fee is paid by client on top
-  const baseAmount = providerPrice || offeredPrice || price || 0;
-  const additionalTotal = additionalCharges.reduce((sum, charge) => sum + (charge.amount || 0), 0);
-  const subtotal = baseAmount + additionalTotal;
-  // Provider earnings = their full price (no deduction)
-  const providerEarnings = subtotal;
-  // Client total = provider price + 5% system fee (always use totalAmount or finalAmount if available)
-  const clientTotal = totalAmount || booking.finalAmount || Math.round(subtotal * 1.05);
+  // Calculate amounts using centralized utility functions
+  const clientTotal = calculateClientTotal(booking);
+  const providerEarnings = calculateProviderEarnings(booking);
   const finalTotal = isProvider ? providerEarnings : clientTotal;
 
   // Format dates
