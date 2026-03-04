@@ -107,7 +107,6 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: str
   in_progress: { label: 'In Progress', color: 'text-purple-600', bgColor: 'bg-purple-100' },
   pending_completion: { label: 'Awaiting Confirmation', color: 'text-amber-600', bgColor: 'bg-amber-100' },
   pending_payment: { label: 'Awaiting Payment', color: 'text-orange-600', bgColor: 'bg-orange-100' },
-  payment_received: { label: 'Payment Received', color: 'text-green-600', bgColor: 'bg-green-100' },
   completed: { label: 'Completed', color: 'text-green-600', bgColor: 'bg-green-100' },
   cancelled: { label: 'Cancelled', color: 'text-red-600', bgColor: 'bg-red-100' },
   rejected: { label: 'Rejected', color: 'text-red-600', bgColor: 'bg-red-100' },
