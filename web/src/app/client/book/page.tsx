@@ -372,7 +372,8 @@ function BookServiceContent() {
       if (paymentResult.success && paymentResult.redirectUrl) {
         // Show QR payment modal instead of redirecting
         setQrCheckoutUrl(paymentResult.redirectUrl);
-        setQrAmount(upfrontAmount);
+        // Ensure amount is properly rounded to 2 decimals for display
+        setQrAmount(Math.round(upfrontAmount * 100) / 100);
         setQrBookingId(newBookingId);
         setShowQRModal(true);
         setProcessingPayment(false);

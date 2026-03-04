@@ -566,7 +566,8 @@ function JobDetailsContent() {
           setShowPaymentModal(false);
           // Show QR modal instead of opening new tab
           setQrCheckoutUrl(result.checkoutUrl);
-          setQrAmount(amount);
+          // Ensure amount is properly rounded to 2 decimals for display
+          setQrAmount(Math.round(amount * 100) / 100);
           setQrBookingId(job.id);
           setQrPaymentType('completion');
           setShowQRModal(true);
@@ -819,7 +820,8 @@ function JobDetailsContent() {
       if (result.success && result.checkoutUrl) {
         // Show QR modal instead of opening new tab
         setQrCheckoutUrl(result.checkoutUrl);
-        setQrAmount(chargeAmount);
+        // Ensure amount is properly rounded to 2 decimals for display
+        setQrAmount(Math.round(chargeAmount * 100) / 100);
         setQrBookingId(job.id);
         setQrPaymentType('additional_charge');
         setShowQRModal(true);
