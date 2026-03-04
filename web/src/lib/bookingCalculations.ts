@@ -180,6 +180,7 @@ export const createAdditionalCharge = (amount: number | string, description: str
 
 /**
  * Calculate upfront payment (50% of base price)
+ * Rounds to 2 decimal places to match PayMongo's centavo rounding
  */
 export const calculateUpfrontPayment = (booking: Booking | null): number => {
   if (!booking) return 0;
@@ -189,18 +190,21 @@ export const calculateUpfrontPayment = (booking: Booking | null): number => {
   
   // If we have providerPrice, calculate total with system fee
   if (providerPrice > 0) {
-    const systemFee = providerPrice * 0.05; // Exact calculation, no rounding
+    const systemFee = providerPrice * 0.05; // Exact calculation
     const clientTotal = providerPrice + systemFee;
-    return clientTotal * 0.5; // 50% upfront (exact, no rounding)
+    // Round upfront to 2 decimals (matches PayMongo centavo rounding)
+    return Math.round((clientTotal * 0.5) * 100) / 100;
   }
   
   // Fallback: if totalAmount is already set (includes system fee), use it directly
   const clientTotal = booking.totalAmount || 0;
-  return clientTotal * 0.5; // 50% upfront (exact, no rounding)
+  // Round upfront to 2 decimals (matches PayMongo centavo rounding)
+  return Math.round((clientTotal * 0.5) * 100) / 100;
 };
 
 /**
  * Calculate completion payment (50% + additional charges)
+ * Uses exact difference from upfront to avoid rounding errors
  */
 export const calculateCompletionPayment = (booking: Booking | null): number => {
   if (!booking) return 0;
@@ -212,22 +216,26 @@ export const calculateCompletionPayment = (booking: Booking | null): number => {
   
   // If we have providerPrice, calculate total with system fee
   if (providerPrice > 0) {
-    const systemFee = providerPrice * 0.05; // Exact calculation, no rounding
+    const systemFee = providerPrice * 0.05; // Exact calculation
     clientTotal = providerPrice + systemFee;
   } else {
     // Fallback: if totalAmount is already set (includes system fee), use it directly
     clientTotal = booking.totalAmount || 0;
   }
   
-  const upfrontPaid = booking.upfrontPaidAmount || (clientTotal * 0.5); // Use exact upfront amount
+  // Use stored upfront amount if available, otherwise calculate it
+  const upfrontPaid = booking.upfrontPaidAmount || calculateUpfrontPayment(booking);
 
   // Get approved additional charges
   const approvedCharges = (booking.additionalCharges || [])
     .filter(charge => charge.status === 'approved')
     .reduce((sum, charge) => sum + (charge.total || charge.amount || 0), 0);
 
-  // Remaining 50% + additional charges (exact, no rounding)
-  return (clientTotal - upfrontPaid) + approvedCharges;
+  // Remaining = exact difference from total (avoids rounding errors)
+  const remaining = clientTotal - upfrontPaid;
+  
+  // Return remaining + additional charges, rounded to 2 decimals
+  return Math.round((remaining + approvedCharges) * 100) / 100;
 };
 
 /**
