@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
-  Modal,
   Alert,
   Platform,
   PermissionsAndroid,
@@ -13,8 +12,12 @@ import {
   Animated,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import Sound from 'react-native-sound';
 import { AGORA_APP_ID, API_BASE_URL } from '@env';
 import { listenToCall } from '../../services/callService';
+
+// Enable playback in silence mode (iOS)
+Sound.setCategory('Playback');
 
 // Lazy import to prevent crash if module fails to load
 let createAgoraRtcEngine, ChannelProfileType, ClientRoleType;
@@ -46,16 +49,50 @@ const VoiceCall = ({
   const engineRef = useRef(null);
   const durationIntervalRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const ringtoneRef = useRef(null);
+  const ringbackRef = useRef(null);
+  const ringtoneRef = useRef(null);
+  const ringbackRef = useRef(null);
 
-  // Ringtone vibration pattern: [wait, vibrate, wait, vibrate...]
-  // Pattern: vibrate 1000ms, pause 1000ms, vibrate 1000ms, pause 1000ms
-  const RING_PATTERN = [0, 1000, 1000, 1000, 1000, 1000];
+  // Initialize ringtone sounds
+  useEffect(() => {
+    // Load incoming call ringtone (for receiver)
+    ringtoneRef.current = new Sound('ringtone.mp3', Sound.MAIN_BUNDLE, (error) => {
+      if (error) {
+        console.log('[VoiceCall] Failed to load ringtone:', error);
+        return;
+      }
+      ringtoneRef.current?.setNumberOfLoops(-1); // Loop indefinitely
+    });
 
-  // Start ringing vibration for incoming calls
+    // Load ringback tone (for caller - "calling..." sound)
+    ringbackRef.current = new Sound('ringback.mp3', Sound.MAIN_BUNDLE, (error) => {
+      if (error) {
+        console.log('[VoiceCall] Failed to load ringback:', error);
+        return;
+      }
+      ringbackRef.current?.setNumberOfLoops(-1); // Loop indefinitely
+    });
+
+    return () => {
+      // Cleanup sounds on unmount
+      ringtoneRef.current?.release();
+      ringbackRef.current?.release();
+    };
+  }, []);
+
+  // Start ringing sound and vibration for incoming calls
   useEffect(() => {
     if (isIncoming && callState === 'ringing') {
+      // Play ringtone
+      ringtoneRef.current?.play((success) => {
+        if (!success) {
+          console.log('[VoiceCall] Ringtone playback failed');
+        }
+      });
+
       // Start vibration pattern (repeating)
-      Vibration.vibrate(RING_PATTERN, true);
+      Vibration.vibrate([0, 1000, 1000, 1000], true);
 
       // Pulse animation for the avatar
       const pulse = Animated.loop(
@@ -76,19 +113,26 @@ const VoiceCall = ({
 
       // Auto-miss after 30 seconds
       const missTimeout = setTimeout(() => {
+        ringtoneRef.current?.stop();
         Vibration.cancel();
         handleEndCall();
       }, 30000);
 
       return () => {
+        ringtoneRef.current?.stop();
         Vibration.cancel();
         pulse.stop();
         clearTimeout(missTimeout);
       };
     }
     
-    // Pulse animation for outgoing calls too (ringing state)
+    // Play ringback tone for outgoing calls (caller hears "calling..." sound)
     if (!isIncoming && (callState === 'ringing' || callState === 'connecting')) {
+      ringbackRef.current?.play((success) => {
+        if (!success) {
+          console.log('[VoiceCall] Ringback playback failed');
+        }
+      });
       const pulse = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
@@ -106,8 +150,16 @@ const VoiceCall = ({
       pulse.start();
 
       return () => {
+        ringbackRef.current?.stop();
         pulse.stop();
       };
+    }
+
+    // Stop all sounds when call becomes active
+    if (callState === 'active') {
+      ringtoneRef.current?.stop();
+      ringbackRef.current?.stop();
+      Vibration.cancel();
     }
   }, [isIncoming, callState]);
 
@@ -279,23 +331,36 @@ const VoiceCall = ({
   };
 
   const handleAnswer = async () => {
+    ringtoneRef.current?.stop();
     Vibration.cancel();
-    if (onAnswer) onAnswer();
+    if (onAnswer) {
+      onAnswer();
+    }
     await joinChannel();
   };
 
   const handleDecline = () => {
+    ringtoneRef.current?.stop();
+    ringbackRef.current?.stop();
     Vibration.cancel();
-    if (onDecline) onDecline();
     cleanup();
+    // Call onDecline to close the modal
+    if (onDecline) {
+      onDecline();
+    }
   };
 
   const handleEndCall = () => {
+    ringtoneRef.current?.stop();
+    ringbackRef.current?.stop();
     Vibration.cancel();
     stopDurationTimer();
     setCallState('ended');
     cleanup();
-    onEnd();
+    // Call onEnd immediately to close the modal
+    if (onEnd) {
+      onEnd();
+    }
   };
 
   const toggleMute = async () => {
@@ -309,6 +374,8 @@ const VoiceCall = ({
 
   const cleanup = async () => {
     try {
+      ringtoneRef.current?.stop();
+      ringbackRef.current?.stop();
       Vibration.cancel();
       stopDurationTimer();
       if (engineRef.current) {
@@ -330,108 +397,109 @@ const VoiceCall = ({
   // Incoming call screen
   if (isIncoming && callState === 'ringing') {
     return (
-      <Modal visible={true} animationType="slide" statusBarTranslucent>
-        <View style={styles.container}>
-          <View style={styles.incomingCallContent}>
-            {/* Pulsing ring effect */}
-            <Animated.View style={[styles.ringEffect, { transform: [{ scale: pulseAnim }], opacity: pulseAnim.interpolate({ inputRange: [1, 1.2], outputRange: [0.6, 0] }) }]} />
-            <Animated.View style={[styles.avatarContainer, { transform: [{ scale: pulseAnim.interpolate({ inputRange: [1, 1.2], outputRange: [1, 1.05] }) }] }]}>
-              <Icon name="phone-incoming" size={80} color="#fff" />
-            </Animated.View>
-            <Text style={styles.callerName}>{callerName}</Text>
-            <Text style={styles.callingText}>Incoming call...</Text>
-            <Text style={styles.callingSubtext}>📱 Voice Call</Text>
-          </View>
-
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[styles.callButton, styles.declineButton]}
-              onPress={handleDecline}
-            >
-              <Icon name="phone-hangup" size={40} color="#fff" />
-              <Text style={styles.buttonText}>Decline</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.callButton, styles.answerButton]}
-              onPress={handleAnswer}
-            >
-              <Icon name="phone" size={40} color="#fff" />
-              <Text style={styles.buttonText}>Answer</Text>
-            </TouchableOpacity>
-          </View>
+      <View style={styles.container}>
+        <View style={styles.incomingCallContent}>
+          {/* Pulsing ring effect */}
+          <Animated.View style={[styles.ringEffect, { transform: [{ scale: pulseAnim }], opacity: pulseAnim.interpolate({ inputRange: [1, 1.2], outputRange: [0.6, 0] }) }]} />
+          <Animated.View style={[styles.avatarContainer, { transform: [{ scale: pulseAnim.interpolate({ inputRange: [1, 1.2], outputRange: [1, 1.05] }) }] }]}>
+            <Icon name="phone-incoming" size={80} color="#fff" />
+          </Animated.View>
+          <Text style={styles.callerName}>{callerName}</Text>
+          <Text style={styles.callingText}>Incoming call...</Text>
+          <Text style={styles.callingSubtext}>📱 Voice Call</Text>
         </View>
-      </Modal>
+
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.callButton, styles.declineButton]}
+            onPress={handleDecline}
+          >
+            <Icon name="phone-hangup" size={40} color="#fff" />
+            <Text style={styles.buttonText}>Decline</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.callButton, styles.answerButton]}
+            onPress={handleAnswer}
+          >
+            <Icon name="phone" size={40} color="#fff" />
+            <Text style={styles.buttonText}>Answer</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     );
+  }
+
+  // Don't show anything if call has ended
+  if (callState === 'ended') {
+    return null;
   }
 
   // Active / Ringing call screen
   if (callState === 'connecting' || callState === 'ringing' || callState === 'active') {
     const isWaitingForAnswer = callState === 'ringing' || callState === 'connecting';
     return (
-      <Modal visible={true} animationType="slide" statusBarTranslucent>
-        <View style={styles.container}>
-          <View style={styles.activeCallContent}>
-            {isWaitingForAnswer ? (
-              // Ringing state — waiting for other person to answer
-              <>
-                <Animated.View style={[styles.ringEffect, { transform: [{ scale: pulseAnim }], opacity: pulseAnim.interpolate({ inputRange: [1, 1.2], outputRange: [0.6, 0] }) }]} />
-                <View style={styles.avatarContainer}>
-                  <Icon name="phone-outgoing" size={80} color="#fff" />
-                </View>
-                <Text style={styles.callerName}>{callerName}</Text>
-                <Text style={styles.callingText}>Ringing...</Text>
-                <Text style={styles.callingSubtext}>Waiting for answer...</Text>
-              </>
-            ) : (
-              // Active call — connected, showing timer
-              <>
-                <View style={styles.avatarContainer}>
-                  <Icon
-                    name={isMuted ? "microphone-off" : "microphone"}
-                    size={80}
-                    color={isMuted ? "#999" : "#fff"}
-                  />
-                </View>
-                <Text style={styles.callerName}>{callerName}</Text>
-                <Text style={styles.durationText}>{formatDuration(duration)}</Text>
-              </>
-            )}
-          </View>
-
-          {error && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
-
-          <View style={styles.buttonContainer}>
-            {!isWaitingForAnswer && (
-              <TouchableOpacity
-                style={[styles.controlButton, isMuted && styles.mutedButton]}
-                onPress={toggleMute}
-              >
+      <View style={styles.container}>
+        <View style={styles.activeCallContent}>
+          {isWaitingForAnswer ? (
+            // Ringing state — waiting for other person to answer
+            <>
+              <Animated.View style={[styles.ringEffect, { transform: [{ scale: pulseAnim }], opacity: pulseAnim.interpolate({ inputRange: [1, 1.2], outputRange: [0.6, 0] }) }]} />
+              <View style={styles.avatarContainer}>
+                <Icon name="phone-outgoing" size={80} color="#fff" />
+              </View>
+              <Text style={styles.callerName}>{callerName}</Text>
+              <Text style={styles.callingText}>Ringing...</Text>
+              <Text style={styles.callingSubtext}>Waiting for answer...</Text>
+            </>
+          ) : (
+            // Active call — connected, showing timer
+            <>
+              <View style={styles.avatarContainer}>
                 <Icon
                   name={isMuted ? "microphone-off" : "microphone"}
-                  size={32}
-                  color="#fff"
+                  size={80}
+                  color={isMuted ? "#999" : "#fff"}
                 />
-                <Text style={styles.controlButtonText}>
-                  {isMuted ? 'Unmute' : 'Mute'}
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={[styles.callButton, styles.endCallButton]}
-              onPress={handleEndCall}
-            >
-              <Icon name="phone-hangup" size={40} color="#fff" />
-              <Text style={styles.buttonText}>{isWaitingForAnswer ? 'Cancel' : 'End Call'}</Text>
-            </TouchableOpacity>
-          </View>
+              </View>
+              <Text style={styles.callerName}>{callerName}</Text>
+              <Text style={styles.durationText}>{formatDuration(duration)}</Text>
+            </>
+          )}
         </View>
-      </Modal>
+
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        <View style={styles.buttonContainer}>
+          {!isWaitingForAnswer && (
+            <TouchableOpacity
+              style={[styles.controlButton, isMuted && styles.mutedButton]}
+              onPress={toggleMute}
+            >
+              <Icon
+                name={isMuted ? "microphone-off" : "microphone"}
+                size={32}
+                color="#fff"
+              />
+              <Text style={styles.controlButtonText}>
+                {isMuted ? 'Unmute' : 'Mute'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={[styles.callButton, styles.endCallButton]}
+            onPress={handleEndCall}
+          >
+            <Icon name="phone-hangup" size={40} color="#fff" />
+            <Text style={styles.buttonText}>{isWaitingForAnswer ? 'Cancel' : 'End Call'}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     );
   }
 

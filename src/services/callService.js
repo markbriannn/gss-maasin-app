@@ -184,17 +184,9 @@ export const listenToCall = (callId, callback) => {
 
 // Listen to incoming calls for user — only recent ones (ignore stale calls)
 export const listenToIncomingCalls = (userId, callback) => {
-  // Only listen for calls created in the last 60 seconds
-  const recentTime = new Date(Date.now() - 60 * 1000);
-
-  const q = query(
-    collection(db, 'calls'),
-    where('receiverId', '==', userId),
-    where('status', '==', 'ringing'),
-    where('startedAt', '>=', recentTime)
-  );
-
-  // Also clean up any stale ringing calls (older than 60s)
+  console.log('[Call Service] Setting up incoming call listener for user:', userId);
+  
+  // Clean up any stale ringing calls immediately on mount
   const cleanupStale = async () => {
     try {
       const staleQ = query(
@@ -204,31 +196,60 @@ export const listenToIncomingCalls = (userId, callback) => {
       );
       const staleSnap = await getDocs(staleQ);
       const now = Date.now();
-      staleSnap.docs.forEach(async (docSnap) => {
+      
+      for (const docSnap of staleSnap.docs) {
         const data = docSnap.data();
         const startTime = data.startedAt?.toDate?.()?.getTime() || 0;
-        // If call is older than 60 seconds and still ringing, mark as missed
-        if (now - startTime > 60000) {
+        // If call is older than 45 seconds and still ringing, mark as missed
+        if (now - startTime > 45000) {
+          console.log('[Call Service] Cleaning up stale call:', docSnap.id);
           await updateDoc(doc(db, 'calls', docSnap.id), {
             status: 'missed',
             endedAt: serverTimestamp(),
-          }).catch(() => { });
+          }).catch((err) => console.error('Failed to cleanup stale call:', err));
         }
-      });
+      }
     } catch (e) {
-      // Ignore cleanup errors
+      console.error('[Call Service] Cleanup error:', e);
     }
   };
+  
+  // Run cleanup immediately
   cleanupStale();
 
+  // Listen for incoming calls with status 'ringing'
+  const q = query(
+    collection(db, 'calls'),
+    where('receiverId', '==', userId),
+    where('status', '==', 'ringing')
+  );
+
   return onSnapshot(q, (snapshot) => {
+    const now = Date.now();
+    
     snapshot.docChanges().forEach((change) => {
       if (change.type === 'added') {
         const data = change.doc.data();
-        // Double-check: only trigger for calls less than 60 seconds old
+        const callId = change.doc.id;
         const startTime = data.startedAt?.toDate?.()?.getTime() || 0;
-        if (Date.now() - startTime < 60000) {
-          callback({ id: change.doc.id, ...data });
+        const age = now - startTime;
+        
+        console.log('[Call Service] Incoming call detected:', {
+          callId,
+          age: `${Math.round(age / 1000)}s`,
+          caller: data.callerName
+        });
+        
+        // Only trigger for calls less than 45 seconds old
+        if (age < 45000) {
+          callback({ id: callId, ...data });
+        } else {
+          console.log('[Call Service] Ignoring stale call:', callId);
+          // Mark as missed in background
+          updateDoc(doc(db, 'calls', callId), {
+            status: 'missed',
+            endedAt: serverTimestamp(),
+          }).catch(() => {});
         }
       }
     });
