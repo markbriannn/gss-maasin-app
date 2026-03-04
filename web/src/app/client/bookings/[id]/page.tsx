@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ClientLayout from '@/components/layouts/ClientLayout';
+import QRPaymentModal from '@/components/QRPaymentModal';
 import Link from 'next/link';
 import {
   ArrowLeft, Phone, MessageCircle, MapPin, Clock,
@@ -227,9 +228,52 @@ function JobDetailsContent() {
     message: string;
     onConfirm: () => void;
   }>({ show: false, title: '', message: '', onConfirm: () => { } });
+  
+  // QR Payment Modal state
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrCheckoutUrl, setQrCheckoutUrl] = useState('');
+  const [qrAmount, setQrAmount] = useState(0);
+  const [qrBookingId, setQrBookingId] = useState('');
+  const [qrPaymentType, setQrPaymentType] = useState<'completion' | 'additional_charge'>('completion');
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
 
   const showAlert = (type: 'success' | 'error' | 'info' | 'payment', title: string, message: string, onClose?: () => void) => {
     setAlertModal({ show: true, type, title, message, onClose });
+  };
+
+  // Handle payment completion from QR modal
+  const handlePaymentComplete = () => {
+    setShowQRModal(false);
+    // Refresh the page to show updated payment status
+    window.location.reload();
+  };
+
+  // Manual payment verification (for cases where auto-check didn't complete)
+  const handleManualVerifyPayment = async () => {
+    if (!job || verifyingPayment) return;
+    
+    setVerifyingPayment(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
+      const response = await fetch(`${apiUrl}/payments/verify-and-process/${job.id}`, {
+        method: 'POST',
+      });
+      const result = await response.json();
+
+      if (result.status === 'paid') {
+        showAlert('success', 'Payment Verified!', 'Your payment has been confirmed. The page will refresh.');
+        setTimeout(() => window.location.reload(), 2000);
+      } else if (result.status === 'pending') {
+        showAlert('info', 'Still Processing', 'Payment is still being processed. Please wait a moment and try again.');
+      } else {
+        showAlert('error', 'Not Paid', 'No payment found for this booking. Please complete payment first.');
+      }
+    } catch (error) {
+      console.error('Error verifying payment:', error);
+      showAlert('error', 'Verification Failed', 'Could not verify payment status. Please try again.');
+    } finally {
+      setVerifyingPayment(false);
+    }
   };
 
   // Handle payment callback
@@ -520,11 +564,13 @@ function JobDetailsContent() {
 
         if (result.success && result.checkoutUrl) {
           setShowPaymentModal(false);
-          window.open(result.checkoutUrl, '_blank');
-          const payMsg = isUpfrontPayment
-            ? '50% downpayment tab opened. Complete QR payment then return here — your booking will be submitted for admin approval.'
-            : 'Remaining 50% payment tab opened. Complete QR payment then return here to finalize the job.';
-          showAlert('payment', 'Complete Your Payment 💳', payMsg);
+          // Show QR modal instead of opening new tab
+          setQrCheckoutUrl(result.checkoutUrl);
+          setQrAmount(amount);
+          setQrBookingId(job.id);
+          setQrPaymentType('completion');
+          setShowQRModal(true);
+          setUpdating(false);
         } else {
           showAlert('error', 'Payment Failed', result.error || 'Failed to create payment. Please try again.');
         }
@@ -771,8 +817,13 @@ function JobDetailsContent() {
       const result = await response.json();
 
       if (result.success && result.checkoutUrl) {
-        window.open(result.checkoutUrl, '_blank');
-        showAlert('payment', 'Complete Your Payment 💳', `Pay ₱${chargeAmount.toLocaleString()} — A new tab has opened for QR Ph payment. Scan the QR code with any banking or e-wallet app to complete payment. The charge will be marked as paid automatically once complete.`);
+        // Show QR modal instead of opening new tab
+        setQrCheckoutUrl(result.checkoutUrl);
+        setQrAmount(chargeAmount);
+        setQrBookingId(job.id);
+        setQrPaymentType('additional_charge');
+        setShowQRModal(true);
+        setUpdating(false);
       } else {
         showAlert('error', 'Payment Failed', result.error || 'Failed to create payment. Please try again.');
       }
@@ -1372,6 +1423,24 @@ function JobDetailsContent() {
                 <CreditCard className="w-5 h-5" />
                 Pay 50% Downpayment
               </button>
+              {/* Manual verify button for cases where payment was made but status didn't update */}
+              <button
+                onClick={handleManualVerifyPayment}
+                disabled={verifyingPayment}
+                className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+              >
+                {verifyingPayment ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Already Paid? Verify Payment
+                  </>
+                )}
+              </button>
             </div>
           )}
 
@@ -1523,6 +1592,24 @@ function JobDetailsContent() {
               >
                 <Wallet className="w-5 h-5" />
                 Pay Remaining 50%
+              </button>
+              {/* Manual verify button for cases where payment was made but status didn't update */}
+              <button
+                onClick={handleManualVerifyPayment}
+                disabled={verifyingPayment}
+                className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+              >
+                {verifyingPayment ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Already Paid? Verify Payment
+                  </>
+                )}
               </button>
             </div>
           )}
@@ -1865,6 +1952,16 @@ function JobDetailsContent() {
           onEnd={handleEndCall}
         />
       )}
+
+      {/* QR Payment Modal */}
+      <QRPaymentModal
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        checkoutUrl={qrCheckoutUrl}
+        amount={qrAmount}
+        bookingId={qrBookingId}
+        onPaymentComplete={handlePaymentComplete}
+      />
     </ClientLayout>
   );
 }

@@ -10,6 +10,7 @@ import { processPayment, PaymentMethod } from '@/lib/paymongo';
 import { pushNotifications } from '@/lib/pushNotifications';
 import { calculateUpfrontPayment } from '@/lib/bookingCalculations';
 import ClientLayout from '@/components/layouts/ClientLayout';
+import QRPaymentModal from '@/components/QRPaymentModal';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -91,6 +92,12 @@ function BookServiceContent() {
   const [processingPayment, setProcessingPayment] = useState(false);
   const [showPhotoGuide, setShowPhotoGuide] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  
+  // QR Payment Modal state
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrCheckoutUrl, setQrCheckoutUrl] = useState('');
+  const [qrAmount, setQrAmount] = useState(0);
+  const [qrBookingId, setQrBookingId] = useState('');
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
@@ -162,6 +169,13 @@ function BookServiceContent() {
   const getPrice = () => provider?.serviceCategoryBasePrice || provider?.fixedPrice || provider?.hourlyRate || 0;
   const getSystemFee = () => Math.round(getPrice() * 0.05 * 100) / 100;
   const getTotalAmount = () => Math.round((getPrice() + getSystemFee()) * 100) / 100;
+
+  // Handle payment completion from QR modal
+  const handlePaymentComplete = () => {
+    setShowQRModal(false);
+    setSubmitted(true);
+    setBookingId(qrBookingId);
+  };
 
   // Voice instructions for accessibility
   const speakInstructions = (text: string) => {
@@ -356,8 +370,13 @@ function BookServiceContent() {
       });
 
       if (paymentResult.success && paymentResult.redirectUrl) {
-        // Redirect to PayMongo checkout
-        window.location.href = paymentResult.redirectUrl;
+        // Show QR payment modal instead of redirecting
+        setQrCheckoutUrl(paymentResult.redirectUrl);
+        setQrAmount(upfrontAmount);
+        setQrBookingId(newBookingId);
+        setShowQRModal(true);
+        setProcessingPayment(false);
+        setSubmitting(false);
       } else {
         alert('Failed to process payment: ' + (paymentResult.error || 'Unknown error'));
         setProcessingPayment(false);
@@ -1039,6 +1058,16 @@ function BookServiceContent() {
           </div>
         </div>
       )}
+      
+      {/* QR Payment Modal */}
+      <QRPaymentModal
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        checkoutUrl={qrCheckoutUrl}
+        amount={qrAmount}
+        bookingId={qrBookingId}
+        onPaymentComplete={handlePaymentComplete}
+      />
     </ClientLayout>
   );
 }
