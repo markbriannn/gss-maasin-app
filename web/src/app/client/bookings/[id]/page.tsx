@@ -749,11 +749,6 @@ function JobDetailsContent() {
 
     const chargeAmount = charge.total || charge.amount || 0;
 
-    if (chargeAmount < 100) {
-      showAlert('error', 'Minimum Amount', 'The minimum payment amount is ₱100.');
-      return;
-    }
-
     if (!confirm(`Pay ₱${chargeAmount.toLocaleString()} for:\n"${charge.reason || charge.description}"\n\nYou will be redirected to QR Ph payment.`)) return;
 
     setUpdating(true);

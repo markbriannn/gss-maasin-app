@@ -75,7 +75,7 @@ const TermsScreen = ({ navigation }) => {
             </Text>
             <Text style={{ fontSize: 14, color: bodyColor, marginBottom: 16, lineHeight: 22 }}>
               • A 5% service fee is deducted from your earnings.{'\n'}
-              • Minimum payout amount is ₱100.{'\n'}
+              • Minimum payout amount is ₱1.{'\n'}
               • Payouts are processed to your registered GCash/Maya account.{'\n'}
               • You are responsible for your own tax obligations.
             </Text>

@@ -384,8 +384,8 @@ router.post('/create-qrph-payment', async (req, res) => {
       });
     }
 
-    // Note: PayMongo has a minimum of ₱100 for QR Ph, but we'll let PayMongo return their own error
-    // This allows the system to work with any amount the admin sets
+    // Note: PayMongo minimum is ₱1 for all payment methods
+    // The system allows any amount ≥ ₱1
 
     const db = getDb();
 
@@ -1886,8 +1886,8 @@ router.post('/request-payout', async (req, res) => {
     const db = getDb();
 
     // Validate minimum amount
-    if (!amount || amount < 100) {
-      return res.status(400).json({ error: 'Minimum payout amount is ₱100' });
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid payout amount' });
     }
 
     // Get provider's current balance

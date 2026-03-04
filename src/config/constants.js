@@ -124,7 +124,7 @@ export const WITHDRAWAL_STATUS = {
 // App Configuration
 export const APP_CONFIG = {
   SERVICE_FEE_PERCENTAGE: 5,
-  MINIMUM_PAYOUT_AMOUNT: 100,
+  MINIMUM_PAYOUT_AMOUNT: 1, // PayMongo minimum is ₱1
   CURRENCY_SYMBOL: '₱',
   APP_NAME: 'Maasin City H.E.L.P App',
   SUPPORT_EMAIL: 'support@gssmaasin.com',

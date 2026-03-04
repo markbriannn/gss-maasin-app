@@ -600,16 +600,6 @@ const JobDetailsScreen = ({ navigation, route }) => {
     const bookingId = jobData.id || jobId;
     const userId = user?.uid || user?.id;
 
-    // PayMongo minimum amount is ₱100 for QRPh
-    if (method === 'qrph' && amount < 100) {
-      Alert.alert(
-        'Minimum Amount Required',
-        `The minimum payment amount for QR Ph is ₱100. Your total is ₱${amount.toLocaleString()}.`,
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
     // This is always a completion payment (remaining 50%)
     const isCompletionPayment = true;
 
@@ -812,12 +802,6 @@ const JobDetailsScreen = ({ navigation, route }) => {
               setIsUpdating(true);
               const bookingId = jobData.id || jobId;
               const userId = user?.uid || user?.id;
-
-              // PayMongo minimum is ₱100
-              if (chargeAmount < 100) {
-                showErrorModal('Minimum Amount', 'The minimum payment amount is ₱100.');
-                return;
-              }
 
               // Mark charge as approved in Firestore
               const updatedCharges = jobData.additionalCharges.map(c =>

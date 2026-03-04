@@ -241,7 +241,7 @@ const RoleSelectionScreen = ({ navigation }) => {
                   </Text>
                   <Text style={{ fontSize: 14, color: '#4B5563', lineHeight: 22, marginBottom: 16 }}>
                     • A 5% service fee is deducted from your earnings.{'\n'}
-                    • Minimum payout amount is ₱100.{'\n'}
+                    • Minimum payout amount is ₱1.{'\n'}
                     • Payouts are processed to your registered GCash/Maya account.{'\n'}
                     • You are responsible for your own tax obligations.
                   </Text>

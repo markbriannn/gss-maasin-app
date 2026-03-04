@@ -1611,7 +1611,7 @@ export default function ProviderRegistration() {
 
                   <div>
                     <p className="font-semibold text-gray-900 mb-1">4. Earnings & Payouts</p>
-                    <p>• A 5% service fee is deducted from your earnings.<br />• Minimum payout amount is ₱100.<br />• Payouts are processed to your registered GCash/Maya account.<br />• You are responsible for your own tax obligations.</p>
+                    <p>• A 5% service fee is deducted from your earnings.<br />• Minimum payout amount is ₱1.<br />• Payouts are processed to your registered GCash/Maya account.<br />• You are responsible for your own tax obligations.</p>
                   </div>
 
                   <div>

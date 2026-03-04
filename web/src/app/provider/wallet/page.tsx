@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 const SYSTEM_FEE_PERCENTAGE = 0.05;
-const MINIMUM_PAYOUT_AMOUNT = 100;
+const MINIMUM_PAYOUT_AMOUNT = 1; // PayMongo minimum is ₱1
 
 interface PayoutAccount {
   method: 'gcash' | 'maya';
