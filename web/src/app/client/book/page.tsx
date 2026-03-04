@@ -835,17 +835,6 @@ function BookServiceContent() {
                   </div>
 
                   <div className="p-5">
-                    <div className="space-y-3 mb-4 pb-4 border-b border-gray-200">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-600">Provider Price</span>
-                        <span className="font-semibold text-gray-900">₱{getPrice().toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-600">System Fee (5%)</span>
-                        <span className="font-semibold text-gray-900">₱{getSystemFee().toFixed(2)}</span>
-                      </div>
-                    </div>
-                    
                     <div className="flex justify-between items-center mb-4">
                       <span className="font-bold text-gray-900">Total Amount</span>
                       <span className="text-2xl font-bold text-gray-900">₱{getTotalAmount().toFixed(2)}</span>
