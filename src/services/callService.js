@@ -200,8 +200,8 @@ export const listenToIncomingCalls = (userId, callback) => {
       for (const docSnap of staleSnap.docs) {
         const data = docSnap.data();
         const startTime = data.startedAt?.toDate?.()?.getTime() || 0;
-        // If call is older than 45 seconds and still ringing, mark as missed
-        if (now - startTime > 45000) {
+        // If call is older than 60 seconds and still ringing, mark as missed
+        if (now - startTime > 60000) {
           console.log('[Call Service] Cleaning up stale call:', docSnap.id);
           await updateDoc(doc(db, 'calls', docSnap.id), {
             status: 'missed',
@@ -224,6 +224,9 @@ export const listenToIncomingCalls = (userId, callback) => {
     where('status', '==', 'ringing')
   );
 
+  // Track shown calls to prevent duplicates
+  const shownCalls = new Set();
+
   return onSnapshot(q, (snapshot) => {
     const now = Date.now();
     
@@ -231,6 +234,13 @@ export const listenToIncomingCalls = (userId, callback) => {
       if (change.type === 'added') {
         const data = change.doc.data();
         const callId = change.doc.id;
+        
+        // Skip if already shown
+        if (shownCalls.has(callId)) {
+          console.log('[Call Service] Skipping duplicate call:', callId);
+          return;
+        }
+        
         const startTime = data.startedAt?.toDate?.()?.getTime() || 0;
         const age = now - startTime;
         
@@ -240,8 +250,9 @@ export const listenToIncomingCalls = (userId, callback) => {
           caller: data.callerName
         });
         
-        // Only trigger for calls less than 45 seconds old
-        if (age < 45000) {
+        // Only trigger for calls less than 60 seconds old
+        if (age < 60000) {
+          shownCalls.add(callId);
           callback({ id: callId, ...data });
         } else {
           console.log('[Call Service] Ignoring stale call:', callId);
@@ -250,6 +261,14 @@ export const listenToIncomingCalls = (userId, callback) => {
             status: 'missed',
             endedAt: serverTimestamp(),
           }).catch(() => {});
+        }
+      }
+      
+      // Remove from tracking when call status changes
+      if (change.type === 'removed' || change.type === 'modified') {
+        const data = change.doc.data();
+        if (data.status !== 'ringing') {
+          shownCalls.delete(change.doc.id);
         }
       }
     });
