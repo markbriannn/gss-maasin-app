@@ -8,6 +8,7 @@ import { db } from '@/lib/firebase';
 import { sendBookingConfirmation } from '@/lib/email';
 import { processPayment, PaymentMethod } from '@/lib/paymongo';
 import { pushNotifications } from '@/lib/pushNotifications';
+import { calculateUpfrontPayment } from '@/lib/bookingCalculations';
 import ClientLayout from '@/components/layouts/ClientLayout';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -319,14 +320,13 @@ function BookServiceContent() {
         systemFeePercentage: 5,
         totalAmount: totalAmount,
         // Always use 50/50 split with QR payment
-        status: 'awaiting_payment',
+        status: 'awaiting_payment', // Start as awaiting_payment - only becomes 'pending' after payment confirmed
         paymentSplitType: '50_50',
         paymentMethod: 'qrph',
         paymentStatus: 'pending',
         isPaidUpfront: false,
         upfrontPaidAmount: 0,
         escrowAmount: totalAmount, // Amount held in escrow
-        status: 'awaiting_payment', // Start as awaiting_payment - only becomes 'pending' after payment confirmed
         adminApproved: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

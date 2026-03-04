@@ -20,21 +20,9 @@ import {
   calculateClientTotal, 
   createAdditionalCharge, 
   validateAdditionalCharge,
-  formatCurrency 
+  formatCurrency,
+  AdditionalCharge
 } from '@/lib/bookingCalculations';
-
-interface AdditionalCharge {
-  id: string;
-  description: string;
-  reason?: string;
-  amount: number;
-  total?: number;
-  status: 'pending' | 'approved' | 'rejected' | 'paid';
-  requestedAt?: string;
-  approvedAt?: string;
-  paidAt?: string;
-  paymentId?: string;
-}
 
 interface JobData {
   id: string;

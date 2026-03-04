@@ -10,10 +10,12 @@ export interface AdditionalCharge {
   amount: number;
   total?: number;
   systemFee?: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'paid';
   requestedAt?: string;
   approvedAt?: string;
   rejectedAt?: string;
+  paidAt?: string;
+  paymentId?: string;
 }
 
 export interface Booking {
