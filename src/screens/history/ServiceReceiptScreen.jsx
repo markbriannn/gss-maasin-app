@@ -132,8 +132,8 @@ const ServiceReceiptScreen = ({ navigation, route }) => {
   const subtotal = baseAmount + additionalTotal;
   // Provider earnings = their full price (no deduction)
   const providerEarnings = subtotal;
-  // Client total = provider price + 5% system fee
-  const clientTotal = totalAmount || Math.round(subtotal * 1.05);
+  // Client total = provider price + 5% system fee (always use totalAmount or finalAmount if available)
+  const clientTotal = totalAmount || booking.finalAmount || Math.round(subtotal * 1.05);
   const finalTotal = isProvider ? providerEarnings : clientTotal;
 
   // Format dates

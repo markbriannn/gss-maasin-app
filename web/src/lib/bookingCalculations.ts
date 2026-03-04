@@ -73,7 +73,7 @@ export const calculateClientTotal = (booking: Booking | null): number => {
   if (!booking) return 0;
 
   const providerEarnings = calculateProviderEarnings(booking);
-  const systemFee = Math.round(providerEarnings * 0.05); // 5% system fee
+  const systemFee = providerEarnings * 0.05; // 5% system fee (exact, no rounding)
   
   return providerEarnings + systemFee;
 };
@@ -163,7 +163,7 @@ export const validateAdditionalCharge = (amount: number | string, description: s
  */
 export const createAdditionalCharge = (amount: number | string, description: string): AdditionalCharge => {
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-  const systemFee = Math.round(numAmount * 0.05); // 5% system fee
+  const systemFee = numAmount * 0.05; // 5% system fee (exact, no rounding)
   const total = numAmount + systemFee;
 
   return {
@@ -184,11 +184,19 @@ export const createAdditionalCharge = (amount: number | string, description: str
 export const calculateUpfrontPayment = (booking: Booking | null): number => {
   if (!booking) return 0;
 
-  const basePrice = booking.providerPrice || booking.fixedPrice || booking.totalAmount || booking.price || 0;
-  const systemFee = Math.round(basePrice * 0.05);
-  const clientTotal = basePrice + systemFee;
-
-  return Math.round(clientTotal * 0.5); // 50% upfront
+  // Use providerPrice first (doesn't include system fee), fallback to totalAmount if needed
+  const providerPrice = booking.providerPrice || booking.fixedPrice || booking.price || 0;
+  
+  // If we have providerPrice, calculate total with system fee
+  if (providerPrice > 0) {
+    const systemFee = providerPrice * 0.05; // Exact calculation, no rounding
+    const clientTotal = providerPrice + systemFee;
+    return clientTotal * 0.5; // 50% upfront (exact, no rounding)
+  }
+  
+  // Fallback: if totalAmount is already set (includes system fee), use it directly
+  const clientTotal = booking.totalAmount || 0;
+  return clientTotal * 0.5; // 50% upfront (exact, no rounding)
 };
 
 /**
@@ -197,23 +205,34 @@ export const calculateUpfrontPayment = (booking: Booking | null): number => {
 export const calculateCompletionPayment = (booking: Booking | null): number => {
   if (!booking) return 0;
 
-  const basePrice = booking.providerPrice || booking.fixedPrice || booking.totalAmount || booking.price || 0;
-  const systemFee = Math.round(basePrice * 0.05);
-  const clientTotal = basePrice + systemFee;
-  const upfrontPaid = booking.upfrontPaidAmount || Math.round(clientTotal * 0.5);
+  // Use providerPrice first (doesn't include system fee), fallback to totalAmount if needed
+  const providerPrice = booking.providerPrice || booking.fixedPrice || booking.price || 0;
+  
+  let clientTotal = 0;
+  
+  // If we have providerPrice, calculate total with system fee
+  if (providerPrice > 0) {
+    const systemFee = providerPrice * 0.05; // Exact calculation, no rounding
+    clientTotal = providerPrice + systemFee;
+  } else {
+    // Fallback: if totalAmount is already set (includes system fee), use it directly
+    clientTotal = booking.totalAmount || 0;
+  }
+  
+  const upfrontPaid = booking.upfrontPaidAmount || (clientTotal * 0.5); // Use exact upfront amount
 
   // Get approved additional charges
   const approvedCharges = (booking.additionalCharges || [])
     .filter(charge => charge.status === 'approved')
     .reduce((sum, charge) => sum + (charge.total || charge.amount || 0), 0);
 
-  // Remaining 50% + additional charges
+  // Remaining 50% + additional charges (exact, no rounding)
   return (clientTotal - upfrontPaid) + approvedCharges;
 };
 
 /**
- * Format currency
+ * Format currency with exact decimal places
  */
 export const formatCurrency = (amount: number): string => {
-  return `₱${(amount || 0).toLocaleString()}`;
+  return `₱${(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };

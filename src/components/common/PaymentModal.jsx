@@ -44,13 +44,6 @@ const PAYMENT_METHODS = {
     description: 'Pay with Maya e-wallet',
     logo: null,
   },
-  cash: {
-    name: 'Cash',
-    icon: 'cash',
-    colors: ['#F59E0B', '#D97706'],
-    description: 'Pay cash to provider',
-    logo: null,
-  },
 };
 
 const PaymentModal = ({
@@ -134,9 +127,7 @@ const PaymentModal = ({
     onSelectMethod?.(method);
   };
 
-  const methods = showCash
-    ? ['qrph', 'gcash', 'maya', 'cash']
-    : ['qrph', 'gcash', 'maya'];
+  const methods = ['qrph', 'gcash', 'maya'];
 
   return (
     <Modal

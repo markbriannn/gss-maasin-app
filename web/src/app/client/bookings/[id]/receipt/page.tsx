@@ -227,7 +227,7 @@ Thank you for using Maasin City H.E.L.P!
     );
   }
 
-  const baseAmount = booking.providerPrice || booking.offeredPrice || booking.totalAmount || booking.price || 0;
+  const baseAmount = booking.totalAmount || booking.providerPrice || booking.offeredPrice || booking.price || 0;
   const additionalCharges = booking.additionalCharges || [];
   const approvedCharges = additionalCharges.filter((c: any) => c.status === 'approved');
   const additionalTotal = approvedCharges.reduce((sum: number, c: any) => sum + (c.amount || 0), 0);

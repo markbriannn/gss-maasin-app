@@ -1701,22 +1701,6 @@ function JobDetailsContent() {
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-400" />
               </button>
-
-              {/* Cash */}
-              <button
-                onClick={() => handlePayment('cash')}
-                disabled={updating}
-                className="w-full p-4 border-2 border-gray-200 rounded-xl flex items-center gap-4 hover:border-amber-500 hover:bg-amber-50 transition-colors disabled:opacity-50"
-              >
-                <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
-                  <Banknote className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-semibold text-gray-900">Cash</p>
-                  <p className="text-sm text-gray-500">Pay cash to provider</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </button>
             </div>
 
             <p className="text-xs text-gray-400 text-center">
