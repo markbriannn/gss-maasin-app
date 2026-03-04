@@ -608,7 +608,8 @@ const JobDetailsScreen = ({ navigation, route }) => {
 
         // Show QR payment in-app modal
         setQRPaymentUrl(result.checkoutUrl);
-        setQRPaymentAmount(amount);
+        // Ensure amount is properly rounded to 2 decimals for display
+        setQRPaymentAmount(Math.round(amount * 100) / 100);
         setShowQRPayment(true);
       } else {
         setPaymentError(result.error || 'Failed to create payment');
@@ -784,7 +785,8 @@ const JobDetailsScreen = ({ navigation, route }) => {
               if (result.success && result.checkoutUrl) {
                 // Show QR payment in-app modal
                 setQRPaymentUrl(result.checkoutUrl);
-                setQRPaymentAmount(chargeAmount);
+                // Ensure amount is properly rounded to 2 decimals for display
+                setQRPaymentAmount(Math.round(chargeAmount * 100) / 100);
                 setShowQRPayment(true);
               } else {
                 showErrorModal('Payment Error', result.error || 'Failed to create payment. Please try again.');

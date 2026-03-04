@@ -523,7 +523,8 @@ const BookServiceScreen = ({ navigation, route }) => {
           // Store booking ID and show QR payment modal
           setCurrentBookingId(bookingId);
           setQRPaymentUrl(paymentResult.checkoutUrl);
-          setQRPaymentAmount(upfrontAmount);
+          // Ensure amount is properly rounded to 2 decimals for display
+          setQRPaymentAmount(Math.round(upfrontAmount * 100) / 100);
           setShowQRPayment(true);
           setProcessingPayment(false);
         } else {
