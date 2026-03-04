@@ -141,10 +141,41 @@ export const endCall = async (callId, duration = 0) => {
 export const missedCall = async (callId) => {
   try {
     const callRef = doc(db, 'calls', callId);
+    const callDoc = await getDoc(callRef);
+    
+    if (!callDoc.exists()) {
+      throw new Error('Call not found');
+    }
+    
+    const callData = callDoc.data();
+    
     await updateDoc(callRef, {
       status: 'missed',
       endedAt: serverTimestamp(),
     });
+    
+    // Send missed call notification to receiver
+    try {
+      const apiUrl = API_BASE_URL || 'https://gss-maasin-app.onrender.com/api';
+      await fetch(`${apiUrl}/notifications/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: callData.receiverId,
+          title: `📞 Missed call from ${callData.callerName}`,
+          body: 'You missed a voice call',
+          data: {
+            type: 'missed_call',
+            callId: callId,
+            callerId: callData.callerId,
+            callerName: callData.callerName,
+          },
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to send missed call notification:', error);
+    }
+    
     return true;
   } catch (error) {
     console.error('Error marking call as missed:', error);
@@ -296,6 +327,12 @@ export const canMakeCall = async (callerId, receiverId, bookingId) => {
     }
 
     const booking = bookingDoc.data();
+    
+    // Check if job is completed - can't call after completion
+    if (booking.status === 'completed') {
+      return { allowed: false, reason: 'Cannot call after job is completed' };
+    }
+    
     if (!booking.adminApproved) {
       return { allowed: false, reason: 'Booking must be admin approved' };
     }
