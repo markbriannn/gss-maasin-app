@@ -23,16 +23,77 @@ export default function QRPaymentModal({
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'checking' | 'success' | 'failed'>('pending');
   const [checkingInterval, setCheckingInterval] = useState<NodeJS.Timeout | null>(null);
   const [modalOpenTime, setModalOpenTime] = useState<number | null>(null);
+  const [iframeKey, setIframeKey] = useState(0);
 
   // Track when modal opens to prevent false positives
   useEffect(() => {
     if (isOpen) {
       setModalOpenTime(Date.now());
+      setIframeKey(prev => prev + 1); // Force iframe reload
     } else {
       setModalOpenTime(null);
       setPaymentStatus('pending');
     }
   }, [isOpen]);
+
+  // Listen for iframe navigation to detect "Return to Merchant" click
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      // Security: only accept messages from PayMongo domains
+      if (!event.origin.includes('paymongo.com')) return;
+      
+      // Check if message indicates payment completion
+      if (event.data?.type === 'payment.success' || event.data?.status === 'paid') {
+        console.log('[QRPayment] Received payment success message from iframe');
+        handlePaymentSuccess();
+      }
+    };
+
+    // Also monitor iframe load events to detect redirect to success URL
+    const iframe = document.querySelector('iframe[title="QR Payment"]') as HTMLIFrameElement;
+    if (iframe) {
+      const checkIframeUrl = () => {
+        try {
+          // Try to access iframe URL (will fail due to CORS, but we can catch the error)
+          const iframeUrl = iframe.contentWindow?.location.href;
+          if (iframeUrl && (iframeUrl.includes('payment=success') || iframeUrl.includes('/payment/success'))) {
+            console.log('[QRPayment] Detected success URL in iframe');
+            handlePaymentSuccess();
+          }
+        } catch (e) {
+          // CORS error is expected, ignore
+        }
+      };
+
+      iframe.addEventListener('load', checkIframeUrl);
+      window.addEventListener('message', handleMessage);
+
+      return () => {
+        iframe.removeEventListener('load', checkIframeUrl);
+        window.removeEventListener('message', handleMessage);
+      };
+    }
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [isOpen]);
+
+  const handlePaymentSuccess = () => {
+    // Clear interval
+    if (checkingInterval) {
+      clearInterval(checkingInterval);
+    }
+    
+    // Close modal immediately
+    onClose();
+    
+    // Notify parent after modal closes
+    setTimeout(() => {
+      onPaymentComplete?.();
+    }, 300);
+  };
 
   // Check payment status periodically - every 2 seconds for faster response
   // BUT only start polling after a delay to give user time to scan
@@ -49,11 +110,11 @@ export default function QRPaymentModal({
         const result = await response.json();
 
         if (result.status === 'paid') {
-          // IMPORTANT: Only trigger success if modal has been open for at least 10 seconds
+          // IMPORTANT: Only trigger success if modal has been open for at least 5 seconds
           // This ensures user had time to actually scan and complete payment
           // Prevents false positives from old payment records
           const timeElapsed = Date.now() - (modalOpenTime || 0);
-          if (timeElapsed < 10000) {
+          if (timeElapsed < 5000) {
             console.log('[QRPayment] Payment detected but modal opened only', Math.round(timeElapsed/1000), 'seconds ago - ignoring (likely old record)');
             setPaymentStatus('pending');
             return;
@@ -61,18 +122,7 @@ export default function QRPaymentModal({
           
           console.log('[QRPayment] Payment detected as paid after', Math.round(timeElapsed/1000), 'seconds!');
           
-          // Clear interval
-          if (checkingInterval) {
-            clearInterval(checkingInterval);
-          }
-          
-          // Close modal immediately
-          onClose();
-          
-          // Notify parent after modal closes
-          setTimeout(() => {
-            onPaymentComplete?.();
-          }, 300);
+          handlePaymentSuccess();
         } else {
           setPaymentStatus('pending');
         }
@@ -82,7 +132,7 @@ export default function QRPaymentModal({
       }
     };
 
-    // IMPORTANT: Wait 8 seconds before starting to poll
+    // IMPORTANT: Wait 3 seconds before starting to poll
     // This prevents false positives from old payment records
     const startPollingTimeout = setTimeout(() => {
       // Check immediately after delay
@@ -91,7 +141,7 @@ export default function QRPaymentModal({
       // Then check every 2 seconds for faster updates
       const interval = setInterval(checkPaymentStatus, 2000);
       setCheckingInterval(interval);
-    }, 8000); // Wait 8 seconds before first check
+    }, 3000); // Wait 3 seconds before first check
 
     return () => {
       clearTimeout(startPollingTimeout);
@@ -146,12 +196,35 @@ export default function QRPaymentModal({
           ) : (
             <>
               {/* Payment iframe */}
-              <div className="bg-gray-50 rounded-2xl overflow-hidden border-2 border-gray-200 mb-6">
+              <div className="bg-gray-50 rounded-2xl overflow-hidden border-2 border-gray-200 mb-6 relative">
                 <iframe
+                  key={iframeKey}
                   src={checkoutUrl}
                   className="w-full h-[500px]"
                   title="QR Payment"
-                  sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+                  sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation"
+                  onLoad={(e) => {
+                    // When iframe loads, check if it's trying to show our success page
+                    const iframe = e.currentTarget;
+                    try {
+                      // This will throw CORS error, but we can detect navigation attempts
+                      const iframeDoc = iframe.contentDocument;
+                      if (iframeDoc) {
+                        const url = iframeDoc.URL || '';
+                        if (url.includes('payment=success') || url.includes('/payment/success')) {
+                          console.log('[QRPayment] Detected success redirect in iframe');
+                          handlePaymentSuccess();
+                        }
+                      }
+                    } catch (e) {
+                      // CORS error expected for cross-origin iframes
+                      // Check if the iframe src changed (indicates redirect attempt)
+                      if (iframe.src !== checkoutUrl && (iframe.src.includes('payment=success') || iframe.src.includes('/client/bookings'))) {
+                        console.log('[QRPayment] Detected redirect attempt');
+                        handlePaymentSuccess();
+                      }
+                    }
+                  }}
                 />
               </div>
 
