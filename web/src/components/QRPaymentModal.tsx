@@ -49,15 +49,17 @@ export default function QRPaymentModal({
         const result = await response.json();
 
         if (result.status === 'paid') {
-          // IMPORTANT: Only trigger success if modal has been open for at least 3 seconds
-          // This prevents false positives from old payment records
+          // IMPORTANT: Only trigger success if modal has been open for at least 10 seconds
+          // This ensures user had time to actually scan and complete payment
+          // Prevents false positives from old payment records
           const timeElapsed = Date.now() - (modalOpenTime || 0);
-          if (timeElapsed < 3000) {
-            console.log('[QRPayment] Payment detected but modal just opened, ignoring (likely old record)');
+          if (timeElapsed < 10000) {
+            console.log('[QRPayment] Payment detected but modal opened only', Math.round(timeElapsed/1000), 'seconds ago - ignoring (likely old record)');
             setPaymentStatus('pending');
             return;
           }
           
+          console.log('[QRPayment] Payment detected as paid after', Math.round(timeElapsed/1000), 'seconds!');
           setPaymentStatus('success');
           if (checkingInterval) {
             clearInterval(checkingInterval);
@@ -75,7 +77,7 @@ export default function QRPaymentModal({
       }
     };
 
-    // IMPORTANT: Wait 5 seconds before starting to poll
+    // IMPORTANT: Wait 8 seconds before starting to poll
     // This prevents false positives from old payment records
     const startPollingTimeout = setTimeout(() => {
       // Check immediately after delay
@@ -84,7 +86,7 @@ export default function QRPaymentModal({
       // Then check every 2 seconds for faster updates
       const interval = setInterval(checkPaymentStatus, 2000);
       setCheckingInterval(interval);
-    }, 5000); // Wait 5 seconds before first check
+    }, 8000); // Wait 8 seconds before first check
 
     return () => {
       clearTimeout(startPollingTimeout);
