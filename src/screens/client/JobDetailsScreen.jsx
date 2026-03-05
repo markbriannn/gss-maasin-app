@@ -1069,11 +1069,13 @@ const JobDetailsScreen = ({ navigation, route }) => {
             {jobData.adminApproved && jobData.status !== 'completed' ? (
               <View>
                 <View style={styles.contactButtons}>
+                  {/* VOICE CALL DISABLED - Temporarily hidden
                   <TouchableOpacity style={styles.contactButtonLarge} onPress={handleCallProvider}>
                     <Icon name="call" size={20} color="#00B14F" />
                     <Text style={styles.contactButtonTextLarge}>Voice Call</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.contactButtonLarge} onPress={handleMessageProvider}>
+                  */}
+                  <TouchableOpacity style={[styles.contactButtonLarge, { flex: 1 }]} onPress={handleMessageProvider}>
                     <Icon name="chatbubble" size={20} color="#00B14F" />
                     <Text style={styles.contactButtonTextLarge}>Message</Text>
                   </TouchableOpacity>

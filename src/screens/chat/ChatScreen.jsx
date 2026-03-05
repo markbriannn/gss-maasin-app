@@ -869,11 +869,13 @@ const ChatScreen = ({ route, navigation }) => {
           )}
         </View>
 
+        {/* VOICE CALL DISABLED - Temporarily hidden
         <TouchableOpacity
           style={styles.callButton}
           onPress={handleStartCall}>
           <Icon name="call-outline" size={22} color="#00B14F" />
         </TouchableOpacity>
+        */}
       </View>
 
       {/* Call Status Banner - Messenger style */}

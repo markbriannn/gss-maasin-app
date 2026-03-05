@@ -15,13 +15,16 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AGORA_APP_ID, API_BASE_URL } from '@env';
 import { listenToCall } from '../../services/callService';
 
-// Lazy import to prevent crash if module fails to load
+// AGORA DISABLED - Voice calling temporarily disabled
 let createAgoraRtcEngine, ChannelProfileType, ClientRoleType;
+const AGORA_DISABLED = true;
 try {
-  const agoraModule = require('react-native-agora');
-  createAgoraRtcEngine = agoraModule.createAgoraRtcEngine;
-  ChannelProfileType = agoraModule.ChannelProfileType;
-  ClientRoleType = agoraModule.ClientRoleType;
+  if (!AGORA_DISABLED) {
+    const agoraModule = require('react-native-agora');
+    createAgoraRtcEngine = agoraModule.createAgoraRtcEngine;
+    ChannelProfileType = agoraModule.ChannelProfileType;
+    ClientRoleType = agoraModule.ClientRoleType;
+  }
 } catch (err) {
   console.warn('[VoiceCall] react-native-agora not available:', err.message);
 }

@@ -1467,10 +1467,12 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
           {/* Contact & Direction Buttons - Only show after admin approval */}
           {jobData.adminApproved ? (
             <View style={styles.contactButtons}>
+              {/* VOICE CALL DISABLED - Temporarily hidden
               <TouchableOpacity style={[styles.contactButton, { backgroundColor: isDark ? '#374151' : '#F0FDF4' }]} onPress={handleCallClient}>
                 <Icon name="call" size={18} color="#00B14F" />
                 <Text style={[styles.contactButtonText, { color: isDark ? '#6EE7B7' : '#059669' }]}>Voice Call</Text>
               </TouchableOpacity>
+              */}
               <TouchableOpacity style={[styles.contactButton, { backgroundColor: isDark ? '#374151' : '#F0FDF4' }]} onPress={handleMessageClient}>
                 <Icon name="chatbubble" size={18} color="#00B14F" />
                 <Text style={[styles.contactButtonText, { color: isDark ? '#6EE7B7' : '#059669' }]}>Message</Text>

@@ -166,10 +166,12 @@ const AppContent = () => {
     }
   }, [setNavigationRef]);
 
-  // Global incoming call listener — shows lightweight screen (NO Agora)
+  // Global incoming call listener — DISABLED (Agora voice calls disabled)
   useEffect(() => {
     if (!user?.uid) return;
 
+    // VOICE CALLS DISABLED - Commenting out to prevent crashes
+    /*
     const unsubscribe = listenToIncomingCalls(user.uid, (call) => {
       // Only show if call is still ringing
       if (call.status === 'ringing') {
@@ -181,6 +183,8 @@ const AppContent = () => {
     });
 
     return () => unsubscribe();
+    */
+    return () => {};
   }, [user?.uid]);
 
   // Handle incoming call from push notification
