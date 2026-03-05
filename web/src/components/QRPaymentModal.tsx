@@ -9,6 +9,7 @@ interface QRPaymentModalProps {
   checkoutUrl: string;
   amount: number;
   bookingId: string;
+  paymentType?: 'upfront' | 'completion' | 'additional_charge';
   onPaymentComplete?: () => void;
 }
 
@@ -18,6 +19,7 @@ export default function QRPaymentModal({
   checkoutUrl,
   amount,
   bookingId,
+  paymentType = 'upfront',
   onPaymentComplete,
 }: QRPaymentModalProps) {
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'checking' | 'success' | 'failed'>('pending');
@@ -90,7 +92,10 @@ export default function QRPaymentModal({
       try {
         setPaymentStatus('checking');
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
-        const response = await fetch(`${apiUrl}/payments/verify-and-process/${bookingId}`, {
+        
+        // Pass payment type as query parameter so backend knows which payment to check
+        const url = `${apiUrl}/payments/verify-and-process/${bookingId}?paymentType=${paymentType}`;
+        const response = await fetch(url, {
           method: 'POST',
         });
         const result = await response.json();
@@ -135,7 +140,7 @@ export default function QRPaymentModal({
         clearInterval(checkingInterval);
       }
     };
-  }, [isOpen, bookingId, onPaymentComplete, onClose, modalOpenTime]);
+  }, [isOpen, bookingId, paymentType, onPaymentComplete, onClose, modalOpenTime]);
 
   const handleClose = () => {
     if (checkingInterval) {

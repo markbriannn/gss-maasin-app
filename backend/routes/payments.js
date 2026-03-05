@@ -580,6 +580,7 @@ router.get('/source/:sourceId', async (req, res) => {
 router.post('/verify-and-process/:bookingId', async (req, res) => {
   try {
     const { bookingId } = req.params;
+    const { paymentType: requestedPaymentType } = req.query; // Get payment type from query param
     const db = getDb();
 
     // Get booking first to determine what payment we're looking for
@@ -590,9 +591,13 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
     const bookingData = bookingDoc.data();
 
     // Determine which payment type we should be checking
-    const isAwaitingUpfront = bookingData.status === 'awaiting_payment' || (!bookingData.isPaidUpfront && bookingData.paymentPreference === 'pay_first');
-    const isAwaitingCompletion = bookingData.status === 'pending_payment';
-    const expectedPaymentType = isAwaitingUpfront ? 'upfront' : isAwaitingCompletion ? 'completion' : null;
+    // Prioritize the requested payment type from the modal, otherwise infer from booking status
+    let expectedPaymentType = requestedPaymentType;
+    if (!expectedPaymentType) {
+      const isAwaitingUpfront = bookingData.status === 'awaiting_payment' || (!bookingData.isPaidUpfront && bookingData.paymentPreference === 'pay_first');
+      const isAwaitingCompletion = bookingData.status === 'pending_payment';
+      expectedPaymentType = isAwaitingUpfront ? 'upfront' : isAwaitingCompletion ? 'completion' : null;
+    }
 
     console.log(`[Verify Payment] Booking ${bookingId} - Status: ${bookingData.status}, Expected payment type: ${expectedPaymentType}`);
 
@@ -632,6 +637,13 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
 
     // If already paid, check if booking needs to be fixed
     if (paymentData.status === 'paid') {
+      // Only return "paid" if it matches the expected payment type
+      // This prevents false positives when checking for completion payment but upfront is already paid
+      if (expectedPaymentType && paymentData.paymentType !== expectedPaymentType) {
+        console.log(`[Verify Payment] Found paid ${paymentData.paymentType} payment, but looking for ${expectedPaymentType} - returning pending`);
+        return res.json({ status: 'pending', message: `Waiting for ${expectedPaymentType} payment` });
+      }
+
       // Fix stuck "Pay First" jobs that are in pending_payment but already paid
       if (bookingData?.paymentPreference === 'pay_first' &&
         bookingData?.isPaidUpfront &&
