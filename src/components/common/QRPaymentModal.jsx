@@ -42,7 +42,7 @@ const QRPaymentModal = ({
 
     console.log('[QRPayment] Starting payment status polling for booking:', bookingId);
     
-    // Check immediately
+    // Check immediately when modal opens
     checkPaymentStatus();
     
     // Then check every 2 seconds for faster response
