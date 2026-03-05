@@ -1029,7 +1029,6 @@ const BookServiceScreen = ({ navigation, route }) => {
             • Pay remaining 50% after service completion{'\n'}
             • Your payment is held securely until job is done
           </Text>
-        </View>
           <Text style={{ fontSize: 12, color: isDark ? '#93C5FD' : '#92400E', marginLeft: 8, flex: 1, lineHeight: 18 }}>
             You'll be shown a QR code to scan with any banking or e-wallet app (GCash, Maya, BPI, etc.). Money will be held until the provider completes the job and you confirm.
           </Text>
@@ -1526,11 +1525,13 @@ const BookServiceScreen = ({ navigation, route }) => {
           navigation.replace('ClientMain');
         }}
         onPaymentComplete={() => {
-          // Payment completed, navigate to booking details
+          // Payment completed, navigate directly to job details
+          setShowQRPayment(false);
           if (currentBookingId) {
+            // Navigate to job details to show updated status
+            navigation.replace('JobDetails', { jobId: currentBookingId });
+          } else {
             navigation.replace('ClientMain');
-            // Could also navigate directly to job details
-            // navigation.navigate('JobDetails', { jobId: currentBookingId });
           }
         }}
       />

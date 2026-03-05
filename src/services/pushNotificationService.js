@@ -53,6 +53,39 @@ class PushNotificationService {
     }
   }
 
+  // Create notification channels (Android only)
+  async createNotificationChannels() {
+    if (Platform.OS !== 'android') return;
+
+    try {
+      // Import notifee for channel creation
+      const notifee = require('@notifee/react-native').default;
+
+      // Create incoming calls channel (high priority, with sound)
+      await notifee.createChannel({
+        id: 'incoming_calls',
+        name: 'Incoming Calls',
+        importance: 5, // IMPORTANCE_HIGH
+        sound: 'default',
+        vibration: true,
+        vibrationPattern: [300, 500],
+      });
+
+      // Create default notifications channel
+      await notifee.createChannel({
+        id: 'gss_notifications',
+        name: 'General Notifications',
+        importance: 4, // IMPORTANCE_DEFAULT
+        sound: 'default',
+      });
+
+      console.log('Notification channels created successfully');
+    } catch (error) {
+      // Notifee might not be installed, fail silently
+      console.log('Could not create notification channels:', error?.message);
+    }
+  }
+
   // Get FCM token for this device
   async getToken() {
     try {

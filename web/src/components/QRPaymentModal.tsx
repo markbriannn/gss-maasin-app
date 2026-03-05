@@ -23,12 +23,13 @@ export default function QRPaymentModal({
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'checking' | 'success' | 'failed'>('pending');
   const [checkingInterval, setCheckingInterval] = useState<NodeJS.Timeout | null>(null);
 
-  // Check payment status periodically
+  // Check payment status periodically - every 2 seconds for faster response
   useEffect(() => {
     if (!isOpen || !bookingId) return;
 
     const checkPaymentStatus = async () => {
       try {
+        setPaymentStatus('checking');
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://gss-maasin-app.onrender.com/api';
         const response = await fetch(`${apiUrl}/payments/verify-and-process/${bookingId}`, {
           method: 'POST',
@@ -44,24 +45,25 @@ export default function QRPaymentModal({
             onPaymentComplete?.();
             onClose();
           }, 2000);
+        } else {
+          setPaymentStatus('pending');
         }
       } catch (error) {
         console.error('Error checking payment status:', error);
+        setPaymentStatus('pending');
       }
     };
 
-    // Start checking after 5 seconds, then every 3 seconds
-    const timeout = setTimeout(() => {
-      setPaymentStatus('checking');
-      checkPaymentStatus();
-      const interval = setInterval(checkPaymentStatus, 3000);
-      setCheckingInterval(interval);
-    }, 5000);
+    // Check immediately when modal opens
+    checkPaymentStatus();
+    
+    // Then check every 2 seconds for faster updates
+    const interval = setInterval(checkPaymentStatus, 2000);
+    setCheckingInterval(interval);
 
     return () => {
-      clearTimeout(timeout);
-      if (checkingInterval) {
-        clearInterval(checkingInterval);
+      if (interval) {
+        clearInterval(interval);
       }
     };
   }, [isOpen, bookingId, onPaymentComplete, onClose]);
@@ -121,16 +123,16 @@ export default function QRPaymentModal({
               </div>
 
               {/* Status indicator */}
-              <div className="flex items-center justify-center gap-3 text-sm">
+              <div className="flex items-center justify-center gap-3 text-sm py-3">
                 {paymentStatus === 'checking' ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin text-[#00B14F]" />
-                    <span className="text-gray-600">Checking payment status...</span>
+                    <span className="text-gray-700 font-medium">Checking payment status...</span>
                   </>
                 ) : (
                   <>
                     <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-                    <span className="text-gray-600">Waiting for payment...</span>
+                    <span className="text-gray-600">Scan QR code to pay • Auto-detects within seconds</span>
                   </>
                 )}
               </div>

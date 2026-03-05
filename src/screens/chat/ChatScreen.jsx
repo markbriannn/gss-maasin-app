@@ -1164,26 +1164,34 @@ const ChatScreen = ({ route, navigation }) => {
 
       {/* Voice Call Overlay */}
       {activeCall && (callStatus === 'ringing' || callStatus === 'ongoing') && (
-        <VoiceCall
-          callId={activeCall.id}
-          channelName={activeCall.channelName}
-          isIncoming={false}
-          callerName={activeCall.callerName || recipient?.name || 'User'}
-          onEnd={() => {
-            const durationSec = callStartTimeRef.current
-              ? Math.round((Date.now() - callStartTimeRef.current) / 1000)
-              : 0;
-            endCall(activeCall.id, durationSec).catch(() => { });
-            if (durationSec > 5) {
-              sendCallEventMessage('completed', durationSec);
-            } else {
-              sendCallEventMessage('missed');
-            }
-            setActiveCall(null);
-            setCallStatus(null);
-            callStartTimeRef.current = null;
-          }}
-        />
+        <Modal 
+          visible={true} 
+          transparent={false} 
+          animationType="slide"
+          statusBarTranslucent
+          presentationStyle="fullScreen"
+        >
+          <VoiceCall
+            callId={activeCall.id}
+            channelName={activeCall.channelName}
+            isIncoming={false}
+            callerName={activeCall.callerName || recipient?.name || 'User'}
+            onEnd={() => {
+              const durationSec = callStartTimeRef.current
+                ? Math.round((Date.now() - callStartTimeRef.current) / 1000)
+                : 0;
+              endCall(activeCall.id, durationSec).catch(() => { });
+              if (durationSec > 5) {
+                sendCallEventMessage('completed', durationSec);
+              } else {
+                sendCallEventMessage('missed');
+              }
+              setActiveCall(null);
+              setCallStatus(null);
+              callStartTimeRef.current = null;
+            }}
+          />
+        </Modal>
       )}
     </SafeAreaView>
   );

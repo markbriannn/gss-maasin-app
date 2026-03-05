@@ -31,6 +31,9 @@ export const PushNotificationProvider = ({ children }) => {
 
   const initializePushNotifications = async () => {
     try {
+      // Create notification channels first (Android only)
+      await pushNotificationService.createNotificationChannels();
+
       // Request permission (quick operation)
       const granted = await pushNotificationService.requestPermission();
       setPermissionGranted(granted);

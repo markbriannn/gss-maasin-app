@@ -12,12 +12,8 @@ import {
   Animated,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import Sound from 'react-native-sound';
 import { AGORA_APP_ID, API_BASE_URL } from '@env';
 import { listenToCall } from '../../services/callService';
-
-// Enable playback in silence mode (iOS)
-Sound.setCategory('Playback');
 
 // Lazy import to prevent crash if module fails to load
 let createAgoraRtcEngine, ChannelProfileType, ClientRoleType;
@@ -49,48 +45,10 @@ const VoiceCall = ({
   const engineRef = useRef(null);
   const durationIntervalRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const ringtoneRef = useRef(null);
-  const ringbackRef = useRef(null);
-  const ringtoneRef = useRef(null);
-  const ringbackRef = useRef(null);
 
-  // Initialize ringtone sounds
-  useEffect(() => {
-    // Load incoming call ringtone (for receiver)
-    ringtoneRef.current = new Sound('ringtone.mp3', Sound.MAIN_BUNDLE, (error) => {
-      if (error) {
-        console.log('[VoiceCall] Failed to load ringtone:', error);
-        return;
-      }
-      ringtoneRef.current?.setNumberOfLoops(-1); // Loop indefinitely
-    });
-
-    // Load ringback tone (for caller - "calling..." sound)
-    ringbackRef.current = new Sound('ringback.mp3', Sound.MAIN_BUNDLE, (error) => {
-      if (error) {
-        console.log('[VoiceCall] Failed to load ringback:', error);
-        return;
-      }
-      ringbackRef.current?.setNumberOfLoops(-1); // Loop indefinitely
-    });
-
-    return () => {
-      // Cleanup sounds on unmount
-      ringtoneRef.current?.release();
-      ringbackRef.current?.release();
-    };
-  }, []);
-
-  // Start ringing sound and vibration for incoming calls
+  // Start vibration for incoming calls
   useEffect(() => {
     if (isIncoming && callState === 'ringing') {
-      // Play ringtone
-      ringtoneRef.current?.play((success) => {
-        if (!success) {
-          console.log('[VoiceCall] Ringtone playback failed');
-        }
-      });
-
       // Start vibration pattern (repeating)
       Vibration.vibrate([0, 1000, 1000, 1000], true);
 
@@ -113,26 +71,19 @@ const VoiceCall = ({
 
       // Auto-miss after 30 seconds
       const missTimeout = setTimeout(() => {
-        ringtoneRef.current?.stop();
         Vibration.cancel();
         handleEndCall();
       }, 30000);
 
       return () => {
-        ringtoneRef.current?.stop();
         Vibration.cancel();
         pulse.stop();
         clearTimeout(missTimeout);
       };
     }
     
-    // Play ringback tone for outgoing calls (caller hears "calling..." sound)
+    // Pulse animation for outgoing calls
     if (!isIncoming && (callState === 'ringing' || callState === 'connecting')) {
-      ringbackRef.current?.play((success) => {
-        if (!success) {
-          console.log('[VoiceCall] Ringback playback failed');
-        }
-      });
       const pulse = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
@@ -150,15 +101,12 @@ const VoiceCall = ({
       pulse.start();
 
       return () => {
-        ringbackRef.current?.stop();
         pulse.stop();
       };
     }
 
-    // Stop all sounds when call becomes active
+    // Stop vibration when call becomes active
     if (callState === 'active') {
-      ringtoneRef.current?.stop();
-      ringbackRef.current?.stop();
       Vibration.cancel();
     }
   }, [isIncoming, callState]);
@@ -185,13 +133,19 @@ const VoiceCall = ({
       if (callData.status === 'ended' || callData.status === 'declined' || callData.status === 'missed') {
         if (callState !== 'ended') {
           console.log('[VoiceCall] Call ended remotely, cleaning up');
-          handleEndCall();
+          // Set state to ended first to prevent re-renders
+          setCallState('ended');
+          // Then cleanup and call onEnd
+          cleanup();
+          if (onEnd) {
+            onEnd();
+          }
         }
       }
     });
 
     return () => unsubscribe();
-  }, [callId, callState]);
+  }, [callId]);
 
   useEffect(() => {
     if (callState === 'active') {
@@ -331,7 +285,6 @@ const VoiceCall = ({
   };
 
   const handleAnswer = async () => {
-    ringtoneRef.current?.stop();
     Vibration.cancel();
     if (onAnswer) {
       onAnswer();
@@ -340,8 +293,6 @@ const VoiceCall = ({
   };
 
   const handleDecline = () => {
-    ringtoneRef.current?.stop();
-    ringbackRef.current?.stop();
     Vibration.cancel();
     cleanup();
     // Call onDecline to close the modal
@@ -351,8 +302,6 @@ const VoiceCall = ({
   };
 
   const handleEndCall = () => {
-    ringtoneRef.current?.stop();
-    ringbackRef.current?.stop();
     Vibration.cancel();
     stopDurationTimer();
     setCallState('ended');
@@ -374,8 +323,6 @@ const VoiceCall = ({
 
   const cleanup = async () => {
     try {
-      ringtoneRef.current?.stop();
-      ringbackRef.current?.stop();
       Vibration.cancel();
       stopDurationTimer();
       if (engineRef.current) {

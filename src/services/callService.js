@@ -262,10 +262,10 @@ export const listenToIncomingCalls = (userId, callback) => {
     const now = Date.now();
     
     snapshot.docChanges().forEach((change) => {
+      const callId = change.doc.id;
+      const data = change.doc.data();
+      
       if (change.type === 'added') {
-        const data = change.doc.data();
-        const callId = change.doc.id;
-        
         // Skip if already shown
         if (shownCalls.has(callId)) {
           console.log('[Call Service] Skipping duplicate call:', callId);
@@ -295,12 +295,10 @@ export const listenToIncomingCalls = (userId, callback) => {
         }
       }
       
-      // Remove from tracking when call status changes
-      if (change.type === 'removed' || change.type === 'modified') {
-        const data = change.doc.data();
-        if (data.status !== 'ringing') {
-          shownCalls.delete(change.doc.id);
-        }
+      // Remove from tracking when call is removed from query (status changed from 'ringing')
+      if (change.type === 'removed') {
+        console.log('[Call Service] Call removed from ringing query:', callId);
+        shownCalls.delete(callId);
       }
     });
   });

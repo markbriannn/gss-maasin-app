@@ -98,6 +98,7 @@ function BookServiceContent() {
   const [qrCheckoutUrl, setQrCheckoutUrl] = useState('');
   const [qrAmount, setQrAmount] = useState(0);
   const [qrBookingId, setQrBookingId] = useState('');
+  const [redirectCountdown, setRedirectCountdown] = useState(3);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
@@ -175,6 +176,21 @@ function BookServiceContent() {
     setShowQRModal(false);
     setSubmitted(true);
     setBookingId(qrBookingId);
+    setRedirectCountdown(3);
+    
+    // Countdown timer
+    const countdownInterval = setInterval(() => {
+      setRedirectCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          if (qrBookingId) {
+            window.location.href = `/client/bookings/${qrBookingId}`;
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
   // Voice instructions for accessibility
@@ -438,7 +454,10 @@ function BookServiceContent() {
                 </div>
 
                 <h2 className="text-3xl font-bold text-gray-900 mb-2">Request Submitted!</h2>
-                <p className="text-gray-500 mb-6">Your booking is pending admin approval</p>
+                <p className="text-gray-500 mb-2">Your booking is pending admin approval</p>
+                <p className="text-sm text-gray-400 mb-6">
+                  Redirecting to booking details in {redirectCountdown} second{redirectCountdown !== 1 ? 's' : ''}...
+                </p>
 
                 <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-4 mb-6">
                   <div className="flex items-center justify-center gap-3 text-sm">

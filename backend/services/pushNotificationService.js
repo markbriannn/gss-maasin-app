@@ -70,14 +70,38 @@ const sendToUser = async (userId, notification, data = {}) => {
         },
       };
     } else {
-      // Android/iOS
-      message.android = {
-        priority: 'high',
-        notification: {
-          sound: 'default',
-          channelId: 'gss_notifications',
-        },
-      };
+      // Android/iOS - Special handling for incoming calls
+      if (data.type === 'incoming_call') {
+        message.android = {
+          priority: 'high',
+          notification: {
+            sound: 'default',
+            channelId: 'incoming_calls',
+            priority: 'max',
+            visibility: 'public',
+            defaultSound: true,
+            defaultVibrateTimings: true,
+          },
+        };
+        message.apns = {
+          payload: {
+            aps: {
+              sound: 'default',
+              badge: 1,
+              'content-available': 1,
+            },
+          },
+        };
+      } else {
+        // Regular notifications
+        message.android = {
+          priority: 'high',
+          notification: {
+            sound: 'default',
+            channelId: 'gss_notifications',
+          },
+        };
+      }
     }
 
     console.log('[FCM Backend] Sending message via Firebase Admin SDK...');

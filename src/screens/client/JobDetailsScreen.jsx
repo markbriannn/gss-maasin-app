@@ -745,9 +745,9 @@ const JobDetailsScreen = ({ navigation, route }) => {
               const bookingId = jobData.id || jobId;
               const userId = user?.uid || user?.id;
 
-              // Mark charge as approved in Firestore
+              // Mark charge as approved and set to pending_payment in Firestore
               const updatedCharges = jobData.additionalCharges.map(c =>
-                c.id === chargeId ? { ...c, status: 'approved', approvedAt: new Date().toISOString() } : c
+                c.id === chargeId ? { ...c, status: 'pending_payment', approvedAt: new Date().toISOString() } : c
               );
               const hasPending = updatedCharges.some(c => c.status === 'pending');
 
@@ -1228,8 +1228,28 @@ const JobDetailsScreen = ({ navigation, route }) => {
                           </TouchableOpacity>
                         </View>
                       ) : null}
-                      {charge.status === 'approved' ? (
-                        <Text style={{ fontSize: 11, color: '#059669', marginTop: 2 }}>✓ Approved</Text>
+                      {charge.status === 'pending_payment' ? (
+                        <TouchableOpacity
+                          style={{
+                            backgroundColor: '#7C3AED',
+                            paddingVertical: 10,
+                            paddingHorizontal: 16,
+                            borderRadius: 8,
+                            marginTop: 8,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                          onPress={() => handlePayAdditionalCharge(charge)}
+                        >
+                          <Icon name="card" size={16} color="#FFFFFF" />
+                          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600', marginLeft: 6 }}>
+                            Pay ₱{charge.total?.toFixed(2)}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : null}
+                      {charge.status === 'paid' ? (
+                        <Text style={{ fontSize: 11, color: '#059669', marginTop: 2 }}>✓ Paid</Text>
                       ) : null}
                       {charge.status === 'rejected' ? (
                         <Text style={{ fontSize: 11, color: '#DC2626', marginTop: 2 }}>✗ Rejected</Text>
@@ -2033,7 +2053,13 @@ const JobDetailsScreen = ({ navigation, route }) => {
 
       {/* Voice Call Modals */}
       {activeCall && (
-        <Modal visible={true} transparent={false} animationType="slide">
+        <Modal 
+          visible={true} 
+          transparent={false} 
+          animationType="slide"
+          statusBarTranslucent
+          presentationStyle="fullScreen"
+        >
           <VoiceCall
             callId={activeCall.id}
             channelName={activeCall.channelName}
@@ -2045,7 +2071,13 @@ const JobDetailsScreen = ({ navigation, route }) => {
       )}
 
       {incomingCall && (
-        <Modal visible={true} transparent={false} animationType="slide">
+        <Modal 
+          visible={true} 
+          transparent={false} 
+          animationType="slide"
+          statusBarTranslucent
+          presentationStyle="fullScreen"
+        >
           <VoiceCall
             callId={incomingCall.id}
             channelName={incomingCall.channelName}

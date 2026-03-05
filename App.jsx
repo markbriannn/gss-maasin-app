@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StatusBar, LogBox, Animated, StyleSheet, Linking, Alert, Modal, TouchableOpacity } from 'react-native';
+import { StatusBar, LogBox, Animated, StyleSheet, Linking, Alert, Modal } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -16,7 +16,7 @@ import ErrorBoundary from './src/components/common/ErrorBoundary';
 import GlobalModalProvider from './src/components/common/GlobalModalProvider';
 import VoiceCall from './src/components/common/VoiceCall';
 import { setBackgroundMessageHandler } from './src/services/pushNotificationService';
-import { listenToIncomingCalls, answerCall, declineCall, endCall } from './src/services/callService';
+import { listenToIncomingCalls, answerCall, declineCall, endCall, listenToCall } from './src/services/callService';
 import paymentService from './src/services/paymentService';
 import { showSuccessModal, showErrorModal } from './src/utils/modalManager';
 
@@ -158,7 +158,6 @@ const AppContent = () => {
   const { incomingCallData, clearIncomingCall, setNavigationRef } = usePushNotifications();
   const [incomingCall, setIncomingCall] = useState(null);
   const [answeredCall, setAnsweredCall] = useState(null); // Answered call triggers VoiceCall (with Agora)
-  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Set navigation ref for push notifications
   useEffect(() => {
@@ -172,7 +171,13 @@ const AppContent = () => {
     if (!user?.uid) return;
 
     const unsubscribe = listenToIncomingCalls(user.uid, (call) => {
-      setIncomingCall(call);
+      // Only show if call is still ringing
+      if (call.status === 'ringing') {
+        console.log('[App] Showing incoming call:', call.id);
+        setIncomingCall(call);
+      } else {
+        console.log('[App] Ignoring non-ringing call:', call.id, call.status);
+      }
     });
 
     return () => unsubscribe();
@@ -186,19 +191,22 @@ const AppContent = () => {
     }
   }, [incomingCallData, clearIncomingCall]);
 
-  // Pulse animation for incoming call
+  // Monitor incoming call status and auto-dismiss if ended
   useEffect(() => {
-    if (incomingCall) {
-      const pulse = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.15, duration: 800, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-        ])
-      );
-      pulse.start();
-      return () => pulse.stop();
-    }
-  }, [incomingCall]);
+    if (!incomingCall?.id) return;
+
+    console.log('[App] Monitoring incoming call status:', incomingCall.id);
+    const unsubscribe = listenToCall(incomingCall.id, (callData) => {
+      console.log('[App] Incoming call status changed:', callData.status);
+      // If call is no longer ringing, dismiss the notification
+      if (callData.status !== 'ringing') {
+        console.log('[App] Auto-dismissing incoming call notification');
+        setIncomingCall(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [incomingCall?.id]);
 
   const handleAnswerCall = async () => {
     if (incomingCall) {
@@ -258,123 +266,35 @@ const AppContent = () => {
         <AppNavigator />
       </NavigationContainer>
 
-      {/* Global Incoming Call Screen — lightweight, NO Agora SDK */}
+      {/* Voice Call Screen - Shows for both incoming and outgoing calls */}
       {incomingCall && (
-        <Modal visible={true} transparent={false} animationType="slide" statusBarTranslucent>
-          <StatusBar barStyle="light-content" backgroundColor="#B8860B" />
-          <Animated.View style={{
-            flex: 1,
-            background: 'linear-gradient(180deg, #4A6741 0%, #B8860B 100%)',
-            backgroundColor: '#5A7A50',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            paddingVertical: 80,
-          }}>
-            {/* Caller info */}
-            <Animated.View style={{ alignItems: 'center', marginTop: 40 }}>
-              <Animated.View style={{
-                width: 120,
-                height: 120,
-                borderRadius: 60,
-                backgroundColor: '#333',
-                justifyContent: 'center',
-                alignItems: 'center',
-                marginBottom: 24,
-                transform: [{ scale: pulseAnim }],
-              }}>
-                <Animated.Text style={{ fontSize: 48, color: '#fff', fontWeight: 'bold' }}>
-                  {(incomingCall.callerName || 'U').charAt(0).toUpperCase()}
-                </Animated.Text>
-              </Animated.View>
-              <Animated.Text style={{
-                fontSize: 28,
-                fontWeight: 'bold',
-                color: '#fff',
-                textAlign: 'center',
-                marginBottom: 8,
-              }}>
-                {incomingCall.callerName || 'Unknown'}
-              </Animated.Text>
-              <Animated.Text style={{
-                fontSize: 16,
-                color: 'rgba(255,255,255,0.7)',
-                textAlign: 'center',
-              }}>
-                Audio call from H.E.L.P
-              </Animated.Text>
-            </Animated.View>
-
-            {/* Decline / Answer buttons */}
-            <Animated.View style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: 60,
-            }}>
-              {/* Decline */}
-              <Animated.View style={{ alignItems: 'center' }}>
-                <TouchableOpacity
-                  onPress={handleDeclineCall}
-                  activeOpacity={0.7}
-                  style={{
-                    width: 70,
-                    height: 70,
-                    borderRadius: 35,
-                    backgroundColor: '#EF4444',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    elevation: 8,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 8,
-                  }}>
-                  <Animated.Text style={{ fontSize: 28, color: '#fff' }}>✕</Animated.Text>
-                </TouchableOpacity>
-                <Animated.Text style={{ color: '#fff', fontSize: 14, marginTop: 8, fontWeight: '500' }}>
-                  Decline
-                </Animated.Text>
-              </Animated.View>
-
-              {/* Answer */}
-              <Animated.View style={{ alignItems: 'center' }}>
-                <TouchableOpacity
-                  onPress={handleAnswerCall}
-                  activeOpacity={0.7}
-                  style={{
-                    width: 70,
-                    height: 70,
-                    borderRadius: 35,
-                    backgroundColor: '#22C55E',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    elevation: 8,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 8,
-                  }}>
-                  <Animated.Text style={{ fontSize: 28, color: '#fff' }}>📞</Animated.Text>
-                </TouchableOpacity>
-                <Animated.Text style={{ color: '#fff', fontSize: 14, marginTop: 8, fontWeight: '500' }}>
-                  Answer
-                </Animated.Text>
-              </Animated.View>
-            </Animated.View>
-          </Animated.View>
-        </Modal>
+        <ErrorBoundary>
+          <Modal visible={true} transparent={false} animationType="slide" statusBarTranslucent>
+            <VoiceCall
+              callId={incomingCall.id}
+              channelName={incomingCall.channelName}
+              isIncoming={true}
+              callerName={incomingCall.callerName || 'Unknown'}
+              onEnd={handleEndCall}
+              onDecline={handleDeclineCall}
+              onAnswer={handleAnswerCall}
+            />
+          </Modal>
+        </ErrorBoundary>
       )}
 
-      {/* Active Call — Agora VoiceCall only loads AFTER answering */}
+      {/* Active Call - After answering */}
       {answeredCall && (
         <ErrorBoundary>
-          <VoiceCall
-            callId={answeredCall.id}
-            channelName={answeredCall.channelName}
-            isIncoming={false}
-            callerName={answeredCall.callerName || 'Unknown'}
-            onEnd={handleEndCall}
-          />
+          <Modal visible={true} transparent={false} animationType="none" statusBarTranslucent>
+            <VoiceCall
+              callId={answeredCall.id}
+              channelName={answeredCall.channelName}
+              isIncoming={false}
+              callerName={answeredCall.callerName || 'Unknown'}
+              onEnd={handleEndCall}
+            />
+          </Modal>
         </ErrorBoundary>
       )}
     </>

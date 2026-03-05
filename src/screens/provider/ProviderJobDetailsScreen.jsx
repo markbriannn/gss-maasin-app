@@ -2427,7 +2427,13 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
 
       {/* Voice Call Modals */}
       {activeCall && (
-        <Modal visible={true} transparent={false} animationType="slide">
+        <Modal 
+          visible={true} 
+          transparent={false} 
+          animationType="slide"
+          statusBarTranslucent
+          presentationStyle="fullScreen"
+        >
           <VoiceCall
             callId={activeCall.id}
             channelName={activeCall.channelName}
@@ -2439,7 +2445,13 @@ const ProviderJobDetailsScreen = ({ navigation, route }) => {
       )}
 
       {incomingCall && (
-        <Modal visible={true} transparent={false} animationType="slide">
+        <Modal 
+          visible={true} 
+          transparent={false} 
+          animationType="slide"
+          statusBarTranslucent
+          presentationStyle="fullScreen"
+        >
           <VoiceCall
             callId={incomingCall.id}
             channelName={incomingCall.channelName}

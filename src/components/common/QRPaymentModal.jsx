@@ -25,10 +25,11 @@ const QRPaymentModal = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [checkingPayment, setCheckingPayment] = useState(false);
+  const [paymentDetected, setPaymentDetected] = useState(false);
   const webViewRef = useRef(null);
   const pollIntervalRef = useRef(null);
 
-  // Poll payment status every 5 seconds
+  // Poll payment status every 2 seconds for faster updates
   useEffect(() => {
     if (!visible || !bookingId) {
       // Clear polling when modal closes
@@ -44,10 +45,10 @@ const QRPaymentModal = ({
     // Check immediately
     checkPaymentStatus();
     
-    // Then check every 5 seconds
+    // Then check every 2 seconds for faster response
     pollIntervalRef.current = setInterval(() => {
       checkPaymentStatus();
-    }, 5000);
+    }, 2000);
 
     return () => {
       if (pollIntervalRef.current) {
@@ -66,20 +67,28 @@ const QRPaymentModal = ({
       
       if (result.success && result.status === 'paid') {
         console.log('[QRPayment] Payment detected as paid!');
+        setPaymentDetected(true);
+        
         // Clear polling
         if (pollIntervalRef.current) {
           clearInterval(pollIntervalRef.current);
           pollIntervalRef.current = null;
         }
-        // Notify parent
-        if (onPaymentComplete) {
-          onPaymentComplete();
-        }
-        // Show success message
+        
+        // Show success message immediately
         Alert.alert(
           'Payment Successful! 💰',
           'Your payment has been received. Your booking is now being processed.',
-          [{ text: 'OK', onPress: onClose }]
+          [{ 
+            text: 'OK', 
+            onPress: () => {
+              // Notify parent
+              if (onPaymentComplete) {
+                onPaymentComplete();
+              }
+              onClose();
+            }
+          }]
         );
       }
     } catch (err) {
@@ -148,7 +157,7 @@ const QRPaymentModal = ({
         <View style={styles.instructions}>
           <Icon name="information-outline" size={20} color="#7C3AED" />
           <Text style={styles.instructionsText}>
-            Use any banking or e-wallet app (GCash, Maya, BPI, etc.) to scan the QR code below
+            Scan the QR code with your banking app (GCash, Maya, BPI, etc.). Payment will be detected automatically within seconds.
           </Text>
         </View>
 
@@ -202,10 +211,28 @@ const QRPaymentModal = ({
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Icon name="shield-check-outline" size={20} color="#10B981" />
-          <Text style={styles.footerText}>
-            Secured by PayMongo • Your payment is safe and encrypted
-          </Text>
+          {paymentDetected ? (
+            <>
+              <Icon name="check-circle" size={20} color="#10B981" />
+              <Text style={[styles.footerText, { color: '#065F46' }]}>
+                Payment Received! Processing...
+              </Text>
+            </>
+          ) : checkingPayment ? (
+            <>
+              <ActivityIndicator size="small" color="#7C3AED" />
+              <Text style={[styles.footerText, { color: '#6B21A8' }]}>
+                Checking payment status...
+              </Text>
+            </>
+          ) : (
+            <>
+              <Icon name="shield-check-outline" size={20} color="#10B981" />
+              <Text style={styles.footerText}>
+                Secured by PayMongo • Your payment is safe and encrypted
+              </Text>
+            </>
+          )}
         </View>
       </SafeAreaView>
     </Modal>
