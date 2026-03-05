@@ -60,14 +60,19 @@ export default function QRPaymentModal({
           }
           
           console.log('[QRPayment] Payment detected as paid after', Math.round(timeElapsed/1000), 'seconds!');
-          setPaymentStatus('success');
+          
+          // Clear interval
           if (checkingInterval) {
             clearInterval(checkingInterval);
           }
+          
+          // Close modal immediately
+          onClose();
+          
+          // Notify parent after modal closes
           setTimeout(() => {
             onPaymentComplete?.();
-            onClose();
-          }, 2000);
+          }, 300);
         } else {
           setPaymentStatus('pending');
         }

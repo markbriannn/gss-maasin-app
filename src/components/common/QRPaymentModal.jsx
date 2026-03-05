@@ -101,21 +101,21 @@ const QRPaymentModal = ({
           pollIntervalRef.current = null;
         }
         
-        // Show success message immediately
-        Alert.alert(
-          'Payment Successful! 💰',
-          'Your payment has been received. Your booking is now being processed.',
-          [{ 
-            text: 'OK', 
-            onPress: () => {
-              // Notify parent
-              if (onPaymentComplete) {
-                onPaymentComplete();
-              }
-              onClose();
-            }
-          }]
-        );
+        // Close modal first
+        onClose();
+        
+        // Then notify parent and show success message after a brief delay
+        setTimeout(() => {
+          if (onPaymentComplete) {
+            onPaymentComplete();
+          }
+          
+          Alert.alert(
+            'Payment Successful! 💰',
+            'Your payment has been received. Your booking is now being processed.',
+            [{ text: 'OK' }]
+          );
+        }, 300); // Small delay to let modal close animation complete
       }
     } catch (err) {
       console.log('[QRPayment] Error checking payment status:', err);

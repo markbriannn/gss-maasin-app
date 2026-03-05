@@ -244,8 +244,9 @@ function JobDetailsContent() {
   // Handle payment completion from QR modal
   const handlePaymentComplete = () => {
     setShowQRModal(false);
-    // Refresh the page to show updated payment status
-    window.location.reload();
+    // Don't reload - just show success message
+    // The realtime listener will update the booking status automatically
+    showAlert('success', 'Payment Successful! 💰', 'Your payment has been received and is being processed.');
   };
 
   // Manual payment verification (for cases where auto-check didn't complete)
