@@ -26,10 +26,22 @@ const QRPaymentModal = ({
   const [error, setError] = useState(null);
   const [checkingPayment, setCheckingPayment] = useState(false);
   const [paymentDetected, setPaymentDetected] = useState(false);
+  const [modalOpenTime, setModalOpenTime] = useState(null);
   const webViewRef = useRef(null);
   const pollIntervalRef = useRef(null);
 
+  // Track when modal opens to prevent false positives
+  useEffect(() => {
+    if (visible) {
+      setModalOpenTime(Date.now());
+    } else {
+      setModalOpenTime(null);
+      setPaymentDetected(false);
+    }
+  }, [visible]);
+
   // Poll payment status every 2 seconds for faster updates
+  // BUT only start polling after a delay to give user time to scan
   useEffect(() => {
     if (!visible || !bookingId) {
       // Clear polling when modal closes
@@ -42,15 +54,20 @@ const QRPaymentModal = ({
 
     console.log('[QRPayment] Starting payment status polling for booking:', bookingId);
     
-    // Check immediately when modal opens
-    checkPaymentStatus();
-    
-    // Then check every 2 seconds for faster response
-    pollIntervalRef.current = setInterval(() => {
+    // IMPORTANT: Wait 5 seconds before starting to poll
+    // This prevents false positives from old payment records
+    const startPollingTimeout = setTimeout(() => {
+      // Check immediately after delay
       checkPaymentStatus();
-    }, 2000);
+      
+      // Then check every 2 seconds for faster response
+      pollIntervalRef.current = setInterval(() => {
+        checkPaymentStatus();
+      }, 2000);
+    }, 5000); // Wait 5 seconds before first check
 
     return () => {
+      clearTimeout(startPollingTimeout);
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
@@ -59,13 +76,21 @@ const QRPaymentModal = ({
   }, [visible, bookingId]);
 
   const checkPaymentStatus = async () => {
-    if (!bookingId || checkingPayment) return;
+    if (!bookingId || checkingPayment || paymentDetected) return;
     
     try {
       setCheckingPayment(true);
       const result = await paymentService.verifyAndProcessPayment(bookingId);
       
       if (result.success && result.status === 'paid') {
+        // IMPORTANT: Only trigger success if modal has been open for at least 3 seconds
+        // This prevents false positives from old payment records
+        const timeElapsed = Date.now() - (modalOpenTime || 0);
+        if (timeElapsed < 3000) {
+          console.log('[QRPayment] Payment detected but modal just opened, ignoring (likely old record)');
+          return;
+        }
+        
         console.log('[QRPayment] Payment detected as paid!');
         setPaymentDetected(true);
         

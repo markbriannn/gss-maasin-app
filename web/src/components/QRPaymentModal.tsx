@@ -22,8 +22,20 @@ export default function QRPaymentModal({
 }: QRPaymentModalProps) {
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'checking' | 'success' | 'failed'>('pending');
   const [checkingInterval, setCheckingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [modalOpenTime, setModalOpenTime] = useState<number | null>(null);
+
+  // Track when modal opens to prevent false positives
+  useEffect(() => {
+    if (isOpen) {
+      setModalOpenTime(Date.now());
+    } else {
+      setModalOpenTime(null);
+      setPaymentStatus('pending');
+    }
+  }, [isOpen]);
 
   // Check payment status periodically - every 2 seconds for faster response
+  // BUT only start polling after a delay to give user time to scan
   useEffect(() => {
     if (!isOpen || !bookingId) return;
 
@@ -37,6 +49,15 @@ export default function QRPaymentModal({
         const result = await response.json();
 
         if (result.status === 'paid') {
+          // IMPORTANT: Only trigger success if modal has been open for at least 3 seconds
+          // This prevents false positives from old payment records
+          const timeElapsed = Date.now() - (modalOpenTime || 0);
+          if (timeElapsed < 3000) {
+            console.log('[QRPayment] Payment detected but modal just opened, ignoring (likely old record)');
+            setPaymentStatus('pending');
+            return;
+          }
+          
           setPaymentStatus('success');
           if (checkingInterval) {
             clearInterval(checkingInterval);
@@ -54,19 +75,24 @@ export default function QRPaymentModal({
       }
     };
 
-    // Check immediately when modal opens
-    checkPaymentStatus();
-    
-    // Then check every 2 seconds for faster updates
-    const interval = setInterval(checkPaymentStatus, 2000);
-    setCheckingInterval(interval);
+    // IMPORTANT: Wait 5 seconds before starting to poll
+    // This prevents false positives from old payment records
+    const startPollingTimeout = setTimeout(() => {
+      // Check immediately after delay
+      checkPaymentStatus();
+      
+      // Then check every 2 seconds for faster updates
+      const interval = setInterval(checkPaymentStatus, 2000);
+      setCheckingInterval(interval);
+    }, 5000); // Wait 5 seconds before first check
 
     return () => {
-      if (interval) {
-        clearInterval(interval);
+      clearTimeout(startPollingTimeout);
+      if (checkingInterval) {
+        clearInterval(checkingInterval);
       }
     };
-  }, [isOpen, bookingId, onPaymentComplete, onClose]);
+  }, [isOpen, bookingId, onPaymentComplete, onClose, modalOpenTime]);
 
   const handleClose = () => {
     if (checkingInterval) {

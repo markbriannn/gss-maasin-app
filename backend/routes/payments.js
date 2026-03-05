@@ -582,24 +582,56 @@ router.post('/verify-and-process/:bookingId', async (req, res) => {
     const { bookingId } = req.params;
     const db = getDb();
 
-    // Get payment record
+    // Get booking first to determine what payment we're looking for
+    const bookingDoc = await db.collection('bookings').doc(bookingId).get();
+    if (!bookingDoc.exists) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+    const bookingData = bookingDoc.data();
+
+    // Determine which payment type we should be checking
+    const isAwaitingUpfront = bookingData.status === 'awaiting_payment' || (!bookingData.isPaidUpfront && bookingData.paymentPreference === 'pay_first');
+    const isAwaitingCompletion = bookingData.status === 'pending_payment';
+    const expectedPaymentType = isAwaitingUpfront ? 'upfront' : isAwaitingCompletion ? 'completion' : null;
+
+    console.log(`[Verify Payment] Booking ${bookingId} - Status: ${bookingData.status}, Expected payment type: ${expectedPaymentType}`);
+
+    // Get ALL payment records for this booking, ordered by creation date
     const paymentsSnapshot = await db.collection('payments')
       .where('bookingId', '==', bookingId)
+      .orderBy('createdAt', 'desc')
       .get();
 
     if (paymentsSnapshot.empty) {
       return res.status(404).json({ error: 'No payment found for this booking' });
     }
 
-    const paymentDoc = paymentsSnapshot.docs[0];
-    const paymentData = paymentDoc.data();
+    // Find the most recent payment that matches the expected type
+    let paymentDoc = null;
+    let paymentData = null;
+
+    if (expectedPaymentType) {
+      // Look for payment matching the expected type
+      for (const doc of paymentsSnapshot.docs) {
+        const data = doc.data();
+        if (data.paymentType === expectedPaymentType) {
+          paymentDoc = doc;
+          paymentData = data;
+          console.log(`[Verify Payment] Found ${expectedPaymentType} payment:`, data.status);
+          break;
+        }
+      }
+    }
+
+    // Fallback to most recent payment if no type-specific payment found
+    if (!paymentDoc) {
+      paymentDoc = paymentsSnapshot.docs[0];
+      paymentData = paymentDoc.data();
+      console.log(`[Verify Payment] Using most recent payment:`, paymentData.status, paymentData.paymentType);
+    }
 
     // If already paid, check if booking needs to be fixed
     if (paymentData.status === 'paid') {
-      // Get booking to check if it needs status fix
-      const bookingDoc = await db.collection('bookings').doc(bookingId).get();
-      const bookingData = bookingDoc.data();
-
       // Fix stuck "Pay First" jobs that are in pending_payment but already paid
       if (bookingData?.paymentPreference === 'pay_first' &&
         bookingData?.isPaidUpfront &&
