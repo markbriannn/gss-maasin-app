@@ -23,67 +23,53 @@ export default function QRPaymentModal({
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'checking' | 'success' | 'failed'>('pending');
   const [checkingInterval, setCheckingInterval] = useState<NodeJS.Timeout | null>(null);
   const [modalOpenTime, setModalOpenTime] = useState<number | null>(null);
-  const [iframeKey, setIframeKey] = useState(0);
+  const [paymentWindow, setPaymentWindow] = useState<Window | null>(null);
 
-  // Track when modal opens to prevent false positives
+  // Track when modal opens and auto-open payment window
   useEffect(() => {
     if (isOpen) {
       setModalOpenTime(Date.now());
-      setIframeKey(prev => prev + 1); // Force iframe reload
+      // Auto-open payment in new window
+      const newWindow = window.open(checkoutUrl, '_blank', 'width=600,height=800');
+      setPaymentWindow(newWindow);
     } else {
       setModalOpenTime(null);
       setPaymentStatus('pending');
+      // Close payment window if still open
+      if (paymentWindow && !paymentWindow.closed) {
+        paymentWindow.close();
+      }
+      setPaymentWindow(null);
     }
-  }, [isOpen]);
+  }, [isOpen, checkoutUrl]);
 
   // Listen for iframe navigation to detect "Return to Merchant" click
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !paymentWindow) return;
 
-    const handleMessage = (event: MessageEvent) => {
-      // Security: only accept messages from PayMongo domains
-      if (!event.origin.includes('paymongo.com')) return;
-      
-      // Check if message indicates payment completion
-      if (event.data?.type === 'payment.success' || event.data?.status === 'paid') {
-        console.log('[QRPayment] Received payment success message from iframe');
-        handlePaymentSuccess();
+    // Check if payment window was closed by user
+    const checkWindowClosed = setInterval(() => {
+      if (paymentWindow.closed) {
+        console.log('[QRPayment] Payment window was closed');
+        clearInterval(checkWindowClosed);
+        // Don't close modal, just let polling continue
       }
+    }, 1000);
+
+    return () => {
+      clearInterval(checkWindowClosed);
     };
-
-    // Also monitor iframe load events to detect redirect to success URL
-    const iframe = document.querySelector('iframe[title="QR Payment"]') as HTMLIFrameElement;
-    if (iframe) {
-      const checkIframeUrl = () => {
-        try {
-          // Try to access iframe URL (will fail due to CORS, but we can catch the error)
-          const iframeUrl = iframe.contentWindow?.location.href;
-          if (iframeUrl && (iframeUrl.includes('payment=success') || iframeUrl.includes('/payment/success'))) {
-            console.log('[QRPayment] Detected success URL in iframe');
-            handlePaymentSuccess();
-          }
-        } catch (e) {
-          // CORS error is expected, ignore
-        }
-      };
-
-      iframe.addEventListener('load', checkIframeUrl);
-      window.addEventListener('message', handleMessage);
-
-      return () => {
-        iframe.removeEventListener('load', checkIframeUrl);
-        window.removeEventListener('message', handleMessage);
-      };
-    }
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [isOpen]);
+  }, [isOpen, paymentWindow]);
 
   const handlePaymentSuccess = () => {
     // Clear interval
     if (checkingInterval) {
       clearInterval(checkingInterval);
+    }
+    
+    // Close payment window if still open
+    if (paymentWindow && !paymentWindow.closed) {
+      paymentWindow.close();
     }
     
     // Close modal immediately
@@ -155,6 +141,10 @@ export default function QRPaymentModal({
     if (checkingInterval) {
       clearInterval(checkingInterval);
     }
+    // Close payment window if still open
+    if (paymentWindow && !paymentWindow.closed) {
+      paymentWindow.close();
+    }
     setPaymentStatus('pending');
     onClose();
   };
@@ -195,41 +185,31 @@ export default function QRPaymentModal({
             </div>
           ) : (
             <>
-              {/* Payment iframe */}
-              <div className="bg-gray-50 rounded-2xl overflow-hidden border-2 border-gray-200 mb-6 relative">
-                <iframe
-                  key={iframeKey}
-                  src={checkoutUrl}
-                  className="w-full h-[500px]"
-                  title="QR Payment"
-                  sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation"
-                  onLoad={(e) => {
-                    // When iframe loads, check if it's trying to show our success page
-                    const iframe = e.currentTarget;
-                    try {
-                      // This will throw CORS error, but we can detect navigation attempts
-                      const iframeDoc = iframe.contentDocument;
-                      if (iframeDoc) {
-                        const url = iframeDoc.URL || '';
-                        if (url.includes('payment=success') || url.includes('/payment/success')) {
-                          console.log('[QRPayment] Detected success redirect in iframe');
-                          handlePaymentSuccess();
-                        }
-                      }
-                    } catch (e) {
-                      // CORS error expected for cross-origin iframes
-                      // Check if the iframe src changed (indicates redirect attempt)
-                      if (iframe.src !== checkoutUrl && (iframe.src.includes('payment=success') || iframe.src.includes('/client/bookings'))) {
-                        console.log('[QRPayment] Detected redirect attempt');
-                        handlePaymentSuccess();
-                      }
-                    }
+              {/* Payment window opened message */}
+              <div className="text-center py-8">
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <QrCode className="w-12 h-12 text-green-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Payment Window Opened</h3>
+                <p className="text-gray-600 mb-6">
+                  A new window has opened with your QR code. Scan it with your payment app to complete the transaction.
+                </p>
+                
+                {/* Re-open button if window was closed */}
+                <button
+                  onClick={() => {
+                    const newWindow = window.open(checkoutUrl, '_blank', 'width=600,height=800');
+                    setPaymentWindow(newWindow);
                   }}
-                />
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-[#00B14F] text-white rounded-xl hover:bg-emerald-600 transition-colors font-medium"
+                >
+                  <ExternalLink className="w-5 h-5" />
+                  Open Payment Window
+                </button>
               </div>
 
               {/* Status indicator */}
-              <div className="flex items-center justify-center gap-3 text-sm py-3">
+              <div className="flex items-center justify-center gap-3 text-sm py-4 border-t border-gray-200">
                 {paymentStatus === 'checking' ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin text-[#00B14F]" />
@@ -238,34 +218,21 @@ export default function QRPaymentModal({
                 ) : (
                   <>
                     <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-                    <span className="text-gray-600">Scan QR code to pay • Auto-detects within seconds</span>
+                    <span className="text-gray-600">Waiting for payment • Auto-detects when complete</span>
                   </>
                 )}
               </div>
 
               {/* Instructions */}
-              <div className="mt-6 bg-blue-50 rounded-xl p-4">
+              <div className="mt-4 bg-blue-50 rounded-xl p-4">
                 <h4 className="font-semibold text-blue-900 mb-2">How to pay:</h4>
                 <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                  <li>Look for the payment window that just opened</li>
                   <li>Open your GCash, Maya, or banking app</li>
-                  <li>Scan the QR code shown above</li>
-                  <li>Confirm the payment amount</li>
-                  <li>Complete the payment</li>
-                  <li>Wait for confirmation (this window will close automatically)</li>
+                  <li>Scan the QR code shown in the payment window</li>
+                  <li>Confirm and complete the payment</li>
+                  <li>This window will close automatically once payment is detected</li>
                 </ol>
-              </div>
-
-              {/* Open in new tab option */}
-              <div className="mt-4 text-center">
-                <a
-                  href={checkoutUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-[#00B14F] hover:text-emerald-600 font-medium"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Open in new tab
-                </a>
               </div>
             </>
           )}
